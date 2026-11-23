@@ -20,6 +20,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import { SignalTrace } from '../kit/trace';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { KotySound } from './audio';
@@ -74,7 +75,7 @@ class KotyGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new KotySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
-      tuning: env.tuning, now: Date.now(), touch: env.touch,
+      tuning: env.tuning, now: Date.now(), touch: env.touch, rhythm: env.rhythm,
     });
     this.view = new KotyView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new KotySound(env.audio);
@@ -513,5 +514,7 @@ const mod: ArcadeModule<KotyProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Czujność before the cats' Drzemka, and of the nap
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('hud.nap') }, t('rhythm.note')),
 };
 export default mod;

@@ -86,6 +86,23 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer Czujność, shorter Drzemka, the jitter scaled', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, a nap a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+  });
+
   it('fits a 40 s test session (?trainingSec=40) and any planned length from 10 s', () => {
     for (const planned of [10, 20, 40]) {
       for (const first of [true, false]) {
@@ -1192,7 +1209,7 @@ describe('a big screen and a mouse (DESIGN §14)', () => {
 });
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the last stretch: Czujność and Drzemka alternating, ending on a nap, every block 12–40 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the last stretch: Czujność and Drzemka alternating, ending on a nap, every block 12 s up to its mean + jitter', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -1206,9 +1223,10 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(40);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
-        // a pair about every 48 s: 30 minutes is some 37 pairs
+        // a pair about every minute: 30 minutes is some 30 pairs
         const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
         expect(body.length).toBe(2 * pairs);
       }

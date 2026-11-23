@@ -24,6 +24,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
@@ -164,12 +165,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in
- * 3, 6 s in a 40 s test); then Czujność / Drzemka pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a nap, leaving the last stretch at the end.  No block
- * under 12 s.
+ * 3, 6 s in a 40 s test); then Czujność / Drzemka pairs (40 ± 6 s and 20 ± 3 s, or the player's rhythm
+ * with the jitter scaled to it; scaled to end on time, jittered only when there is room) ending with a
+ * nap, leaving the last stretch at the end.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -243,6 +244,8 @@ export interface SimInit {
   now: number;
   /** the primary input is a finger (default): the brother speaks of tapping; with a mouse, of clicks */
   touch?: boolean;
+  /** the rest's rhythm the player set (s of Czujność, s of Drzemka); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class KotySim {
@@ -365,7 +368,7 @@ export class KotySim {
     this.pushesBase = p.pushes;
     this.startMs = init.now;
     this.stageStart = p.stage;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
     this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
     // the watch kept while away: modest and capped
     const pk = perks(p);

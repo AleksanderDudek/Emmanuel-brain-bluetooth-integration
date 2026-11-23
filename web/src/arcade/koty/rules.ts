@@ -136,9 +136,13 @@ export const RULES = {
   vintage: { off: 10, pow: 1.2, div: 2 },
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * push and rest: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): 40 s of Czujność, then a 20 s Drzemka — a nap every minute, a third of the session (it was 26 / 22 s,
+   * nearly half, every 25 s); the player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 6],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: the brother waits it out */
