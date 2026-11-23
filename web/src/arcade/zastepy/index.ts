@@ -23,6 +23,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZastepySound } from './audio';
@@ -31,7 +32,7 @@ import { t, unit, type Key } from './i18n';
 import { bestOf, bossOf, freshProgress, migrate, type ZastepyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
-import { cursorFor } from './layout';
+import { cursorFor, pacerAt, type Layout } from './layout';
 import { ZastepyView } from './render';
 import { RULES, ZastepySim, type SimEvent } from './sim';
 
@@ -134,6 +135,15 @@ class ZastepyGame implements ArcadeGame {
 
   /** Every control a finger can press now: the cards, the pillar, the trumpet; the offers; the story card. */
   targets(): TapTarget[] { return this.view.targets(this.sim); }
+
+  /** The breath pacer's spot in a Cisza: off the gates' bar (the walls regrow there) and the controls (layout.ts `pacerAt`). */
+  pacerAt(): Pt | null {
+    const L = this.view.L;
+    if (this.pacer?.L !== L) this.pacer = { L, at: pacerAt(L) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; at: Pt | null } | null = null;
 
   /** 1–7 the cards (between battles 1–3 the offers), Space the cheapest, T the trumpet, H the pillar, Enter goes on. */
   key(key: string, down: boolean): boolean {

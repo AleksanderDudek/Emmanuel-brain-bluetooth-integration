@@ -7,7 +7,8 @@ import { passage } from '../src/arcade/kit/scripture';
 import { Battle, type BattleEvent, type Control } from '../src/arcade/zastepy/battle';
 import { LINES } from '../src/arcade/zastepy/content';
 import { hintFor, howto } from '../src/arcade/zastepy/index';
-import { BIG_VIEW, CARD_MIN, cardAt, cardIds, cursorFor, discRect, layout, overAt, tapTargets } from '../src/arcade/zastepy/layout';
+import { BIG_VIEW, CARD_MIN, cardAt, cardIds, cursorFor, discRect, layout, overAt, pacerAt, restDrop, tapTargets } from '../src/arcade/zastepy/layout';
+import { pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { SANS, SERIF, font } from '../src/arcade/zastepy/paint';
 import { CATALOGS, t, unit } from '../src/arcade/zastepy/i18n';
 import {
@@ -1660,5 +1661,35 @@ describe('long sessions (15–30 minutes)', () => {
         expect(r.outcome, `battle ${battle}, seed ${seed}`).toBe('won');
       }
     }
+  });
+});
+
+describe('Zastępy: the breath pacer in a Cisza stands off the gates\' bar (pacerAt)', () => {
+  it('keeps the standard place where the group steps down for it, else keeps the pill whole under the HUD band, off the gates\' bar, the light\'s row and the cards', () => {
+    let own = 0;
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        for (const gate of [1, 3, 5, 7]) {
+          const L = layout(c.w, c.h, c.insets, touch, gate);
+          const at = pacerAt(L);
+          const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.shape}), gate ${gate}`;
+          if (restDrop(L) > 0) {
+            // the group under the HUD steps down 88 px: the standard place (10 px under the HUD, a 66–76 px pill) is free
+            expect(at, name).toBeNull();
+            expect(L.bar.y + restDrop(L), name).toBeGreaterThanOrEqual(L.top + 10 + 76);
+            continue;
+          }
+          own++;
+          expect(at, name).not.toBeNull();
+          const keep = [{ label: 'gates\' bar', ...L.bar }, { label: 'light\'s row', ...L.row }, ...tapTargets(L)];
+          expect(pacerProblems(at, c.w, c.h, c.insets, keep, pacerSize(L.big)), name).toEqual([]);
+          // under the bar, never down on the road's line where the fighters stand
+          expect(at!.y, name).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
+          expect(at!.y + pacerSize(L.big).h, name).toBeLessThanOrEqual(L.roadY);
+        }
+      }
+    }
+    // a phone on its side (both) and the smallest phones upright get their own spot
+    expect(own).toBeGreaterThanOrEqual(16);
   });
 });

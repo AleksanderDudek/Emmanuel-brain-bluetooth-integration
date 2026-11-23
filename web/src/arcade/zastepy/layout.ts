@@ -25,6 +25,7 @@
  */
 import { clamp } from '../kit/juice';
 import { NO_INSETS, TAP_GAP, hits, screenKind, target, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
+import { pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { HOST, HOST_IDS, RULES, type HostId } from './rules';
 
@@ -406,3 +407,38 @@ export function tapTargets(L: Layout, s: TargetState = {}): TapTarget[] {
     target('trumpet', discRect(L.trumpet)),
   ];
 }
+
+/**
+ * How far (px) the gates' bar, Tymek and the coming wave step down in a Cisza (hud.ts `drop`): the runner's breath
+ * pacer takes the top-centre slot under the HUD there (its pill, 66–76 px, and 10 px over it), and the walls' mending
+ * is what a Cisza shows.  0 where the band has no room for the group under it (a phone on its side, a small phone):
+ * the pacer then stands where `pacerAt` says.
+ */
+export function restDrop(L: Layout): number {
+  const want = 88;
+  const free = L.roadBack - 1.6 * L.S - (L.bar.y + L.bar.h + 2 * L.tymek.r + 16);
+  return L.short || free < want ? 0 : want;
+}
+
+/**
+ * Where the runner's breath pacer stands in a Cisza (ArcadeGame.pacerAt; kit/pacerspot.ts).  Where the group under
+ * the HUD steps down for it (`restDrop`), the standard place (null).  Elsewhere the group stays and the pill keeps off
+ * the gates' bar (calm regrows the walls there, the rest's own gauge), the light's row and the cards: in the sky under
+ * the bar where it has the room, else over the banners' tops, covering as little as it can of the host and the shades
+ * on the road (thrice), Tymek's first two lines and the coming wave (twice).
+ */
+export function pacerAt(L: Layout): Pt | null {
+  if (restDrop(L) > 0) return null;
+  const size = pacerSize(L.big);
+  const band = safeBand(L.w, L.h, L.ins);
+  const u = L.u, T = L.tymek;
+  const controls = [L.bar, L.row, L.cardBand, ...L.cards.map(c => c.r), discRectOf(L.pillar), discRectOf(L.trumpet), discRectOf(L.lantern), L.light];
+  const fighters = { x: 0, y: L.roadBack - 1.7 * L.S, w: L.w, h: L.roadY + 0.3 * L.S - (L.roadBack - 1.7 * L.S) };
+  const banners = { x: L.banners.x0, y: L.banners.y - L.banners.h, w: L.banners.x1 - L.banners.x0, h: L.banners.h };
+  const tymek = { x: T.x - T.r, y: T.y - T.r, w: T.r * 2 + 10 * u + Math.min(T.maxW, 300 * u), h: Math.max(2 * T.r, 2 * 19 * u + 12 * u) };
+  const soon = { x: L.soon.x - 150 * u, y: L.soon.y, w: 150 * u, h: 18 * u + L.soon.icon + 7 * u };
+  return pacerSpot([band], [...controls, fighters, banners, tymek, soon], { size })
+    ?? pacerLeast([band], controls, [fighters, fighters, fighters, banners, tymek, tymek, soon, soon], { size });
+}
+
+const discRectOf = (d: Disc): Rect => ({ x: d.x - d.r - 4, y: d.y - d.r - 4, w: 2 * d.r + 8, h: 2 * d.r + 8 });

@@ -26,7 +26,7 @@ import { LAG_SEC, traceBars } from '../kit/trace';
 import type { TapTarget } from '../kit/types';
 import { AGES, AGE_STORY, DEMON_NAME, HOST_NAME } from './content';
 import { t } from './i18n';
-import { cardAt, discRect, overAt, tapTargets, type Layout, type Over, type Rect } from './layout';
+import { cardAt, discRect, overAt, restDrop, tapTargets, type Layout, type Over, type Rect } from './layout';
 import {
   ageOf, bossOf, chapterOf, flowFor, gateLevel, heroLevel, isBossBattle, pillarFor, unitLevel, unitStats, wallsFor,
 } from './meta';
@@ -79,7 +79,7 @@ export class Hud {
   /**
    * How far (px) the gates' bar, Tymek and the coming wave step down in a Cisza: the runner's breath pacer takes the
    * top-centre slot under the HUD there (src/arcade/pacer.ts), and the walls' mending is what a Cisza shows.  0 where
-   * the band has no room for it (a phone on its side): the pacer then covers the bar's middle.
+   * the band has no room for it (a phone on its side, a small phone): the pacer then stands off the bar (layout.ts `pacerAt`).
    */
   drop = 0;
   /** reduced motion: the group moves at once */
@@ -286,12 +286,8 @@ export class Hud {
     return sim.restBlock ? sim.calm : sim.level;
   }
 
-  /** The pacer's slot (its pill, 66–76 px, and 10 px over it) when the band has room for the group under it, else 0. */
-  private restDrop(): number {
-    const L = this.L, want = 88;
-    const free = L.roadBack - 1.6 * L.S - (L.bar.y + L.bar.h + 2 * L.tymek.r + 16);
-    return L.short || free < want ? 0 : want;
-  }
+  /** The pacer's slot when the band has room for the group under it, else 0 (layout.ts `restDrop`). */
+  private restDrop(): number { return restDrop(this.L); }
 
   /** Over the world: the gates' bar, the light's row, the cards, the words, the bubble, the coming wave, the cards of the story. */
   draw(sim: ZastepySim): void {
