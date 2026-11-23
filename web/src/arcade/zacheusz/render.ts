@@ -152,6 +152,14 @@ export class ZacheuszView {
    * it takes a tap (a tap anywhere goes on too, the card is where the eye is).  The street is the free
    * play area (a press anywhere jumps), not a target.
    */
+  /** The card on screen that a rest's breath pacer keeps off (layout.ts `pacerAt`): the tally, a story; null while he runs. */
+  pacerCard(sim: ZacheuszSim): Box | null {
+    if (!sim.started || sim.phase !== 'play') return null;
+    if (sim.stage === 'tally' && sim.lastResult) return tallyBox(this.L);
+    if (sim.stage === 'story') return this.cardBox;
+    return null;
+  }
+
   targets(sim: ZacheuszSim): TapTarget[] {
     if (!sim.started || sim.phase !== 'play') return [];
     if (sim.stage === 'tally' && sim.lastResult) return sim.stageT > CARD_TAP_SEC ? [target('tally card', tallyBox(this.L))] : [];

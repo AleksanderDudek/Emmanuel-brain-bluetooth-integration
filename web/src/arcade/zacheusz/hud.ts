@@ -271,11 +271,20 @@ function stars(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number,
   }
 }
 
-/** The tally card's box: centred on the play, allowed down into the ground band (the street rests). */
+/**
+ * The tally card's box: centred on the play, allowed down into the ground band (the street rests).  A phone on its
+ * side has no height to spare above or under it, so there it stands at the right, leaving the left of the band to
+ * the runner's breath pacer when a level ends as a rest begins (layout.ts `pacerAt`).
+ */
 export function tallyBox(L: Layout): Box {
   const u = L.u;
-  const w = Math.min(L.cardW, 380 * u), h = Math.min(L.bottom - L.hudTop - 16, 262 * u);
+  const h = Math.min(L.bottom - L.hudTop - 16, 262 * u);
   const y = clamp(L.cardY - h / 2, L.hudTop + 8, L.bottom - h - 8);
+  if (L.short) {
+    const w = Math.min(L.cardW, 380 * u, L.right - L.left - 236);
+    return { x: L.right - w, y, w, h };
+  }
+  const w = Math.min(L.cardW, 380 * u);
   return { x: L.w / 2 - w / 2, y, w, h };
 }
 
@@ -283,6 +292,7 @@ export function tallyBox(L: Layout): Box {
 export function drawTally(ctx: CanvasRenderingContext2D, L: Layout, res: LevelResult, k: number, nextName: string): Box {
   const box = tallyBox(L);
   const { x, y, w, h } = box;
+  const cx = x + w / 2;
   const a = clamp(k * 6);
   ctx.save();
   ctx.globalAlpha = a;
@@ -293,8 +303,8 @@ export function drawTally(ctx: CanvasRenderingContext2D, L: Layout, res: LevelRe
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = C.ink;
-  fit(ctx, res.world ? t('tally.world') : t('tally.title'), L.w / 2, y + 31 * v, w - 2 * pad, 700, 24 * v, SERIF, 17);
-  stars(ctx, L.w / 2, y + 70 * v, 15 * v, res.stars, k);
+  fit(ctx, res.world ? t('tally.world') : t('tally.title'), cx, y + 31 * v, w - 2 * pad, 700, 24 * v, SERIF, 17);
+  stars(ctx, cx, y + 70 * v, 15 * v, res.stars, k);
   // the count-up
   const c = clamp((k - 0.15) / 0.45);
   const rows: [string, string][] = [
@@ -318,9 +328,9 @@ export function drawTally(ctx: CanvasRenderingContext2D, L: Layout, res: LevelRe
   ctx.textAlign = 'center';
   ctx.fillStyle = res.completed ? C.purple2 : C.wood2;
   const line = res.completed ? (res.tier >= 2 ? t('tally.setLast') : t('tally.set', { tier: t(`tier.${TIERS[res.tier]}`), next: t(`tier.${TIERS[res.tier + 1]}`) })) : t('tally.next', { name: nextName });
-  fit(ctx, line, L.w / 2, y + 222 * v, w - 2 * pad, 700, 14.5 * v, SANS);
+  fit(ctx, line, cx, y + 222 * v, w - 2 * pad, 700, 14.5 * v, SANS);
   ctx.fillStyle = 'rgba(42,30,23,.6)';
-  fit(ctx, t(L.desk ? 'tally.tap.keys' : 'tally.tap'), L.w / 2, y + 246 * v, w - 2 * pad, 600, 13.5 * v, SANS);
+  fit(ctx, t(L.desk ? 'tally.tap.keys' : 'tally.tap'), cx, y + 246 * v, w - 2 * pad, 600, 13.5 * v, SANS);
   ctx.restore();
   return box;
 }

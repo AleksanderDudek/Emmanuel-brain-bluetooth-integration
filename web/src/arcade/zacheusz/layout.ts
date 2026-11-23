@@ -23,6 +23,7 @@
  */
 import { clamp } from '../kit/juice';
 import { NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
+import { pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets } from '../kit/types';
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -130,4 +131,20 @@ export function buttonRect(L: Layout): Box {
   const { x, y, r } = L.btn;
   const s = r + HIT_PAD;
   return { x: x - s, y: y - s, w: s * 2, h: s * 2 };
+}
+
+/**
+ * Where the runner's breath pacer stands in a rest (ArcadeGame.pacerAt; kit/pacerspot.ts).  While he runs, the
+ * standard place (null): the level strip steps aside for it (render.ts).  While a card is up — the tally of a level
+ * that ended as the rest began, a story — the pill keeps off the card: beside it in the sky where the screen is wide,
+ * else under it over the resting street, clear of the bubble button and Mela's lines.
+ */
+export function pacerAt(L: Layout, card: Box | null): Pt | null {
+  if (!card) return null;
+  const size = pacerSize(L.kind === 'big');
+  const band = safeBand(L.w, L.h, { top: L.hudTop, right: L.w - L.right - EDGE, bottom: L.h - L.bottom, left: L.left - EDGE });
+  const s = L.btn.r + HIT_PAD;
+  const btn = { x: L.btn.x - s, y: L.btn.y - s - 22 * L.u, w: 2 * s + (L.desk ? 90 * L.u : 0), h: 2 * s + 22 * L.u };
+  const hard = [card, btn];
+  return pacerSpot([band], [...hard, L.talk], { size }) ?? pacerLeast([band], hard, [L.talk], { size });
 }

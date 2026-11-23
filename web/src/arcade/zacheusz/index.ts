@@ -18,10 +18,12 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZacheuszSound } from './audio';
 import { t, unit, type Key } from './i18n';
+import { pacerAt, type Layout } from './layout';
 import { bestOf, freshProgress, migrate, type ZacheuszProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -104,6 +106,16 @@ class ZacheuszGame implements ArcadeGame {
 
   /** The bubble button while he runs; the tally or the story card once it takes a tap (the street is free play). */
   targets(): TapTarget[] { return this.view.targets(this.sim); }
+
+  /** The breath pacer's spot in a rest: the standard place while he runs, off the tally or a story card while one is up (layout.ts `pacerAt`). */
+  pacerAt(): Pt | null {
+    const L = this.view.L, card = this.view.pacerCard(this.sim);
+    const key = card ? `${Math.round(card.x)},${Math.round(card.y)},${Math.round(card.w)},${Math.round(card.h)}` : '';
+    if (this.pacer?.L !== L || this.pacer.key !== key) this.pacer = { L, key, at: pacerAt(L, card) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; key: string; at: Pt | null } | null = null;
 
   /** Space, ↑, W, Enter jump (held: higher); B or ← use a bubble. */
   key(key: string, down: boolean): boolean {

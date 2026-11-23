@@ -5,7 +5,9 @@ import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, au
 import { passage } from '../src/arcade/kit/scripture';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import zacheusz from '../src/arcade/zacheusz/index';
-import { DOCK_ROW, EDGE, NEED_U, buttonRect, layout, melaBehind } from '../src/arcade/zacheusz/layout';
+import { DOCK_ROW, EDGE, NEED_U, buttonRect, layout, melaBehind, pacerAt } from '../src/arcade/zacheusz/layout';
+import { pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
+import { drawTally, tallyBox } from '../src/arcade/zacheusz/hud';
 import { font } from '../src/arcade/zacheusz/paint';
 import { ROUND_SEC, SAY } from '../src/arcade/zacheusz/companion';
 import { HOMES, LEVELS, MISSIONS, TIPS, specialsOf } from '../src/arcade/zacheusz/content';
@@ -1128,5 +1130,45 @@ describe('Zacheusz at 15–30 minutes', () => {
     expect(out.highlights.length).toBeLessThanOrEqual(7);
     for (const s of out.highlights) expect(s.length).toBeLessThan(120);
     for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});
+
+describe('Zacheusz: the breath pacer in a rest keeps off the tally card (pacerAt)', () => {
+  it('keeps the standard place while he runs, and the pill whole under the HUD band, off the tally card, the bubble button and Mela\'s lines while the card is up', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, screenKind(c.w, c.h, touch));
+        const name = `${c.name}${touch ? '' : ' (mouse)'}`;
+        expect(pacerAt(L, null), name).toBeNull();
+        const card = tallyBox(L);
+        const at = pacerAt(L, card);
+        expect(at, name).not.toBeNull();
+        const keep = [{ label: 'tally card', ...card }, { label: 'bubble button', ...buttonRect(L) }];
+        expect(pacerProblems(at, c.w, c.h, c.insets, keep, pacerSize(L.kind === 'big')), name).toEqual([]);
+      }
+    }
+  });
+
+  it('writes the tally\'s words on its own card where it stands (right of the pill on a phone on its side), none under 13 px', () => {
+    const res = { index: 0, coins: 40, specials: 3, tier: 0, stars: 2, gained: 40, band: 2, style: 12, styleCoins: 4, completed: false, first: true, world: false };
+    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
+      const L = layout(c.w, c.h, c.insets, screenKind(c.w, c.h, true));
+      const box = tallyBox(L);
+      expect(L.short, c.name).toBe(true);
+      expect(box.x, c.name).toBeGreaterThanOrEqual(L.left + 236 - 0.5);
+      const texts = new Map<string, number>(), xs: number[] = [];
+      const base = fakeCtx(texts);
+      const ctx = new Proxy(base, {
+        get: (o, k) => (k === 'fillText' ? (s: string, x: number, y: number) => { xs.push(x); o.fillText(s, x, y); } : Reflect.get(o, k)),
+        set: (o, k, v) => Reflect.set(o, k, v),
+      });
+      drawTally(ctx, L, res, 1, 'Jerycho');
+      expect(xs.length, c.name).toBeGreaterThan(5);
+      for (const x of xs) {
+        expect(x, c.name).toBeGreaterThanOrEqual(box.x);
+        expect(x, c.name).toBeLessThanOrEqual(box.x + box.w);
+      }
+      for (const [text, px] of texts) expect(px, `${c.name}: "${text}"`).toBeGreaterThanOrEqual(13);
+    }
   });
 });
