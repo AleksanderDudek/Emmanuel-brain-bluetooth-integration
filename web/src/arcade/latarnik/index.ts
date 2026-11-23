@@ -16,10 +16,12 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer, target } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { LatarnikSound } from './audio';
 import { t, unit, type Key } from './i18n';
+import { pacerAt, type Layout } from './layout';
 import { freshProgress, migrate, type LatarnikProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -207,6 +209,15 @@ export class LatarnikGame implements ArcadeGame {
     if (!this.env.progress.seen.includes(key)) this.env.progress.seen.push(key);
     this.env.hint(hintText(key, this.env.touch), at, key === 'tap' ? RULES.lessonSec * 1000 : 3800);
   }
+
+  /** The breath pacer's spot in a Cisza: off the sea, the night's pill and the card slot (layout.ts `pacerAt`), kept per layout. */
+  pacerAt(): Pt | null {
+    const L = this.view.layout;
+    if (this.pacer?.L !== L) this.pacer = { L, at: pacerAt(L) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; at: Pt | null } | null = null;
 
   /**
    * Nothing to aim at: the whole screen is the button, so the free sea is no target.  Only the opening card

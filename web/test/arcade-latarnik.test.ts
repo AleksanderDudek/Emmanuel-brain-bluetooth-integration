@@ -7,7 +7,8 @@ import { CATALOGS, bare, cap, farShips, t, unit } from '../src/arcade/latarnik/i
 import latarnik, { hintText, howto } from '../src/arcade/latarnik/index';
 import { Hud, fitSlot, font } from '../src/arcade/latarnik/hud';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets, target } from '../src/arcade/kit/mobile';
-import { SEA_PAD, layout, openCardRect, type Layout } from '../src/arcade/latarnik/layout';
+import { SEA_PAD, layout, openCardRect, pacerAt, type Layout } from '../src/arcade/latarnik/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import {
   OLD_CRATES_CREDIT, addCrumbs, addToWorkshop, costOf, daysBetween, drawAmber, freshProgress, migrate, newChance, nextMissing, village, workshopTarget, type LatarnikProgress,
 } from '../src/arcade/latarnik/meta';
@@ -2378,5 +2379,44 @@ describe('Latarnik at 15–30 minutes', () => {
         for (const v of [sim.score, sim.crates, sim.reach, sim.glow]) expect(Number.isFinite(v), name).toBe(true);
       }
     }
+  });
+});
+
+describe('Latarnik: the breath pacer in a Cisza stands off the sea (pacerAt)', () => {
+  /** How far from the lamp the pill's nearest point lies, in R. */
+  const reachOf = (L: Layout, at: { x: number; y: number }) => {
+    const b = pacerBox(at, pacerSize(L.kind === 'big'));
+    const nx = Math.max(b.x, Math.min(L.cx, b.x + b.w)), ny = Math.max(b.y, Math.min(L.cy, b.y + b.h));
+    return Math.hypot(nx - L.cx, ny - L.cy) / L.R;
+  };
+  it('keeps the pill whole under the HUD band, clear of the night\'s pill, the card slot and Zośka, off the sea where the band leaves room', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const at = pacerAt(L);
+        const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.shape})`;
+        expect(at, name).not.toBeNull();
+        const keep = [{ label: 'night\'s pill', ...L.goal }, ...(L.cardOver === 'goal' ? [] : [{ label: 'card slot', ...L.card }])];
+        expect(pacerProblems(at, c.w, c.h, c.insets, keep, pacerSize(L.kind === 'big')), name).toEqual([]);
+        // a desktop, a big screen, a tablet: off the sea (its horizon ring); a phone: never into the middle where a
+        // Cisza's boats come (inside half of R), off the lanterns and the ladder
+        const roomy = L.shape === 'wide' || L.shape === 'big' || c.name.startsWith('tablet');
+        expect(reachOf(L, at!), name).toBeGreaterThanOrEqual(roomy ? 0.99 : 0.5);
+      }
+    }
+  });
+
+  it('answers from the game in play, the same spot as the layout\'s (beside the sea on a desktop)', () => {
+    const c = CHECK_SIZES[8];
+    const env: GameEnv<LatarnikProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 3 }, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 300, tool: 'fnirs', simulated: true,
+      reducedMotion: false, haptics: false, tuning: TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch: false,
+    };
+    const game = latarnik.create(env);
+    game.resize(c.w, c.h, 1);
+    const L = layout(c.w, c.h, c.insets, false);
+    expect(game.pacerAt!()).toEqual(pacerAt(L));
+    expect(reachOf(L, game.pacerAt!()!)).toBeGreaterThan(1);
   });
 });

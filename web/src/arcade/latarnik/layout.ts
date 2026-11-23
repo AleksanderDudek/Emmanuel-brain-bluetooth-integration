@@ -26,6 +26,7 @@
  */
 import { clamp } from '../kit/juice';
 import { NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
+import { discSlabs, pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets } from '../kit/types';
 
 export type { Rect };
@@ -341,4 +342,35 @@ export function openCardRect(L: Layout): Rect {
   const top = L.top + 6, bottom = L.bottom - 6;
   const ch = Math.min(bottom - top, 440 * L.u);
   return { x: (L.left + L.right) / 2 - cw / 2, y: top + (bottom - top - ch) / 2, w: cw, h: ch };
+}
+
+/**
+ * Where the runner's breath pacer stands in a Cisza (ArcadeGame.pacerAt; kit/pacerspot.ts): the sea stays the play in a
+ * rest (calm spreads the glow and brings the amber up; boats come in mid-sea and near the island), so the pill keeps off
+ * it and off the night's pill, the card slot (the amber's card comes in a Cisza), the lanterns, the perfect ladder,
+ * Zośka and her bubble: on a desktop in the column under the score, on a big screen in a corner the sea leaves.  Where
+ * the sea fills the band (a phone upright or on its side), the spot clear of the night's pill, the card slot and Zośka
+ * that covers the least of the sea — its quiet outer rim, where no boat comes in a Cisza (inside 0.74 R counts four
+ * times) — and of Zośka's bubble beyond its second line, off the lanterns and the ladder where it can (a phone on its
+ * side: under the card slot, over the top of her bubble's room, which she fills from her post up).
+ */
+export function pacerAt(L: Layout): Pt | null {
+  const size = pacerSize(L.kind === 'big');
+  const band = safeBand(L.w, L.h, L.ins);
+  const u = L.u, s = L.lanterns.s, r = LADDER_R * u;
+  const lanterns = { x: L.lanterns.x - 2, y: L.lanterns.y - s * 1.35, w: s * 5.8 + 4, h: s * 2.3 };
+  const wd = 7 * LADDER_GAP * u + 2 * r, ww = Math.max(wd, Math.min(L.ladder.label, 170 * u));
+  const ladder = { x: L.ladder.x - ww - 2, y: L.ladder.y - r - 24 * u, w: ww + 4, h: r * 2 + 24 * u + 2 };
+  const g = L.gull;
+  const gull = g.s > 0 ? { x: g.x - g.s * 0.5, y: g.y - g.s * 1.3, w: g.s * 1.05, h: g.s * 1.3 } : null;
+  // Zośka's bubble stands on its room's foot (hud.ts) and grows up: two lines of it stay clear, four keep clear where
+  // they can, the room above is free (a big screen's stands beside her beak: the whole room)
+  const b = L.bubble, lines = (n: number) => Math.min(b.h, Math.round(n * 14 * u * 1.24 + 12 * u));
+  const foot = (n: number): Rect[] => (L.bubbleOnGoal ? [] : [L.shape === 'big' ? b : { x: b.x, y: b.y + b.h - lines(n), w: b.w, h: lines(n) }]);
+  const hard: Rect[] = [L.goal, ...foot(2), ...(gull ? [gull] : []), ...(L.cardOver === 'goal' ? [] : [L.card])];
+  const sea = discSlabs(L.cx, L.cy, L.R * SEA_PAD + 4);
+  const busy = discSlabs(L.cx, L.cy, L.R * 0.74);
+  return pacerSpot([band], [...hard, ...foot(4), lanterns, ladder, ...sea], { size })
+    ?? pacerLeast([band], [...hard, lanterns, ladder], [...foot(4), ...sea, ...busy, ...busy, ...busy, ...busy], { size, pad: 0 })
+    ?? pacerLeast([band], hard, [lanterns, ladder, ...foot(4), ...sea, ...busy, ...busy, ...busy, ...busy], { size, pad: 0 });
 }
