@@ -4,7 +4,8 @@ import { BEASTS, COMPANIONS, GUARDS, HAND_LINES, LANDS, LINES, LINE_COUNT, MOMEN
 import { Hud } from '../src/arcade/dawid/hud';
 import { CATALOGS, t, unit } from '../src/arcade/dawid/i18n';
 import dawid from '../src/arcade/dawid/index';
-import { EDGE, layout } from '../src/arcade/dawid/layout';
+import { EDGE, layout, pacerAt } from '../src/arcade/dawid/layout';
+import { pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { SANS, SERIF, font } from '../src/arcade/dawid/paint';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_TEXT, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
@@ -1372,5 +1373,51 @@ describe('phone first (DESIGN.md §12)', () => {
     first.sim.mode = 'none';
     expect(first.game.key!('b', true)).toBe(true);
     expect(first.sim.mode).toBe('none');
+  });
+});
+
+describe('Dawid: the breath pacer in a Harfa stands in the open field (pacerAt)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  it('keeps the pill whole under the HUD band, clear of the quest pill, the minimap, the bottom band\'s controls and David, at every size', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const env: GameEnv<DawidProgress> = {
+          canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+          progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: SEEN }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300,
+          tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+          hudTop: () => c.insets.top, insets: () => c.insets, touch,
+        };
+        const game = dawid.create(env);
+        game.resize(c.w, c.h, 1);
+        game.start();
+        for (let i = 0; i < 10; i++) { game.update(1 / 30, frame(), (i + 1) / 30); game.draw(); }
+        const L = (game as unknown as { view: { L: ReturnType<typeof layout> } }).view.L;
+        const at = game.pacerAt!();
+        const name = `${c.name}${touch ? '' : ' (mouse)'}`;
+        expect(at, name).not.toBeNull();
+        expect(at, name).toEqual(pacerAt(L, false));
+        const s = L.s;
+        const keep = [
+          ...game.targets!(),
+          { label: 'quest pill', ...L.quest }, ...(L.mini ? [{ label: 'minimap', ...L.mini }] : []),
+          { label: 'health', ...L.hp }, { label: 'level', ...L.xp },
+          { label: 'David', x: L.kx - s * 0.6, y: L.ky - s * 1.3, w: s * 1.2, h: s * 1.3 },
+        ];
+        expect(pacerProblems(at, c.w, c.h, c.insets, keep, pacerSize(L.kind === 'big')), name).toEqual([]);
+      }
+    }
+  });
+
+  it('keeps off the camp\'s sheet while it is open', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets, true);
+      const at = pacerAt(L, true);
+      expect(at, c.name).not.toBeNull();
+      expect(pacerProblems(at, c.w, c.h, c.insets, [{ label: 'sheet', ...L.sheet }, { label: 'quest pill', ...L.quest }]), c.name).toEqual([]);
+    }
   });
 });

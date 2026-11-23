@@ -23,13 +23,14 @@ import { fmtNum } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DawidSound } from './audio';
 import { landName } from './content';
 import { TABS, inRect, type SheetHit } from './hud';
 import { t, unit, xpText, type Key } from './i18n';
-import { grow } from './layout';
+import { grow, pacerAt, type Layout } from './layout';
 import { bestOf, freshProgress, migrate, type DawidProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -186,6 +187,15 @@ class DawidGame implements ArcadeGame {
 
   /** The controls the player can tap now: the two buttons, the quest pill, the camp's sheet, a story card. */
   targets(): TapTarget[] { return this.view.targets(this.sim); }
+
+  /** The breath pacer's spot in a Harfa: the open field over David, off the quest pill and the minimap (layout.ts `pacerAt`). */
+  pacerAt(): Pt | null {
+    const L = this.view.L, camp = this.view.sheetOpen(this.sim);
+    if (this.pacer?.L !== L || this.pacer.camp !== camp) this.pacer = { L, camp, at: pacerAt(L, camp) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; camp: boolean; at: Pt | null } | null = null;
 
   /**
    * A press.  On a story card it moves on.  On the camp's sheet: a tab, a tile, "Na łowy" — pressed at once,

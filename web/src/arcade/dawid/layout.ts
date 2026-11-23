@@ -21,6 +21,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
+import { pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets } from '../kit/types';
 
 /** Nothing to press within this many px of the screen's left and right edges (Safari's back swipe, DESIGN §12.2). */
@@ -307,4 +308,30 @@ function sheetLayout(u: number, top: number, bottom: number, w: number, xMin: nu
   const view = { x: ix, y: vy, w: iw, h: Math.max(0, y + sh - pad - vy) };
   const tileW = (iw - (cols - 1) * gap) / cols;
   return { dock: side ? 'right' : 'bottom', x, y, w: sw, h: sh, pad, gap, head, hunt, tabs, view, cols, tileW, tileH };
+}
+
+/**
+ * Where the runner's breath pacer stands in a Harfa (ArcadeGame.pacerAt; kit/pacerspot.ts): off the quest pill (a
+ * tap there follows the quest) and the minimap in the top band, the bottom band (the buttons, health, the level, the
+ * party), David at the fire with his harp, and the camp's sheet while it is open — the map's open field over David,
+ * clear of the line the game's banners stand on where the field has the room (a desktop: the top's middle between the
+ * quest pill and the minimap, as before), else under him; in camp on a small phone, the room over the sheet.
+ */
+export function pacerAt(L: Layout, camp = false): Pt | null {
+  const size = pacerSize(L.kind === 'big');
+  const band = safeBand(L.w, L.h, { top: L.top, right: L.w - L.right, bottom: L.h - L.bottom, left: L.left });
+  const u = L.u, s = L.s;
+  // the quest pill at its tallest (two lines), the minimap; the bottom band; David by the fire (his feet at kx, ky)
+  const quest = { x: L.quest.x, y: L.quest.y, w: L.quest.w, h: L.quest.h * 1.8 };
+  const p = L.party;
+  const party = { x: p.x - p.r, y: p.y - p.r, w: 2 * p.r + 2 * p.gap, h: 2 * p.r };
+  const kx = camp ? L.campKx : L.kx, ky = camp ? L.campKy : L.ky;
+  const david = { x: kx - s * 0.9, y: ky - s * 1.5, w: s * 1.8, h: s * 1.9 };
+  const ui = [quest, ...(L.mini ? [L.mini] : []), L.lv, L.xp, L.hp, party, L.bag.hit, L.stone.hit, ...(camp ? [L.sheet] : [])];
+  const banner = { x: L.left, y: L.bannerY - 20 * u, w: L.right - L.left, h: 40 * u };
+  const over = { x: band.x, y: band.y, w: band.w, h: Math.max(0, david.y - band.y) };
+  return pacerSpot([over], [...ui, david, banner], { size })
+    ?? pacerSpot([over], [...ui, david], { size })
+    ?? pacerSpot([band], [...ui, david, banner], { size })
+    ?? pacerLeast([band], ui, [david], { size, pad: 2 });
 }
