@@ -16,9 +16,11 @@
  * with layout.ts and paint.ts, intro.ts, preview.ts), the sound and the song (audio.ts, music.ts), the lobby's
  * card (panel.ts); the words in i18n.ts.
  */
+import type { BreathState } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { SynapsySound } from './audio';
 import { t, unit } from './i18n';
@@ -28,6 +30,7 @@ import { bestOf, freshProgress, migrate, type SynapsyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { SynapsyView } from './render';
+import { RULES } from './rules';
 import { SynapsySim, type Coach, type CoachAt, type SimEvent } from './sim';
 
 /** a finger that moves farther than this (px) drags; less is a tap */
@@ -55,7 +58,7 @@ class SynapsyGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new SynapsySim({
       progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
-      seed: Math.floor(env.rng() * 2147483646) + 1, mouse: !env.touch,
+      seed: Math.floor(env.rng() * 2147483646) + 1, mouse: !env.touch, rhythm: env.rhythm,
     });
     this.view = new SynapsyView(env.canvas, this.sim.brain, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new SynapsySound(env.audio, this.sim.song, this.sim.brain);
@@ -285,6 +288,9 @@ class SynapsyGame implements ArcadeGame {
 
   meter(): number | null { return this.sim.meter(); }
 
+  /** The rest's breath: the wash and the lens follow it, so the runner's pacer shows the same one. */
+  breath(): BreathState | null { return this.sim.breathState(); }
+
   headline(): Headline {
     const s = this.sim, L = s.lesson;
     if (s.lessonGap > 0) return { value: s.score, sub: t('hud.subNext', { n: L.index + 2 }) };
@@ -358,5 +364,7 @@ const mod: ArcadeModule<SynapsyProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of growth before the consolidation, and of the consolidation
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

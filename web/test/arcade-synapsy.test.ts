@@ -191,9 +191,64 @@ describe('the block plan', () => {
       expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
       for (const b of rest) {
         expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
+        // (whole pairs scaled to end on time: a 3-minute first session holds two, stretched by up to a quarter)
+        const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+        expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.3);
       }
     }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer growth, shorter consolidation, the jitter scaled; the sim plays it', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, consolidation a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: at either extreme the network grows, consolidates and the session ends on time
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new SynapsySim({
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, seed: 777, seen: [...ALL_SEEN] }, rng: mulberry32(7), plannedSec: 600,
+        eeg: false, tuning: TUNING, seed: 12345, rhythm,
+      });
+      sim.start();
+      const pushes = sim.plan.filter(b => b.kind === 'push');
+      const growth = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+      expect(growth).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(growth).toBeLessThan(rhythm.focus * 1.25);
+      const clock = { t: 0 };
+      let space = 2;
+      for (let i = 0; i < 603 / STEP; i++) {
+        clock.t += STEP;
+        sim.update(STEP, sim.restBlock ? CALM : (Math.floor(clock.t / 13) % 2 ? MID : HIGH), clock.t, null);
+        if (clock.t >= space) { space += 2; sim.key(' ', true); sim.key(' ', false); }
+        sim.take();
+      }
+      expect(sim.phase).toBe('done');
+      expect(sim.score).toBeGreaterThan(20);
+      expect(sim.consolidatedNow).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives the runner\'s pacer the wash\'s breath in rest: in for 4, out for 6 from the rest\'s start, none in a push', () => {
+    const sim = later({ planned: 300 });
+    const clock = { t: 0 };
+    expect(sim.breathState()).toBeNull();
+    until(sim, 'rest', MID, clock);
+    drive(sim, 2, CALM, clock);
+    expect(sim.breathState()!.phase).toBe('in');
+    drive(sim, 3, CALM, clock);
+    expect(sim.breathState()!.phase).toBe('out');
+    // the wash's own clock agrees: 5 s into a 10 s cycle
+    expect(sim.breath).toBeCloseTo(sim.blockT % 10 / 10, 5);
   });
 
   it('fits a 40 s test session (?trainingSec=40) and any planned length from 10 s', () => {
@@ -1336,7 +1391,7 @@ describe('the whole game under random hands', () => {
 });
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, every block 12 s up to its mean + jitter', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -1347,8 +1402,10 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
+        // a pair about every minute: 30 minutes is some 30 pairs
         const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
         expect(body.length).toBe(2 * pairs);
       }

@@ -849,14 +849,15 @@ export class SynapsyView {
     const l = this.L.lens;
     const mode = sim.blind ? 'blind' : sim.restBlock ? 'rest' : sim.pushBlock ? 'grow' : 'idle';
     const value = mode === 'grow' ? (sim.sighted && sim.reliable ? sim.level : null) : mode === 'rest' ? (sim.reliable ? sim.calm : null) : null;
-    // in rest the lens breathes with the 4/6 guide: it swells on the in-breath and settles on the out-breath
+    // in rest the lens breathes with the 4/6 guide: it swells on the in-breath and settles on the out-breath (the
+    // runner's pacer says the breath in words; the lens says what the rest does)
     let r = l.r, label = mode === 'blind' ? t('hud.blind') : t('hud.lens');
     if (mode === 'rest') {
       const ph = sim.breath * (RULES.breathIn + RULES.breathOut);
       const inBreath = ph < RULES.breathIn;
       const k = inBreath ? ease.inOutSine(ph / RULES.breathIn) : 1 - ease.inOutSine((ph - RULES.breathIn) / RULES.breathOut);
       if (!this.o.reducedMotion) r = l.r * (0.9 + 0.1 * k);
-      label = inBreath ? t('hud.in') : t('hud.out');
+      label = t('hud.lensRest');
     }
     paintLens(ctx, l.x, l.y, r, { mode, value, t: this.clock, charge: sim.blind ? 0 : sim.charge }, label, typeK(this.L, 1.2));
   }

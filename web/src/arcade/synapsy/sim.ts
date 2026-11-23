@@ -25,8 +25,10 @@
  */
 import { fmtNum } from '../../i18n';
 import { isEven, type BodySignals } from '../kit/body';
+import { breathAt, type BreathPattern, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp, lerp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { lineAt, type Song } from '../kit/song';
 import type { ArcadeOutcome } from '../kit/types';
@@ -146,11 +148,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in 3, 6 s
- * in a 40 s test); then push / rest pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time, jittered only when
- * there is room) ending with a rest, leaving the finale at the end.  No block under 12 s.
+ * in a 40 s test); then push / rest pairs (40 ± 6 s and 20 ± 3 s, or the player's rhythm with the jitter
+ * scaled to it; scaled to end on time, jittered only when there is room) ending with a rest, leaving the
+ * finale at the end.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -181,6 +184,9 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
   return plan;
 }
 
+/** The wash's breath: in for 4, out for 6 (the runner's pacer shows it in rest). */
+export const REST_BREATH: BreathPattern = { in: RULES.breathIn, holdIn: 0, out: RULES.breathOut, holdOut: 0 };
+
 /** Distance from a point to a segment. */
 export function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
   const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
@@ -199,6 +205,8 @@ export interface SimInit {
   seed: number;
   /** the player has a mouse, not a finger: Oli says "click" where she speaks of the hands */
   mouse?: boolean;
+  /** the rest's rhythm the player set (s of growth, s of consolidation); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class SynapsySim {
@@ -307,7 +315,7 @@ export class SynapsySim {
     this.judge = RoundJudge.from(init.tuning);
     this.seen = new Set(this.p.seen);
     this.pushesBase = this.p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
     this.talk = new Talk(init.mouse ? LINES_MOUSE : LINES, init.rng);
     this.lesson = lessonAt(this.p.lesson);
     this.restore();
@@ -352,6 +360,11 @@ export class SynapsySim {
   get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
   get pushBlock(): boolean { return this.phase === 'play' && this.block?.kind === 'push'; }
   get restBlock(): boolean { return this.phase === 'play' && this.block?.kind === 'rest'; }
+  /**
+   * The rest's breath as the kit counts it (in for RULES.breathIn, out for RULES.breathOut from the block's start):
+   * the wash and the lens follow the same clock (`breath`), and the runner's pacer shows this one (index.ts).
+   */
+  breathState(): BreathState | null { return this.restBlock ? breathAt(REST_BREATH, this.blockT) : null; }
   get warmBlock(): boolean { return this.phase === 'play' && this.block?.kind === 'warmup'; }
   get blind(): boolean { return this.pushBlock && this.block.blind; }
   /** a push block the player sees, past its lead-in: the brain grows the network now */

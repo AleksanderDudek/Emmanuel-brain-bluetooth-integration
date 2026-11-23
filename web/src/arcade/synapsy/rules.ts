@@ -128,9 +128,14 @@ export const RULES = {
   storyMax: 12,
 
   // ── blocks ───────────────────────────────────────────────────
-  /** push and rest blocks: mean and jitter (s) */
-  push: [26, 4] as const,
-  rest: [22, 3] as const,
+  /**
+   * push and rest blocks: mean and jitter (s).  The designed rhythm (round 15, DESIGN §19.2): 40 s of growth — a
+   * lesson takes about half a minute, so a push holds one whole — then 20 s of consolidation: two breaths of the
+   * wash (4 in, 6 out), enough replays to keep the push's paths; rest a third of the session (26 / 22 s made it
+   * nearly half, every 25 s).  The player sets both in the lobby (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [40, 6] as const,
+  rest: [20, 3] as const,
   minBlock: 12,
   /** the first-ever session's warm-up (s): 5–10 min, 3 min, a 40 s test */
   warm: { long: 30, short: 20, test: 6 },
