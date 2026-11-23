@@ -7418,3 +7418,532 @@ session); the opening and closing cards; idempotent results; a short summary at 
 and garbage; the catalogs, narrator lengths, forbidden words, the Trinity in the prayers, plurals, no gendered Polish; the
 geometry (roots to the stream round the stones, the crown off the face, the fruits apart, the seated outline); every
 layout's targets, the thumb zone, the camera, text sizes; the how-to.
+
+## 19. Round 15: the rest's rhythm, a breath you can read, and Każda myśl (2026-11-23)
+
+### 19.1 The founder's request
+
+Five points, written in Polish while away ("masz wolną rękę… pick recommended"): the browser games offline too (web
+DESIGN §16); a tab on the prefrontal cortex from PubMed reviews (web DESIGN §15); **"Poprawić widoczność i czytelność
+instrukcji oddechowych w grach, w których one występują"**; **"Poprawić tryb odpoczynku w grach (dlaczego jest tak
+często? Czy możemy sterować jakoś tym parametrem? Chcę móc ustawić częstotliwość i długość występowania w kontekście
+logiki danej gry)"**; and a new game — **a meditation on a point that burns negative thoughts**, fears, sorrows, anger
+and their mixtures, built on real problems yet usable by anyone (generalisation + personalisation): §19.8.
+
+### 19.2 The rest's rhythm (`kit/rhythm.ts`, the lobby's "Rytm")
+
+**Why it was so often.** Round 1 took the fNIRS block design at its shortest (§2.2: 20–30 s blocks) and every game
+copied it: 24–26 s of focus, 20–26 s of rest — rest was nearly **half** of every session, every ~25 s.
+
+**Why rests at all** (the lobby's "Dlaczego są odpoczynki?"): the band reads blood oxygenation in the prefrontal
+cortex, which rises a few seconds into an effort and settles only after ten or more; a rest lets it return so the next
+focus stands out against calm (how fNIRS neurofeedback compares blocks; the dock's contrast and the blocks' verdicts
+rest on it), and switching focus on and letting it go at will is itself the skill.
+
+**The rhythm, set per game in the game's own words.** A module declares `rhythm(p?)`: two dials — **how long focus
+lasts before a rest** (so how often a rest comes; seconds, or the game's unit: stations, pieces, thoughts) and **how
+long a rest lasts** (seconds or whole breaths of the player's pattern) — with the designed default, a range and the
+game's names for its blocks ("Czujność / Drzemka", "Odpoczynek po: 2 stacjach", "3 oddechy · 30 s"), an optional line
+of where the rest falls in its logic, and seconds per value so the lobby can say "ok. 6 odpoczynków w sesji ·
+odpoczynek to ok. 33 % czasu". The lobby (src/arcade/lobby.ts `renderRhythm`) shows them with − and + (44 px),
+"jak zaprojektowano" or "Twój rytm" with **Przywróć**, a warning under 15 s of rest (the signal may not settle; the
+verdict grows less certain), and the why. The choice is kept per game (`settings.arcade.rhythm[id]`, only when it
+differs from the design), the runner hands it to the game as `env.rhythm`, and the game's plan reads it: block games
+scale their jitter with the player's mean (`scaledBlock`: 26 ± 4 s at 52 s is ± 8 s).
+
+**New designed defaults.** The kit's guidance: focus 35–60 s, rest 15–25 s, rest a third of the session or less
+(Kocia straż, the template: 40 / 20 s). Each game chose in the context of its logic — §19.4–19.7.
+
+### 19.3 One breath guide (`kit/breathguide.ts`, `src/arcade/pacer.ts`)
+
+**Before**: each meditation drew its own small line ("Wdech · 3   oddech 2 z 3", 15 px, lilac, on a bright scene); the
+block games only wrote "wdech na 4, wydech na 6" in a tip.
+
+**The guide**: a dark scrim (contrast on any picture), a ring whose inner disc fills with the lungs (rising in, full
+while held, falling out, small while empty), the phase's progress as an arc, the phase's seconds big inside, the phase
+in a word under or beside it (≥ 20 px, white; the ring coloured by phase — sky in, gold held, mint out, lilac empty —
+so colour is never the only cue) and "oddech 2 z 3" (≥ 13 px). `stack` (word under the ring) or `row` (beside it) for
+a wide band; reduced motion keeps it still while held.
+
+**Everywhere a rest is**: the meditations draw it in their own layout (`ownBreath: true`); every other game gets the
+runner's DOM twin — a pill at the top of the play area, under the rest banner while it shows (`--ban-h`), then in its
+place — breathing 4 · 0 · 6 · 0 from the rest's start (what their tips say), or the game's own `breath()` when its
+picture breathes on another timing. So the rest is guided breathing in every game, not a pause to wait out.
+
+### 19.4 The block games, part A: Anioł Stróż, Arka, Chleby, Dawid, Dolina, Dziewiątka, Firmament, Geoda, Glina, Jerzy, Latarnik, Motylarnia
+
+Twelve games: Anioł Stróż, Arka, Chleby i ryby, Dawid, Dolina, Dziewiątka, Firmament, Geoda, Glina, Jerzy i smok,
+Latarnik, Motylarnia.  Each plays its designed focus / rest from `RULES.push` / `RULES.rest` (the jitter kept at the
+same share of the mean), and lets the player move both in the lobby (`ArcadeModule.rhythm` → `blockRhythm(…)`, the
+dials named in the game's own words; `env.rhythm` → `SimInit.rhythm` → `planBlocks(…, rhythm)` with `scaledBlock`).
+
+#### The designed rhythm, game by game
+
+| Game | Focus / rest (was) | Dials | Why this length, in the game's logic |
+|---|---|---|---|
+| Anioł Stróż | 40 s / 20 s (24 / 22) | Czuwanie · Kołysanka | a vigil is a whole wave of Zmory (spawns quicken through it), room for three Płomienie; a lullaby is one verse while the dream's stars fill (12 at most) |
+| Arka | 45 s / 20 s (26 / 22) | Mgła · Tęcza | the mist is puzzle work, a board or two; the rainbow is one rainbow's worth of calm after the lead-in (a passed rest always ends with one) |
+| Chleby i ryby | 45 s / 20 s (24 / 23) | Rozdawanie · Na trawie | one hillside's feeding (a level's waves and golden gates); the crowd sits on the grass while the crumbs gather |
+| Dawid | 45 s / 20 s (26 / 22) | Proca · Harfa | a day's hunt through a camp, the sling spun up and kept for the great stone; an evening's harp heals ~60 % at a good calm |
+| Dolina | 45 s / 20 s (26 / 20) | Droga · Pastwisko | the climb of about a level's three floors in the lamp's light; the pasture by still water, the brook filling most of the next stair |
+| Dziewiątka | 40 s / 20 s (26 / 22) | Bitwa · Studnia | a mission's three waves fought with the bell rung; at the well wounds heal, a piece is sewn, a boon chosen |
+| Firmament | 40 s / 20 s (26 / 22) | Obserwacja · Cisza nocy | ~four telescope charges and room for a 12 s held focus (a pulsar); the night's quiet lands all three falling stars |
+| Geoda | 40 s / 20 s (24 / 22) | Blask · Szlif | trays with the shine lit: a combo builds, druses grow and are harvested; a good calm polishes the round's gem through |
+| Glina | 40 s / 20 s (25 / 25) | Toczenie · Wypał | a batch thrown for the kiln, three or four pieces at a potter's 10–13 s each; glazing, the needle's window, the kiln opening — every stage kept |
+| Jerzy i smok | 45 s / 20 s (26 / 22) | Tarcza · Postój | behind the shield a wave grows and (every second Tarcza) the dragon's attacks and weak-spot windows fit one visit; a halt while all dozes and calm heals the hearts |
+| Latarnik | 40 s / 20 s (26 / 22, literals in the plan) | Konwój · Cisza | a convoy of about a dozen boats, a night's goal or two; the glow spreads over the amber (~11 s) and a 12 s deep calm fits |
+| Motylarnia | 45 s / 20 s (25 / 22) | Apetyt · Sjesta | a whole feeding run across the garden, a chain and a garden's goal in reach; the dew falls while calm deepens the chrysalises past radiant (~8 s) |
+
+Rest is now 31–33 % of a session, about every minute (it was 46–50 %, every 23–25 s).  Every default sits on the
+lobby's 5 s grid (focus 20–120, rest 10–40): a default off it (Arka's old 22) is shown — and played, since the runner
+hands the game the clamped dial — rounded.  The games' tests assert `rhythm().focus.def === RULES.push[0]` (and rest).
+
+#### Balance under any rhythm
+
+Each game's tests play 3, 10 and 30 minutes (some 3 and 10 in the suite, 30 by hand where the suite would be slow)
+with the designed rhythm, 120 s / 10 s and 20 s / 40 s: every session reaches its finale, the headline still grows
+in its last third, nothing piles up.  What moved:
+
+- **Dolina** — the longer road exposed a stall: at a ledge with no stones, a tap on landing (or one buffered in the
+  air) hopped the pilgrim again before the climb by hand could start, so a tapping player never climbed (10 min:
+  0 levels).  Past the wait, that tap now *is* the climb (`climbInstead`).  And the meadow's first coach mark,
+  skipped when another mark had just stood, is asked again in the rest's first seconds.
+- **Firmament** — `starEvery` 4 → 3.5 s, so all three falling stars still land in the shortest designed night (17 s).
+- Per-rest rewards fall with fewer rests and were left as they are, the longer focus paying more instead: Latarnik's
+  amber crumbs −17 % a session (the pity piece keeps the album moving), Geoda's cabinet ~10 gems in 10 min (was 13),
+  Dawid's rested XP −28 % at 10 min (the capped pool is the same at 30), Dziewiątka's boons 10 (was 12).
+- Tests that drew on the seeded world broke because a shorter plan draws fewer numbers from the session's rng
+  (Dawid's hunt, Motylarnia's eat chain): they now set up their own field.
+
+#### The breath in the rest (§19.3)
+
+None of the twelve draws a breath guide of its own: all use the runner's pacer (4 · 0 · 6 · 0 from the rest's start);
+none has a scene that breathes with a timing, so none gives `breath()`.  The rest tips now agree with the pacer —
+"policz dziesięć oddechów" (ten breaths in a 20 s rest), "oddychaj zwyczajnie" and "oddychaj w rytmie chrapania smoka"
+became "wdech na cztery, wydech na sześć" in all four languages (Arka, Chleby, Dawid, Dolina, Dziewiątka, Firmament,
+Geoda, Glina, Jerzy, Latarnik, Motylarnia; Anioł's already said it).
+
+Where the pacer covered what the rest is about, the game makes room:
+
+- **Jerzy** — in a Postój the hearts and the level bar slide down under the pacer (`layout.restShift`), the build
+  chips fade aside (phones and wide shapes; a step with reduced motion).
+- **Glina** — upright, the ticket (the glaze and band asked) and the cat's bubble step down `PACER_ROOM` 80 px.
+- **Motylarnia** — upright, the twig and its chrysalises' colour rings drop `PACER.drop` 80 px in a Sjesta.
+- **Dziewiątka** — the mission pill (waves, boss bar) fades out at the well.
+- First-rest coach marks that sat over the pacer now point elsewhere: Dawid's at the health bar, Dziewiątka's at the
+  middle hero card, Motylarnia's at least 176 px under the play's top where its bubble would reach the pacer — and a
+  Sjesta teaches only the Sjesta (a rival's or a bird's first mark waits for the next Apetyt).
+
+#### Left for the lead (the pacer's slot is the runner's)
+
+- The board games (Arka, Firmament, Geoda): the pacer sits over the board's top rows and the goal/hearts bar on a
+  phone and over the board's top on a desktop; the board stays playable (the pacer takes no taps), but Arka's
+  rainbow-lit safe move can sit under it.  A per-game pacer slot (runner/CSS) or the games' own guide would fix it.
+- Latarnik: over the top of the sea on a desktop (a Cisza boat hidden ~4 s, ~12 s still to the reef — nothing lost);
+  over the night goal card's title on a phone (its count stays, and is in the score corner).
+- Dawid upright: over the right half of the quest button in a rest (still tappable; not needed while David sits).
+- Jerzy on its side: the level numbers at the band's right end.
+- One-time first-rest coach marks still over the pacer for ~4 s on phones: Anioł (on its side), Arka, Geoda, Glina;
+  Motylarnia's (upright) now sits over the dropped twig's rings instead.
+
+### 19.5 The block games, part B: Nehemiasz, Odporność, Pasterz, Posłaniec, Rozświetl, Synapsy, Urodzaj, Wzlot, Zacheusz, Zastępy, Źródła
+
+Every game below was built on 24–26 s of focus and 22–24 s of rest — rest nearly half the session, every ~25 s. Each
+now has a designed rhythm in its own logic, rest a third of the session or less, and the lobby's two dials in its own
+words (`rhythm()` → `blockRhythm`); `planBlocks(…, rhythm)` scales the rules' jitter with the player's choice
+(`scaledBlock`). The dials step by 5 s (rest 10–40, focus 20–120), so every default sits on a step — a 22 s default
+would play as 20 s, because the runner hands the game the clamped value. The runner's breath pacer guides every rest
+unless the game draws its own guide; tips that counted "ten breaths" now follow the pacer (in for 4, out for 6), in
+four languages.
+
+**Nehemiasz — Nocna straż 45 s, Dzień pracy 20 s** (was 26 / 24 s). The night is the watch: three waves come down
+the roads and the fight reaches the wall. The day is when you walk, order and build, and calm sets the builders'
+rhythm. A night's raiders and its waves' timing scale with its length per 24 s. They used to be capped at about 31 s,
+which would have left a 45 s night quiet after 17 s, so the cap is now a 120 s night (`nightTop`). `lay` rose from
+0.32 to 0.38 so that a 20 s day lays what a 24 s day did. Cubits are built only by day, so a session with fewer days
+raises some 20 % fewer of them. In a rest the pacer covered a build badge's cost card in the top row, so the card now
+goes below its badge. The pacer's box also joins the spots Tirza's and the villains' bubbles avoid.
+
+**Odporność — Obrona 45 s, Spokój 20 s** (was 26 / 22 s). A push is an acute inflammatory bout: the band drives
+the cytokine alarm — its rings, the recruits through the vessel wall, the eating, a respiratory burst or two; a rest
+is the calm in which the inflammation settles and the marrow sends fresh neutrophils, two slow breaths. The six
+stages keep their own clocks (their caps, 60–90 s), so the rhythm only changes the band's mode: nothing counted per
+block needed rebalancing, and the session's pathogens stay as high as before (higher in 30 minutes: more time in
+defence). The dials are named "Obrona" / "Spokój" (Defence / Calm, Abwehr / Ruhe, Försvar / Lugn), not "Alarm" /
+"Gojenie", which are stage names. The game's own breath pill in the song row is gone: the runner's pacer guides the
+rest, and the game gives `breath()` (in 4, out 6 from the rest's start), so the dozing swarm's glow and the wound's
+inflammation glow breathe with the pacer. In a rest the goal line and the song row (under the pacer) step aside.
+
+**Pasterz — Wołanie 45 s, Nocna straż 20 s** (was 24 / 23 s). A call is the day's work on the hill: time to cross
+it, gather a group, send the voice, take on a rival. The night by the fire stays a night: `starGain` 0.75 → 0.9, so
+a calm 20 s watch still earns the stars of the third morning lamb (10). The voice's cap now counts per 24 s of a call
+(2 in a 24 s call, 3 in 45 s, more in a longer call the player sets), so a long call is not left voiceless after its
+first half. A round is still two days and two nights — now about 2¼ minutes. The dials use the game's own names
+(Wołanie / Nocna straż, Calling / Night watch, Rufen / Nachtwache, Lockrop / Nattvakt). The night's row of stars sat
+under the pacer at the top centre and now lies below it. The tip that counted four breaths now says the out-breath
+runs longer, like smoke from the fire.
+
+**Posłaniec — Skrzydła 45 s, Strażnice 20 s** (was 26 / 22 s). The wings get time for a second flight (the ring
+fills in about 8 s of held focus and refills after a landing); the watchtowers' evening road passes some six towers,
+two shields' worth of fires. The plan now lifts a block shorter than 12 s (a 10 s rest the player sets) by taking the
+time from the others, so the run still reaches the inn on time. Pays per passed block are unchanged (the drachmas come
+mostly from the road). In a rest the coach marks and Klekot's bubble hang below the runner's breath pacer when they
+would reach the top centre; the tip that counted breaths to ten says the out-breath runs longer.
+
+**Rozświetl — Światło 40 s, Wpatrzenie 20 s.**  The light block breaks tiles only in held focus, and a picture
+takes some 105–140 s of light; at 40 s a picture is about three light blocks, not four, and the gazing that follows
+each is two slow breaths of the pacer (4 in, 6 out) while calm runs gold through the uncovered seams — a third of the
+session instead of nearly half.  The lobby's dials say "Światło" and "Wpatrzenie" ("Po każdym świetle patrzysz, jak
+złoto spaja odsłonięte kawałki").  No rate changed: the shards grow with the light's share (+10–19 % at 10–30 min).
+The game's own "wdech / wydech" word under the firefly is gone — the runner's pacer says it, bigger; the firefly's
+glow still fills and empties with the breath, now from the kit's `breathAt` (4 · 0 · 6 · 0 from the rest's start),
+and the game hands the same breath to the pacer (`breath()`), so the two never drift.  In a rest the pacer takes the
+top of the play area, so the game's "what to do now" pill moves to the frame's foot (above the firefly on a phone).
+
+**Synapsy — Wzrost 40 s, Utrwalanie 20 s.**  A lesson takes about half a minute of thoughts, so a 40 s growth block
+holds a whole one; the consolidation that follows is two breaths of the glymphatic wash (in 4: the wave gathers, out
+6: it spreads) — enough replays at calm to keep the push's paths (the "kept" count is unchanged at 10 and 30 min).
+Dials "Wzrost" / "Utrwalanie" ("Po każdym wzroście sieć utrwala drogi, a fala obmywa mózg").  No rate changed (the
+waste peaks a little higher, 0.2 of 1, and still washes clean).  The lens no longer prints "wdech / wydech" in rest
+(the pacer does) — it reads "utrwalanie", what the rest does; it still swells with the breath, and the game gives the
+pacer the wash's own 4/6 breath (`breath()`), from the same block clock.
+
+**Urodzaj — Wiatr żniwny 40 s, Pokłosie 20 s.**  A harvest wind charges in ~9 s of held focus, so 40 s is three or
+four winds; then 20 s of gleaning — Ruth's gleaners carry the small fruit off with calm — two breaths of the pacer.
+Rest a third of the session where 24 / 24 s made it half.  Dials "Wiatr żniwny" / "Pokłosie" ("Po każdym wietrze
+żniwiarki zbierają pokłosie").  No rate changed: fewer gleans fill the heap a little sooner, the baskets come as
+often, the headline stays within 10 %.  The rest tip that counted ten breaths now follows the pacer ("Wdech na 4,
+wydech na 6 — w rytmie żniwiarek").  No breath guide of its own: the runner's pacer.
+
+**Wzlot — Trzymanie słońca 40 s, Ciepłe kominy 20 s** (was 24 / 23 s). A push holds the sun (the night comes
+slower), so it is about one day's daylight long (a day starts with 40 s): a push can carry a whole day to its sunset.
+The rest warms the thermals — three warm columns, at 4.5 s and then every 5.5 s — and 20 s leaves room for all three.
+The blocks are session time and run across the days. The practice valley plans its blocks again after it is done,
+and it now uses the player's rhythm too. The headline is the flight, so the scores stayed level and no rates changed.
+On the way a bug surfaced and was fixed: a ridge reached during the last sunset gave daylight back, so a fast flight
+could keep the session running a few seconds past its end; the finale now gives no daylight back. The rest tip
+"count to ten" now follows the pacer. No breath guide of its own: the runner's pacer, clear of the sun's arc and the
+thermals.
+
+**Zacheusz — Droga ze światła 40 s, Ogród figowy 20 s** (was 24 / 22 s). On the look-out the road of light grows
+over the roofs while the level is above the threshold; 40 s lets it reach far and carry him along. The rest is a walk
+through a fig orchard spliced into the street, already cut to the rest's remaining time, so it follows any rhythm:
+20 s is a full walk, and the figs ripen by its end. The dials reuse the game's own words for the road and the orchard.
+The score held at every length. With 10 s rests the orchard often does not open (its walk needs at least 6 s); the
+lobby already warns about rests under 15 s. In a rest the runner's pacer takes the top-centre slot where the level
+strip sits (the level code and the five special denarii, also in the score card's line), so the strip fades out for
+the rest and comes back for the road. The rest tip "count to ten" now follows the pacer.
+
+**Zastępy — Natarcie 40 s, Cisza 20 s** (was 24 / 23 s). A Natarcie lets the light's stream send out a host and
+press a wave back; the Cisza is the lull: waves come slower, demons walk slower, calm mends the walls and lays
+shields. The block plan keeps its day-seeded rng (the same day and rhythm give everyone the same blocks). A Cisza a
+third of the session instead of half broke the balance deep in the campaign (a host at the top lost 6 of 9 battles in
+30 min, 1 of 7 before), so the Cisza now does per second what it did per minute: the waves' gap is 2.2× in a Cisza
+(was 1.7×), calm mends 0.016 of the walls a second (was 0.012), a passed Cisza mends 0.16 (was 0.12). Deep 30 min now
+wins and loses about as before. In a Cisza the pacer would cover the middle of the gates' bar, where the walls'
+mending shows, so the bar, Tymek and the coming wave step down 88 px under it, and back up for the Natarcie (an
+instant switch with reduced motion); on a phone on its side there is no room and the pacer covers the bar's middle.
+Tymek's bubble now pops from 0.8 scale, never from 0, so a line a card cuts short never shows under 11 px. The rest
+tip "count ten out-breaths" now follows the pacer.
+
+**Źródła — Zastawka 40 s, Sela 20 s** (was 24 / 22 s). The push puts the sluice in the band's hand (focus drops the
+pressure and the water slows; a held focus fills the still waters), and 40 s is about one valley's countdown and run.
+The Sela greens the cells the water ran through, in two slow breaths. The dials are the game's own "Zastawka" and
+"Sela" (Sluice / Selah, Schleuse / Sela, Sluss / Sela), with the note "Po każdej zastawce Sela: gdzie płynęła woda,
+tam zieleni się dolina". The score (pipes and water) holds at every length; blooms fall with the Sela's share. The
+water still runs in a Sela, and the runner's pacer sat on the valley's top row on a desktop and on a phone on its
+side, so the game draws its own guide (`ownBreath`, `drawBreathGuide`). On an upright phone it stands in the open
+band above the valley, or on a short phone in the tray under it. On its side and on a desktop it stands in the dial's
+column over the dial, which in a rest only repeats the calm in the runner's panel and the countdown in the score's
+line. It is never over the valley and always on the screen.
+
+### 19.6 The meditations A: a breath guide you can read, and the rest in each one's logic (round 15, B5)
+
+The founder (2026-11-23): *"Poprawić widoczność i czytelność instrukcji oddechowych…"* and *"…dlaczego jest tak
+często? … Chcę móc ustawić częstotliwość i długość występowania w kontekście logiki danej gry."*  Six meditations of
+the series — Rzeki żywej wody, Z głowy do serca, Światło w dłoniach, Rzeka Ezechiela, Brzemiona, Drzewo nad wodą —
+now draw the kit's breath guide (kit/breathguide.ts) in every rest and set `ownBreath: true` (the runner's DOM pacer,
+which ran out of step with each game's own pattern, no longer shows over them), and each gives the lobby two dials
+(kit/rhythm.ts) in its own words.  Every rest is still whole breaths of the player's own pattern (§16.1); the scene's
+breathing (the figure, the aura, the hands) stays — it is the picture; the guide is the instruction.
+
+**Where the guide stands** (a `row`: the ring with the seconds, the phase in a word ≥ 20 px beside it, "oddech 2 z 3"
+under it; radius from `breathGuideRadius`, ≥ 26 px, kept under ~45 % of a short band):
+
+| game | phone upright | phone on its side / tablet | desktop, big screen |
+|---|---|---|---|
+| Rzeki | top of the prayer band, the verse under it; the now-line hides where it would not fit (360 × 640 with the dock) and the narrator shares its row | top of the band beside the figure (the band may reach the play's bottom in rest) | top of the words column, level with the station; the column is kept whole inside the play (`restDeskH`) |
+| Serce | its own band between the picture and the card: the picture yields the height while a rest lasts (eased; the camera re-fits) | the card's foot, in place of the small breath line | the card's foot, big |
+| Dłonie | the now-pill's place at the top of the words (the caption line yields to it); small line: what the hands do ("rozsuń dłonie"), "Imię w świetle", or "oddech 2 z 3" | the pill's place, flush left | the pill's place, big |
+| Ezechiel | the words band's top, in place of the stage's name and the now-line | between the stage's name and the now-line | same, big |
+| Brzemiona | the band's top in place of the now-line (rest only — in the exchange the breath leads the words and keeps its compact row: a big pulsing guide would compete with the focus) | same | same |
+| Drzewo | the band's top in place of the stage's name and the now-line | in place of the now-line | same, in the column beside the crown |
+
+**The rhythm, per game** (focus dial · rest dial · design default and why):
+
+* **Rzeki** — *Odpoczynek po 1–4 centrach* · *Odpoczynek 1–12 oddechów*.  Design: 1 centre (the founder's word of
+  2026-11-17 stands), rest = the breaths nearest **20 s** (was 26: 4 · 6 → 2 breaths, not 3) — after a station of some
+  30–40 s the rest is a third of the session, not half.  With 2+ the light flows on to the next station inside the
+  push; a way's last station and a blind push always rest; the valve's 150 s count per station.  The card's own
+  "breaths in a rest" stepper is gone: the Rytm row is the one place (an old saved count is read only without a
+  runner rhythm).
+* **Z głowy do serca** — *Błogosławieństwo po 1–3 kręgach* · *Odpoczynek 1–6 oddechów*.  Design: each circle its own
+  blessing; with 2–3 the circles are blessed together (a line each, ≥ a breath each) and the descent's stops, the
+  sun's rest and the long halves drop.  The breaths are the player's only when a dial moved (else the plan's budget,
+  a third of the session), never more than 55 % of it.  **5-minute sessions now walk the compact way** (`shortBelow`
+  330): 5 rests, about one a minute — the full way gave the lobby's default length 8, one every ~37 s.
+* **Światło w dłoniach** — *Skupienie 20–90 s* (one stretch: the ball growing, the prayer rising) · *Spoczynek 1–6
+  oddechów* (after the offering; the hands' breath about half of it, the name one breath).  Design: the session's own
+  plan (prayers by length, need from the time left).  With the player's rhythm the session holds as many prayers as
+  fit, the need up to 56, the valve 1.5 × the stretch.
+* **Rzeka Ezechiela** — *Jeden krok 20–90 s* · *Odpoczynek 1–12 oddechów*.  Design: the length curves, reconsidered —
+  **21 / 30 / 36 s steps and 10 / 20 / 24 s rests** at 3 / 10 / 30 minutes (were 21 / 25 / 30 and 10 / 20 / 30: the
+  rests were 44 % of a 10-minute way and half of a 30-minute one; now 40 % and about a third).  The player's step and
+  breaths when a dial moved; the valve 120 s or 1.5 × the step.
+  The card's "breaths in a rest" stepper is gone, as in Rzeki.
+* **Brzemiona** — *Odpoczynek po 1–3 kręgach* · *Odpoczynek 1–12 oddechów*.  Design: a rest after every circle (the
+  series' rule).  With more, the light widens to the next circle — or the next burden is called — within the push after
+  1.4 s of peace; the rest after a burden's last circle keeps its extra breath.  The card's stepper is gone.
+* **Drzewo nad wodą** — *Odpoczynek po 1–3 etapach* (a root layer, a part of the tree, a fruit) · *Odpoczynek 1–8
+  oddechów*.  Design: one stage.  With more the light flows on (the old minPush mechanism), but the water at the
+  stream and the whole crown always rest — the arc's own rests; the plan counts the fewer rests so the arc still
+  closes near the end; the player's breaths never leave the arc without room (≤ 55 %).
+
+Tests: each game's dials (defaults, ranges, words, the lobby's count), the plan following them, and 3 / 10 / 30
+minutes walked to the end with the design and with the dials at their extremes.
+
+### 19.7 The meditations B: Ja jestem…, Światło ciała, Odnowa, Ogień, Każdy włos
+
+The founder (2026-11-23): *"Poprawić widoczność i czytelność instrukcji oddechowych…"* and *"Poprawić tryb odpoczynku
+(dlaczego jest tak często? …) Chcę móc ustawić częstotliwość i długość występowania w kontekście logiki danej gry."*
+Each of the five now declares `rhythm()` (kit/rhythm: two dials in its own words and units, with `focusSec` /
+`restSec` so the lobby counts the rests), its plan reads `env.rhythm` (absent → the design), and each sets
+`ownBreath: true` and draws the kit's guide (kit/breathguide `drawBreathGuide`, sized by `breathGuideRadius`, the
+phase words of `breathWords()`, the sub line `breathOf(n, m)`) in its own layout — never under the HUD band, never
+over the picture's centre of attention, fading in and out with the rest (0.6 s). Every rest is whole breaths of
+4 in, 6 out, counted from the rest's first second.
+
+| game | focus dial (unit, range, design) | rest dial (breaths, design) | default before → now | where the guide stands |
+|---|---|---|---|---|
+| Ja jestem… | "Odpoczynek po": pieces, 2–8, **4** (the push asks the mean ± 1 with the pace: 3–5) | "Odpoczynek" 1–6, **2** (20 s) | unchanged (the founder's round-11 "rest after 3–5 pieces") | wide/desk: stacked in the column under the declaration and its fragments (the ring shrinks to ≥ 30 px before it leaves); else a row in the now line's place, under the window or over its lower edge |
+| Światło ciała | "Odpoczynek po": places (miejsca), 1–4, **2** | "Odpoczynek" 1–6, **2** (20 s) | a rest after **every** place (~20 s of focus, rest half the session) → after **2** places | at the card's top, over the fact, where the card keeps room for a 150-character fact (desk, tablet, a tall phone); else under the picture — the rest's camera frames the whole figure (or brain) in the stage less the guide's strip |
+| Odnowa | "Energia": seconds, 20–120, **40** (± 6, scaled) | "Sprzątanie" 1–4, **2** (20 s) | 26 ± 4 s / 20–30 s (rest ~45 %, every ~45 s) → 40 s / 20 s (a third, every minute) | stacked in the lens: the turbine stops in a rest; it stays over a division that happens in a rest (the lens's words give way to the breath) |
+| Ogień, ogień, ogień | "Rozpalanie": seconds, 20–120, **40** (± 6) | "Odpoczynek" 1–4, **2** (20 s) | 26 ± 4 / 22 ± 3 s, not whole breaths, the breath began 1 s in (rest ~46 %) → 40 s / 2 whole breaths from the rest's start | stacked in the sky left of the ring (wide/desk: the button is right), right of it on a phone on its side, else a row under the ring hugging the button (a small phone: over the ring's lower track, never the breathing circle round the fire) |
+| Każdy włos | "Wzrost": seconds, 20–120, **40** (± 5) | "Głębia" 1–6, **3** (30 s) | 24 ± 3 / 26 ± 3 s (rest **more than half**, every ~50 s) → 40 s / 30 s (43 %, every ~70 s: still the meditation led by rest) | at the words band's top (row, or stacked in a narrow band), the narrator's line or the verse under it (the verse pages when short) |
+
+Why each default (one line each):
+- **Ja jestem…** — the rest already comes where the logic puts it (after the pieces, not a clock), and the founder
+  chose 3–5 in round 11; the dial moves the mean (2–8), the cap, the quick/slow marks and the light pass scale past the
+  5 s lead-in with it, and the how-to card names the player's band ("Po 6–8 częściach…").
+- **Światło ciała** — a rest after every single place was the "too often" case (a place fills in ~15–20 s); two places
+  a push gives ~30 s of focus and keeps the meaning: the facts of both places are read one after another in the rest
+  (in the push each is a glimpse). The valve grows 25 s for each further place; a blind push stays one place.
+- **Odnowa, Ogień** — block games in structure; the kit's guidance (≈ 40 s focus, 20 s rest: rest a third of the session,
+  once a minute) fits both: Odnowa's clean-up (material from calm) still gets a rest a minute, Ogień's banked light still
+  pours back at every push.
+- **Każdy włos** — "a meditation led by rest" stays (the longest rest of the series, 3 breaths), but rests come every
+  ~70 s instead of ~50 s and take 43 % instead of 52 %.
+
+The block plans (Odnowa, Ogień, Każdy włos) keep the rests exactly the player's breaths and let the pushes fill the rest
+of the session: as many pairs as bring the pushes' mean nearest the dial, jittered (`scaledBlock`) when there is room;
+a session too short for its pushes gives back rest breaths, down to one. 3, 10 and 30 minutes end on time with the
+design and the dials' extremes (tests).
+
+Words: the old small breath lines are gone (Ja jestem's "Odpocznij — wdech" now line in a rest, Światło's card ring,
+Odnowa's 13 px "wdech · 3" on the lens, Ogień's 14 px "wdech" under the ring, Każdy włos's 15 px lilac row); the scenes'
+own breathing stays (the oculus ring, the lit body, the lysosomes' rings, the fire's breathing circle, the hair's sheen).
+Światło's story, panel and registry texts say "after a few places comes a rest" (it was "then a rest").
+
+### 19.8 Każda myśl — every thought given to the light (Every Thought · Jeder Gedanke · Varje tanke)
+
+**The request** (the founder, 2026-11-23): *„Chcę nową grę, która generalnie polega na medytacji nad punktem i spalaniu
+negatywnych myśli. Chcę żeby tam występowały różne konteksty lęków, smutków, złości i odmian/mieszanek tych emocji.
+Chcę żeby to była tak jakby wizualizacja polegająca na niszczeniu negatywnych myśli. Chcę żeby ta gra bazowała na
+realnych problemach z jakimi mierzą się ludzie, ale chcę też, żeby każdy mógł skorzystać z tego ćwiczenia. Intuicja
+podpowiada mi, że to wymaga jakiegoś poziomu generalizacji + personalizacji.”*
+
+Registry `kind: 'heart'` (after Drzewo nad wodą), id `mysli`, root **2 Corinthians 10:5** ("we take captive every
+thought to make it obedient to Christ"). Headline: thoughts given (`myśl / myśli`, thoughts, Gedanke / Gedanken,
+tanke / tankar). Code: `src/arcade/mysli/` (content.ts the library, the emotions, the passages; rules.ts the numbers
+and the plan; sim.ts the session; meta.ts the progress; talk.ts the narrator; layout.ts, paint.ts, render.ts, hud.ts
+the view; preview.ts the lobby, the cards and the intro; audio.ts; panel.ts the lobby card; i18n.ts the words);
+test `test/arcade-mysli.test.ts`.
+
+**One line:** a warm dark room and one point of light — a candle's flame drawn in code, the only thing the eyes need
+(focused-attention meditation; here the light is Christ's, Jn 8:12); thoughts drift in from the dark on slips of
+ash-paper, tinted by their emotions, and wait; while focus holds, the flame's warm ring reaches the slip and it burns —
+the paper chars behind an ember front, the letters darken and crumble, the ash rises as sparks, and one golden light
+flies to the point and joins the others circling it: beauty for ashes (Isa 61:3).
+
+#### The way
+
+| Step | What happens | Gated by focus? |
+|---|---|---|
+| **Przygotowanie** (settling) | three cues: sit comfortably; look at the flame — blink freely, when the eyes tire close them and see it inside (candle-gazing can strain the eyes); breathe as usual, thoughts will come | no (3 cues × 6–10 s; waits for the first session's two-page card) |
+| **Myśli** — pushes | a thought drifts in from a dark edge (2.5 s, not gated) and **waits** at its place above the flame — never closer; while focused the ring reaches it and it burns from the edge nearest the flame; burned, the next drifts in; the player's rhythm sets how many burn before a rest (3 by default) | **yes**: a thought burns only in a sighted push past its lead-in (5 s Mendi, 2 s HALO), once it has arrived, reliable, `focused`, at `focusRate` focus-seconds a second |
+| **Odpoczynek** — rest | whole breaths with the breath guide (kit/breathguide.ts, its word beside the ring, in the slip's place; `ownBreath: true`); the ash settles; the band shows the **true word** that answers the last thought burned, and on every other rest of 2+ breaths its passage in the second half | no (whole breaths of the player's pattern) |
+| valve | a push without any burning for 60 s (or 150 s in all) rests; "this thought can wait"; its burning so far stays | no |
+| **Popiół opada** — the last rest | at the reserved end, a breath longer; "what was given stays with God", Isa 61:3 | no |
+| **Cisza** — quiet (≥ 10 min) | no thoughts at all — just the point; held focus fills the warm ring and brightens the golden lights (30 s at 10 min … 90 s at 30 min) | yes (judged as focus; nothing to burn, its held seconds are a stat) |
+| the close (finale, 16 s) | the closing card in the stage: „Ojcze, przez Jezusa Chrystusa, w Duchu Świętym: dziękuję, że mogę oddać Ci każdą myśl. Daj mi piękno zamiast popiołu.” + Phil 4:7 / Isa 26:3 / Jn 14:27 in turn (short ones: on a phone the card shares the screen with the row; a passage that would be cut is never shown — the summary has one whole); and in the band **„Jak ciężko jest teraz?” 0–10** (two rows on a phone, keys 0–9 at a desk); it waits up to 6 s more for an answer | — |
+
+Light only from real focus (§18 rule 1): nothing burns in the settling, the lead-in, the arrival, a rest, without a
+signal, below the threshold or from taps (a tap only makes the words glow again). Without focus the ring draws back to
+the flame and the thought **waits** — it never grows, never punishes, never comes closer; its burnt edge only
+smoulders. Every 4th push from the 3rd session is blind (the room darkens round the flame; the burning is shown at the
+push's end).
+
+#### The plan (rules.ts `planFor`)
+
+The arc fits 3–30 minutes: planned thoughts 5 (3 min), 8 (5), 16 (10), 22 (15), 28 (20), 34 (25), 40 (30); the quiet
+from 10 minutes. `need` (focus-seconds a thought) is set so an average player (0.75 focus-s/s past the lead-in) burns
+the planned thoughts at ~88 % of the free time — about 14 s of burning a thought at 3 minutes, ~27 s at 30 — bounded
+6–30. A rhythm of many short pushes and long rests plans fewer thoughts (each still worth ≥ 6 focus-s). A stronger
+player burns more (the queue goes on); the last rest, the quiet and the close are reserved at the end. Tests: an
+average player at 3, 5, 10, 15, 20, 25, 30 minutes burns ≥ 85 % of the plan between 55 % and 97 % of the session,
+rest stays under a third of it.
+
+**Rhythm** (kit/rhythm.ts): focus in **thoughts** — "Odpoczynek co: 3 myśli" (1–6) — because the rest falls where the
+game's logic has a pause (after thoughts have burned, so the true word can answer the last one); rest in **whole
+breaths** of the player's pattern (`breathDial`, 2 breaths by default, 1–6). The lobby's count uses ~16 s a thought.
+
+#### Generalisation + personalisation
+
+* **The library** (content.ts + i18n.ts, written for this game, no questionnaire's items): 8 areas × 7 = 56 everyday
+  first-person thoughts — zdrowie, praca i pieniądze, bliscy, przyszłość, przeszłość i żal, samoocena, samotność i
+  strata, świat i sens — each ≤ 60 characters in every language, with its **emotion mix** {fear, sadness, anger}
+  (each emotion leads in 15–23 of them; 19 are mixtures), its **thinking pattern** in plain words (Beck's distortions:
+  czarny scenariusz, czytanie w myślach, wróżenie z przyszłości, etykieta, „muszę”, wszystko albo nic, „zawsze” i
+  „nigdy”, czuję więc tak jest, branie wszystkiego do siebie — shown on the band while it burns: naming the pattern is
+  itself a step back from the thought), a **true word** (a kind, plain reframe, never preaching, ≤ 140 characters) and
+  a passage id. Polish thoughts are gender-neutral (present tense, no -łem/-łam, no sam/sama; a test holds it).
+* **What weighs today** (the lobby's card): Nie wiem — wszystko (default) / Lęk / Smutek / Złość / Mieszane (a second
+  emotion ≥ 35 %); the areas of life as chips (none = all). The session's queue: the player's own thoughts first, then
+  library thoughts fitting the emotion and areas, then the emotion in other areas, then the rest (it widens before it
+  repeats); in each group single-emotion thoughts before mixtures (long sessions go deeper), seeded shuffle, last
+  session's thoughts last.
+* **Own thoughts**: up to 8, ≤ 80 characters, each with its feeling (lęk / smutek / złość / mieszane), kept only in the
+  game's progress on this device (IndexedDB), never in `result()`, stats or highlights (a test holds it); "Zapomnij
+  wszystkie moje myśli", and "zapominaj moją myśl, gdy spłonie". Their true words are generic per feeling (3 each) with
+  passages (Isa 41:10, Jn 14:27, 2 Tim 1:7; Ps 34:18, Ps 147:3, Mt 11:28; Eph 4:26, Jas 1:19, Rom 12:21; 1 Pet 5:7,
+  Phil 4:7, Ps 94:19). An own thought with words of self-harm or suicide (4 languages) brings the help line forward in
+  the card — never blocks, never judges.
+* **„Nie moja”** (a button by the stage, N at a desk): a library thought that does not fit drifts back out, uncounted,
+  and is set aside for good (the card can bring them back) — the library learns what is not the player's.
+* **Before / after**: "Jak ciężko jest teraz?" 0–10 in the card before the next session, and the finale's row; a
+  history of ≤ 30 (day, before, after); the summary says "7 → 4" and that it is the player's own sense, not a
+  measurement.
+
+#### The look and the sound
+
+Canvas 2D in code, no image files: the room baked once per size (warm dark, a faint glow where the flame stands, a
+vignette); the flame (a teardrop of gold round a white core, a faint blue root, quiet flicker — none with reduced
+motion); the warm ring (an annulus that eases out to the slip's near edge only while focus holds); the slip baked once
+with its words (torn ash-paper tinted by the blend of its emotions in linear light — fear #8b84ff cold violet-blue,
+sadness #7f97b8 slate, anger #ff6a3a red-orange — serif italic ≥ 14 px, three lines, never cut); the burn drawn
+through a clip: the paper above a wavy ember front, a charred band behind it, the front in the thought's two tones
+(a mixture's two strongest emotions); sparks and ash (≤ 260 particles), a golden light flying to an ellipse of lights
+round the point (24 drawn, more brighten the crown). Distinct from Ogień (Pentecost fire, tongues of flame) and
+Brzemiona (smoke to the Cross): one small candle flame and paper burning. Sound (kit/audio.ts): a warm low pad in D, a
+paper rustle as a thought drifts in or away, a soft uneven crackle while it burns (short band-passed noise, gain
+≤ 0.012), a flare and a bell climbing a pentatonic ladder as each light joins, the breath's wind in rest, the close's
+chord.
+
+Phone first: tall — the slip and the flame in the stage, the words band at the bottom, „Nie moja” at the stage's lower
+right in the thumb zone, the narrator's caption (3 lines) beside it; side — the scene left, the words and the button
+right; wide/desk — the scene in the middle, the words in a column. The finale's 0–10 row takes one row of 11 where it
+fits at 44 px, else two (0–5, 6–10), else three.
+
+#### Care and reverence (§13.3–13.4, §18.3)
+
+* Attention and imagination training, **not therapy** — the how-to's last tip, tip5 and the card's care note say so,
+  with a calm help line per language: pl 116 123 (dorośli), 116 111 (dzieci i młodzież), 112; de TelefonSeelsorge
+  0800 111 0 111, 112; sv Mind Självmordslinjen 90101, 112; en your local emergency number or a crisis line.
+* The library holds **no** thought of self-harm, suicide, abuse or trauma detail, and none of the phrasings known as
+  risk markers ("I am a burden to my family", "nobody would notice if I were gone") — a test checks every language.
+* **Christ-centred, never magic**: the fire is not a spell; burning is giving the thought to God (1 Pet 5:7), taking it
+  captive (2 Cor 10:5). The prayers address Jesus ("Jezu, oddaję Ci ten lęk. Ty jesteś moim światłem."), the close the
+  Father, through Jesus, in the Holy Spirit. No "energy", no healing promise (the series' forbidden-words test, plus
+  magic/spell words).
+* **Origin note** once, the lobby text's last sentence: candle-gazing is known in many traditions (yoga calls it
+  trataka), and "letting thoughts go" echoes cognitive defusion from ACT; here it is a prayer of attention resting on
+  Christ.
+
+#### Evidence (for the design, never as a claim on screen; PMIDs verified in PubMed)
+
+* Briñol P, Gascó M, Petty RE, Horcajo J. Treating thoughts as material objects can increase or decrease their impact
+  on evaluation. *Psychol Sci* 2013;24(1):41-7. PMID 23184587, doi:10.1177/0956797612449176 — physically discarding
+  written thoughts reduced their use in later judgements; the effect was **stronger when done physically than merely
+  imagined**, so the game's burning is an imagery aid, not a substitute for writing a thought down (the own-thoughts
+  list is the nearest step to it).
+* Masuda A, Hayes SC, Sackett CF, Twohig MP. Cognitive defusion and self-relevant negative thoughts. *Behav Res Ther*
+  2004;42(4):477-85. PMID 14998740, doi:10.1016/j.brat.2003.10.008 — a defusion technique reduced the discomfort and
+  believability of self-relevant negative thoughts more than distraction or thought control (small single-case series).
+* Levin ME, Hildebrandt MJ, Lillis J, Hayes SC. The impact of treatment components suggested by the psychological
+  flexibility model: a meta-analysis of laboratory-based component studies. *Behav Ther* 2012;43(4):741-56. PMID
+  23046777, doi:10.1016/j.beth.2012.05.003 — 66 studies; positive effects for defusion, acceptance and present-moment
+  components, larger with experiential exercises.
+* Lutz A, Slagter HA, Dunne JD, Davidson RJ. Attention regulation and monitoring in meditation. *Trends Cogn Sci*
+  2008;12(4):163-9. PMID 18329323, doi:10.1016/j.tics.2008.01.005 — focused-attention meditation: holding attention on
+  a chosen object, noticing distraction, returning (the game's loop, and tip.burn.4 "every return counts").
+* Talwadkar S, Jagannathan A, Raghuram N. Effect of trataka on cognitive functions in the elderly. *Int J Yoga*
+  2014;7(2):96-103. PMID 25035618, doi:10.4103/0973-6131.133872 — a small randomised study (n = 60); cited only as the
+  tradition's existence in the literature, not as a claim.
+
+#### Numbers worth knowing
+
+Arrival 2.5 s; a thought set aside leaves in 1.2 s; minPush 12 s (a thought burned sooner brings the next in the same
+push); telegraph 4 s (the rest is announced when the push's last thought is 85 % burned); valve 60 s stall / 150 s;
+finale 16 s (+ up to 6 s for the answer); the recent list keeps 24 ids, the set-aside list 40, the history 30.
+
+#### Still open
+
+* New passages were not needed: the 27 verified ids given (f7002f3 and earlier) are all used — each library thought rests on one, the own thoughts' true words on 12, the valve, the quiet and the close on the rest.
+* The founder may want more library thoughts per area, or areas of his own (e.g. "studia i szkoła", "uzależnienia" —
+  left out on purpose: the latter needs care beyond a game).
+
+### 19.9 The pacer's own spot (`pacerAt`, `kit/pacerspot.ts`)
+
+The runner's breath pacer stands at the top centre of the play area in a rest. Where that covers what the rest is
+about, a game gives `pacerAt()` (kit/types.ts): the pill's top centre in canvas px. The shared helper is
+`src/arcade/kit/pacerspot.ts`: `pacerSpot(regions, avoid)` finds the first place (row by row, rows and columns also
+snapped to each obstacle's edges) where a 210 × 70 pill (240 × 80 on a big screen) fits clear of everything given;
+`pacerLeast(regions, hard, soft)` — for a band the play fills — the place clear of `hard` (controls, cards, what the
+rest shows) that covers the least of `soft` (a board's cells, weighted by repeating them); `discSlabs` turns a round
+sea or field into rectangles; `pacerProblems` says in words what a test finds wrong. Every game computes its spot
+from its own layout (cached per layout) and tests it at every kit/mobile CHECK_SIZES entry with both hands.
+
+Where the pacer stands now (phone upright / phone on its side / desktop & big screen):
+
+- **Arka** — at the foot on the new land's left end (over the waiting firsts, off the deck and the dove) / the right
+  column's sky over the new land (a narrow phone: the deck's corner, never more than 30 % of the pill) / the sky left
+  of the deck under the Mendi panel (a big screen's widest deck: its corner or the hull's rim).
+- **Firmament** — between the goal strip and the board where the band has the room, else over the strip's right half
+  and the board's top edge (≤ a third of the pill) / the left column under the goal card (a narrow phone: the board's
+  edge) / the left column under Bubo's bubble; a big screen left of the board.
+- **Geoda** — the strip's left end over the dial and the bowl's picture (the dial is idle in a rest; the polish stays
+  in the bowl's words and the HUD gauge); the smallest phones (no strip) the board's least-covered edge / the dial's
+  place at the left column's top (the dial is left out under it) / a short desktop column's top, its rest bowl drawn
+  under the pill (`restBowl`); a big screen under the geode.
+- **Latarnik** — the sea's quiet outer rim (no boat comes there in a Cisza; never inside 0.5 R) or the thumb's band
+  under the deck, off the lanterns and the ladder / the left column under the card slot, over the top of Zośka's
+  bubble room / the left column under the night's pill; a big screen a corner the sea leaves.
+- **Dawid** — the open field under the quest pill and the minimap, over David / the field left of David / the top's
+  middle between the quest pill and the minimap (as before); in camp off the sheet.
+- **Jerzy** — the standard place (the status already moves down under it, `restShift`) / the top row right of the
+  status (with the dragon's bar up: the field left of the knight under the banners' line) / the standard place.
+- **Odporność** — under the strip in the goal line's and song row's place (they hide in a rest), left or right of the
+  wound; Neo and his bubble step down under the pill (`neoShift`); the smallest phones the dermis under the wound /
+  the left margin of the world / a margin beside the world or the strip row beside the wound.
+- **Zastępy** — the standard place where the bar, Tymek and the coming wave step down for it (`restDrop`, now pure in
+  layout.ts); a small phone under the bar / the sky under the bar over the banners' tops (the coming wave may be
+  covered) / the standard place (the group steps down).
+- **Synapsy** — the top strip (fewest neurons; a lesson card that comes steps down under the pill, `stripShift`) /
+  the right column's top over Oli's words room / the right column over Oli's words, or under the lens.
+- **Zacheusz** — the standard place while he runs (the level strip steps aside) / while the tally or a story card
+  is up: beside it (desktop) or under it over the resting street, clear of the bubble button and Mela's lines; on a
+  phone on its side the tally card now stands at the right and the pill at the left.
+
+Gaps: on the smallest canvases (a 360 × 500 phone, a 601 × 360 phone on its side) some games have no free 210 × 70
+anywhere — the pill then covers the least it can (bounded in the tests), never a control or the rest's own gauge.
+The runner's banner (first ~5 s of a rest) and coach hints are not avoided: they are the runner's and transient.
