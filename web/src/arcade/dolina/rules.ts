@@ -241,8 +241,13 @@ export const RULES = {
   guardSparks: 30,
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest blocks: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
+  /**
+   * push and rest blocks: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): 45 s on the road — about a level's three floors climbed in the lamp's light — then 20 s on the
+   * pasture by still water, where the brook fills most of the next stair (it was 26 / 20 s, rest every 26 s); the
+   * player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [45, 7],
   rest: [20, 3],
   minBlock: 12,
   telegraph: 4,

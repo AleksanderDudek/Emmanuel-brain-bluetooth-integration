@@ -39,12 +39,12 @@ const LOW = frame({ level: 0.3, activity: 0, calm: 0.4 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<DolinaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<DolinaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): DolinaSim {
   const sim = new DolinaSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -113,6 +113,30 @@ describe('Dolina: the blocks', () => {
     const later = planBlocks(300, false, mulberry32(3));
     expect(later[0].kind).toBe('push');
     expect(later.filter(b => b.kind === 'push').length).toBe(later.filter(b => b.kind === 'rest').length);
+  });
+
+  it('follows the rhythm the player set in the lobby: a longer road, a shorter pasture, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const sec of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(sec, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s pasture is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0) + finaleFor(sec)).toBeCloseTo(sec, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the pasture a third of the run or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.34);
+    // the sim plans with it
+    expect(later({ planned: 600, rhythm: { focus: 90, rest: 15 } }).plan).toEqual(planBlocks(600, false, mulberry32(1), { focus: 90, rest: 15 }));
   });
 
   it('fits a 40 s test session (and anything from 10 s)', () => {
@@ -1716,6 +1740,39 @@ describe('Dolina: long sessions (15–30 min)', () => {
     }
     return { evs, max };
   }
+
+  it('plays any rhythm the player sets to its dawn: 3, 10 and 30 minutes, long roads or long pastures, the metres still grow', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = later({ planned, seed: 3, rhythm });
+        const clock = { t: 0 };
+        let at = 0, levels = 0;
+        for (const e of drive(sim, planned + 15, () => (sim.block?.kind === 'push' ? HIGH : CALM), clock, tt => {
+          if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+          else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+          if (!at && tt >= planned * 2 / 3) at = sim.score;
+        })) if (e.type === 'level') levels++;
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(levels, name).toBeGreaterThanOrEqual(Math.floor(planned / 300));
+        for (const v of [sim.px, sim.py, sim.score, sim.sparks, sim.oil]) expect(Number.isFinite(v), name).toBe(true);
+      }
+    }
+  });
+
+  it('never holds him at a ledge he keeps hopping against: past the wait, the hop is the climb by hand', () => {
+    // a player who taps the moment he lands (or buffers the tap in the air) at a wall the stones did not build
+    const sim = later({ planned: 600, seed: 3 });
+    const clock = { t: 0 };
+    let climbs = 0, lastX = 0, lastMove = 0, stuck = 0;
+    for (const e of drive(sim, 240, () => (sim.block?.kind === 'push' ? HIGH : CALM), clock, tt => {
+      if (sim.blocked === 'wall') sim.press();
+      if (sim.px > lastX + 0.5) { lastX = sim.px; lastMove = tt; } else if (!sim.inArena) stuck = Math.max(stuck, tt - lastMove);
+    })) if (e.type === 'climb') climbs++;
+    expect(climbs).toBeGreaterThan(0);
+    expect(stuck).toBeLessThan(15);
+  });
 
   it('plays a full 30-minute valley run to its dawn: levels keep coming, collections stay bounded, the summary reads', () => {
     const sim = later({ planned: 1800, seed: 3 });

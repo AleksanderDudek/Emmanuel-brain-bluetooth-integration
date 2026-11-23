@@ -50,6 +50,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
@@ -235,12 +236,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The run's blocks.  A first-ever session opens with the warm-up (34 s in 5 and 10 min, 24 s in 3,
- * 8 s in a 40 s test); then push / rest pairs (26 ± 4 s and 20 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a meadow, leaving the finale's seconds to the run
- * toward the dawn.  No block under 12 s.
+ * 8 s in a 40 s test); then push / rest pairs (45 ± 7 s and 20 ± 3 s, or the player's rhythm with
+ * the jitter scaled to it; scaled to end on time, jittered only when there is room) ending with a
+ * meadow, leaving the finale's seconds to the run toward the dawn.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -341,6 +342,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s on the road, s on the pasture); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 interface Box { x0: number; x1: number; y0: number; top: number; stone: Stone | null }
@@ -400,6 +403,8 @@ export class DolinaSim {
   private liftTo = { x: 0, y: 0 };
   private climbTop = 0;
   private stuckT = 0;
+  /** the top of the wall that stops him (world y), while one does */
+  private wallTop = 0;
   /** what stops him now: a block, a wall, nothing */
   blocked: 'stone' | 'wall' | null = null;
   safe = 0;
@@ -572,7 +577,7 @@ export class DolinaSim {
     this.floor = this.floorStart = Math.max(1, Math.round(p.tower?.floor || 1));
     this.tier = startTier(this.ups.forge);
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.first, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.first, init.rng, init.rhythm);
     this.talk = new Companion(init.rng);
     this.slots = slotsFor(p.guards);
     for (const id of partyFor(p, this.slots)) this.party.push(this.mate(id));
@@ -668,6 +673,7 @@ export class DolinaSim {
       return;
     }
     if (this.state !== 'run') return;
+    if (this.grounded && this.climbInstead()) return;
     if (this.grounded || this.coyoteT > 0) this.groundJump();
     else if (this.airUsed < RULES.airJumps) this.airJump();
     else this.bufT = RULES.buffer;
@@ -677,6 +683,22 @@ export class DolinaSim {
   releasePress(): void {
     this.held = false;
     if (this.state === 'run' && !this.grounded && this.vy > 0 && !this.stomping) this.vy *= RULES.cut;
+  }
+
+  /**
+   * Stuck at a wall past the wait: he climbs it by hand — also when the tap (or a buffered one, on landing) would
+   * hop again, so hops that cannot reach the top never hold him there (a player who keeps tapping at a ledge the
+   * stones did not build, or one reached before the first meadow).
+   */
+  private climbInstead(): boolean {
+    if (this.blocked !== 'wall' || this.stuckT < (this.first ? RULES.climbWaitFirst : RULES.climbWait)) return false;
+    this.state = 'climb';
+    this.stateT = 0;
+    this.climbTop = this.wallTop;
+    this.bufT = 0;
+    this.emit({ type: 'climb', x: this.px, y: this.py });
+    this.talk.say('climb', 0, 3);
+    return true;
   }
 
   private groundJump(): void {
@@ -876,6 +898,9 @@ export class DolinaSim {
       this.nextDawn = f.hold + need;
       this.dawn();
     }
+    // the meadow's first coach mark, asked again while another one still stands (a ledge's or a cage's, just before
+    // the rest began — likelier with a long push): it comes as soon as that one has had its moment
+    if (play && b.kind === 'rest' && this.blockT < R.bannerSec && !this.p.seen.includes('meadow')) this.explain('meadow');
     // the meadow: calm refills the oil and gathers smooth stones from the brook (and the companions rest: calm fills their powers)
     if (play && b.kind === 'rest' && this.blockT >= this.restLead && f.reliable) {
       this.oil = Math.min(1, this.oil + R.oilGain * f.calm * dt);
@@ -1596,6 +1621,7 @@ export class DolinaSim {
     if (stop) {
       dx = Math.max(0, stop.x0 - front);
       this.blocked = stop.stone ? 'stone' : 'wall';
+      this.wallTop = stop.top;
       this.speed = Math.min(this.speed, 0.6);
     } else this.blocked = null;
     this.px += dx;
@@ -1604,13 +1630,7 @@ export class DolinaSim {
     // (jumping against it still counts: hops that cannot reach the top never hold him there)
     if (this.blocked === 'wall') {
       this.stuckT += w;
-      if (this.grounded && this.stuckT >= (this.first ? R.climbWaitFirst : R.climbWait)) {
-        this.state = 'climb';
-        this.stateT = 0;
-        this.climbTop = stop!.top;
-        this.emit({ type: 'climb', x: this.px, y: this.py });
-        this.talk.say('climb', 0, 3);
-      }
+      if (this.grounded) this.climbInstead();
     } else this.stuckT = 0;
     // vertical
     const x0 = this.px - R.halfW * 0.7, x1 = this.px + R.halfW * 0.7;
@@ -1662,7 +1682,7 @@ export class DolinaSim {
     this.stomping = false;
     this.floorY = this.supportFloor(g);
     this.emit({ type: 'land', x: this.px, y: g, v });
-    if (this.bufT > 0) this.groundJump();
+    if (this.bufT > 0 && !this.climbInstead()) this.groundJump();
   }
 
   /** The floor a landing counts for the camera and the pits: the road under him, not a block's top. */

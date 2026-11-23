@@ -25,6 +25,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DolinaSound } from './audio';
 import { t } from './i18n';
@@ -32,6 +33,7 @@ import { bestOf, freshProgress, migrate, type DolinaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { DolinaView } from './render';
+import { RULES } from './rules';
 import { DolinaSim, type SimEvent } from './sim';
 
 /**
@@ -54,6 +56,7 @@ class DolinaGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new DolinaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new DolinaView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new DolinaSound(env.audio);
@@ -251,5 +254,7 @@ const mod: ArcadeModule<DolinaProgress> = {
       ],
       tips: [t('how.tip1'), t('how.tip2')],
     }),
+  // the rest's rhythm in the lobby: seconds on the road before the pasture by still water, and on the pasture
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;
