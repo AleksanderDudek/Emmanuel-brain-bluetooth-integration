@@ -4,16 +4,18 @@ import { LINES, MOMENTS, RUNGS, RUNG_IDS, TIPS, powText } from '../src/arcade/og
 import { CATALOGS, t, unit } from '../src/arcade/ogien/i18n';
 import { allForms, bestOf, freshProgress, migrate, skyPlace, starLook, unlocked, variantFor, type OgienProgress } from '../src/arcade/ogien/meta';
 import { RULES } from '../src/arcade/ogien/rules';
-import { OgienSim, brainK, breathAt, finaleFor, planBlocks, ringSecFor, type SimEvent } from '../src/arcade/ogien/sim';
+import { BREATH_SEC, OgienSim, brainK, breathAt, finaleFor, planBlocks, ringSecFor, type SimEvent } from '../src/arcade/ogien/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { CHECK_SIZES, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
-import ogien, { coachText, howto } from '../src/arcade/ogien/index';
+import ogien, { coachText, howto, rhythm } from '../src/arcade/ogien/index';
 import { layout } from '../src/arcade/ogien/layout';
 import { fontPx } from '../src/arcade/ogien/paint';
-import type { OgienView } from '../src/arcade/ogien/render';
+import { OgienView } from '../src/arcade/ogien/render';
+import { breathGuideBox } from '../src/arcade/kit/breathguide';
+import { rhythmOf } from '../src/arcade/kit/rhythm';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { LANGS, catalogProblems } from '../src/i18n';
@@ -33,12 +35,12 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['open', 'c:blow', 'c:ring', 'c:rest', 'c:breath', 'c:light', 'c:shield', 'c:feed', 'c:tents', 'c:fuse', 'c:gather', 'c:pass', 'c:blind', 'c:button'];
 
-type SimOpts = { progress?: Partial<OgienProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<OgienProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } | null };
 
 function makeSim(o: SimOpts = {}): OgienSim {
   const sim = new OgienSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -95,9 +97,11 @@ describe('the block plan', () => {
       expect(rest.at(-1)!.kind).toBe('rest');
       const sum = plan.reduce((s, b) => s + b.dur, 0);
       expect(sum).toBeCloseTo(planned - finaleFor(planned), 5);
+      // round 15: pushes of about 40 s (± 6, scaled to end on time), rests of two whole breaths
       for (const b of rest) {
         expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
+        expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.16);
+        if (b.kind === 'rest') expect(b.dur).toBe(RULES.restBreaths * BREATH_SEC);
       }
     }
   });
@@ -215,8 +219,10 @@ describe('focus charges the fire', () => {
   it('never shrinks the ring; a rest’s calm banks light that pours back at the next push', () => {
     const sim = later();
     const clock = until(sim, 'rest', frame({ level: 0.8, activity: 4 }));
+    expect(sim.ring).toBeGreaterThan(0);
+    // (a 40 s push may nearly fill the ring: hold it at half, so the light poured back cannot complete it)
+    sim.ring = Math.min(sim.ring, 0.5);
     const ring = sim.ring;
-    expect(ring).toBeGreaterThan(0);
     drive(sim, sim.block.dur - sim.blockT - 0.2, CALM, clock);
     expect(sim.ring).toBe(ring);
     expect(sim.light).toBeGreaterThan(0.1);
@@ -922,7 +928,7 @@ describe('phone first (DESIGN.md §12)', () => {
 });
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, pushes about 40 s, rests 20 s', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -933,10 +939,11 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.16);
         }
-        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
-        expect(body.length).toBe(2 * pairs);
+        // about a pair a minute (40 s of kindling, two breaths of rest)
+        const pairs = (planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.restBreaths * BREATH_SEC);
+        expect(Math.abs(body.length / 2 - pairs)).toBeLessThanOrEqual(1);
       }
     }
   });
@@ -980,5 +987,75 @@ describe('long sessions (15–30 minutes)', () => {
     expect(r.verse).toBeTruthy();
     for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
     for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+  });
+});
+
+describe('the rest’s rhythm and the breath guide (round 15)', () => {
+  it('offers seconds of kindling (40: 20–120) and whole breaths of rest (2: 1–4) in the lobby', () => {
+    const spec = rhythm();
+    expect(ogien.ownBreath).toBe(true);
+    expect(ogien.rhythm).toBeDefined();
+    expect([spec.focus.def, spec.focus.min, spec.focus.max, spec.focus.step]).toEqual([40, 20, 120, 5]);
+    expect([spec.rest.def, spec.rest.min, spec.rest.max]).toEqual([2, 1, 4]);
+    expect(spec.focus.name).toBe(t('rhythm.focus'));
+    expect(spec.restSec!(4)).toBe(40);
+    expect(rhythmOf(spec, { focus: 300, rest: 0 })).toEqual({ focus: 120, rest: 1, custom: true });
+  });
+
+  it('plans the player’s pushes and whole-breath rests, and completes 3, 10 and 30 minutes on time', () => {
+    for (const [focus, rest] of [[20, 1], [40, 2], [80, 3], [120, 4]] as const) {
+      for (const sec of [180, 600, 1800]) {
+        const plan = planBlocks(sec, false, mulberry32(sec), { focus, rest });
+        const pushes = plan.filter(b => b.kind === 'push');
+        const id = `${focus}/${rest} · ${sec}`;
+        const mean = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+        expect(Math.abs(mean - focus), id).toBeLessThanOrEqual(Math.max(10, focus * 0.4));
+        for (const b of plan.filter(x => x.kind === 'rest')) expect(b.dur % BREATH_SEC, id).toBeCloseTo(0, 6);
+        expect(plan.reduce((s, b) => s + b.dur, 0), id).toBeCloseTo(sec - finaleFor(sec), 5);
+      }
+    }
+    for (const planned of [180, 600, 1800]) {
+      for (const r of [null, { focus: 20, rest: 1 }, { focus: 120, rest: 4 }]) {
+        const sim = later({ planned, rhythm: r });
+        const clock = { t: 0 };
+        let guard = 0;
+        while (sim.phase !== 'done' && guard++ < 1000) drive(sim, 5, () => (sim.restBlock ? CALM : MID), clock);
+        expect(sim.phase, `${planned} · ${JSON.stringify(r)}`).toBe('done');
+        expect(clock.t).toBeLessThanOrEqual(planned + RULES.settle + 5.1);
+      }
+    }
+  }, 180_000);
+
+  it('guides the rest’s whole breaths from its start, and draws the guide clear of the fire, the ring and the button', () => {
+    const sim = later({ rhythm: { focus: 40, rest: 3 } });
+    const clock = until(sim, 'rest', MID);
+    expect(sim.breaths).toBe(3);
+    expect(sim.breathNow!.phase).toBe('in');
+    drive(sim, 4.2, CALM, clock);
+    expect(sim.breathNow!.phase).toBe('out');
+    expect(sim.breath.in).toBe(false);
+    const canvas = { getContext: () => null } as unknown as HTMLCanvasElement;
+    const ctx = { font: '10px sans-serif', measureText(this: { font: string }, text: string) { return { width: [...text].length * Number(this.font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10) * 0.6 } as TextMetrics; } } as unknown as CanvasRenderingContext2D;
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        const view = new OgienView(canvas, { reducedMotion: false, touch });
+        view.resize(c.w, c.h, 1, c.insets);
+        const o = view.breathPlace(ctx, sim);
+        const id = `${c.name} · ${touch ? 'touch' : 'mouse'}`;
+        expect(o, id).not.toBeNull();
+        const L = view.L, box = breathGuideBox(ctx, o!);
+        expect(o!.r, id).toBeGreaterThanOrEqual(26);
+        expect(box.y, id).toBeGreaterThanOrEqual(L.top - 0.5);
+        expect(box.y + box.h, id).toBeLessThanOrEqual(L.bottom + 0.5);
+        expect(box.x, id).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.w, id).toBeLessThanOrEqual(L.w + 0.5);
+        // never over the fire (the ring's inner half) nor the button
+        const dx = Math.max(box.x - L.cx, 0, L.cx - (box.x + box.w)), dy = Math.max(box.y - L.cy, 0, L.cy - (box.y + box.h));
+        expect(Math.hypot(dx, dy), id).toBeGreaterThanOrEqual(L.R * 0.75);
+        const b = L.btn;
+        const overlap = box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y;
+        expect(overlap, id).toBe(false);
+      }
+    }
   });
 });

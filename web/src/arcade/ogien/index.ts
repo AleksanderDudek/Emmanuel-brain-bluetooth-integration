@@ -6,7 +6,8 @@
  *
  * Focus charges the fire's ring (faster the higher the signal); a full ring is the change into the next, bigger
  * fire, with a "Powers of Ten" zoom-out, its name and its verse.  Rest banks light that rekindles the next push
- * and the flame breathes 4 in / 6 out.  The hands have one small task per scale.  The last fire is Pentecost:
+ * and the flame breathes 4 in / 6 out (round 15: the rest's whole breaths and the push's seconds set in the lobby,
+ * the breath drawn as the kit's guide beside the fire, render.ts).  The hands have one small task per scale.  The last fire is Pentecost:
  * the Spirit sent down as tongues of fire, a gift that meets the player's fire (DESIGN §13.4, §13.6).  Ignacy,
  * an old lamplighter, wonders at every scale.
  *
@@ -16,6 +17,7 @@
  * and the lobby's card (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
@@ -29,7 +31,7 @@ import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { OgienView } from './render';
 import { RULES } from './rules';
-import { OgienSim, type Coach, type CoachAt, type SimEvent } from './sim';
+import { BREATH_SEC, OgienSim, type Coach, type CoachAt, type SimEvent } from './sim';
 
 /** a finger that moves farther than this (px) drags; less is a tap */
 const TAP_PX = 10;
@@ -56,7 +58,7 @@ class OgienGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<OgienProgress>) {
     migrate(env.progress);
     this.bestNow = bestFor(env.progress, env.plannedSec);
-    this.sim = new OgienSim({ progress: env.progress, rng: env.rng, day: env.day, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new OgienSim({ progress: env.progress, rng: env.rng, day: env.day, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new OgienView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new OgienSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -374,5 +376,22 @@ const mod: ArcadeModule<OgienProgress> = {
   progressPanel: p => progressPanel(migrate(p)),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: () => rhythm(),
+  // the rest's breath is drawn beside the fire (render.ts drawBreath): the runner adds no pacer of its own
+  ownBreath: true,
 };
 export default mod;
+
+/**
+ * The rest's rhythm in the lobby (kit/rhythm, round 15): seconds of kindling before a rest (40 by design, 20–120)
+ * and whole breaths of the flame in it (2 by design: 20 s, 1–4) — calm banks light for the next push.
+ */
+export function rhythm(): RhythmSpec {
+  return {
+    focus: secDial(RULES.push[0], t('rhythm.focus')),
+    rest: breathDial(RULES.restBreaths, undefined, BREATH_SEC, RULES.restBreathsDial),
+    note: t('rhythm.note'),
+    focusSec: n => n,
+    restSec: n => n * BREATH_SEC,
+  };
+}

@@ -10,12 +10,15 @@
  *                     charges it
  *   the heat circle   in a push, a circle round the fire whose radius is the heat (the eased level), with the
  *                     threshold as a dashed circle: past it the circle turns gold and the ring fills
- *   the breath        in rest the circle breathes 4 in / 6 out, and the words say which
+ *   the breath        in rest the circle breathes 4 in / 6 out; the kit's breath guide beside the fire says it
+ *                     (round 15: left of the ring on a wide screen, right of it on a phone on its side, under it
+ *                     on a phone upright)
  *   the smoke         a blind block veils the ring and the heat; it lifts at the block's end
  *
  * Around them: the ladder of seven down the left edge, the scale's button and the bonfire's pile in the thumb
  * zone, Ignacy's bubble under the HUD, the cards.  No shadowBlur, no filters: light is baked sprites.
  */
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { ease } from '../kit/juice';
 import { layoutPassage, drawPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { Insets } from '../kit/types';
@@ -413,6 +416,7 @@ export class OgienView {
     this.drawLadder(ctx, sim);
     if (sim.task === 'feed' && sim.handsOn) this.drawPile(ctx, sim);
     this.drawButton(ctx, sim);
+    if (!tr) this.drawBreath(ctx, sim);
     if (this.drag) this.drawDraggedLog(ctx);
     this.floaters.draw(ctx);
     this.drawBubble(ctx, sim);
@@ -731,8 +735,7 @@ export class OgienView {
       ctx.beginPath();
       ctx.arc(cx, cy, rb, 0, TAU);
       ctx.stroke();
-      const b = sim.breath;
-      label(ctx, b.in ? t('hud.in') : t('hud.out'), cx, L.under, 14 * u, '#e6efff', 'center', 700);
+      // (the words of the breath are the guide's now: drawBreath)
     }
     // the smoke over a blind block's ring
     if (veil > 0.02) {
@@ -750,6 +753,58 @@ export class OgienView {
     // the ember bed after a passed rest
     if (sim.ember && sim.pushBlock) label(ctx, `✦ ${t('hud.ember')}`, cx, cy + R + 9 * u + fontPx(12 * u), 12 * u, '#ffb070', 'center', 700);
     ctx.restore();
+  }
+
+  /**
+   * Where the rest's breath guide stands (kit/breathguide, round 15), clear of the fire, the ring, the button and the
+   * ladder: stacked in the sky left of the ring (a wide screen: the button is on the right), or right of it (a phone
+   * on its side: the left is too narrow), else a row under the ring, above the button (a phone upright) — the ring as
+   * large as the screen asks and the place allows, never under 26 px.  Null: nowhere fits.
+   */
+  breathPlace(ctx: CanvasRenderingContext2D, sim: OgienSim): BreathGuideOpts | null {
+    const b = sim.breathNow;
+    if (!b) return null;
+    const L = this.L, u = L.u;
+    const of = sim.breaths;
+    const sub = breathOf(Math.min(of, b.n + 1), of);
+    const r0 = breathGuideRadius(L.w, L.h);
+    const gap = 12 * u;
+    const topY = L.top + 8 * u, botY = L.bottom - 8 * u;
+    const btnTop = L.btn.y - 8 * u;
+    const ladderR = L.ladder.x + L.ladder.r + 14 * u;
+    // a region (x0..x1, y0..y1) and a layout: the largest ring (≥ 26) whose box fits, centred in it
+    const fit = (x0: number, x1: number, y0: number, y1: number, layout: 'stack' | 'row', cyWant: number): BreathGuideOpts | null => {
+      if (x1 - x0 < 60 || y1 - y0 < 50) return null;
+      for (let r = r0; r >= 26; r -= 2) {
+        const o: BreathGuideOpts = { cx: (x0 + x1) / 2, cy: 0, r, sub, layout, maxW: layout === 'row' ? x1 - x0 - 2 * r - 40 : x1 - x0 - 16 };
+        const box = breathGuideBox(ctx, o);
+        if (box.w > x1 - x0 || box.h > y1 - y0) continue;
+        const top = Math.min(Math.max(cyWant - box.h / 2, y0), y1 - box.h);
+        return { ...o, cy: top - box.y };
+      }
+      return null;
+    };
+    const left = fit(ladderR, L.cx - L.R - gap, topY + 70 * u, botY, 'stack', L.cy);
+    // right of the ring: above the button where the button sits there
+    const rx0 = L.cx + L.R + gap;
+    const right = fit(rx0, L.w - L.ins.right - L.edge, topY, L.btn.x < L.w - L.ins.right - L.edge && L.btn.x + L.btn.w > rx0 ? btnTop : botY, 'stack', L.cy);
+    if (L.mode !== 'short' && left) return left;
+    if (right) return right;
+    if (left) return left;
+    // under the ring, as low as it goes above the button (on a small phone it crosses the ring's lower track, never
+    // the breathing circle round the fire: that reaches 0.72 of the ring)
+    const y0 = L.cy + L.R * 0.78;
+    const y1 = Math.min(L.bottom - 4, L.btn.y < y0 + 40 ? L.bottom - 4 : btnTop + 4 * u);
+    return fit(L.ins.left + L.edge, L.w - L.ins.right - L.edge, y0, y1, 'row', y1);
+  }
+
+  /** The rest's breath guide (kit/breathguide): fades in as the rest begins and out as it ends. */
+  private drawBreath(ctx: CanvasRenderingContext2D, sim: OgienSim): void {
+    const o = this.breathPlace(ctx, sim);
+    const b = sim.breathNow;
+    if (!o || !b) return;
+    const a = Math.min(1, sim.blockT / 0.6, Math.max(0, sim.block.dur - sim.blockT) / 0.6);
+    drawBreathGuide(ctx, b, { ...o, alpha: a, reducedMotion: this.opts.reducedMotion, time: this.clock });
   }
 
   /** The ladder of seven fires down the left edge: past ones gold, this one with its charge, the rest to come. */

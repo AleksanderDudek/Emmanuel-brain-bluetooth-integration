@@ -21,8 +21,10 @@
  * charge when revealed (so the headline never leaks what the smoke hides).
  */
 import { fmtNum } from '../../i18n';
+import { BREATH_DEFAULT, breathAt as kitBreathAt, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import { LINES, LONG_BURN, ROOT, RUNGS, TASK_MOMENT, TIPS, arrival, rungName, rungShort, variantName, type Moment, type TaskKind } from './content';
@@ -96,13 +98,22 @@ function liftShort(durs: number[], min: number): void {
 /** The last stretch without a block: 12 s in sessions of 2 min and more, 6 s in shorter ones. */
 export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
+/** One breath of the flame (s): in and out. */
+export const BREATH_SEC = RULES.breathIn + RULES.breathOut;
+
+/** The rest's whole breaths: the player's (the lobby's dial), kept whole and inside its range, or the design's 2. */
+export const restBreathsOf = (n?: number | null): number =>
+  Math.round(clamp(typeof n === 'number' && Number.isFinite(n) ? n : RULES.restBreaths, RULES.restBreathsDial.min, RULES.restBreathsDial.max));
+
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in 3, 6 s in
- * a 40 s test); then push / rest pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time, jittered only when there
- * is room) ending with a rest, leaving the finale at the end.  No block under 12 s.
+ * a 40 s test); then push / rest pairs ending with a rest, leaving the finale at the end.  Round 15: a rest is whole
+ * breaths of the flame (2 by design, 20 s, or the player's 1–4), the pushes take the rest of the time — 40 ± 6 s by
+ * design or the player's mean with the jitter scaled, as many pairs as bring their mean nearest it, jittered when
+ * there is room.  No push under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -121,15 +132,22 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
     plan.push(b('warmup', warm));
     left -= warm;
   }
-  const pair = R.push[0] + R.rest[0];
-  const pairs = Math.max(1, Math.round(left / pair));
-  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
-  const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
-  const scale = left / durs.reduce((s, d) => s + d, 0);
-  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
-  liftShort(durs, R.minBlock);
-  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
+  const restSec = restBreathsOf(rhythm?.rest) * BREATH_SEC;
+  // as many pairs as bring the pushes' mean nearest the design (never under the shortest block)
+  const meanOf = (n: number): number => (left - n * restSec) / n;
+  let pairs = Math.max(1, Math.floor(left / (R.push[0] + restSec)));
+  if (meanOf(pairs + 1) >= R.minBlock && Math.abs(meanOf(pairs + 1) - R.push[0]) < Math.abs(meanOf(pairs) - R.push[0])) pairs++;
+  const rests = new Array<number>(pairs).fill(restSec);
+  // a session too short for its pushes: the rests give back their breaths, down to one, from the last
+  for (let i = pairs - 1; i >= 0 && left - rests.reduce((s, d) => s + d, 0) < pairs * R.minBlock; i--) rests[i] = Math.min(rests[i], BREATH_SEC);
+  const pushLeft = Math.max(pairs * R.minBlock, left - rests.reduce((s, d) => s + d, 0));
+  const jitter = pairs >= 2 && meanOf(pairs) >= R.push[0] * 0.85 ? 1 : 0;
+  const pushes: number[] = [];
+  for (let i = 0; i < pairs; i++) pushes.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1]);
+  const scale = pushLeft / pushes.reduce((s, d) => s + d, 0);
+  for (let i = 0; i < pairs; i++) pushes[i] *= scale;
+  liftShort(pushes, R.minBlock);
+  for (let i = 0; i < pairs; i++) plan.push(b('push', pushes[i]), b('rest', rests[i]));
   return plan;
 }
 
@@ -166,6 +184,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (kit/rhythm): the pushes' mean (s), the rests' whole breaths; absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class OgienSim {
@@ -280,7 +300,7 @@ export class OgienSim {
     this.talk = new Talk(LINES, init.rng);
     this.finaleSec = finaleFor(init.plannedSec);
     this.bestBefore = bestFor(init.progress, init.plannedSec);
-    this.plan = planBlocks(init.plannedSec, init.progress.sessions === 0, init.rng);
+    this.plan = planBlocks(init.plannedSec, init.progress.sessions === 0, init.rng, init.rhythm);
   }
 
   // ── the blocks, read by the view and the runner ──
@@ -296,7 +316,12 @@ export class OgienSim {
   get task(): TaskKind { return RUNGS[this.rung].task; }
   /** the ladder index (round × 7 + fire) */
   get ladder(): number { return this.cycle * RULES.rungs + this.rung; }
-  get breath(): { k: number; in: boolean } { return breathAt(this.restBlock ? this.blockT - 1 : this.t); }
+  /** the flame's breath: a rest's from its start (whole breaths, round 15), the session's gentle one elsewhere */
+  get breath(): { k: number; in: boolean } { return breathAt(this.restBlock ? this.blockT : this.t); }
+  /** the rest's breath for the guide (kit/breath: 4 in, 6 out from the rest's start), null outside a rest */
+  get breathNow(): BreathState | null { return this.restBlock ? kitBreathAt(BREATH_DEFAULT, this.blockT) : null; }
+  /** the rest's whole breaths (the guide's "oddech n z m") */
+  get breaths(): number { return this.restBlock ? Math.max(1, Math.round(this.block.dur / BREATH_SEC)) : 0; }
   /** the runner's banner, a telegraph, a card or the change on screen: no bubble now */
   get talkBlocked(): boolean {
     if (!this.started || this.card || this.changing > 0 || this.t < this.quietUntil) return true;

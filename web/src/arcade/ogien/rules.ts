@@ -112,9 +112,18 @@ export const RULES = {
   openSec: 11,
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * push (the fire is kindled): nominal length ± jitter (s) — 40 ± 6 by design since round 15 (26 ± 4 with 22 s rests
+   * made the rest nearly half the session, one every ~48 s); the player sets the mean 20–120 s in the lobby, the jitter
+   * scales with it.  No push under minBlock.
+   */
+  push: [40, 6],
+  /**
+   * a rest (calm banks light, the flame breathes): whole breaths of `breathIn` + `breathOut` — 2 by design (20 s), the
+   * player sets 1–4 in the lobby; a session too short for its pushes gives back breaths, down to one
+   */
+  restBreaths: 2,
+  restBreathsDial: { min: 1, max: 4 },
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: the guide waits it out */
