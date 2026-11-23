@@ -33,6 +33,7 @@ import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
@@ -177,13 +178,13 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s
- * in 3, 6 s in a 40 s test); then Wołanie / Nocna straż pairs (24 ± 4 s and 23 ± 3 s, scaled to
- * end on time, jittered only when there is room) ending with a night, leaving the last 6 s to the
- * finale.  No block under 12 s.  Rounds: two pairs each (the last takes a lone pair left over);
- * a round ends with its last night (`roundEnd`).
+ * in 3, 6 s in a 40 s test); then Wołanie / Nocna straż pairs (45 ± 7 s and 20 ± 3 s, or the
+ * player's rhythm with the jitter scaled to it; scaled to end on time, jittered only when there is
+ * room) ending with a night, leaving the last 6 s to the finale.  No block under 12 s.  Rounds: two
+ * pairs each (the last takes a lone pair left over); a round ends with its last night (`roundEnd`).
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false, roundEnd: false });
   let plan: Block[];
   if (plannedSec <= 60) {
@@ -247,6 +248,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Wołanie, s of Nocna straż); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 const CELL = 1;
@@ -325,6 +328,8 @@ export class PasterzSim {
   flareR = 0;
   compassT = 0;
   private voiceBlock = 0;
+  /** the voices this call allows (RULES.voiceMax for every voicePer s of it) */
+  private voiceCap: number = RULES.voiceMax;
   private nextVoice = 0;
   private lastHold = 0;
   night = 0;
@@ -388,7 +393,7 @@ export class PasterzSim {
     this.session = p.sessions + 1;
     this.callsBase = p.calls;
     this.firstHill = p.hill;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
     this.talk = new Talk(LINES, mulberry32((Math.floor(init.rng() * 2 ** 32) ^ 0x2545f491) >>> 0));
     this.gw = Math.ceil(RULES.mapW / CELL);
     this.gh = Math.ceil(RULES.mapH / CELL);
@@ -717,7 +722,7 @@ export class PasterzSim {
     this.trace.push(this.t, f, phase, this.blind);
     if (f.hold < this.lastHold - 0.5) this.nextVoice = this.voiceHold;
     this.lastHold = f.hold;
-    if (live && !this.frozen && f.hold >= this.nextVoice && this.voiceBlock < R.voiceMax) {
+    if (live && !this.frozen && f.hold >= this.nextVoice && this.voiceBlock < this.voiceCap) {
       this.voiceBlock++;
       this.nextVoice = f.hold + R.voiceAgain;
       this.voice();
@@ -825,6 +830,7 @@ export class PasterzSim {
       this.callsBegun++;
       b.blind = this.session >= RULES.blindFrom && !first && (this.callsBase + this.callsBegun) % RULES.blindEvery === 0;
       this.voiceBlock = 0;
+      this.voiceCap = Math.max(RULES.voiceMax, Math.floor((b.dur / RULES.voicePer) * RULES.voiceMax));
       this.nextVoice = this.voiceHold;
       this.talk.ask(b.blind ? 'blind' : 'push', 2, 9);
       if (!b.blind && !this.taught('ring')) this.queueHint('ring');

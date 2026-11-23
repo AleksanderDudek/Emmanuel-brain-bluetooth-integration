@@ -22,6 +22,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer, hits } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PasterzSound } from './audio';
 import { hand, t, unit, type HandKey } from './i18n';
@@ -58,6 +59,7 @@ class PasterzGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<PasterzProgress>) {
     this.sim = new PasterzSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new PasterzView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new PasterzSound(env.audio);
@@ -351,5 +353,7 @@ const mod: ArcadeModule<PasterzProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto,
+  // the rest's rhythm in the lobby: seconds of Wołanie before the night falls, and of Nocna straż
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

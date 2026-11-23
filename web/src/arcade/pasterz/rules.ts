@@ -102,10 +102,14 @@ export const RULES = {
   leadIn: { fnirs: 5, eeg: 2 },
 
   // ── Głos (the voice across the hill) ─────────────────────────
-  /** a held focus this long (s) sends the voice; again after `voiceAgain` more seconds; at most `voiceMax` a block */
+  /**
+   * a held focus this long (s) sends the voice; again after `voiceAgain` more seconds; at most `voiceMax` for every
+   * `voicePer` s of a call (2 in a 24 s call, 3 in the designed 45 s one, more in a longer call the player set)
+   */
   voiceHold: { fnirs: 5, eeg: 3 },
   voiceAgain: 10,
   voiceMax: 2,
+  voicePer: 24,
   /** every loose sheep this close (m) hears it; the lost lamb's compass shows this long (s) */
   voiceR: 15,
   compassSec: 7,
@@ -140,8 +144,11 @@ export const RULES = {
   hundred: 100,
 
   // ── Nocna straż (rest) ───────────────────────────────────────
-  /** stars: d(stars)/dt = gain × calm after the lead-in (s), Mendi / HALO; at most `max` */
-  starGain: 0.75,
+  /**
+   * stars: d(stars)/dt = gain × calm after the lead-in (s), Mendi / HALO; at most `max`.  0.9 (was 0.75 in a 23 s
+   * night): the designed 20 s night still holds the old night's stars — a calm watch reaches the third lamb (10)
+   */
+  starGain: 0.9,
   starMax: 12,
   starLead: { fnirs: 4, eeg: 2 },
   /** each rival's flock grows by this many stragglers in a night */
@@ -154,9 +161,15 @@ export const RULES = {
   graceLambs: 1,
 
   // ── the session ──────────────────────────────────────────────
-  /** Wołanie and Nocna straż: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
-  rest: [23, 3],
+  /**
+   * Wołanie and Nocna straż: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): a 45 s call — time to cross the hill, gather a group, send the voice three times, take on a rival
+   * — then a 20 s night by the fire, in which a calm watch still earns the third morning lamb (10 stars, starGain);
+   * the night under a third of the session (24 / 23 s made it nearly half, every 25 s).  The player sets both in the
+   * lobby (kit/rhythm.ts: whole 5 s steps); the jitter scales with them.
+   */
+  push: [45, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   finale: 6,

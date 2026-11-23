@@ -37,7 +37,10 @@ const pl = {
   'tip.watch.1': 'Rozluźnij czoło i patrz w ogień.',
   'tip.watch.2': 'Oddychaj powoli: wdech na cztery, wydech na sześć.',
   'tip.watch.3': 'Odpuść. Stado śpi, a Ty czuwasz spokojnie.',
-  'tip.watch.4': 'Policz cztery spokojne oddechy, potem zacznij od nowa.',
+  'tip.watch.4': 'Wydychaj dłużej, niż wdychasz, jak dym znad ogniska.',
+  'rhythm.focus': 'Wołanie',
+  'rhythm.rest': 'Nocna straż',
+  'rhythm.note': 'Po każdym wołaniu zapada noc: czuwasz przy ogniu, a gwiazdy to poranne jagnięta',
 
   // how to play and the coach marks
   'how.goal': 'Zbierz największe stado na wzgórzu i przynieś zagubioną owcę.',
@@ -248,7 +251,10 @@ const en: Cat = {
   'tip.watch.1': 'Relax your forehead and watch the fire.',
   'tip.watch.2': 'Breathe slowly: in for four, out for six.',
   'tip.watch.3': 'Let go. The flock sleeps while you keep a quiet watch.',
-  'tip.watch.4': 'Count four slow breaths, then start again.',
+  'tip.watch.4': 'Breathe out longer than you breathe in, like smoke rising from the fire.',
+  'rhythm.focus': 'Calling',
+  'rhythm.rest': 'Night watch',
+  'rhythm.note': 'After each call night falls: you keep watch by the fire, and the stars are the morning\'s lambs',
 
   'how.goal': 'Gather the biggest flock on the hill and carry the lost sheep home.',
   'how.drag': 'Drag anywhere — the shepherd walks that way',
@@ -445,7 +451,10 @@ const de: Cat = {
   'tip.watch.1': 'Entspann die Stirn und schau ins Feuer.',
   'tip.watch.2': 'Atme langsam: vier ein, sechs aus.',
   'tip.watch.3': 'Lass los. Die Herde schläft, und du wachst ruhig.',
-  'tip.watch.4': 'Zähl vier ruhige Atemzüge, dann fang von vorn an.',
+  'tip.watch.4': 'Atme länger aus als ein, wie Rauch, der vom Feuer aufsteigt.',
+  'rhythm.focus': 'Rufen',
+  'rhythm.rest': 'Nachtwache',
+  'rhythm.note': 'Nach jedem Rufen fällt die Nacht: Du wachst am Feuer, und die Sterne sind die Lämmer des Morgens',
 
   'how.goal': 'Sammle die größte Herde auf dem Hügel und trag das verlorene Schaf heim.',
   'how.drag': 'Zieh irgendwo – der Hirte geht in diese Richtung',
@@ -642,7 +651,10 @@ const sv: Cat = {
   'tip.watch.1': 'Slappna av i pannan och titta in i elden.',
   'tip.watch.2': 'Andas långsamt: in på fyra, ut på sex.',
   'tip.watch.3': 'Släpp taget. Hjorden sover och du vakar i lugn.',
-  'tip.watch.4': 'Räkna fyra lugna andetag och börja sedan om.',
+  'tip.watch.4': 'Andas ut längre än du andas in, som rök som stiger från elden.',
+  'rhythm.focus': 'Lockrop',
+  'rhythm.rest': 'Nattvakt',
+  'rhythm.note': 'Efter varje lockrop faller natten: du vakar vid elden, och stjärnorna är morgonens lamm',
 
   'how.goal': 'Samla den största hjorden på kullen och bär hem det förlorade fåret.',
   'how.drag': 'Dra var som helst – herden går åt det hållet',

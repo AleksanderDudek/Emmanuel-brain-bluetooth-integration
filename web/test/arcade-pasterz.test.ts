@@ -115,16 +115,61 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer Wołanie, shorter nights, the jitter scaled; a long call sends more voices', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const call = plan.filter(b => b.kind === 'call'), watch = plan.filter(b => b.kind === 'watch');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(call) / mean(watch)).toBeGreaterThan(4);
+      expect(mean(call)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - RULES.finale, 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+      expect(plan.at(-1)!.roundEnd).toBe(true);
+    }
+    // no rhythm: the designed one, the nights a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'watch').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: at either extreme a 10-minute session plays its rounds to the end and gathers
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new PasterzSim({
+        progress: { ...freshProgress(), sessions: 5, calls: 1, taught: TAUGHT }, rng: mulberry32(7), day: DAY, daySeed: 4242, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const calls = sim.plan.filter(b => b.kind === 'call');
+      const m = calls.reduce((s, b) => s + b.dur, 0) / calls.length;
+      expect(m).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(m).toBeLessThan(rhythm.focus * 1.25);
+      let voices = 0, nextTap = 0.65;
+      // the coarsest step the sim takes (0.1 s), a focus held from the call's start (its seconds grow with the block)
+      const DT = 0.1;
+      for (let i = 1; i <= Math.round((600 + RULES.settle) / DT); i++) {
+        const t = i * DT;
+        if (t >= nextTap) { nextTap += 0.65; sim.whistle(); }
+        sim.update(DT, sim.block?.kind === 'watch' ? CALM : frame({ level: 0.9, activity: 5, focused: true, hold: sim.blockT, calm: 0.05 }), t);
+        voices += ofType(sim.take(), 'voice').length;
+      }
+      expect(sim.phase).toBe('done');
+      expect(sim.roundsDone).toBe(sim.roundsPlanned);
+      expect(sim.score).toBeGreaterThan(10);
+      // a 2-minute call has room for more than two voices
+      if (rhythm.focus > 60) expect(voices).toBeGreaterThan(2 * calls.length);
+    }
+  });
+
   it('makes rounds of about two minutes: two days and two nights each', () => {
     const plan = planBlocks(600, false, mulberry32(3));
     const rounds = plan.filter(b => b.roundEnd).length;
-    expect(rounds).toBeGreaterThanOrEqual(5);
-    let len = 0;
+    expect(rounds).toBeGreaterThanOrEqual(4);
+    let len = 0, n = 0;
     for (const b of plan) {
       len += b.dur;
       if (b.roundEnd) {
-        expect(len).toBeGreaterThan(80);
-        expect(len).toBeLessThan(160);
+        n++;
+        expect(len).toBeGreaterThan(100);
+        // (the last round takes a lone pair left over: three pairs)
+        expect(len).toBeLessThan(n === rounds ? 250 : 180);
         len = 0;
       }
     }
@@ -1130,16 +1175,19 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan[plan.length - 1].kind, name).toBe('watch');
         expect(plan[plan.length - 1].roundEnd, name).toBe(true);
         let len = 0, rounds = 0;
+        const last = plan.filter(b => b.roundEnd).length;
         for (const b of plan) {
           len += b.dur;
           if (!b.roundEnd) continue;
           rounds++;
-          expect(len, name).toBeGreaterThan(80);
-          expect(len, name).toBeLessThan(160);
+          expect(len, name).toBeGreaterThan(100);
+          // (the last round takes a lone pair left over: three pairs)
+          expect(len, name).toBeLessThan(rounds === last ? 250 : 180);
           len = 0;
         }
         expect(rounds, name).toBe(Math.floor(play.length / 4));
-        expect(rounds, name).toBeGreaterThanOrEqual(Math.floor(planned / 100));
+        // a round of two 67 s pairs: about one every 2¼ minutes
+        expect(rounds, name).toBeGreaterThanOrEqual(Math.floor(planned / 140));
       }
     }
   });
@@ -1168,7 +1216,7 @@ describe('long sessions (15–30 minutes)', () => {
     expect(finales).toBe(1);
     expect(rounds).toBe(sim.roundsPlanned);
     expect(sim.roundsDone).toBe(sim.roundsPlanned);
-    expect(sim.roundsPlanned).toBeGreaterThanOrEqual(17);
+    expect(sim.roundsPlanned).toBeGreaterThanOrEqual(12);
     // it keeps giving to the end: hills come round again, the last ten minutes still gather
     expect(sim.score).toBeGreaterThan(scoreAt20 * 1.2);
     expect(sim.p.hill).toBe(sim.roundsPlanned);

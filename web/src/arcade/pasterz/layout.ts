@@ -69,6 +69,8 @@ export interface Layout {
 
 /** The runner's block banner under the HUD (a phone's brief one: two lines), which the tally card keeps under. */
 export const BANNER_ROOM = 106;
+/** The band the runner's breath pacer takes under the HUD in a rest (src/arcade/pacer.ts: a 66–76 px pill 10 px below it), and a gap. */
+export const PACER_ROOM = 86;
 
 /** The ranking's rows: the header (the pasture, its clock) and one row per shepherd shown (at u = 1). */
 export const RANK_HEAD = 24;
@@ -100,7 +102,8 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS, kind: Scre
   const rw = Math.round((tall ? 152 : 164) * u);
   const rank: Rect = { x: right - m - rw, y: top + 6, w: rw, h: Math.round((RANK_HEAD + 4 * RANK_ROW + 6) * u) };
   const sw = Math.min(right - left - 32, 420 * u);
-  const stars: Rect = { x: (left + right - sw) / 2, y: top + 10 * u, w: sw, h: 30 * u };
+  // (the stars show only at night, a rest: the runner's breath pacer stands at the top centre then, so they go under it)
+  const stars: Rect = { x: (left + right - sw) / 2, y: top + PACER_ROOM + 4 * u, w: sw, h: 30 * u };
 
   // ── the field and the camera ─────────────────────────────────────
   const field = { top: top + 6, bottom: whistle.hit.y - 6 };
