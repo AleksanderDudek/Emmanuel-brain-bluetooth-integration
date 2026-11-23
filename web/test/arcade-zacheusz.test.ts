@@ -101,13 +101,52 @@ describe('Zacheusz: the blocks', () => {
     }
   });
 
-  it('alternate push and rest, 20–30 s each in a 5-minute session', () => {
+  it('alternate push and rest in a 5-minute session: about 40 s of the road, 20 s of the orchard', () => {
     const plan = planBlocks(300, false, mulberry32(9));
     plan.forEach((b, i) => {
       expect(b.kind).toBe(i % 2 ? 'rest' : 'push');
-      expect(b.dur).toBeGreaterThan(17);
-      expect(b.dur).toBeLessThan(31);
+      if (b.kind === 'push') {
+        expect(b.dur).toBeGreaterThan(30);
+        expect(b.dur).toBeLessThan(50);
+      } else {
+        expect(b.dur).toBeGreaterThan(15);
+        expect(b.dur).toBeLessThan(25);
+      }
     });
+  });
+
+  it('follows the rhythm the player set in the lobby: a longer road, a shorter orchard, the jitter scaled; the orchard fits the rest', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned, 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the orchard a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm; orchards still open in short and long rests, and the denarii still grow
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new ZacheuszSim({
+        progress: { ...freshProgress(), sessions: 5, giftDay: DAY, opened: true, pushes: 1, taught: ['tap', 'hold', 'goose', 'pause', 'wall', 'awning', 'back', 'dash', 'bubble', 'special', 'road', 'orchard'] },
+        rng: mulberry32(7), day: DAY, daySeed: 4242, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const push = sim.plan.filter(b => b.kind === 'push');
+      const mean = push.reduce((s, b) => s + b.dur, 0) / push.length;
+      expect(mean).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(mean).toBeLessThan(rhythm.focus * 1.25);
+      const hand = smokeHand(sim);
+      const evs = drive(sim, 600, () => (sim.block.kind === 'rest' ? CALM : FOCUSED), { t: sim.t }, hand);
+      expect(ofType(evs, 'orchard').length).toBeGreaterThan(rhythm.rest > 20 ? 4 : 1);
+      expect(sim.headline().value).toBeGreaterThan(50);
+      expect(sim.canStop()).toBe(true);
+    }
   });
 
   it('every 4th push is blind from the 3rd session', () => {
@@ -142,7 +181,7 @@ describe('Zacheusz: the blocks', () => {
 
   it('an unreliable signal gives no verdict and freezes the road', () => {
     const sim = later();
-    const evs = drive(sim, 26, LOST);
+    const evs = drive(sim, sim.block.dur + 1, LOST);
     expect(ofType(evs, 'plank').length).toBe(0);
     const end = ofType(evs, 'blockEnd')[0];
     expect(end.verdict).toBeNull();

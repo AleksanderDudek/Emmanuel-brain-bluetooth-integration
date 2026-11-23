@@ -75,6 +75,8 @@ export class ZacheuszView {
   private cheer = 0;
   private toss = 0;
   private slotPop = 0;
+  /** the level strip's opacity: it steps aside in a rest, where the runner's breath pacer takes its top-centre slot */
+  private stripA = 1;
   private btnPress = 0;
   private banner: { text: string; t: number; color: string } | null = null;
   private melaX = 0;
@@ -294,6 +296,8 @@ export class ZacheuszView {
     this.cheer = Math.max(0, this.cheer - dt * 0.7);
     this.toss = Math.max(0, this.toss - dt * 2.5);
     this.slotPop = Math.max(0, this.slotPop - dt * 2);
+    // (the level's code and its specials stay in the score card's line meanwhile)
+    this.stripA = sim.restBlock ? Math.max(0, this.stripA - dt * 2.5) : Math.min(1, this.stripA + dt * 2.5);
     this.btnPress = Math.max(0, this.btnPress - dt * 4);
     this.roadFlash = Math.max(0, this.roadFlash - dt * 1.5);
     this.squash = Math.max(0, this.squash - dt * 5);
@@ -726,7 +730,12 @@ export class ZacheuszView {
     const L = this.L;
     const got = sim.world.specials.map(s => s.taken);
     while (got.length < RULES.specials) got.push(false);
-    drawStrip(ctx, L, sim.levelIndex, sim.tier, got, this.slotPop, this.clock);
+    if (this.stripA > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = this.stripA;
+      drawStrip(ctx, L, sim.levelIndex, sim.tier, got, this.slotPop, this.clock);
+      ctx.restore();
+    }
     if (this.levelT < 2.6 && sim.stage === 'run') drawLevelCard(ctx, L, sim.levelIndex, sim.tier, this.levelReplay, this.levelT / 2.6);
     // the bubble button: lit while it can rewind, dim otherwise, hidden under a card
     const card = sim.stage === 'tally' || sim.stage === 'story';

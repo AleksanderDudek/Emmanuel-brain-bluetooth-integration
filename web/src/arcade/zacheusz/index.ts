@@ -18,6 +18,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZacheuszSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -25,7 +26,7 @@ import { bestOf, freshProgress, migrate, type ZacheuszProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { ZacheuszView } from './render';
-import { ZacheuszSim, type SimEvent, type Teach } from './sim';
+import { RULES, ZacheuszSim, type SimEvent, type Teach } from './sim';
 
 /** The coach marks that name the keys and the mouse on a desktop (a finger's words on a phone). */
 const KEYED: ReadonlySet<Teach> = new Set<Teach>(['tap', 'hold', 'button', 'pause', 'wall', 'dash', 'bubble']);
@@ -42,6 +43,7 @@ class ZacheuszGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<ZacheuszProgress>) {
     this.sim = new ZacheuszSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new ZacheuszView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new ZacheuszSound(env.audio);
@@ -206,5 +208,7 @@ const mod: ArcadeModule<ZacheuszProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t0, p) => drawPreview(ctx, w, h, t0, p ? migrate(p) : undefined),
   howto,
+  // the rest's rhythm in the lobby: seconds of the road of light before the fig orchard, and of the orchard
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('fx.road'), rest: t('fx.orchard') }, t('rhythm.note')),
 };
 export default mod;

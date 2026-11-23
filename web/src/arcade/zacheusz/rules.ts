@@ -161,8 +161,15 @@ export const RULES = {
   revealMax: 18,
 
   // ── the session ──────────────────────────────────────────────
-  push: [24, 4],
-  rest: [22, 3],
+  /**
+   * push (Wypatrywanie: the road of light) and rest (Cień sykomory: the fig orchard): nominal length ± jitter (s).
+   * The designed rhythm (round 15, DESIGN §19.2): 40 s on the look-out — long enough for the road to grow far over
+   * the roofs and carry him along it — then a 20 s walk through the orchard, its figs ripe by the end of it; rest a
+   * third of the session, where 24 / 22 s made it nearly half.  The player sets both in the lobby (kit/rhythm.ts);
+   * the jitter scales with them, and the orchard is cut to the rest's length.
+   */
+  push: [40, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 22 in 3, 8 in a 40 s test */

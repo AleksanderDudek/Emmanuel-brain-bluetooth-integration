@@ -28,6 +28,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -106,17 +107,19 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of the road of light, s of the orchard); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 const NO_EVENTS: readonly SimEvent[] = [];
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 22 s in
- * 3, 8 s in a 40 s test); then push / rest pairs (24 ± 4 s and 22 ± 3 s, scaled to end on time,
- * jittered only when there is room).  No block under 12 s.
+ * 3, 8 s in a 40 s test); then push / rest pairs (40 ± 7 s and 20 ± 3 s, or the player's rhythm with
+ * the jitter scaled to it; scaled to end on time, jittered only when there is room).  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
     const left = Math.max(2 * R.minBlock, plannedSec);
@@ -278,7 +281,7 @@ export class ZacheuszSim {
     this.session = this.p.sessions + 1;
     this.firstEver = this.p.sessions === 0;
     this.pushesBase = this.p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.judge = RoundJudge.from(init.tuning);
     this.talk = new Companion(init.rng);
     this.bestBefore = bestFor(this.p, init.plannedSec);
