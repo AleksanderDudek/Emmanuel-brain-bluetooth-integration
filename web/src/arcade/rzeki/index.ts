@@ -17,17 +17,18 @@
  * intro.ts and preview.ts on scene.ts), the sound (audio.ts) and the quiet chorale (hymn.ts on kit/song.ts), the
  * lobby's card (panel.ts); the words in i18n.ts.
  */
-import { BREATH_DEFAULT, breathOk, type BreathPattern } from '../kit/breath';
+import { BREATH_DEFAULT, breathCycle, breathOk, type BreathPattern } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { RzekiSound } from './audio';
 import { buildHymn } from './hymn';
 import { breathWords, dropsText, t, unit } from './i18n';
 import { RzekiIntro } from './intro';
-import { bestOf, breathOf, freshProgress, migrate, type RzekiProgress } from './meta';
+import { autoBreaths, bestOf, breathOf, freshProgress, migrate, type RzekiProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { RzekiView } from './render';
@@ -58,7 +59,9 @@ class RzekiGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<RzekiProgress>) {
     seen(migrate(env.progress));
-    this.sim = new RzekiSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new RzekiSim({
+      progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm,
+    });
     this.view = new RzekiView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new RzekiSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -241,6 +244,23 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): after how many centres lit a rest comes (1 by design —
+ * the founder's "po każdej uzupełnionej sferze"; up to RULES.restAfterMax) and how many whole breaths of the player's
+ * own pattern it lasts (by design the breaths nearest RULES.restTarget s: 4 · 6 → 2 breaths, 20 s).
+ */
+export function rzekiRhythm(p?: RzekiProgress): RhythmSpec {
+  const pr = p ? migrate(p) : freshProgress();
+  const cyc = breathCycle(breathOf(pr));
+  return {
+    focus: { def: RULES.restAfter, min: 1, max: RULES.restAfterMax, step: 1, name: t('rhythm.after'), format: n => t('rhythm.stations', { n }) },
+    rest: breathDial(autoBreaths(pr), t('rhythm.rest'), cyc, { min: 1, max: RULES.restBreathsMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n * RULES.stationSec,
+    restSec: n => n * cyc,
+  };
+}
+
 /** How to play, for the hand the player has: taps on a phone; a click, Space and Enter on a desktop; the rest's breath as set. */
 export function howto(touch = coarsePointer(), breath: BreathPattern | null = knownBreath): HowTo {
   return {
@@ -264,5 +284,8 @@ const mod: ArcadeModule<RzekiProgress> = {
   progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => rzekiRhythm(p),
+  // the breath guide is the game's own (hud.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

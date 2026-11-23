@@ -53,13 +53,22 @@ export const RULES = {
 
   // ── rest (abiding) ───────────────────────────────────────────
   /**
-   * The rest after each station is whole breaths of the player's pattern (kit/breath.ts, the lobby's card): by
-   * default the number nearest `restTarget` seconds and enough for `restMin` (4 · 6: 3 breaths, 30 s; the box 4·4·4·4:
-   * 2 breaths, 32 s); the player may set 1…`restBreathsMax` breaths instead.
+   * The rest is whole breaths of the player's pattern (kit/breath.ts, the lobby's card): by design the number nearest
+   * `restTarget` seconds and enough for `restMin` (4 · 6: 2 breaths, 20 s; the box 4·4·4·4: 1 breath, 16 s); the
+   * lobby's Rytm sets 1…`restBreathsMax` breaths instead (kit/rhythm.ts).  Round 15 (the founder: "dlaczego jest tak
+   * często?"): 20 s, not 26 — after a station of some 30–40 s a rest is about a third of the session, not a half.
    */
-  restTarget: 26,
+  restTarget: 20,
   restMin: 12,
   restBreathsMax: 12,
+  /**
+   * A rest comes after this many stations lit (the founder's word of 2026-11-17: after every one); the lobby's Rytm
+   * sets 1…`restAfterMax` — the light then flows on from a full station to the next within the same push.
+   */
+  restAfter: 1,
+  restAfterMax: 4,
+  /** about how long a station takes, lead-in and flow included (s), for the lobby's count of rests a session */
+  stationSec: 40,
   /** abiding counts while calm is at least this (reliable signal, in a rest block) */
   abideCalm: 0.5,
 

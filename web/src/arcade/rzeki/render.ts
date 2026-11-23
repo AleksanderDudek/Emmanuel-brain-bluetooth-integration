@@ -23,7 +23,7 @@ import {
   CHANNELS, CHEST, MEDALLION_R, MOON, SACRUM_PTS, SHELL, SPIRAL, SUN, VOID, along, enterPaths, finger, footShapes, handPoint, handShapes,
   palmCentre, shapePath, shellPt, soleAt, spiralPts, stationPts, streamPaths, type P, type Shell,
 } from './figure';
-import { drawCaption, drawPrayer, drawStory, dropFloat } from './hud';
+import { drawCaption, drawPrayer, drawStory, dropFloat, restDeskH } from './hud';
 import { t } from './i18n';
 import { MIN_READ } from '../kit/mobile';
 import { drawStrip, drawStripName, stripHit, type StripGeom, type StripState } from './strip';
@@ -520,9 +520,9 @@ export class RzekiView {
     // the words: the narrator in its own column (or in the band's top row on a phone held upright), the prayer;
     // on a desktop they stand level with the station the light is at
     const k = sim.story ? 0 : this.captionK;
-    const Lw = this.wordsLayout(sim);
+    const Lw = this.wordsLayout(sim, ctx);
     if (L.shape !== 'tall') drawCaption(ctx, Lw, this.lastCaption, k);
-    drawPrayer(ctx, Lw, sim, this.lastDt, { text: this.lastCaption, k });
+    drawPrayer(ctx, Lw, sim, this.lastDt, { text: this.lastCaption, k }, this.o.reducedMotion);
     this.storyRect = drawStory(ctx, L, sim, !!this.mouse && this.overStory(this.mouse.x, this.mouse.y));
   }
 
@@ -613,11 +613,14 @@ export class RzekiView {
 
   /**
    * A desk layout's words, standing level with the station the light is at, gliding with the stream to the next
-   * (eased); with the whole figure in light, at the chest.  Reduced motion keeps them still at the chest.
+   * (eased); with the whole figure in light, at the chest.  Reduced motion keeps them still at the chest.  In rest
+   * the column is taller (the breath guide over the verse, hud.ts `restDeskH`): it is kept whole inside the play.
    */
-  private wordsLayout(sim: RzekiSim): Layout {
-    const L = this.L;
-    if (!L.desk || this.o.reducedMotion) return L;
+  private wordsLayout(sim: RzekiSim, ctx: CanvasRenderingContext2D): Layout {
+    const L0 = this.L;
+    if (!L0.desk) return L0;
+    const L = sim.restBlock && !sim.story ? { ...L0, prayer: { ...L0.prayer, h: Math.max(L0.prayer.h, restDeskH(ctx, L0, sim)) } } : L0;
+    if (this.o.reducedMotion) return L === L0 ? L0 : wordsAt(L, L0.prayer.y + labelRowH(L) / 2);
     let target = this.sp(L.fig.cx, sim.stage === 'whole' ? L.fig.top + L.fig.H * 0.3 : this.streamY(sim)).y;
     // the runner's banner covers the top of the play in a block's first seconds: the words wait under it
     if (sim.phase === 'play' && (sim.pushBlock || sim.restBlock) && sim.blockT < RULES.bannerSec) {

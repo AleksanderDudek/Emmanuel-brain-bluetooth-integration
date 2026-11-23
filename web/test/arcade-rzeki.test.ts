@@ -9,7 +9,7 @@ import {
   startOf, stationsLit, stepBreathOf, tierOf, timesLit, type RzekiProgress,
 } from '../src/arcade/rzeki/meta';
 import { RULES, focusRate, readTime } from '../src/arcade/rzeki/rules';
-import { LIT_DOWN, LIT_UP, RzekiSim, pageTime, riverFullFor, secText, warmFor, type SimEvent } from '../src/arcade/rzeki/sim';
+import { LIT_DOWN, LIT_UP, RzekiSim, finaleFor, pageTime, riverFullFor, secText, warmFor, type SimEvent } from '../src/arcade/rzeki/sim';
 import { BREATH_DEFAULT, BREATH_PRESETS, breathCycle, type BreathPattern } from '../src/arcade/kit/breath';
 import { progressPanel } from '../src/arcade/rzeki/panel';
 import { stripGeom } from '../src/arcade/rzeki/strip';
@@ -21,7 +21,8 @@ import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
-import { coachText, howto } from '../src/arcade/rzeki/index';
+import { coachText, howto, rzekiRhythm } from '../src/arcade/rzeki/index';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 import {
   CAM_MAX, FRAMES, cameraFor, easeCam, figPt, framingOf, labelRowH, layout, litR, storyRect, tapTargets, toScreen, windowR, wordsAt, type Layout,
 } from '../src/arcade/rzeki/layout';
@@ -48,12 +49,12 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['s.open', 's.news', 'c.tap', 'c.light', 'c.petals', 'c.breath', 'c.drops', 'c.blind', 'c.strip', ...STATIONS.map(s => `g.${s}`)];
 
-type SimOpts = { progress?: Partial<RzekiProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<RzekiProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } | null };
 
 function makeSim(o: SimOpts = {}): RzekiSim {
   const sim = new RzekiSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
-    tuning: o.tuning ?? TUNING,
+    tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -403,7 +404,7 @@ describe('the founder’s fill rule: light only from real concentration, and slo
     expect(first.score).toBeGreaterThan(0);                // the warm-up's drops: the smoke scores at once
   });
 
-  it('paces a 10-minute session at about 8–10 stations at the threshold, ~33 s of focus a station (three seeds)', () => {
+  it('paces a 10-minute session at about 9–11 stations at the threshold, ~33 s of focus a station (three seeds)', () => {
     const pace = (level: number, seed: number) => {
       const sim = later({ planned: 600, seed });
       let load = 0;
@@ -412,8 +413,9 @@ describe('the founder’s fill rule: light only from real concentration, and slo
     };
     const at = [1, 2, 3].map(s => pace(0.5, s)), high = [1, 2, 3].map(s => pace(0.75, s));
     for (const r of at) {
-      expect(r.lit).toBeGreaterThanOrEqual(8);
-      expect(r.lit).toBeLessThanOrEqual(10);
+      // a station of ~40 s (its lead-in, the flow, ~33 s of light) and a rest of 20 s (round 15: it was 30 s, 8–10)
+      expect(r.lit).toBeGreaterThanOrEqual(9);
+      expect(r.lit).toBeLessThanOrEqual(11);
       expect(r.per).toBeGreaterThan(30);
       expect(r.per).toBeLessThan(36);
       // a rest after every station, and each push one station long (its lead-in, the flow, ~33 s of light)
@@ -427,7 +429,7 @@ describe('the founder’s fill rule: light only from real concentration, and slo
     }
   });
 
-  it('with the kit’s own focus input: no rise in push, no light (the valve rests it); a moderate rise lights 8–10 stations in 10 minutes', () => {
+  it('with the kit’s own focus input: no rise in push, no light (the valve rests it); a moderate rise lights 9–12 stations in 10 minutes', () => {
     /** a player whose activity rises by `amp` % in the push blocks (with the haemodynamic lag), with noise and Mayer waves */
     const player = (amp: number, seed: number) => {
       const sim = later({ planned: 600, seed });
@@ -446,8 +448,8 @@ describe('the founder’s fill rule: light only from real concentration, and slo
       expect(none.lit).toBe(0);
       expect(none.valves).toBeGreaterThanOrEqual(4);          // never stuck in a push: a rest of whole breaths every ~60 s
       const mid = player(2, seed);
-      expect(mid.lit).toBeGreaterThanOrEqual(8);
-      expect(mid.lit).toBeLessThanOrEqual(10);
+      expect(mid.lit).toBeGreaterThanOrEqual(9);
+      expect(mid.lit).toBeLessThanOrEqual(12);
       expect(mid.valves).toBe(0);
       expect(player(4, seed).lit).toBeGreaterThan(mid.lit);
     }
@@ -488,14 +490,14 @@ describe('the blocks go by the light: a rest after every station (round 11)', ()
       if (!order[i].startsWith('full:')) continue;
       expect(order.slice(i + 1, i + 4), order[i]).toEqual(['start:rest', 'start:push', expect.stringMatching(/^flow:/)]);
     }
-    // every rest came after a station (no valve), and was whole breaths of the default 4 · 6
+    // every rest came after a station (no valve), and was whole breaths of the default 4 · 6: 2, 20 s (round 15)
     const rests = sim.blocks.filter(b => b.kind === 'rest');
     expect(rests.length).toBe(fulls.length);
     for (const r of rests) {
       expect(r.why).toBe('full');
-      expect(r.cycles).toBe(3);
-      expect(r.dur).toBe(30);
-      if (r.len > 0) expect(r.len).toBeCloseTo(30, 1);
+      expect(r.cycles).toBe(2);
+      expect(r.dur).toBe(20);
+      if (r.len > 0) expect(r.len).toBeCloseTo(20, 1);
     }
     // nothing loads in a rest: the station stays full and the next waits
     expect(ofType(evs, 'petal').every(e => e.n >= 1)).toBe(true);
@@ -503,10 +505,10 @@ describe('the blocks go by the light: a rest after every station (round 11)', ()
 
   it('makes each rest whole breaths of the saved pattern — holds and a phase of 0 s too — beginning with its first phase', () => {
     const cases: [BreathPattern, number, number][] = [
-      [BREATH_DEFAULT, 3, 30],                                  // 4 · 6: 3 breaths, 30 s
-      [BREATH_PRESETS.box, 2, 32],                              // 4 · 4 · 4 · 4: 2 breaths, 32 s
+      [BREATH_DEFAULT, 2, 20],                                  // 4 · 6: 2 breaths, 20 s (the nearest 20 s, round 15)
+      [BREATH_PRESETS.box, 1, 16],                              // 4 · 4 · 4 · 4: 1 breath, 16 s
       [BREATH_PRESETS.relax, 1, 19],                            // 4 · 7 · 8: 1 breath (19 s ≥ 12)
-      [{ in: 0, holdIn: 3, out: 5, holdOut: 2 }, 3, 30],        // no in-breath: it begins with the hold
+      [{ in: 0, holdIn: 3, out: 5, holdOut: 2 }, 2, 20],        // no in-breath: it begins with the hold
       [{ in: 15, holdIn: 15, out: 15, holdOut: 15 }, 1, 60],    // the longest
     ];
     for (const [pattern, cycles, sec] of cases) {
@@ -533,17 +535,17 @@ describe('the blocks go by the light: a rest after every station (round 11)', ()
     }
   });
 
-  it('takes the player’s own count of breaths for a rest, or the auto count nearest 26 s', () => {
+  it('takes the player’s own count of breaths for a rest, or the auto count nearest 20 s', () => {
     const p = freshProgress();
-    expect(restOf(p)).toEqual({ cycles: 3, sec: 30 });
-    expect(autoBreaths(p)).toBe(3);
+    expect(restOf(p)).toEqual({ cycles: 2, sec: 20 });
+    expect(autoBreaths(p)).toBe(2);
     setRestBreaths(p, 5);
     expect(restOf(p)).toEqual({ cycles: 5, sec: 50 });
     setRestBreaths(p, 40);
     expect(p.restBreaths).toBe(RULES.restBreathsMax);
     setRestBreaths(p, 0);
     setBreath(p, BREATH_PRESETS.box);
-    expect(restOf(p)).toEqual({ cycles: 2, sec: 32 });
+    expect(restOf(p)).toEqual({ cycles: 1, sec: 16 });
     const sim = later({ progress: { restBreaths: 2, map: 'seven' } });
     until(sim, () => sim.restBlock, steady(0.9));
     expect(sim.block).toMatchObject({ cycles: 2, dur: 20 });
@@ -575,7 +577,7 @@ describe('the blocks go by the light: a rest after every station (round 11)', ()
     expect(gathered).toBeGreaterThan(0.1);
     const evs = until(sim, () => sim.restBlock, NONE, clock);
     expect(ofType(evs, 'valve')).toHaveLength(1);
-    expect(sim.block).toMatchObject({ kind: 'rest', why: 'valve', cycles: 3 });
+    expect(sim.block).toMatchObject({ kind: 'rest', why: 'valve', cycles: 2 });
     expect(sim.now).toBe('valve');
     expect(sim.fill).toBe(gathered);
     expect(sim.blocks.at(-2)).toMatchObject({ kind: 'push', why: 'valve' });
@@ -829,7 +831,7 @@ describe('the light and the signal', () => {
     const s0 = sim.score;
     const evs = drive(sim, 12, CALM, clock, reader(sim));
     expect(ofType(evs, 'breathTurn').map(e => e.phase)).toEqual(['out', 'in']);
-    expect(sim.breath).toMatchObject({ cycle: 2, cycles: 3 });
+    expect(sim.breath).toMatchObject({ cycle: 2, cycles: 2 });
     expect(breathCycle(sim.pattern)).toBe(10);
     expect(sim.light).toBeCloseTo(RULES.restLight, 1);
     expect(sim.score - s0).toBeGreaterThan(12);
@@ -872,7 +874,7 @@ describe('the session', () => {
     const coach = ofType(evs, 'coach').map(e => e.what);
     for (const c of ['tap', 'light', 'petals', 'breath', 'strip'] as const) expect(coach).toContain(c);
     // a coach mark names the player's breath and the map's count; each stays long enough to read twice
-    expect(sim.coachWords('breath', true)).toMatch(/3\u00a0oddechy .*wdech 4\u00a0s, wydech 6\u00a0s/);
+    expect(sim.coachWords('breath', true)).toMatch(/2\u00a0oddechy .*wdech 4\u00a0s, wydech 6\u00a0s/);
     expect(sim.coachWords('strip', true)).toMatch(/17 centrów/);
     for (const w of ['tap', 'light', 'petals', 'breath', 'drops', 'blind', 'strip'] as const) {
       const text = sim.coachWords(w, true);
@@ -1340,15 +1342,17 @@ describe('the breath in the progress (v3) and the lobby’s card (round 11)', ()
     expect(setBreath(p, { in: 0, holdIn: 0, out: 0, holdOut: 0 })).toBe(false);
   });
 
-  it('draws the breath card: the presets, four steppers of ≥ 44 px, the breaths in a rest and the live line', () => {
+  it('draws the breath card: the presets, four steppers of ≥ 44 px, one breath’s length and where the rest’s rhythm is set', () => {
     const p = freshProgress();
     let saves = 0;
     const root = progressPanel(p, () => { saves++; });
     const text = () => root.textContent ?? '';
     expect(text()).toContain('Oddech w odpoczynku');
     for (const name of ['Wdech', 'Zatrzymanie (po wdechu)', 'Wydech', 'Bezdech (po wydechu)']) expect(text()).toContain(name);
-    expect(text()).toContain('Odpoczynek: 3 oddechy · 30 s');
-    expect(text()).toContain('auto · 3');
+    expect(text()).toContain('Jeden oddech: 10 s');
+    // the breaths in a rest moved to the lobby's Rytm row (round 15): no stepper of its own here
+    expect(text()).toContain('w wierszu „Rytm”');
+    expect(text()).not.toContain('auto');
     const btn = (label: string) => [...root.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === label || b.textContent === label) as HTMLButtonElement;
     for (const b of root.querySelectorAll('button')) {
       if (b.textContent === '−' || b.textContent === '+') {
@@ -1362,12 +1366,7 @@ describe('the breath in the progress (v3) and the lobby’s card (round 11)', ()
     expect(text()).toContain('Jeden oddech: 11 s');
     btn('4 · 4 · 4 · 4 kwadrat').click();
     expect(p.breath).toEqual(BREATH_PRESETS.box);
-    expect(text()).toContain('Odpoczynek: 2 oddechy · 32 s');
-    btn('Oddechów w odpoczynku: więcej').click();
-    expect(p.restBreaths).toBe(3);
-    expect(text()).toContain('Odpoczynek: 3 oddechy · 48 s');
-    btn('auto').click();
-    expect(p.restBreaths).toBe(0);
+    expect(text()).toContain('Jeden oddech: 16 s');
     // a step that would leave a breath under 2 s is refused, with a short message
     setBreath(p, { in: 1, holdIn: 0, out: 1, holdOut: 0 });
     const root2 = progressPanel(p, () => undefined);
@@ -1499,5 +1498,122 @@ describe('long sessions (15–30 minutes)', () => {
     expect(sim.placesNow).toBe(0);
     expect(sim.valvesNow).toBeGreaterThanOrEqual(Math.floor(1800 / (RULES.valveStall + 40)));
     for (const b of sim.blocks.filter(x => x.kind === 'push')) expect(b.len).toBeLessThanOrEqual(RULES.valveSec + 0.5);
+  });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers two dials in the game’s words: a rest after 1–4 centres (1 by design), 1–12 whole breaths of the player’s own pattern', () => {
+    const spec = rzekiRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: 1, min: 1, max: RULES.restAfterMax, step: 1, name: 'Odpoczynek po' });
+    expect([1, 2, 3].map(n => spec.focus.format(n))).toEqual(['1\u00a0centrum', '2\u00a0centrach', '3\u00a0centrach']);
+    expect(spec.rest).toMatchObject({ def: 2, min: 1, max: RULES.restBreathsMax, name: 'Odpoczynek' });
+    expect(spec.rest.format(2)).toBe('2\u00a0oddechy · 20\u00a0s');
+    expect(spec.restSec!(3)).toBe(30);
+    expect(spec.focusSec!(2)).toBe(2 * RULES.stationSec);
+    expect(spec.note).toBeTruthy();
+    // the player's breath sets the seconds and the design's count: the box (16 s) → 1 breath
+    const box = { ...freshProgress(), breath: { ...BREATH_PRESETS.box } };
+    const bs = rzekiRhythm(box);
+    expect(bs.rest.def).toBe(1);
+    expect(bs.rest.format(2)).toBe('2\u00a0oddechy · 32\u00a0s');
+    expect(bs.restSec!(2)).toBe(32);
+    // no progress yet (a fresh lobby): the default pattern; the lobby counts rests: 10 min ≈ 10 rests, a third of it
+    const plain = rzekiRhythm();
+    const r = rhythmOf(plain, undefined)!;
+    expect(r).toEqual({ focus: 1, rest: 2, custom: false });
+    const count = restsIn(plain, r, 600)!;
+    expect(count.rests).toBe(10);
+    expect(count.share).toBeCloseTo(1 / 3, 2);
+    expect(rhythmOf(plain, { focus: 9, rest: 0 })).toEqual({ focus: RULES.restAfterMax, rest: 1, custom: true });
+  });
+
+  it('a rest after 2 centres: the light flows on within the push past the first, rests after every second (and at a way’s end)', () => {
+    const sim = later({ planned: 900, progress: { map: 'seven', sessions: 1 }, rhythm: { focus: 2, rest: 3 } });
+    const evs = drive(sim, 500, steady(0.7), { t: 0 }, reader(sim));
+    const order = evs.filter(e => e.type === 'full' || e.type === 'blockStart').map(e => (e.type === 'full' ? 'full' : `start:${e.block.kind}`));
+    // after the first push: full, full, rest, push, full, full, rest …
+    const seq = order.join(' ');
+    expect(seq).toContain('full full start:rest start:push full full start:rest');
+    const rests = sim.blocks.filter(b => b.kind === 'rest');
+    expect(rests.length).toBeGreaterThanOrEqual(3);
+    for (const r of rests) expect([r.cycles, r.dur]).toEqual([3, 30]);
+    // a push lit two stations (a station's light flowed on to the next inside it)
+    expect(ofType(evs, 'flow').length).toBeGreaterThan(rests.length);
+    expect(sim.placesNow).toBeGreaterThanOrEqual(2 * rests.length - 1);
+  });
+
+  it('announces the rest only at the station that ends the push', () => {
+    const sim = later({ planned: 900, progress: { map: 'seven', sessions: 1 }, rhythm: { focus: 3, rest: 1 } });
+    const clock = { t: 0 };
+    const fulls: number[] = [];
+    let tele = -1;
+    for (let i = 0; i < 20000 && !sim.restBlock; i++) {
+      for (const e of drive(sim, 0.05, steady(0.7), clock, reader(sim))) {
+        if (e.type === 'full') fulls.push(clock.t);
+        if (e.type === 'telegraph' && e.next === 'rest' && tele < 0) tele = clock.t;
+      }
+    }
+    expect(fulls).toHaveLength(3);
+    // announced while the third station loaded, not at the first or the second
+    expect(tele).toBeGreaterThan(fulls[1]);
+    expect(tele).toBeLessThanOrEqual(fulls[2]);
+    expect(sim.block).toMatchObject({ kind: 'rest', cycles: 1, dur: 10 });
+  });
+
+  it('always rests at a way’s last station and after a blind push, whatever the rhythm', () => {
+    // the seven map has 9 stations: with a rest after 4, pushes of 4, 4 and the last one
+    const sim = later({ planned: 1200, progress: { map: 'seven', sessions: 1 }, rhythm: { focus: 4, rest: 1 } });
+    const evs = drive(sim, 600, steady(0.8), { t: 0 }, reader(sim));
+    const perPush: number[] = [];
+    let n = 0;
+    for (const e of evs) {
+      if (e.type === 'full') n++;
+      if (e.type === 'blockStart' && e.block.kind === 'rest') { perPush.push(n); n = 0; }
+    }
+    expect(perPush.slice(0, 3)).toEqual([4, 4, 1]);
+    expect(ofType(evs, 'whole').length).toBeGreaterThanOrEqual(1);
+    // a blind push (every fourth push from the third session on; here the second) is one station, its light shown
+    // at its end, then a rest
+    const blind = later({ planned: 1200, progress: { map: 'seven', sessions: 4, pushes: 2 }, rhythm: { focus: 3, rest: 1 } });
+    const bev = drive(blind, 200, steady(0.8), { t: 0 }, reader(blind));
+    const starts = bev.filter(e => e.type === 'blockStart');
+    const bi = starts.findIndex(e => e.type === 'blockStart' && e.block.kind === 'push' && e.block.blind);
+    expect(bi).toBeGreaterThan(0);
+    expect(starts[bi + 1]).toMatchObject({ block: { kind: 'rest' } });
+    expect(ofType(bev, 'blindEnd')).toHaveLength(1);
+    const from = bev.indexOf(starts[bi]), to = bev.indexOf(starts[bi + 2]);
+    expect(ofType(bev.slice(from, to > 0 ? to : undefined), 'full')).toHaveLength(1);
+  });
+
+  it('plays 3, 10 and 30 minutes to the end with the design and with the dials at their extremes', () => {
+    for (const rhythm of [null, { focus: 1, rest: 1 }, { focus: RULES.restAfterMax, rest: RULES.restBreathsMax }, { focus: 2, rest: 4 }]) {
+      for (const planned of [180, 600, 1800]) {
+        const sim = later({ planned, seed: 4, rhythm, progress: { map: 'all' } });
+        const clock = { t: 0 };
+        let finale = -1;
+        for (let i = 0; i < (planned + 5) / STEP; i++) {
+          clock.t += STEP;
+          sim.update(STEP, steady(0.55)(clock.t, sim), clock.t);
+          reader(sim)();
+          for (const e of sim.take()) if (e.type === 'finale') finale = clock.t;
+        }
+        const tag = `${planned} s ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(finale, tag).toBeGreaterThan(planned - finaleFor(planned) - 0.5);
+        const blocks = sim.blocks;
+        blocks.forEach((b, i) => { if (i) expect(b.kind, tag).not.toBe(blocks[i - 1].kind); });
+        const want = rhythm ? rhythm.rest : 2;
+        for (const b of blocks.filter(x => x.kind === 'rest')) expect([b.cycles, b.dur], tag).toEqual([want, want * 10]);
+        for (const b of blocks.filter(x => x.kind === 'push')) expect(b.len, tag).toBeLessThanOrEqual(RULES.valveSec * (rhythm?.focus ?? 1) + 1);
+        expect(sim.placesNow, tag).toBeGreaterThan(0);
+        // the rests' share follows the rhythm: about a third by design, more with 12 breaths after each station
+        if (planned >= 600) {
+          const restSec = blocks.filter(x => x.kind === 'rest').reduce((a, b) => a + (b.len || b.dur), 0);
+          const share = restSec / planned;
+          if (!rhythm) expect(share, tag).toBeGreaterThan(0.2);
+          if (!rhythm) expect(share, tag).toBeLessThan(0.42);
+        }
+      }
+    }
   });
 });

@@ -9,11 +9,13 @@
  *   a reliable signal, focused)            (rules.ts `focusRate`); the push has no fixed length: it ends when the
  *                                          station is full
  *   a rest after every station             whole breaths of the player's pattern (kit/breath.ts: in, hold, out,
- *   (abiding)                              hold empty, 0–15 s each; 4 · 6 by default), beginning with its first
- *                                          phase and ending at a breath's end; the lit stations shine, drops of
- *                                          living water gather with calm; nothing loads; then the light flows on
- *   the safety valve                       a push that cannot finish (60 s without any light gained, or 150 s in
- *                                          all) gives way to a rest of whole breaths; the station keeps its light
+ *   (abiding; the lobby's Rytm: after      hold empty, 0–15 s each; 4 · 6 by default), beginning with its first
+ *   1–4 stations, 1–12 breaths)            phase and ending at a breath's end; the lit stations shine, drops of
+ *                                          living water gather with calm; nothing loads; then the light flows on.
+ *                                          With a rest after 2 or more, the light flows on within the push; a way's
+ *                                          last station and a blind push always end in a rest
+ *   the safety valve                       a push that cannot finish (60 s without any light gained, or 150 s at
+ *                                          one station) gives way to a rest of whole breaths; the station keeps its light
  *   the hands (a tap anywhere, Space)      stay with the station: its prayer returns, a ring of light, a glass
  *                                          tone — never light
  *   a blind push ("w ciemności")           the light loads unseen by the same rule; the push still ends when the
@@ -27,7 +29,7 @@
  * light loads, in rest with calm.  An unreliable signal freezes everything — nothing is lost, nothing advances.
  */
 import { fmtNum } from '../../i18n';
-import { breathAt, breathCycle, type BreathPattern, type BreathPhase, type BreathState } from '../kit/breath';
+import { breathAt, breathCycle, breathRestOf, type BreathPattern, type BreathPhase, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp, ease } from '../kit/juice';
 import { inTurn, passage, type PassageId } from '../kit/scripture';
@@ -140,6 +142,11 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `rzekiRhythm`): after how many stations lit a rest
+   * comes, and how many whole breaths it lasts; absent: one station, the breaths nearest RULES.restTarget s.
+   */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 /** The lit bits of a station this round: 1 lit going down, 2 thanked going up. */
@@ -165,6 +172,10 @@ export class RzekiSim {
   readonly resumed: boolean;
   /** the rest's breath (the lobby's card; read once a session) */
   readonly pattern: BreathPattern;
+  /** a rest comes after this many stations lit in one push (the lobby's Rytm; 1 by design) */
+  readonly restAfter: number;
+  /** each rest of this session: whole breaths of the pattern (the lobby's Rytm, or the breaths nearest restTarget s) */
+  readonly restLen: { cycles: number; sec: number };
   private readonly judge: RoundJudge;
   private readonly lead: number;
   private readonly finaleSec: number;
@@ -189,6 +200,9 @@ export class RzekiSim {
   private pushesBegun = 0;
   /** a push: seconds since its light last grew (the safety valve) */
   stallT = 0;
+  /** a push: the stations it lit so far, and the seconds since it began or last lit one (the safety valve) */
+  litInPush = 0;
+  stationT = 0;
   // the way
   leg = 0;
   dir: Dir = 'down';
@@ -277,6 +291,8 @@ export class RzekiSim {
     this.way = this.p.way;
     this.own = cleanOwn(this.p.own);
     this.pattern = breathOf(this.p);
+    this.restAfter = Math.max(1, Math.min(RULES.restAfterMax, Math.round(init.rhythm?.focus ?? RULES.restAfter)));
+    this.restLen = init.rhythm ? breathRestOf(this.pattern, Math.min(RULES.restBreathsMax, init.rhythm.rest)) : restOf(this.p);
     this.legList = legs(this.way);
     const st = startOf(this.p);
     this.leg = st.leg;
@@ -502,8 +518,10 @@ export class RzekiSim {
         if (this.fill >= 1 - 1e-9 && this.reveal.t < 0) this.complete();
         break;
       case 'hold':
-        // the last station of a way: a moment in its light, then the whole figure (the rest abides in it)
+        // the last station of a way: a moment in its light, then the whole figure (the rest abides in it); a push
+        // that goes on past a station (the player's rhythm: a rest after 2 or more) flows on to the next one
         if (this.stageT >= RULES.holdSec && this.idx >= this.route.length - 1) this.wholeWay();
+        else if (this.stageT >= RULES.holdSec && this.pushBlock) this.flowOn();
         break;
       case 'flow':
         this.preGrow(rate * dt);
@@ -635,7 +653,21 @@ export class RzekiSim {
       this.emit({ type: 'tier', station: s, tier });
       this.talk.ask('tier', 2, 6);
     } else if (this.idx < this.route.length - 1 && this.rng() < 0.35) this.talk.ask('full', 1, 4);
-    if (this.pushBlock) this.endPush('full');
+    if (this.pushBlock) {
+      this.litInPush++;
+      this.stationT = 0;
+      // the rest comes after the stations the rhythm asks for, at a way's end, after a blind push (its light shown)
+      if (this.restDue(0)) this.endPush('full');
+    }
+  }
+
+  /**
+   * Does the push end in a rest once its current station is full (`ahead` 1: asked while it still loads)?  After
+   * `restAfter` stations lit in it, at the last station of a way (the whole figure abides in the rest), and always
+   * after a blind push (its hidden light is shown at its end).
+   */
+  private restDue(ahead: 0 | 1): boolean {
+    return this.block.blind || this.litInPush + ahead >= this.restAfter || this.idx >= this.route.length - 1;
   }
 
   /** The stream flows on to the next station (the next push has begun: its lead-in covers the flow). */
@@ -807,11 +839,13 @@ export class RzekiSim {
     }
     if (b.kind === 'push') {
       this.stallT += dt;
-      // the safety valve: no light gained for a long while, or a long push whose station is not nearly full
+      this.stationT += dt;
+      // the safety valve: no light gained for a long while, or a long time at a station that is not nearly full
       const nearly = this.stage === 'at' && this.fill + (b.blind ? this.hidden : 0) >= R.telegraphFill;
-      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.blockT);
-      // the rest comes soon: the station nearly full (a sighted push: a blind one would tell its hidden light)
-      const soon = !b.blind && this.stage === 'at' && this.reveal.t < 0
+      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.stationT);
+      // the rest comes soon: the station that ends the push nearly full (a sighted push: a blind one would tell its
+      // hidden light)
+      const soon = !b.blind && this.stage === 'at' && this.reveal.t < 0 && this.restDue(1)
         && (this.fill >= R.telegraphFill || tilesOpen(this.station, this.fill) >= tileTotal(this.station) - 1);
       this.telegraph(toFinale, soon ? 0 : valveIn, 'rest');
       if (valveIn <= 0) this.valve();
@@ -852,7 +886,7 @@ export class RzekiSim {
 
   /** Open the next block. */
   private open(kind: BlockKind, why: BlockWhy | null = null): void {
-    const rest = kind === 'rest' ? restOf(this.p) : null;
+    const rest = kind === 'rest' ? this.restLen : null;
     const b: Block = {
       kind, dur: kind === 'warmup' ? warmFor(this.plannedSec) : rest ? rest.sec : Infinity, blind: false, cycles: rest?.cycles ?? 0, why, len: 0,
     };
@@ -863,6 +897,8 @@ export class RzekiSim {
     this.telegraphed = false;
     this.nextKind = null;
     this.stallT = 0;
+    this.litInPush = 0;
+    this.stationT = 0;
     this.judge.reset();
     this.goodSaid = false;
     this.noSigSaid = false;
@@ -987,7 +1023,7 @@ export class RzekiSim {
   /** A coach mark's words (some name the player's breath and the map). */
   coachWords(what: Coach, touch: boolean): string {
     if (what === 'tap') return t(touch ? 'coach.tap' : 'coach.tap.keys');
-    if (what === 'breath') return t('coach.breath', { breaths: t('breaths', { n: restOf(this.p).cycles }), breath: this.breathText });
+    if (what === 'breath') return t('coach.breath', { breaths: t('breaths', { n: this.restLen.cycles }), breath: this.breathText });
     if (what === 'strip') return t('coach.strip', { n: this.mapSize });
     return t(`coach.${what}` as Key);
   }

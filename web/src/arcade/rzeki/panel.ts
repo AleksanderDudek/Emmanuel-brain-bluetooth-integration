@@ -11,9 +11,9 @@
  *   the way       down, up, or down and then up (a radio row; saved at once)
  *   the breath    the rest's breath (round 11, the founder's word): four steppers — Wdech, Zatrzymanie (po
  *                 wdechu), Wydech, Bezdech (po wydechu) — each −/+ from 0 to 15 s, the presets as one-tap chips
- *                 (4 · 6 spokojny, 5 · 5 równy, 4 · 4 · 4 · 4 kwadrat, 4 · 7 · 8 wyciszenie), the breaths in a rest
- *                 (auto, or 1…12) and a live line ("Odpoczynek: 3 oddechy · 30 s"); a breath under 2 s is refused
- *                 with a short message
+ *                 (4 · 6 spokojny, 5 · 5 równy, 4 · 4 · 4 · 4 kwadrat, 4 · 7 · 8 wyciszenie) and a live line ("Jeden
+ *                 oddech: 10 s"); a breath under 2 s is refused with a short message.  How many breaths a rest lasts,
+ *                 and after how many centres it comes, is the lobby's Rytm row (round 15, kit/rhythm.ts)
  *   own words     the player's own words of prayer (≤ 120 characters), shown at every station instead of the
  *                 prayer; kept only in this device's progress, set as text, never as markup
  *   the chorale   the quiet chorale's switch
@@ -30,7 +30,7 @@ import {
 } from './content';
 import { t, type Key } from './i18n';
 import {
-  autoBreaths, bestOf, breathOf, clearStart, restOf, setBreath, setMap, setOwn, setRestBreaths, setStart, setWay, startOf, stationsLit, stepBreathOf, tierOf,
+  bestOf, breathOf, clearStart, setBreath, setMap, setOwn, setStart, setWay, startOf, stationsLit, stepBreathOf, tierOf,
   timesLit, type RzekiProgress,
 } from './meta';
 import { bakeRose } from './paint';
@@ -94,8 +94,9 @@ export function progressPanel(p: RzekiProgress, save: () => void): HTMLElement {
 }
 
 /**
- * The rest's breath: the presets as chips, four steppers (each phase 0…15 s), the breaths in a rest (auto or
- * 1…12) and the live line of what a rest will be.  A step that would leave a breath under 2 s is refused, and says why.
+ * The rest's breath: the presets as chips, four steppers (each phase 0…15 s) and one breath's length (how many
+ * breaths a rest lasts is the lobby's Rytm row since round 15).  A step that would leave a breath under 2 s is
+ * refused, and says why.
  */
 function breathCard(p: RzekiProgress, changed: () => void, note: string, refuse: (msg: string) => void): HTMLElement[] {
   const out: HTMLElement[] = [];
@@ -119,17 +120,9 @@ function breathCard(p: RzekiProgress, changed: () => void, note: string, refuse:
       h('span', { class: 'grow' }, name), less, h('output', { 'aria-live': 'polite' }, t('secs', { n: b[ph] })), more));
   }
   if (note) out.push(h('p', { class: 'task-feedback bad', role: 'alert' }, note));
-  // the breaths in a rest: auto (the nearest to 26 s) or the player's own count
-  const auto = p.restBreaths <= 0, n = auto ? autoBreaths(p) : p.restBreaths;
-  const setN = (v: number) => () => { setRestBreaths(p, Math.max(1, Math.min(RULES.restBreathsMax, v))); changed(); };
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.restBreaths')),
-    h('div', { class: 'row', role: 'group', 'aria-label': t('panel.restBreaths') },
-      big(button('−', setN(n - 1), 'btn', { 'aria-label': t('panel.less', { what: t('panel.restBreaths') }), disabled: n <= 1 ? '' : null })),
-      h('output', { 'aria-live': 'polite' }, auto ? t('panel.auto', { n }) : String(n)),
-      big(button('+', setN(n + 1), 'btn', { 'aria-label': t('panel.more', { what: t('panel.restBreaths') }), disabled: n >= RULES.restBreathsMax ? '' : null })),
-      big(button(t('panel.autoBtn'), () => { setRestBreaths(p, 0); changed(); }, auto ? 'btn on' : 'btn', { 'aria-pressed': String(auto) }))));
-  const rest = restOf(p);
-  out.push(h('p', null, `${t('panel.restLine', { breaths: t('breaths', { n: rest.cycles }), sec: secText(rest.sec) })} · ${t('panel.cycle', { sec: secText(breathCycle(b)) })}`));
+  // one breath's length; how many breaths a rest lasts, and after how many centres it comes, is the lobby's Rytm row
+  // (kit/rhythm.ts, round 15) — one place for the rest's rhythm in every game
+  out.push(h('p', null, t('panel.cycle', { sec: secText(breathCycle(b)) })), h('p', { class: 'muted' }, t('panel.restRhythm')));
   return out;
 }
 

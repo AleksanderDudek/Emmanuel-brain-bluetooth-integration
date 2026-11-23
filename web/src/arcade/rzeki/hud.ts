@@ -3,13 +3,15 @@
  * the coach marks): the prayer band — the station's name as the maps give it ("Serce · Anahata (4)"), one short
  * line of what to do now (an icon and a few words: "Skup się na świecącym centrum", "Odpocznij — oddychaj z
  * postacią"; it changes only when the action changes) and the station's line in a calm serif, the words coming one
- * by one as the light arrives, glowing again when a tap stays with it; in rest the breath's guide (the phase of
- * the player's pattern, its seconds counting down, "oddech 2 z 3") and the station's verse to abide in; while the
+ * by one as the light arrives, glowing again when a tap stays with it; in rest the kit's big breath guide on top
+ * (kit/breathguide.ts, round 15: the lungs' disc, the phase in a word ≥ 20 px with its seconds, "oddech 2 z 3")
+ * and the station's verse to abide in under it; while the
  * stream flows, the gift of the station just lit — the narrator's caption, and the story cards (the opening's two
  * pages, what is new for a player of an earlier version, the closing cards of a way).  Every text is fitted with a
  * floor (never under 11 px; what the player reads, 13 px and more; the prayer 15 px and more), and always drawn in
  * screen space.
  */
+import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout, type PassageId } from '../kit/scripture';
@@ -106,11 +108,16 @@ let rowEase = 0;
  * own.  The row, a gilded rule and the line (or, in rest, the breath and the verse) are centred as one group.
  * The words of a new line come one by one as the light arrives; a tap makes the line glow again.
  */
-export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number, caption: { text: string; k: number }): void {
+export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number, caption: { text: string; k: number }, still = false): void {
   const r = L.prayer;
   if (!sim.started || sim.story) return;
+  if (sim.restBlock) {
+    if (L.desk) drawRestDesk(ctx, L, sim, dt, still);
+    else drawRestBand(ctx, L, sim, dt, caption, still);
+    return;
+  }
   if (L.desk) {
-    drawPrayerDesk(ctx, L, sim, dt);
+    drawPrayerDesk(ctx, L, sim);
     return;
   }
   // a soft dark veil behind the words, never a hard box
@@ -138,7 +145,6 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   const inBand = L.shape === 'tall';
   const cpx = Math.max(MIN_READ, L.font.caption);
   const clines = inBand && caption.text ? captionLines(ctx, caption.text, r.w, cpx) : [];
-  const rest = sim.restBlock && sim.stage !== 'whole';
   const text = sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextStation ? lineAt(sim.nextStation, sim.dir, sim.own) : sim.line;
   // the row: the label, or the narrator's line
   const lab = fitLabel(ctx, sim, r.w, Math.max(MIN_READ, L.font.label));
@@ -148,7 +154,7 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   // The prayer is never cut for the narrator: over a prayer of three lines on the smallest phone the narrator's
   // two lines and the prayer both set a little tighter, and when even that would not fit the narrator waits.
   let tight = false, capOk = clines.length > 0;
-  if (capOk && !rest) {
+  if (capOk) {
     ctx.font = font(L.font.prayerMin, 500, true, true);
     const need = wrap(ctx, text, r.w).length;
     const fits = (lead: number, capLead: number) => Math.round(cpx * capLead) * clines.length + nowH + need * Math.round(L.font.prayerMin * lead) <= r.h;
@@ -161,19 +167,13 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   rowEase += (want - rowEase) * Math.min(1, dt * 6);
   const capLH = Math.round(cpx * (tight ? 1.2 : 1.35)), capH = capLH * Math.max(1, clines.length);
   const rowH = labH + (Math.max(labH, capH) - labH) * ease.inOutSine(clamp(rowEase));
-  // the group's height: the row, the line of what to do now, and what follows (the line wrapped, or the rest's
-  // breath and verse)
-  const areaH = r.h - rowH - nowH;
-  let bodyH = areaH;
-  let wr: Wrapped | null = null;
-  if (!rest) {
-    // the lines the prayer may take: counted for the row it is going to (never fewer while the narrator eases in)
-    const lead = tight && rowEase > 0.01 ? 1.2 : 1.34;
-    const budget = r.h - (want ? Math.max(labH, capH) : labH) - nowH;
-    const maxLines = Math.max(2, Math.min(5, Math.floor(budget / Math.round(L.font.prayerMin * lead))));
-    wr = wrapPrayer(ctx, text, r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, false, lead);
-    bodyH = Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u));
-  }
+  // the group's height: the row, the line of what to do now, and the line wrapped
+  // the lines the prayer may take: counted for the row it is going to (never fewer while the narrator eases in)
+  const lead = tight && rowEase > 0.01 ? 1.2 : 1.34;
+  const budget = r.h - (want ? Math.max(labH, capH) : labH) - nowH;
+  const maxLines = Math.max(2, Math.min(5, Math.floor(budget / Math.round(L.font.prayerMin * lead))));
+  const wr = wrapPrayer(ctx, text, r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, false, lead);
+  const bodyH = Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u));
   const y0 = r.y + Math.max(0, (r.h - (rowH + nowH + bodyH)) / 2);
   const rowMid = y0 + rowH / 2;
   ctx.textAlign = 'center';
@@ -181,35 +181,169 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   // one after the other, never both at once: the label fades out in the first half, the narrator in the second
   if (rowEase < 0.5) {
     ctx.globalAlpha = 1 - rowEase * 2;
-    if (rest) drawBreathRow(ctx, L, sim, cx, rowMid);
-    else {
-      ctx.font = font(lpx, 700);
-      ctx.fillStyle = lab.color;
-      ctx.fillText(lab.text, cx, rowMid);
-    }
+    ctx.font = font(lpx, 700);
+    ctx.fillStyle = lab.color;
+    ctx.fillText(lab.text, cx, rowMid);
   }
   if (rowEase > 0.5 && clines.length) {
     ctx.globalAlpha = (rowEase * 2 - 1) * clamp(caption.k);
-    ctx.font = font(cpx, 600);
-    const lh = capLH;
-    let y = rowMid - ((clines.length - 1) * lh) / 2;
-    for (const line of clines) {
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = INK;
-      ctx.strokeText(line, cx, y);
-      ctx.fillStyle = 'rgba(240,236,255,.95)';
-      ctx.fillText(line, cx, y);
-      y += lh;
-    }
+    drawCaptionLines(ctx, clines, cx, rowMid, cpx, capLH);
   }
   ctx.globalAlpha = 1;
   // what to do now, between the row and the line, with gilded rules either side
   drawNow(ctx, L, sim, cx, y0 + rowH + nowH / 2, r.w);
   const by = y0 + rowH + nowH;
-  const box = { x: r.x, y: by, w: r.w, h: rest ? r.y + r.h - by : bodyH };
-  if (rest || !wr) drawAbide(ctx, L, sim, box, dt);
-  else drawLine(ctx, L, sim, box, wr);
+  drawLine(ctx, L, sim, { x: r.x, y: by, w: r.w, h: bodyH }, wr);
+}
+
+/** The narrator's lines (one or two) centred on `y`, in the band. */
+function drawCaptionLines(ctx: CanvasRenderingContext2D, lines: readonly string[], cx: number, y: number, px: number, lh: number): void {
+  ctx.font = font(px, 600);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let yy = y - ((lines.length - 1) * lh) / 2;
+  for (const line of lines) {
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = INK;
+    ctx.strokeText(line, cx, yy);
+    ctx.fillStyle = 'rgba(240,236,255,.95)';
+    ctx.fillText(line, cx, yy);
+    yy += lh;
+  }
+}
+
+// ── rest: the breath guide over the verse ────────────────────────
+
+/** The guide's phase words: Rzeki's own ("Wdech", "Zatrzymanie", "Wydech", "Bezdech"). */
+const guideWords = () => ({ in: phaseWord('in'), holdIn: phaseWord('holdIn'), out: phaseWord('out'), holdOut: phaseWord('holdOut') });
+
+/**
+ * The kit's breath guide for this layout (kit/breathguide.ts), its ring and word beside it (`row`): the kit's radius
+ * for the canvas, kept to under half of a short band (a phone's, ≥ 26 px always), the words fitted to the band's
+ * width; centred on (cx, cy).
+ */
+function guideOpts(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, cx: number, cy: number, w: number, bandH: number, still: boolean): BreathGuideOpts {
+  const b = sim.breath;
+  const kit = breathGuideRadius(L.w, L.h);
+  const pad = (r: number) => Math.max(10, Math.round(r * 0.3));
+  let r = kit;
+  // a short band keeps room for the verse: the guide under half of it
+  while (r > 26 && 2 * r + 1.4 * pad(r) > bandH * 0.46) r--;
+  const o: BreathGuideOpts = {
+    cx, cy, r, layout: 'row', words: guideWords(), sub: t('hud.breathOf', { n: b.cycle, of: b.cycles }),
+    maxW: Math.max(80, w - (2 * r + 2.9 * pad(r))), reducedMotion: still, time: sim.t, scrim: 0.55,
+  };
+  void ctx;
+  return o;
+}
+
+/**
+ * Rest on a phone or a tablet (the band under the figure, or beside it on its side): the breath guide on top, the
+ * line of what to do now under it — on a phone held upright the narrator speaks there instead, one after the other
+ * — and the verse to abide in (the gift, once a way is whole).  Beside the figure the band may reach down to the
+ * play's bottom.  Centred as one group.
+ */
+function drawRestBand(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number, caption: { text: string; k: number }, still: boolean): void {
+  const r0 = L.prayer;
+  const r = L.shape === 'tall' ? r0 : { ...r0, h: Math.max(r0.h, L.bottom - 8 - r0.y) };
+  const cx = r.x + r.w / 2;
+  const go = guideOpts(ctx, L, sim, cx, 0, r.w, r.h, still);
+  const gb = breathGuideBox(ctx, go);
+  const guideH = gb.h, gap = 6;
+  // under the guide: the line of what to do now, or the narrator's (a phone held upright: the band is its place).
+  // The guide's word already says what to do: where the line would not fit the band's width at the reading size,
+  // or would leave the verse under two lines (the smallest phone with the dock), the guide says it alone
+  const inBand = L.shape === 'tall';
+  const cpx = Math.max(MIN_READ, L.font.caption);
+  const clines = inBand && caption.text ? captionLines(ctx, caption.text, r.w, cpx) : [];
+  const want = clines.length && caption.k > 0.01 ? 1 : 0;
+  rowEase += (want - rowEase) * Math.min(1, dt * 6);
+  const nowOk = nowFits(ctx, sim, r.w) && r.h - guideH - gap - nowRowH(L) >= Math.round(MIN_READ * 4.4);
+  const nowH = nowOk ? nowRowH(L) : 0, capLH = Math.round(cpx * 1.3), capH = capLH * Math.max(1, clines.length);
+  const midH = nowH + (Math.max(nowH, capH) - nowH) * ease.inOutSine(clamp(rowEase));
+  const bodyTop = guideH + gap + midH;
+  const room = { x: r.x, y: 0, w: r.w, h: Math.max(0, r.h - bodyTop) };
+  const bodyH = sim.stage === 'whole' ? Math.min(room.h, Math.round(40 * L.u)) : Math.min(room.h, abideHeight(ctx, L, sim.verse, room));
+  const groupH = bodyTop + bodyH;
+  const y0 = r.y + Math.max(0, (r.h - groupH) / 2);
+  // a soft dark veil behind the words, never a hard box
+  veil(ctx, L, { x: r.x, y: y0, w: r.w, h: groupH });
+  drawBreathGuide(ctx, sim.breath, { ...go, cy: y0 + guideH / 2 });
+  const midY = y0 + guideH + gap + midH / 2;
+  if (rowEase < 0.5 && nowOk) {
+    ctx.globalAlpha = 1 - rowEase * 2;
+    drawNow(ctx, L, sim, cx, midY, r.w);
+  }
+  if (rowEase > 0.5 && clines.length) {
+    ctx.globalAlpha = (rowEase * 2 - 1) * clamp(caption.k);
+    drawCaptionLines(ctx, clines, cx, midY, cpx, capLH);
+  }
+  ctx.globalAlpha = 1;
+  const box = { x: r.x, y: y0 + bodyTop, w: r.w, h: Math.max(bodyH, room.h - (y0 - r.y)) };
+  if (sim.stage === 'whole') drawGift(ctx, L, sim.station, { ...box, h: bodyH }, 1);
+  else drawAbide(ctx, L, sim, { ...box, h: room.h }, dt, true);
+}
+
+/** Whether the line of what to do now fits a width at the reading size (its icon, a gap and the words). */
+function nowFits(ctx: CanvasRenderingContext2D, sim: RzekiSim, w: number): boolean {
+  ctx.font = font(MIN_READ, 700);
+  // drawNow's icon (2 × 0.48 px) and gap (0.55 px) beside the words
+  return ctx.measureText(t(`now.${sim.now}` as Key)).width + MIN_READ * 1.51 <= w;
+}
+
+/** The soft dark veil behind a group of words (a band across a phone; an oval beside the figure). */
+function veil(ctx: CanvasRenderingContext2D, L: Layout, g: Rect): void {
+  if (L.shape === 'tall') {
+    const g2 = ctx.createLinearGradient(0, g.y - 14, 0, g.y + g.h + 8);
+    g2.addColorStop(0, 'rgba(6,4,22,0)');
+    g2.addColorStop(0.2, 'rgba(6,4,22,.42)');
+    g2.addColorStop(0.8, 'rgba(6,4,22,.48)');
+    g2.addColorStop(1, 'rgba(6,4,22,0)');
+    ctx.fillStyle = g2;
+    ctx.fillRect(L.left, g.y - 14, L.right - L.left, g.h + 22);
+    return;
+  }
+  ctx.save();
+  ctx.translate(g.x + g.w / 2, g.y + g.h / 2);
+  ctx.scale(g.w / 2 + 50 * L.u, g.h / 2 + 40 * L.u);
+  const rg = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  rg.addColorStop(0, 'rgba(6,4,22,.5)');
+  rg.addColorStop(0.65, 'rgba(6,4,22,.34)');
+  rg.addColorStop(1, 'rgba(6,4,22,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(-1, -1, 2, 2);
+  ctx.restore();
+}
+
+/**
+ * How tall the rest's column is on a desktop (the guide, the line of what to do now, the verse): the view keeps
+ * the column whole inside the play with it (render.ts `wordsLayout`).
+ */
+export function restDeskH(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim): number {
+  const r = L.prayer;
+  const gb = breathGuideBox(ctx, guideOpts(ctx, L, sim, 0, 0, r.w, Infinity, true));
+  const room = { x: r.x, y: 0, w: r.w, h: Math.max(160, Math.round(10 * L.font.verse)) };
+  return Math.ceil(gb.h + 6 + nowRowH(L) + (sim.stage === 'whole' ? Math.round(40 * L.u) : abideHeight(ctx, L, sim.verse, room)));
+}
+
+/**
+ * Rest on a desktop or a big screen: the column beside the figure, from the top down — the breath guide (big: the
+ * kit's radius for the screen), the line of what to do now, the verse to abide in (or the gift) — over a soft veil.
+ */
+function drawRestDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number, still: boolean): void {
+  const r = L.prayer, cx = r.x + r.w / 2;
+  const go = guideOpts(ctx, L, sim, cx, 0, r.w, Infinity, still);
+  const gb = breathGuideBox(ctx, go);
+  const nowH = nowRowH(L), gap = 6;
+  const top = r.y + gb.h + gap + nowH;
+  const room = { x: r.x, y: top, w: r.w, h: Math.max(0, Math.min(L.bottom - 8, r.y + r.h) - top) };
+  const bodyH = sim.stage === 'whole' ? Math.min(room.h, Math.round(40 * L.u)) : Math.min(room.h, abideHeight(ctx, L, sim.verse, room));
+  veil(ctx, L, { x: r.x, y: r.y, w: r.w, h: gb.h + gap + nowH + bodyH });
+  drawBreathGuide(ctx, sim.breath, { ...go, cy: r.y + gb.h / 2 });
+  drawNow(ctx, L, sim, cx, r.y + gb.h + gap + nowH / 2, r.w);
+  if (sim.stage === 'whole') drawGift(ctx, L, sim.station, { ...room, h: bodyH }, 1);
+  else drawAbide(ctx, L, sim, room, dt, true);
 }
 
 /** The height of the band's line of what to do now (its text and a little air). */
@@ -303,27 +437,22 @@ function nowIcon(ctx: CanvasRenderingContext2D, what: NowWhat, x: number, y: num
 
 /**
  * The prayer's column on a desktop or a big screen (DESIGN §14): from the top down — its first row (the station's
- * name, or rest's breath) level with the station, as the view keeps the column there (layout `wordsAt`), a gilded
- * rule, then the line in balanced lines (or, in rest, the verse to abide in) — over a soft veil fitted to them.
+ * name) level with the station, as the view keeps the column there (layout `wordsAt`), a gilded rule, then the line
+ * in balanced lines — over a soft veil fitted to them.  (Rest has its own column: `drawRestDesk`.)
  */
-function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number): void {
+function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim): void {
   const r = L.prayer, cx = r.x + r.w / 2;
   const lab = fitLabel(ctx, sim, r.w, Math.max(MIN_READ, L.font.label));
   const lpx = lab.px;
   const rowH = labelRowH(L);
-  const rest = sim.restBlock && sim.stage !== 'whole';
   const nowH = nowRowH(L);
   const areaH = r.h - rowH - nowH;
   const box = { x: r.x, y: r.y + rowH + nowH, w: r.w, h: r.h - rowH - nowH };
-  let wr: Wrapped | null = null;
-  let bodyH: number;
-  if (!rest) {
-    const maxLines = Math.max(2, Math.min(5, Math.floor(areaH / Math.round(L.font.prayerMin * 1.34))));
-    wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextStation ? lineAt(sim.nextStation, sim.dir, sim.own) : sim.line,
-      r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, true);
-    bodyH = Math.min(box.h, Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u)));
-    box.h = bodyH;
-  } else bodyH = Math.min(box.h, abideHeight(ctx, L, sim.verse, box));
+  const maxLines = Math.max(2, Math.min(5, Math.floor(areaH / Math.round(L.font.prayerMin * 1.34))));
+  const wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextStation ? lineAt(sim.nextStation, sim.dir, sim.own) : sim.line,
+    r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, true);
+  const bodyH = Math.min(box.h, Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u)));
+  box.h = bodyH;
   // a soft dark veil fitted to the words, never a hard box
   const groupH = rowH + nowH + bodyH;
   ctx.save();
@@ -339,16 +468,12 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
   const rowMid = r.y + rowH / 2;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (rest) drawBreathRow(ctx, L, sim, cx, rowMid);
-  else {
-    ctx.font = font(lpx, 700);
-    ctx.fillStyle = lab.color;
-    ctx.fillText(lab.text, cx, rowMid);
-  }
+  ctx.font = font(lpx, 700);
+  ctx.fillStyle = lab.color;
+  ctx.fillText(lab.text, cx, rowMid);
   // what to do now, under the row
   drawNow(ctx, L, sim, cx, r.y + rowH + nowH / 2, r.w);
-  if (rest || !wr) drawAbide(ctx, L, sim, box, dt, true);
-  else drawLine(ctx, L, sim, box, wr);
+  drawLine(ctx, L, sim, box, wr);
 }
 
 /** The station's line (the prayer, the thanks, or the player's words, wrapped by the band), its words arriving one by one. */
@@ -419,50 +544,6 @@ function drawGift(ctx: CanvasRenderingContext2D, L: Layout, station: StationId, 
   ctx.fillStyle = mix(STATION[station].hue, '#ffffff', 0.35);
   ctx.fillText(text, box.x + box.w / 2, y);
   ctx.globalAlpha = 1;
-}
-
-/**
- * Rest's row: the breath guide of the player's pattern — the phase ("Wdech", "Zatrzymanie", "Wydech", "Bezdech"),
- * its seconds counting down, which breath of the rest this is ("oddech 2 z 3") — and a ring beside them that swells
- * in, stays full while the breath is held, settles out and stays small while held out (a hold: still, a soft glow).
- */
-function drawBreathRow(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, cx: number, y: number, w = L.prayer.w): void {
-  const b = sim.breath;
-  const left = Math.max(1, Math.ceil(b.left - 1e-6));
-  const word = `${phaseWord(b.phase)} · ${left}`;
-  const of = t('hud.breathOf', { n: b.cycle, of: b.cycles });
-  const base = Math.max(MIN_READ, Math.round(15 * L.u));
-  const px = fitFont(ctx, `${word}   ${of}`, w - 3 * base, base, MIN_READ, 700);
-  const spx = Math.max(MIN_READ, Math.round(px * 0.86));
-  ctx.font = font(px, 700);
-  const tw = ctx.measureText(word).width;
-  ctx.font = font(spx, 600);
-  const ow = ctx.measureText(of).width;
-  const gap = px * 0.8, total = tw + gap + ow;
-  const x0 = cx - total / 2;
-  const rx = x0 - px * 0.95, rad = px * (0.3 + 0.32 * b.k);
-  const hold = b.phase === 'holdIn' || b.phase === 'holdOut';
-  if (hold) {
-    // a hold: the light stays still, a soft steady glow
-    ctx.fillStyle = 'rgba(201,194,255,.22)';
-    ctx.beginPath();
-    ctx.arc(rx, y, rad * 1.35, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.strokeStyle = 'rgba(201,194,255,.85)';
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.arc(rx, y, rad, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.font = font(px, 700);
-  ctx.fillStyle = LILAC;
-  ctx.fillText(word, x0, y);
-  ctx.font = font(spx, 600);
-  ctx.fillStyle = 'rgba(214,208,255,.72)';
-  ctx.fillText(of, x0 + tw + gap, y);
-  ctx.textAlign = 'center';
 }
 
 /** How long a page of a verse stays when the whole verse does not fit the band (s), and its crossfade. */
