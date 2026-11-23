@@ -27,12 +27,12 @@ const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
 const HIGH = frame({ level: 0.95, activity: 6, focused: true, calm: 0.05 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 
-type SimOpts = { progress?: Partial<AniolProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<AniolProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): AniolSim {
   const sim = new AniolSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -87,6 +87,28 @@ describe('the block plan', () => {
     }
     expect(finaleFor(300)).toBe(RULES.finale.long);
     expect(finaleFor(40)).toBe(RULES.finale.short);
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Czuwanie, shorter Kołysanka, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s lullaby is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0) + finaleFor(planned)).toBeCloseTo(planned, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the lullaby a third of the night or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
   });
 
   it('telegraphs the next block 4 s ahead and ends the blocks with Koszmar', () => {
@@ -1513,17 +1535,18 @@ describe('long sessions (15–30 minutes)', () => {
           expect(b.dur, name).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 2);
         });
         expect(plan[plan.length - 1].kind, name).toBe('rest');
-        expect(play.length / 2, name).toBeGreaterThanOrEqual(Math.floor(planned / 50));
+        // a vigil and a lullaby about every minute: 30 minutes is some 29 pairs
+        expect(play.length / 2, name).toBeGreaterThanOrEqual(Math.floor(planned / 65));
       }
     }
   });
 
   /** A steady player for a whole night: the band high in a vigil and calm in a lullaby, a strike when a Zmora is in reach. */
-  function night(progress: Partial<AniolProgress>, seed: number) {
-    const sim = makeSim({ planned: 1800, progress, seed });
+  function night(progress: Partial<AniolProgress>, seed: number, planned = 1800, rhythm?: { focus: number; rest: number }) {
+    const sim = makeSim({ planned, progress, seed, rhythm });
     const DT = 1 / 20;
     let tap = 0, maxZ = 0, maxD = 0, choiceT = 0, at20 = 0, finales = 0, dawns = 0, levels = 0, openAfterSen = 0;
-    for (let t = DT; t < 1810; t += DT) {
+    for (let t = DT; t < planned + 10; t += DT) {
       sim.update(DT, sim.block?.kind === 'rest' ? CALM : HIGH, t);
       if ((tap += DT) >= 0.3) {
         tap = 0;
@@ -1540,7 +1563,7 @@ describe('long sessions (15–30 minutes)', () => {
       if (sim.choice) choiceT += DT;
       maxZ = Math.max(maxZ, sim.zmory.length);
       maxD = Math.max(maxD, sim.drops.length);
-      if (at20 === 0 && t >= 1200) at20 = sim.score;
+      if (at20 === 0 && t >= planned * 2 / 3) at20 = sim.score;
     }
     return { sim, maxZ, maxD, choiceT, at20, finales, dawns, levels, openAfterSen };
   }
@@ -1571,6 +1594,20 @@ describe('long sessions (15–30 minutes)', () => {
         expect(h.length, h).toBeLessThanOrEqual(90);
       }
       for (const [k, v] of res.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('plays any rhythm the player sets to the dawn: 3, 10 and 30 minutes, long vigils or long lullabies, the feathers still grow', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const r = night({ sessions: 5, giftDay: DAY, pushes: 1 }, 11, planned, rhythm);
+        expect(r.sim.phase, name).toBe('done');
+        expect(r.finales, name).toBe(1);
+        expect(r.sim.score, name).toBeGreaterThan(r.at20);
+        expect(r.maxZ, name).toBeLessThan(24);
+        for (const v of [r.sim.score, r.sim.feathers, r.sim.sen]) expect(Number.isFinite(v), name).toBe(true);
+      }
     }
   });
 

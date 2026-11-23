@@ -170,9 +170,14 @@ export const RULES = {
   bossDim: 0.1,
 
   // ── the session ──────────────────────────────────────────────
-  /** Czuwanie and Kołysanka: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
-  rest: [22, 3],
+  /**
+   * Czuwanie and Kołysanka: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): a 40 s vigil — a whole wave of Zmory, room for three Płomienie — then a 20 s lullaby, one verse
+   * sung while the stars fill (it was 24 / 22 s, nearly half the night, every 23 s); the player sets both in the
+   * lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, 6 in a 40 s test */

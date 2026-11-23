@@ -38,6 +38,10 @@ const pl = {
   'tip.rest.3': 'Wydychaj dłużej, niż wdychasz. Nic nie musisz robić.',
   'tip.firstPush': 'Licz w myślach wstecz od 100 co 3: 97, 94, 91…',
   'tip.firstRest': 'Oddychaj wolno: wdech na cztery, wydech na sześć.',
+  // the rest's rhythm in the lobby (kit/rhythm.ts)
+  'rhythm.focus': 'Czuwanie',
+  'rhythm.rest': 'Kołysanka',
+  'rhythm.note': 'Po każdym czuwaniu gra kołysanka',
 
   // the threshold's mark on the aura
   'mark': 'próg',
@@ -355,6 +359,9 @@ const en: Cat = {
   'tip.rest.3': 'Breathe out longer than you breathe in. Nothing to do.',
   'tip.firstPush': 'Count back from 100 in threes in your head: 97, 94, 91…',
   'tip.firstRest': 'Breathe slowly: in for four, out for six.',
+  'rhythm.focus': 'Vigil',
+  'rhythm.rest': 'Lullaby',
+  'rhythm.note': 'After each vigil a lullaby plays',
 
   'mark': 'threshold',
 
@@ -658,6 +665,9 @@ const de: Cat = {
   'tip.rest.3': 'Atme länger aus als ein. Du musst nichts tun.',
   'tip.firstPush': 'Zähl im Kopf von 100 in Dreierschritten rückwärts: 97, 94, 91…',
   'tip.firstRest': 'Atme langsam: ein auf vier, aus auf sechs.',
+  'rhythm.focus': 'Wache',
+  'rhythm.rest': 'Wiegenlied',
+  'rhythm.note': 'Nach jeder Wache erklingt ein Wiegenlied',
 
   'mark': 'Schwelle',
 
@@ -961,6 +971,9 @@ const sv: Cat = {
   'tip.rest.3': 'Andas ut längre än du andas in. Du behöver inte göra något.',
   'tip.firstPush': 'Räkna baklänges från 100 med tre i taget i huvudet: 97, 94, 91…',
   'tip.firstRest': 'Andas långsamt: in på fyra, ut på sex.',
+  'rhythm.focus': 'Vaka',
+  'rhythm.rest': 'Vaggvisa',
+  'rhythm.note': 'Efter varje vaka spelas en vaggvisa',
 
   'mark': 'tröskel',
 

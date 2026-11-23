@@ -38,6 +38,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -179,12 +180,13 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The night's blocks.  A first-ever session opens with the warm-up "Pierwsza warta" (30 s in 5 and
- * 10 min, 20 s in 3, 6 s in a 40 s test); then Czuwanie / Kołysanka pairs (24 ± 4 s and 22 ± 3 s,
- * scaled to end on time, jittered only when there is room) ending with a lullaby, leaving the
- * finale's seconds to the great nightmare.  No block under 12 s.
+ * 10 min, 20 s in 3, 6 s in a 40 s test); then Czuwanie / Kołysanka pairs (40 ± 7 s and 20 ± 3 s,
+ * or the player's rhythm with the jitter scaled to it; scaled to end on time, jittered only when
+ * there is room) ending with a lullaby, leaving the finale's seconds to the great nightmare.  No
+ * block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -262,6 +264,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Czuwanie, s of Kołysanka); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export interface Choice { options: GiftId[]; t: number }
@@ -412,7 +416,7 @@ export class AniolSim {
     this.chapter = CHAPTERS[this.chapterIndex];
     this.rank = rankOf(p.feathers);
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
   }
 
   get block(): Block { return this.plan[this.blockIndex]; }

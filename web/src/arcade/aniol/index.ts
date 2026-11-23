@@ -21,6 +21,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { AniolSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -29,6 +30,7 @@ import { bestOf, freshProgress, migrate, type AniolProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { AniolView } from './render';
+import { RULES } from './rules';
 import { AniolSim, type SimEvent } from './sim';
 
 class AniolGame implements ArcadeGame {
@@ -47,6 +49,7 @@ class AniolGame implements ArcadeGame {
     }
     this.sim = new AniolSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new AniolView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new AniolSound(env.audio);
@@ -252,5 +255,7 @@ const mod: ArcadeModule<AniolProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Czuwanie before the Kołysanka, and of the lullaby
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;
