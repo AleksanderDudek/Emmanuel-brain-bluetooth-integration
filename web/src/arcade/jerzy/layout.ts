@@ -22,6 +22,7 @@
  */
 import { clamp } from '../kit/juice';
 import { NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
+import { pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets } from '../kit/types';
 import { t } from './i18n';
 
@@ -149,6 +150,28 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     statShift, restShift: (big ? 92 : 82) - 3 * u, chipsYieldToBoss: true, statBottom, boss, sword, swordHit,
     bannerY: statBottom + 30 * u, bannerLowY: Math.min(ky + s * 2, swordHit.y - 22),
   };
+}
+
+/**
+ * Where the runner's breath pacer stands in a Postój (ArcadeGame.pacerAt; kit/pacerspot.ts).  A phone upright and a
+ * wide screen keep the standard place: the status moves down under it (`restShift`).  A phone on its side keeps its
+ * status top left, so the pill stands beside it in the top row — off the hearts and the level's numbers — or, while the
+ * dragon's bar is there (`boss`), on the field clear of the knight, the Miecz światła's dial with its word and the
+ * banners' line.
+ */
+export function pacerAt(L: Layout, boss = false): Pt | null {
+  if (L.shape !== 'side') return null;
+  const size = pacerSize(false);
+  const band = safeBand(L.w, L.h, L.ins);
+  const st = L.stat, u = L.u, s = L.s;
+  const status = { x: st.x - 8 * u, y: st.rowY - 13 * u, w: st.w + 16 * u, h: L.statBottom - (st.rowY - 13 * u) };
+  const knight = { x: L.kx - s * 0.9, y: L.ky - s * 1.7, w: s * 1.8, h: s * 2 };
+  const sword = { x: L.swordHit.x - 40, y: L.swordHit.y - 26, w: L.swordHit.w + 40, h: L.swordHit.h + 26 };
+  const banner = { x: L.left, y: L.bannerY - 20, w: L.right - L.left, h: 40 };
+  const hard = [status, knight, sword, ...(boss ? [L.boss] : [])];
+  // the top row beside the status first (the field's edge), else the field clear of the banners' line
+  const row = { x: band.x, y: band.y, w: band.w, h: size.h + 12 };
+  return pacerSpot([row], hard, { size, pad: 4 }) ?? pacerSpot([band], [...hard, banner], { size }) ?? pacerSpot([band], hard, { size });
 }
 
 /**

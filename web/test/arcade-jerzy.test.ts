@@ -5,7 +5,8 @@ import {
   type CompanionId, type ItemId, type TreasureId, type WeaponId,
 } from '../src/arcade/jerzy/content';
 import { CATALOGS, hand, t, unit } from '../src/arcade/jerzy/i18n';
-import { cursorFor, layout, sheet, tallyBox } from '../src/arcade/jerzy/layout';
+import { cursorFor, layout, pacerAt, sheet, tallyBox } from '../src/arcade/jerzy/layout';
+import { pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { SANS, SERIF, font } from '../src/arcade/jerzy/paint';
 import {
   affordable, bestOf, buyForge, canFight, clearFight, crowns, earnArmour, earnCompanions, fightOf, fights, freshProgress, frontier, hpOf, migrate,
@@ -1892,5 +1893,36 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(p.bank).toBeLessThan(200);
     expect((COMPANIONS as readonly CompanionId[]).length).toBe(4);
     void (null as unknown as WeaponId);
+  });
+});
+
+describe('Jerzy: the breath pacer in a Postój (pacerAt)', () => {
+  it('keeps the standard place on a phone upright and a wide screen (the status moves under it), and on its side stands beside the status, off the knight, the dial and the dragon\'s bar', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.shape})`;
+        if (L.shape !== 'side') {
+          expect(pacerAt(L, false), name).toBeNull();
+          expect(L.restShift, name).toBeGreaterThan(0);
+          continue;
+        }
+        expect(L.restShift, name).toBe(0);
+        for (const boss of [false, true]) {
+          const at = pacerAt(L, boss);
+          expect(at, `${name}, boss ${boss}`).not.toBeNull();
+          const st = L.stat, s = L.s;
+          const keep = [
+            { label: 'status', x: st.x, y: st.rowY - 10, w: st.w, h: L.statBottom - (st.rowY - 10) },
+            { label: 'knight', x: L.kx - s * 0.6, y: L.ky - s * 1.4, w: s * 1.2, h: s * 1.5 },
+            { label: 'Miecz światła', ...L.swordHit },
+            ...(boss ? [{ label: 'dragon\'s bar', ...L.boss }] : []),
+          ];
+          expect(pacerProblems(at, c.w, c.h, c.insets, keep, pacerSize(false)), `${name}, boss ${boss}`).toEqual([]);
+          // beside the status in the top row while the dragon is away
+          if (!boss) expect(at!.y, name).toBeLessThan(L.statBottom);
+        }
+      }
+    }
   });
 });

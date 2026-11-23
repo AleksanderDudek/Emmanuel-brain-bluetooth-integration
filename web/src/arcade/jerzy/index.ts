@@ -18,12 +18,13 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer, target } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { JerzySound } from './audio';
 import { Hud, REROLL } from './hud';
 import { hand, t, unit, type Key } from './i18n';
-import { cursorFor, sheet, tallyBox, type Rect, type Sheet } from './layout';
+import { cursorFor, pacerAt, sheet, tallyBox, type Layout, type Rect, type Sheet } from './layout';
 import { bestOf, freshProgress, migrate, type JerzyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -232,6 +233,18 @@ class JerzyGame implements ArcadeGame {
    * tally's, the level-up's cards and the reshuffle, or in play the Miecz światła's dial.  The field
    * itself (the floating joystick) is not a target.
    */
+  /**
+   * The breath pacer's spot in a Postój: a phone on its side keeps its status top left, so the pill stands beside it
+   * (layout.ts `pacerAt`); elsewhere the standard place, the status moving down under it.
+   */
+  pacerAt(): Pt | null {
+    const L = this.view.L, boss = this.sim.boss.state !== 'away';
+    if (this.pacer?.L !== L || this.pacer.boss !== boss) this.pacer = { L, boss, at: pacerAt(L, boss) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; boss: boolean; at: Pt | null } | null = null;
+
   targets(): TapTarget[] {
     const sim = this.sim, L = this.view.L;
     if (!sim.started || sim.phase === 'done') return [];
