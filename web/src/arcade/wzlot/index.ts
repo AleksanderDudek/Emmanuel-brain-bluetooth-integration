@@ -17,6 +17,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer, target } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { WzlotSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -24,7 +25,7 @@ import { bestOf, freshProgress, type WzlotProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { WzlotView } from './render';
-import { readSec } from './rules';
+import { RULES, readSec } from './rules';
 import { WzlotSim, type SimEvent } from './sim';
 import type { Teach } from './meta';
 
@@ -71,6 +72,7 @@ export class WzlotGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<WzlotProgress>) {
     this.sim = new WzlotSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new WzlotView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.hud.resize(this.view.layout, env.touch);
@@ -258,5 +260,7 @@ const mod: ArcadeModule<WzlotProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of holding the sun before the thermals, and of the thermals
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

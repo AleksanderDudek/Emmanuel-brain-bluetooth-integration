@@ -37,6 +37,7 @@
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome, SignalPhase } from '../kit/types';
 import { TASKS, lessonText, lines, type Moment } from './content';
@@ -179,12 +180,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks: a first-ever session opens with a warm-up (30 s in 5 and 10 min, 20 s in 3,
- * 6 s in a 40 s test); then push / rest pairs (24 ± 4 s and 23 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a rest, leaving the last 6 s to the last sunset.
- * No block under 12 s.
+ * 6 s in a 40 s test); then push / rest pairs (40 ± 7 s and 20 ± 3 s, or the player's rhythm with the
+ * jitter scaled to it; scaled to end on time, jittered only when there is room) ending with a rest,
+ * leaving the last 6 s to the last sunset.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
     const left = Math.max(2 * R.minBlock, plannedSec - R.finale);
@@ -247,6 +248,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of holding the sun, s of thermals); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export type Phase = 'play' | 'finale' | 'done';
@@ -404,7 +407,7 @@ export class WzlotSim {
     this.practiceCap = Math.max(RULES.practiceMin, Math.min(RULES.practiceMax, RULES.practiceShare * init.plannedSec));
     this.cueStart = this.firstEver || this.practiceSession ? 1 : cueBase(this.p);
     // a session with the practice valley opens with a free warm-up, as a first one does: the practice is no push block
-    this.plan = planBlocks(init.plannedSec, this.firstEver || this.practiceSession, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver || this.practiceSession, init.rng, init.rhythm);
     this.bestDayBefore = this.p.bestDay;
     this.bestBefore = this.p.sessions > 0 && this.p.bestTotal > 0 ? this.p.bestTotal : null;
     this.nestBefore = this.p.nest;
@@ -668,7 +671,7 @@ export class WzlotSim {
     this.plan.length = this.blockIndex + 1;
     if (left >= 2 * R.minBlock) {
       b.dur = this.blockT + R.telegraph;
-      this.plan.push(...planBlocks(left + R.finale, false, this.rng));
+      this.plan.push(...planBlocks(left + R.finale, false, this.rng, this.init.rhythm));
     } else b.dur = this.blockT + Math.max(0, left + R.telegraph);
   }
 
@@ -1302,7 +1305,8 @@ export class WzlotSim {
     this.granIdx++;
     this.granT = this.dayT;
     const R = RULES;
-    const sun = this.dayPhase === 'fly' ? granSunFor(this.granIdx) + R.quickSun * quick : 0;
+    // the last sunset gives no daylight back: the session ends on time (a fast flight once kept it a few seconds past)
+    const sun = this.dayPhase === 'fly' && this.phase === 'play' ? granSunFor(this.granIdx) + R.quickSun * quick : 0;
     this.dayLeft += sun;
     const pts = this.gain(R.gran + R.quick * quick);
     this.dayFeats.granDay = Math.max(this.dayFeats.granDay, this.granIdx);

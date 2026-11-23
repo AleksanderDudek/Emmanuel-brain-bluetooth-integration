@@ -116,11 +116,60 @@ describe('the block plan', () => {
     }
   });
 
-  it('jitters the blocks of a long session around 24 and 23 s', () => {
+  it('jitters the blocks of a long session around 40 and 20 s', () => {
     const plan = planBlocks(600, false, mulberry32(9));
     const push = plan.filter(b => b.kind === 'push').map(b => b.dur);
     expect(new Set(push.map(d => d.toFixed(2))).size).toBeGreaterThan(1);
-    for (const d of push) expect(d).toBeGreaterThan(17);
+    for (const d of push) expect(d).toBeGreaterThan(28);
+  });
+
+  it('follows the rhythm the player set in the lobby: longer holding of the sun, shorter thermals, the jitter scaled', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - RULES.finale, 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the thermals a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm, also when the practice valley plans the blocks again; the score still grows
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new WzlotSim({
+        progress: { ...freshProgress(), sessions: 5, opened: true, taught: 255, practiced: 1 }, rng: mulberry32(7), day: DAY,
+        daySeed: 4243, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const push = sim.plan.filter(b => b.kind === 'push');
+      const mean = push.reduce((s, b) => s + b.dur, 0) / push.length;
+      expect(mean).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(mean).toBeLessThan(rhythm.focus * 1.25);
+      const clock = { t: 0 };
+      const fly = pilot(sim);
+      for (let i = 0; i < 606 * 30 && sim.phase !== 'done'; i++) {
+        clock.t += 1 / 30;
+        fly();
+        sim.update(1 / 30, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+        sim.take();
+      }
+      expect(sim.phase).toBe('done');
+      expect(sim.total).toBeGreaterThan(1000);
+    }
+    const practice = new WzlotSim({
+      progress: freshProgress(), rng: mulberry32(2), day: DAY, daySeed: 4244, plannedSec: 300, eeg: false, tuning: TUNING, rhythm: { focus: 60, rest: 30 },
+    });
+    practice.start();
+    const clock = { t: 0 };
+    const fly = prompted(practice);
+    drive(practice, 120, MID, clock, fly);
+    const after = practice.plan.filter(b => b.kind === 'push');
+    expect(after.length).toBeGreaterThan(0);
+    for (const b of after) expect(b.dur).toBeGreaterThan(40);
   });
 
   it('reports each block to the dock, with its seconds left and the next block in the telegraph', () => {

@@ -241,8 +241,14 @@ export const RULES = {
   gap: 2,
 
   // ── the session ──────────────────────────────────────────────
-  push: [24, 4],
-  rest: [23, 3],
+  /**
+   * push (the sun held) and rest (the warm thermals): nominal length ± jitter (s).  The designed rhythm (round 15,
+   * DESIGN §19.2): 40 s of holding the sun — about one day's daylight, so a push can carry a whole day to its sunset —
+   * then 20 s of thermals, room for their three warm columns (4.5 s, then every 5.5 s); rest a third of the session,
+   * where 24 / 23 s made it nearly half.  The player sets both in the lobby (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [40, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the last sunset: the session's last seconds bring the night */
