@@ -31,8 +31,8 @@ const lost = (): FocusFrame => frame({ reliable: false, activity: null, level: 0
 
 const returning = (o: Partial<GeodaProgress> = {}): GeodaProgress => ({ ...freshProgress(), sessions: 4, pushes: 1, ...o });
 
-function newSim(o: { progress?: GeodaProgress; plannedSec?: number; seed?: number; eeg?: boolean } = {}): GeodaSim {
-  return new GeodaSim({ progress: o.progress ?? freshProgress(), rng: mulberry32(o.seed ?? 3), plannedSec: o.plannedSec ?? 180, eeg: !!o.eeg, tuning: TUNING });
+function newSim(o: { progress?: GeodaProgress; plannedSec?: number; seed?: number; eeg?: boolean; rhythm?: { focus: number; rest: number } } = {}): GeodaSim {
+  return new GeodaSim({ progress: o.progress ?? freshProgress(), rng: mulberry32(o.seed ?? 3), plannedSec: o.plannedSec ?? 180, eeg: !!o.eeg, tuning: TUNING, rhythm: o.rhythm });
 }
 
 /** Run the sim for `sec` from `t0` with frames from `f(t)`, collecting its events. */
@@ -187,6 +187,32 @@ describe('Geoda blocks', () => {
         if (sec >= 120) for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
       }
     }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Blask, shorter Szlif, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const sec of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(sec, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s Szlif is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+      }
+    }
+    // the lobby's dials show the design itself (their 5 s steps keep it), named as the blocks are
+    const spec = geoda.rhythm!();
+    expect([spec.focus.def, spec.rest.def]).toEqual([RULES.push[0], RULES.rest[0]]);
+    expect([spec.focus.name, spec.rest.name]).toEqual(['Blask', 'Szlif']);
+    // no rhythm: the designed one, the Szlif a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
   });
 
   it('tells the runner the block, its seconds left and the next one in the telegraph', () => {
@@ -1049,7 +1075,32 @@ describe('Geoda at 15–30 minutes', () => {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
           expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
         }
-        expect(core.length).toBeGreaterThanOrEqual(Math.floor(sec / 50) * 2);
+        // a Blask and a Szlif about every minute: 30 minutes is some 30 pairs
+        expect(core.length).toBeGreaterThanOrEqual(Math.floor(sec / 65) * 2);
+      }
+    }
+  });
+
+  it('plays any rhythm the player sets to the end: 3, 10 and 30 minutes, long Blasks or long Szlifs, the score still grows', () => {
+    for (const plannedSec of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${plannedSec} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = newSim({ progress: returning(), plannedSec, seed: 13, rhythm });
+        sim.start();
+        let since = 0, at23 = -1;
+        const dt = 0.1;
+        for (let t = 0; t < plannedSec + 1e-9; t += dt) {
+          if (at23 < 0 && t >= plannedSec * 2 / 3) at23 = sim.score;
+          sim.update(dt, sim.restBlock ? resting() : focusing(), t + dt);
+          if ((since += dt) >= 0.9) { since = 0; sim.auto(); }
+          sim.take();
+        }
+        expect(sim.ended, name).toBe(true);
+        expect(sim.score, name).toBeGreaterThan(at23);
+        // a gem every round; a good calm polishes it through in a Szlif of the design's length or longer
+        expect(sim.gems.length, name).toBe(sim.plan.filter(b => b.kind === 'rest').length);
+        if (!rhythm || rhythm.rest >= 20) expect(sim.polishedGems, name).toBe(sim.gems.length);
+        expect(Number.isFinite(sim.score), name).toBe(true);
       }
     }
   });

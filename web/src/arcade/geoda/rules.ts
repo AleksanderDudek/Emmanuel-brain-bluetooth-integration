@@ -67,9 +67,15 @@ export const RULES = {
   turnRock: 0.5,
 
   // ── the session ─────────────────────────────────────────────
-  /** Blask and Szlif: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
-  rest: [22, 3],
+  /**
+   * Blask and Szlif: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): a 40 s Blask — a run of trays with the dial lit, time for a combo to build and druses to grow and be
+   * harvested — then a 20 s Szlif, in which a good calm (0.7) polishes the round's gem through (lead-in + 1 / polishRate
+   * at calm 1 is 14 s); the Szlif a third of the session, every minute (it was 24 / 22 s, nearly half, every 46 s).
+   * The player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: Bazyl waits it out */

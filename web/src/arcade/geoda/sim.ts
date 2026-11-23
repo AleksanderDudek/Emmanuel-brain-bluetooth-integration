@@ -22,6 +22,7 @@
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import type { PassageId } from '../kit/scripture';
 import { inTurn } from '../kit/scripture';
 import { SignalTrace } from '../kit/trace';
@@ -86,12 +87,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks, filling `plannedSec`: a first-ever session opens with a warm-up (30 s in 5
- * min and more, 20 s otherwise, 6 s in a 40 s test), then Blask / Szlif pairs (24 ± 4 s and 22 ± 3
- * s, scaled to end on time, jittered when there is room) ending with a Szlif.  No block under 12 s
- * (a test session under a minute: whatever fits).
+ * min and more, 20 s otherwise, 6 s in a 40 s test), then Blask / Szlif pairs (40 ± 7 s and 20 ± 3
+ * s, or the player's rhythm with the jitter scaled to it; scaled to end on time, jittered when there
+ * is room) ending with a Szlif.  No block under 12 s (a test session under a minute: whatever fits).
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   const total = Math.max(10, plannedSec);
   if (total <= 60) {
@@ -126,6 +127,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Blask, s of Szlif); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class GeodaSim {
@@ -219,7 +222,7 @@ export class GeodaSim {
     this.bestBoardBefore = p.bestBoard;
     this.foundBefore = found(p);
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.talk = new Talk(LINES, init.rng);
     this.spec = chamber(p.level);
   }

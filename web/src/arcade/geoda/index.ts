@@ -23,6 +23,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { TracePhase } from '../kit/trace';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { GeodaSound } from './audio';
@@ -64,7 +65,7 @@ export class GeodaGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<GeodaProgress>) {
     migrate(env.progress);
-    this.sim = new GeodaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new GeodaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new GeodaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new GeodaSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __geoda?: unknown }).__geoda = this.sim;
@@ -379,6 +380,8 @@ const mod: ArcadeModule<GeodaProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Blask before the Szlif, and of the polish
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('v.shine'), rest: t('v.bowl') }, t('rhythm.note')),
 };
 
 export default mod;
