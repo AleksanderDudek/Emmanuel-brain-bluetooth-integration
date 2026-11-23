@@ -35,6 +35,7 @@ import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, SignalPhase } from '../kit/types';
@@ -215,10 +216,13 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks: the first-ever session opens with a "Pierwsza wachta" warm-up (12 s in a
- * 40 s session, else 30 s), then Konwój/Cisza pairs (26 ± 4 s and 22 ± 3 s, scaled to fill the
- * session) ending with a Cisza, leaving the last seconds to the finisher.  No block under 12 s.
+ * 40 s session, else 30 s), then Konwój/Cisza pairs (40 ± 6 s and 20 ± 3 s, or the player's rhythm
+ * with the jitter scaled to it; scaled to fill the session) ending with a Cisza, leaving the last
+ * seconds to the finisher.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const push = scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest = scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]);
+  const pair = push[0] + rest[0];
   const plan: Block[] = [];
   let left = Math.max(0, plannedSec - RULES.finale);
   if (firstEver) {
@@ -226,10 +230,10 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
     plan.push({ kind: 'warmup', dur: warm, blind: false });
     left = Math.max(0, left - warm);
   }
-  const pairs = Math.max(1, Math.round(left / 48));
-  const jitter = left / (pairs * 48) >= 0.75 ? 1 : 0;   // short sessions: no jitter, or a block falls under 12 s
+  const pairs = Math.max(1, Math.round(left / pair));
+  const jitter = left / (pairs * pair) >= 0.75 ? 1 : 0;   // short sessions: no jitter, or a block falls under 12 s
   const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(26 + jitter * (rnd() * 2 - 1) * 4, 22 + jitter * (rnd() * 2 - 1) * 3);
+  for (let i = 0; i < pairs; i++) durs.push(push[0] + jitter * (rnd() * 2 - 1) * push[1], rest[0] + jitter * (rnd() * 2 - 1) * rest[1]);
   const scale = left / durs.reduce((s, d) => s + d, 0);
   for (let i = 0; i < durs.length; i++) durs[i] *= scale;
   liftShort(durs, RULES.minBlock);
@@ -249,6 +253,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning (the kit's defaults, the game's entry, a beginner's bias): the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Konwój, s of Cisza); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export type Phase = 'play' | 'between' | 'finale' | 'done';
@@ -448,7 +454,7 @@ export class LatarnikSim {
     if (p.reachPrev > 0) this.ghost = { reach: p.reachPrev, label: t(daysBetween(p.reachPrevDay, day) === 1 ? 'ring.yesterday' : 'ring.lately') };
     p.lastDay = day;
     this.applyUpgrades();
-    this.plan = planBlocks(this.plannedSec, this.session === 1, this.daily ? mulberry32((this.init.daySeed ^ PLAN_SALT) >>> 0) : this.rng);
+    this.plan = planBlocks(this.plannedSec, this.session === 1, this.daily ? mulberry32((this.init.daySeed ^ PLAN_SALT) >>> 0) : this.rng, this.init.rhythm);
     const warm = this.plan[0].kind === 'warmup';
     this.reach = warm ? RULES.warmReach : reachFor(this.L, beginnerBonus(this.session));
     this.lens = warm ? RULES.warmLens : this.L;

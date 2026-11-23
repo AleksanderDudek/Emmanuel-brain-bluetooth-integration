@@ -71,6 +71,14 @@ export const RULES = {
   spawnEvery: 3,
   spawnJitter: 0.6,
   warmSpawnEvery: 3.5,
+  /**
+   * Konwój and Cisza: nominal length ± jitter (s).  The designed rhythm (round 15, DESIGN §19.2): a 40 s Konwój —
+   * a convoy of a dozen boats, a night's goal or two — then a 20 s Cisza, long enough for the glow to spread over the
+   * amber (≈ 11 s) and for a 12 s deep calm (it was 26 / 22 s, nearly half the session, every 24 s); the player sets
+   * both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 6] as readonly [number, number],
+  rest: [20, 3] as readonly [number, number],
   /** no block is shorter, also when the plan gives fog's time back (s) */
   minBlock: 12,
   /** the lesson's beam waits on the first boat at most this long (s); the next boat follows soon after */

@@ -120,7 +120,7 @@ const pl = {
   'z.blind.3': 'Zasięgu nie widać. Rób swoje w głowie, policzymy na końcu.',
   'z.rest.1': 'Cisza. Pióra na płasko, czoło też. Morze samo się rozświeci.',
   'z.rest.2': 'Odpocznij. Ja tymczasem udam, że pilnuję bursztynów.',
-  'z.rest.3': 'Oddychaj zwyczajnie. Bursztyn wypływa do tych, co się nie spieszą.',
+  'z.rest.3': 'Wdech na cztery, wydech na sześć. Bursztyn wypływa do tych, co się nie spieszą.',
   'z.good.1': 'Ooo, światło sięga dalej! Widzę horyzont i jedną szprotkę.',
   'z.good.2': 'Złoty pierścień rośnie! Tak trzymaj, to działa.',
   'z.good.3': 'Teraz dosięgniesz tych dalekich. Tam są najcięższe skrzynie!',
@@ -182,6 +182,10 @@ const pl = {
   // the blocks, their telegraph and the fog
   'block.blind': 'Konwój w ciemno',
   'block.dawn': 'Świt',
+  // the rest's rhythm in the lobby (kit/rhythm.ts)
+  'rhythm.focus': 'Konwój',
+  'rhythm.rest': 'Cisza',
+  'rhythm.note': 'Po każdym konwoju morze cichnie',
 
   // the HUD and its cards
   'hud.inPort': { one: '{n} łódź w porcie', few: '{n} łodzie w porcie', many: '{n} łodzi w porcie', other: '{n} łodzi w porcie' },
@@ -282,11 +286,11 @@ const pl = {
   'tip.konwoj.5': 'Przypomnij sobie drogę z domu, krok po kroku.',
   'tip.blind.1': 'W ciemno: prowadź światło z pamięci.',
   'tip.blind.2': 'Policz w myślach łodzie, które minął promień.',
-  'tip.cisza.1': 'Rozluźnij czoło, oddychaj zwyczajnie.',
+  'tip.cisza.1': 'Rozluźnij czoło; wdech na cztery, wydech na sześć.',
   'tip.cisza.2': 'Patrz miękko, bez wpatrywania się.',
   'tip.cisza.3': 'Wsłuchaj się w szum morza.',
   'tip.firstKonwoj': 'Zaplanuj kurs każdej łodzi do portu, zakręt po zakręcie.',
-  'tip.firstCisza': 'Rozluźnij czoło i oddychaj zwyczajnie.',
+  'tip.firstCisza': 'Rozluźnij czoło i oddychaj wolno: wdech na cztery, wydech na sześć.',
 
   // Hania's letters, one bottle a session (each ends with her name: the lobby signs it apart)
   'letter.1': 'Dzień dobry, Latarniku. Tata mówi, że skoro światło znowu się kręci, ktoś powinien wiedzieć, co u nas słychać. Więc piszę. Mieszkamy w trzecim domu od pomostu, tym z niebieskimi okiennicami. Rano mgła była taka gęsta, że kuter pana Edka trafił do portu po zapachu wędzarni. Jutro ma się przejaśnić. Hania',
@@ -409,7 +413,7 @@ const en: Catalog<Key> = {
   'z.blind.3': 'You can’t see the reach. Keep at it in your head, we’ll count at the end.',
   'z.rest.1': 'Calm. Feathers flat, forehead too. The sea will brighten by itself.',
   'z.rest.2': 'Rest a while. Meanwhile I’ll pretend to guard the amber.',
-  'z.rest.3': 'Just breathe. Amber floats up for those who don’t hurry.',
+  'z.rest.3': 'In for four, out for six. Amber floats up for those who don’t hurry.',
   'z.good.1': 'Ooh, the light reaches farther! I can see the horizon and one sprat.',
   'z.good.2': 'The golden ring is growing! Keep it up, it’s working.',
   'z.good.3': 'Now you can reach the far ones. That’s where the heavy crates are!',
@@ -470,6 +474,9 @@ const en: Catalog<Key> = {
 
   'block.blind': 'Convoy in the dark',
   'block.dawn': 'Dawn',
+  'rhythm.focus': 'Convoy',
+  'rhythm.rest': 'Calm',
+  'rhythm.note': 'After each convoy the sea falls calm',
 
   'hud.inPort': { one: '{n} boat in harbour', other: '{n} boats in harbour' },
   'hud.streak': 'Perfect ×{n}',
@@ -560,11 +567,11 @@ const en: Catalog<Key> = {
   'tip.konwoj.5': 'Recall your way from home, step by step.',
   'tip.blind.1': 'In the dark: guide the light from memory.',
   'tip.blind.2': 'Count in your head the boats the beam has passed.',
-  'tip.cisza.1': 'Relax your forehead and breathe normally.',
+  'tip.cisza.1': 'Relax your forehead; in for four, out for six.',
   'tip.cisza.2': 'Soften your gaze; don’t stare.',
   'tip.cisza.3': 'Listen to the sound of the sea.',
   'tip.firstKonwoj': 'Plan each boat’s course into port, turn by turn.',
-  'tip.firstCisza': 'Relax your forehead and breathe normally.',
+  'tip.firstCisza': 'Relax your forehead and breathe slowly: in for four, out for six.',
 
   'letter.1': 'Hello, Lighthouse Keeper. Dad says that now the light is turning again, someone should know how things are with us. So I’m writing. We live in the third house from the jetty, the one with the blue shutters. This morning the fog was so thick that Mr Edek’s boat found its way into the harbour by the smell of the smokehouse. It’s supposed to clear up tomorrow. Hania',
   'letter.2': 'Grandma bakes bread on Tuesdays and Fridays. She keeps the sourdough in a stoneware crock that still remembers Grandpa. She says dough likes quiet, so while it rises nobody is allowed to slam a door in the kitchen. I left you a loaf by the gate at the foot of the lighthouse, wrapped in a linen cloth. If the gulls got there first, I apologise for the gulls. Hania',
@@ -684,7 +691,7 @@ const de: Catalog<Key> = {
   'z.blind.3': 'Die Reichweite siehst du nicht. Mach im Kopf weiter, wir zählen am Ende.',
   'z.rest.1': 'Stille. Federn glatt, Stirn auch. Das Meer leuchtet von selbst.',
   'z.rest.2': 'Ruh dich aus. Ich tu so lange, als würde ich den Bernstein bewachen.',
-  'z.rest.3': 'Atme ganz normal. Bernstein kommt zu denen, die sich nicht beeilen.',
+  'z.rest.3': 'Ein auf vier, aus auf sechs. Bernstein kommt zu denen, die sich nicht beeilen.',
   'z.good.1': 'Oh, das Licht reicht weiter! Ich sehe den Horizont und eine Sprotte.',
   'z.good.2': 'Der goldene Ring wächst! Weiter so, es wirkt.',
   'z.good.3': 'Jetzt erreichst du die fernen Boote. Da sind die schwersten Kisten!',
@@ -745,6 +752,9 @@ const de: Catalog<Key> = {
 
   'block.blind': 'Konvoi im Dunkeln',
   'block.dawn': 'Morgendämmerung',
+  'rhythm.focus': 'Konvoi',
+  'rhythm.rest': 'Stille',
+  'rhythm.note': 'Nach jedem Konvoi wird das Meer still',
 
   'hud.inPort': { one: '{n} Boot im Hafen', other: '{n} Boote im Hafen' },
   'hud.streak': 'Perfekt ×{n}',
@@ -835,11 +845,11 @@ const de: Catalog<Key> = {
   'tip.konwoj.5': 'Geh im Kopf deinen Weg von zu Hause ab, Schritt für Schritt.',
   'tip.blind.1': 'Im Dunkeln: Führe das Licht aus dem Gedächtnis.',
   'tip.blind.2': 'Zähle im Kopf die Boote, die der Strahl schon passiert hat.',
-  'tip.cisza.1': 'Entspann die Stirn und atme ganz normal.',
+  'tip.cisza.1': 'Entspann die Stirn; ein auf vier, aus auf sechs.',
   'tip.cisza.2': 'Schau weich, ohne zu starren.',
   'tip.cisza.3': 'Hör dem Rauschen des Meeres zu.',
   'tip.firstKonwoj': 'Plane den Kurs jedes Bootes in den Hafen, Kurve um Kurve.',
-  'tip.firstCisza': 'Entspanne die Stirn und atme ganz normal.',
+  'tip.firstCisza': 'Entspanne die Stirn und atme langsam: ein auf vier, aus auf sechs.',
 
   'letter.1': 'Guten Tag, lieber Leuchtturmwärter. Papa sagt, jetzt, wo sich das Licht wieder dreht, sollte jemand wissen, wie es bei uns so geht. Also schreibe ich. Wir wohnen im dritten Haus vom Steg aus, dem mit den blauen Fensterläden. Heute früh war der Nebel so dicht, dass Herr Edek mit seinem Kutter den Hafen am Geruch der Räucherei gefunden hat. Morgen soll es aufklaren. Hania',
   'letter.2': 'Oma backt dienstags und freitags Brot. Den Sauerteig hebt sie in einem Steinguttopf auf, der sich noch an Opa erinnert. Sie sagt, Teig mag Ruhe, und solange er geht, darf in der Küche keiner mit den Türen knallen. Ich habe Ihnen einen Laib an die Pforte unter dem Leuchtturm gelegt, in ein Leinentuch gewickelt. Falls die Möwen schneller waren, entschuldige ich mich für die Möwen. Hania',
@@ -959,7 +969,7 @@ const sv: Catalog<Key> = {
   'z.blind.3': 'Räckvidden syns inte. Fortsätt i huvudet, vi räknar på slutet.',
   'z.rest.1': 'Stiltje. Fjädrarna släta, pannan också. Havet ljusnar av sig självt.',
   'z.rest.2': 'Vila en stund. Under tiden låtsas jag vakta bärnstenen.',
-  'z.rest.3': 'Andas som vanligt. Bärnsten kommer till dem som inte har bråttom.',
+  'z.rest.3': 'In på fyra, ut på sex. Bärnsten kommer till dem som inte har bråttom.',
   'z.good.1': 'Oj, ljuset når längre! Jag ser horisonten och en skarpsill.',
   'z.good.2': 'Den gyllene ringen växer! Fortsätt så, det fungerar.',
   'z.good.3': 'Nu når du de avlägsna. Där är de tyngsta lådorna!',
@@ -1020,6 +1030,9 @@ const sv: Catalog<Key> = {
 
   'block.blind': 'Konvoj i blindo',
   'block.dawn': 'Gryning',
+  'rhythm.focus': 'Konvoj',
+  'rhythm.rest': 'Stiltje',
+  'rhythm.note': 'Efter varje konvoj lägger sig havet',
 
   'hud.inPort': { one: '{n} båt i hamnen', other: '{n} båtar i hamnen' },
   'hud.streak': 'Perfekt ×{n}',
@@ -1110,11 +1123,11 @@ const sv: Catalog<Key> = {
   'tip.konwoj.5': 'Gå vägen hemifrån i tankarna, steg för steg.',
   'tip.blind.1': 'I blindo: led ljuset ur minnet.',
   'tip.blind.2': 'Räkna i huvudet båtarna som strålen har passerat.',
-  'tip.cisza.1': 'Slappna av i pannan och andas som vanligt.',
+  'tip.cisza.1': 'Slappna av i pannan; in på fyra, ut på sex.',
   'tip.cisza.2': 'Mjuka upp blicken, stirra inte.',
   'tip.cisza.3': 'Lyssna på havets brus.',
   'tip.firstKonwoj': 'Planera varje båts kurs in i hamnen, sväng för sväng.',
-  'tip.firstCisza': 'Slappna av i pannan och andas som vanligt.',
+  'tip.firstCisza': 'Slappna av i pannan och andas lugnt: in på fyra, ut på sex.',
 
   'letter.1': 'Hej, fyrvaktaren! Pappa säger att nu när ljuset snurrar igen borde någon få veta hur vi har det här nere. Så jag skriver. Vi bor i tredje huset från bryggan, det med de blå fönsterluckorna. I morse var dimman så tät att farbror Edeks båt hittade in i hamnen på lukten från rökeriet. I morgon ska det klarna upp. Hania',
   'letter.2': 'Farmor bakar bröd på tisdagar och fredagar. Surdegen förvarar hon i en stenkruka som minns farfar. Hon säger att degen vill ha lugn och ro, så medan den jäser får ingen smälla i dörrarna i köket. Jag lämnade en limpa till dig vid grinden nedanför fyren, inlindad i en linnehandduk. Om måsarna hann före ber jag om ursäkt för måsarna. Hania',

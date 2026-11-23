@@ -28,7 +28,7 @@ const STEP = 1 / 60;
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.7, ...p });
 
-type SimOpts = { progress?: Partial<LatarnikProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning; story?: boolean };
+type SimOpts = { progress?: Partial<LatarnikProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning; story?: boolean; rhythm?: { focus: number; rest: number } };
 
 /** The session's tuning as the runner builds it: the kit's defaults, Latarnik's entry, and a beginner's on top. */
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -37,7 +37,7 @@ const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 function makeSim(o: SimOpts = {}): LatarnikSim {
   const sim = new LatarnikSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: o.day ?? DAY,
-    daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   if (!o.story) sim.story = null;   // the first session's opening card: closed, as the first tap does
@@ -663,8 +663,42 @@ describe('the first watch: a lesson, not a test', () => {
   });
 });
 
+/** Konwój and Cisza at their design lengths: mean ± jitter, give or take the plan's scaling to fill the session. */
+function inDesign(k: number[], c: number[]): void {
+  const [pm, pj] = RULES.push, [rm, rj] = RULES.rest;
+  expect(Math.min(...k)).toBeGreaterThan((pm - pj) * 0.85);
+  expect(Math.max(...k)).toBeLessThan((pm + pj) * 1.15);
+  expect(Math.min(...c)).toBeGreaterThan((rm - rj) * 0.85);
+  expect(Math.max(...c)).toBeLessThan((rm + rj) * 1.15);
+}
+
 describe('the blocks', () => {
   const total = (plan: { dur: number }[]) => plan.reduce((s, b) => s + b.dur, 0);
+
+  it('follows the rhythm the player set in the lobby: longer Konwój, shorter Cisza, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const k = plan.filter(b => b.kind === 'konwoj'), c = plan.filter(b => b.kind === 'cisza');
+        // the shares the player asked for (a 10 s Cisza is lifted to the 12 s floor)
+        const q = mean(k) / mean(c) / (r.focus / r.rest);
+        expect(q).toBeGreaterThan(0.75);
+        expect(q).toBeLessThan(1.25);
+        expect(total(plan) + RULES.finale).toBeCloseTo(planned, 6);
+        expect(plan.every(b => b.dur >= RULES.minBlock - 1e-9)).toBe(true);
+        expect(plan[plan.length - 1].kind).toBe('cisza');
+      }
+    }
+    // no rhythm: the designed one, the Cisza a third of the session; the lobby's dials start there
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'cisza').reduce((s, b) => s + b.dur, 0) / total(plan);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
+    const spec = latarnik.rhythm!();
+    expect([spec.focus.def, spec.rest.def]).toEqual([RULES.push[0], RULES.rest[0]]);
+    expect([spec.focus.name, spec.rest.name]).toEqual(['Konwój', 'Cisza']);
+  });
 
   it.each([40, 180, 300, 600])('fills a %i s session, ending with a Cisza, no block under 12 s', planned => {
     for (const first of [false, true]) {
@@ -677,14 +711,12 @@ describe('the blocks', () => {
       if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: planned <= 60 ? 12 : 30 });
       if (planned >= 180) {
         const k = play.filter(b => b.kind === 'konwoj').map(b => b.dur), c = play.filter(b => b.kind === 'cisza').map(b => b.dur);
-        expect(Math.min(...k)).toBeGreaterThan(19);
-        expect(Math.max(...k)).toBeLessThan(33);
-        expect(Math.min(...c)).toBeGreaterThan(16);
-        expect(Math.max(...c)).toBeLessThan(27);
+        inDesign(k, c);
       }
     }
-    expect(planBlocks(300, false, mulberry32(1)).length).toBe(12);
-    expect(planBlocks(600, false, mulberry32(1)).length).toBe(24);
+    // a Konwój and a Cisza about every minute (40 + 20 s)
+    expect(planBlocks(300, false, mulberry32(1)).length).toBe(10);
+    expect(planBlocks(600, false, mulberry32(1)).length).toBe(20);
   });
 
   it('telegraphs the next block 4 s ahead and plays the finisher at the end', () => {
@@ -2287,10 +2319,7 @@ describe('Latarnik at 15–30 minutes', () => {
       const play = first ? plan.slice(1) : plan;
       expect(play.every((b, i) => b.kind === (i % 2 ? 'cisza' : 'konwoj'))).toBe(true);
       const k = play.filter(b => b.kind === 'konwoj').map(b => b.dur), c = play.filter(b => b.kind === 'cisza').map(b => b.dur);
-      expect(Math.min(...k)).toBeGreaterThan(19);
-      expect(Math.max(...k)).toBeLessThan(33);
-      expect(Math.min(...c)).toBeGreaterThan(16);
-      expect(Math.max(...c)).toBeLessThan(27);
+      inDesign(k, c);
     }
   });
 
@@ -2322,5 +2351,32 @@ describe('Latarnik at 15–30 minutes', () => {
     const out = sim.result();
     expect(out.highlights.length).toBeLessThanOrEqual(5);
     for (const s of [...out.highlights, ...out.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+
+  it('plays any rhythm the player sets to the dawn: 3, 10 and 30 minutes, long convoys or long calms, the boats still come home', () => {
+    const DT = 1 / 30;
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = makeSim({ progress: { sessions: 6, lastNewSession: 6 }, planned, seed: 9, rhythm });
+        const tap = tapper(sim, 3, 0.04, 0.85);
+        let t = 0, at = 0, amber = 0, maxBoats = 0;
+        while (sim.phase !== 'done' && t < planned + 5) {
+          t += DT;
+          sim.update(DT, sim.block.kind === 'cisza' ? frame({ activity: -2, level: 0.15, calm: 0.85 })
+            : frame({ activity: 9, level: 0.9, focused: true, hold: 8, calm: 0.1 }), t);
+          tap(t);
+          for (const e of sim.take()) if (e.type === 'washUp') amber += e.nuggets.length;
+          maxBoats = Math.max(maxBoats, sim.boats.length);
+          if (!at && t >= planned * 2 / 3) at = sim.score;
+        }
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(maxBoats, name).toBeLessThan(20);
+        // a calm of the designed length or longer brings amber up from the seabed
+        if (!rhythm || rhythm.rest >= RULES.rest[0]) expect(amber, name).toBeGreaterThan(0);
+        for (const v of [sim.score, sim.crates, sim.reach, sim.glow]) expect(Number.isFinite(v), name).toBe(true);
+      }
+    }
   });
 });
