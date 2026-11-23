@@ -181,11 +181,13 @@ export class Hud {
   /**
    * The status band: the hearts (half hearts show) and Linda's apples, the level and its numbers, the
    * level's bar, the build's chips and the treasures.  On a phone upright and a big screen it moves
-   * down while the dragon's bar shows (`bossK` 0..1), and the chips step aside for it.
+   * down while the dragon's bar shows (`bossK` 0..1), and the chips step aside for it; in a Postój (`restK` 0..1)
+   * the hearts and the bar move down under the runner's breath pacer, and the chips step aside again.
    */
-  drawStatus(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, pop: number, bossK: number): void {
+  drawStatus(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, pop: number, bossK: number, restK = 0): void {
     const st = L.stat, u = L.u, k = sim.knight;
-    const dy = L.statShift * bossK;
+    const down = L.restShift * restK;
+    const dy = L.statShift * bossK + down;
     const rowY = st.rowY + dy, xp = { ...st.xp, y: st.xp.y + dy };
     panel(ctx, { x: st.x - 7 * u, y: rowY - 12 * u, w: st.w + 14 * u, h: xp.y + xp.h + 6 * u - (rowY - 12 * u) }, 'rgba(30,26,40,.42)', null, 10 * u);
     const hr = st.heartR, n = k.max + sim.run.apples;
@@ -214,13 +216,14 @@ export class Hud {
     ctx.beginPath();
     ctx.roundRect(xp.x, xp.y, Math.max(xp.h, xp.w * sim.levelProgress), xp.h, xp.h / 2);
     ctx.fill();
-    const chipA = L.chipsYieldToBoss ? 1 - bossK : 1;
-    if (chipA > 0.02 && (sim.build.length || sim.run.treasures.length)) this.drawChips(ctx, L, sim, chipA);
+    // the chips step aside for the dragon's bar, and in a Postój (the band lower, the knight's head under it)
+    const chipA = (L.chipsYieldToBoss ? 1 - bossK : 1) * (L.restShift > 0 ? 1 - restK : 1);
+    if (chipA > 0.02 && (sim.build.length || sim.run.treasures.length)) this.drawChips(ctx, L, sim, chipA, down);
   }
 
   /** The run's build: a chip per weapon (dark) and gear (blue) with its level, then the treasures (gold coins, overlapping when many). */
-  private drawChips(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, alpha: number): void {
-    const st = L.stat, u = L.u, c = st.chip, cy = st.chipY;
+  private drawChips(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, alpha: number, down = 0): void {
+    const st = L.stat, u = L.u, c = st.chip, cy = st.chipY + down;
     const items = sim.build, trs = sim.run.treasures;
     const step = c + 4 * u, tr = c * 0.88;
     let trStep = tr + 3 * u;

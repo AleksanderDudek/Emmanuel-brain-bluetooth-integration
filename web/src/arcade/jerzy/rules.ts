@@ -299,9 +299,14 @@ export const RULES = {
   wallLife: 6,
 
   // ── the session ──────────────────────────────────────────────
-  /** Tarcza and Postój: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * Tarcza and Postój: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): 45 s behind the shield — a wave that grows, room for the dragon's attacks and his dizzy windows — then a
+   * 20 s Postój while everything dozes and calm heals the hearts (it was 26 / 22 s, nearly half the session, every
+   * 24 s); the player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [45, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: Linda waits it out */

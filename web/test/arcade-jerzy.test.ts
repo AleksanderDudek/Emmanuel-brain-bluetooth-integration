@@ -33,12 +33,12 @@ const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<JerzyProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<JerzyProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): JerzySim {
   const sim = new JerzySim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -122,6 +122,29 @@ describe('the block plan', () => {
       expect(sum).toBeCloseTo(planned - finaleFor(planned), 5);
       for (const b of rest) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
     }
+  });
+
+  it('follows the rhythm the player set in the lobby: a longer Tarcza, a shorter Postój, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s Postój is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan.at(-1)!.kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the Postój a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.34);
+    expect(later({ planned: 600, rhythm: { focus: 90, rest: 15 } }).plan).toEqual(planBlocks(600, false, mulberry32(1), { focus: 90, rest: 15 }));
   });
 
   it('fits a 40 s test session (?trainingSec=40) and any planned length from 10 s', () => {
@@ -296,6 +319,8 @@ describe('the shield\'s aura (the band)', () => {
     const sim2 = later();
     quiet(sim2);
     drive(sim2, sim2.block.dur + 1, CALM);
+    // a level's cards hold the world still: take them (a 45 s Tarcza has room for one)
+    while (sim2.choice) sim2.pick(0);
     sim2.brood.length = 0;
     sim2.balls.length = 0;
     sim2.knight.safe = 0;
@@ -1174,6 +1199,18 @@ describe('on a phone first: the layout', () => {
     }
   });
 
+  it('in a Postój the hearts and the level bar move under the runner\'s breath pacer, clear of the knight\'s head', () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets, true);
+      const name = z.name;
+      if (L.shape === 'side') { expect(L.restShift, name).toBe(0); continue; }
+      // the pacer: 10 px under the HUD band, a 66 px pill (src/arcade/pacer.ts, styles.css .arcade-breath)
+      const bandTop = L.stat.rowY - 12 * L.u + L.restShift, bandBottom = L.stat.xp.y + L.stat.xp.h + 6 * L.u + L.restShift;
+      expect(bandTop, name).toBeGreaterThanOrEqual(L.top + 10 + 66 - 1);
+      expect(bandBottom, name).toBeLessThan(L.ky - L.s * 1.4);
+    }
+  });
+
   it('the Miecz światła dial: 56–70 px, a finger-sized target in the bottom-right thumb zone, inside the safe area', () => {
     for (const z of CHECK_SIZES) {
       const L = layout(z.w, z.h, z.insets, true);
@@ -1728,6 +1765,33 @@ describe('long sessions (15–30 min)', () => {
       }
     }
   });
+
+  it('plays any rhythm the player sets to its finale: 3 and 10 minutes, long shields or long halts, the scales still grow', () => {
+    // (30 minutes at the designed rhythm is the next test; 30 minutes at 120/10 and 20/40 were run by hand in
+    // round 15: 34 and 29 levels, 7 and 9 dragons driven off, the scales growing to the end)
+    for (const planned of [180, 600]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const p: JerzyProgress = { ...freshProgress(), sessions: 5, pushes: 3, seen: SEEN };
+        const sim = new JerzySim({ progress: p, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: planned, eeg: false, tuning: TUNING, rhythm });
+        sim.start();
+        const held = { h: 0 }, rnd = mulberry32(9), step = 1 / 30;
+        let decide = 0, at = -1, picks = 0, bad = 0;
+        for (let tt = step; tt < planned + RULES.settle + 1 && !sim.canStop(); tt += step) {
+          sim.update(step, profileFrame(sim, 'avg', tt, held), tt);
+          for (const e of sim.take()) if (e.type === 'pick') picks++;
+          if ((decide += step) >= 0.3) { decide = 0; botStep(sim, 'casual', rnd); }
+          if (![sim.score, sim.knight.hearts, sim.run.xp, sim.charge].every(Number.isFinite)) bad++;
+          if (at < 0 && tt >= planned * 2 / 3) at = sim.score;
+        }
+        expect(bad, name).toBe(0);
+        // levels' cards and the Postój's free ones keep coming
+        expect(picks, name).toBeGreaterThanOrEqual(planned / 30);
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+      }
+    }
+  }, 300_000);
 
   it('a 30-minute session plays to its finale and keeps giving: dragons, levels and scales to the end, the numbers finite, nothing piling up', () => {
     const p: JerzyProgress = { ...freshProgress(), sessions: 5, pushes: 3, seen: SEEN };

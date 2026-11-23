@@ -60,6 +60,12 @@ export interface Layout {
   stat: { x: number; w: number; rowY: number; heartR: number; xp: Rect; chipX: number; chipY: number; chip: number };
   /** how far the status moves down while the dragon's bar shows (phone and wide; 0 on its side) */
   statShift: number;
+  /**
+   * how far the status moves down in a Postój (phone and wide; 0 on its side, where it stands top left): the runner's
+   * breath pacer (src/arcade/pacer.ts) takes the top of the play area's middle then, and the hearts calm heals stay
+   * in sight under it (the build's chips step aside meanwhile, so the knight's head stays clear)
+   */
+  restShift: number;
   /** the build's chips step aside while the dragon's bar shows (they share the band) */
   chipsYieldToBoss: boolean;
   /** the lowest y the status band reaches (bubbles and marks stay under it) */
@@ -125,7 +131,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     return {
       w, h, ins, top, bottom, left, right, shape, touch, u, kind, big, s, kx, ky, halfW, halfH, up: (ky - top) / s,
       stat: { x: sx, w: sw, rowY: y0 + 9, heartR, xp, chipX: sx, chipY, chip },
-      statShift: 0, chipsYieldToBoss: false, statBottom: chipY + chip / 2 + 4, boss, sword, swordHit,
+      statShift: 0, restShift: 0, chipsYieldToBoss: false, statBottom: chipY + chip / 2 + 4, boss, sword, swordHit,
       bannerY: chipY + chip / 2 + 30, bannerLowY: Math.min(ky + s * 1.8, bottom - 30),
     };
   }
@@ -139,7 +145,8 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   return {
     w, h, ins, top, bottom, left, right, shape, touch, u, kind, big, s, kx, ky, halfW, halfH, up: (ky - top) / s,
     stat: { x: sx, w: sw, rowY: y0 + 9 * u, heartR, xp, chipX: sx, chipY, chip },
-    statShift, chipsYieldToBoss: true, statBottom, boss, sword, swordHit,
+    // the pacer: 10 px under the HUD band, a 66 px pill (76 on a big screen with a mouse); the band's panel starts 3 u under the HUD
+    statShift, restShift: (big ? 92 : 82) - 3 * u, chipsYieldToBoss: true, statBottom, boss, sword, swordHit,
     bannerY: statBottom + 30 * u, bannerLowY: Math.min(ky + s * 2, swordHit.y - 22),
   };
 }

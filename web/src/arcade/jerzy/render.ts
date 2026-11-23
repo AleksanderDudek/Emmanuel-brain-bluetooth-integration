@@ -69,6 +69,9 @@ export class JerzyView {
   dialPress = 0;
   /** the dragon's bar (and the status making room for it) eases in and out (0..1) */
   private bossK = 0;
+  /** the status band's way down under the runner's breath pacer in a Postój (0..1); with reduced motion it steps */
+  private restK = 0;
+  private readonly still: boolean;
   private hurtGrad: { w: number; h: number; g: CanvasGradient } | null = null;
   private readonly kp: KnightPose = { flip: 1, step: 0, walking: 0, swing: 0, roll: 0, down: 0, hit: 0, charge: 0, ready: false, t: 0 };
   private readonly lp: LindaPose = { flip: 1, step: 0, walking: 0, arm: 0, sit: 0, talk: false, t: 0 };
@@ -78,6 +81,7 @@ export class JerzyView {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
     this.touch = opts.touch;
+    this.still = opts.reducedMotion;
   }
 
   resize(w: number, h: number, dpr: number, ins: Insets = this.ins): void {
@@ -309,6 +313,7 @@ export class JerzyView {
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 3);
     this.dialPress = Math.max(0, this.dialPress - dt * 5);
     this.bossK = approach(this.bossK, sim.boss.state !== 'away' ? 1 : 0, dt, 0.12);
+    this.restK = approach(this.restK, sim.restBlock ? 1 : 0, dt, this.still ? 0.001 : 0.12);
     this.levelPop = Math.max(0, this.levelPop - dt * 2.5);
     if (this.banner) {
       this.banner.t += dt;
@@ -556,11 +561,13 @@ export class JerzyView {
     }
     // the game's own bits: the status band and the dragon's bar under the HUD, the dial in the thumb zone
     const sheetUp = !!(sim.choice || sim.story);
-    this.hud.drawStatus(ctx, L, sim, now, this.levelPop, this.bossK);
+    this.hud.drawStatus(ctx, L, sim, now, this.levelPop, this.bossK, this.restK);
     this.hud.drawBoss(ctx, L, sim, now, this.bossK);
     if (!sheetUp) this.hud.drawDial(ctx, L, sim, now, this.dialPress);
     const line = sim.talk.line;
-    if (line && !sheetUp) this.hud.drawBubble(ctx, L, line.text, lpp.x, lpp.y - s * 1.2, line.t);
+    // Linda's bubble stays under the status band wherever it stands (lower in a Postój)
+    const LB = this.restK > 0.01 ? { ...L, statBottom: L.statBottom + L.restShift * this.restK } : L;
+    if (line && !sheetUp) this.hud.drawBubble(ctx, LB, line.text, lpp.x, lpp.y - s * 1.2, line.t);
     // a banner goes under the knight while the runner's block banner covers the upper half
     const low = sim.phase === 'play' && !!sim.block && sim.block.kind !== 'warmup' && sim.blockT < RULES.bannerSec + 0.4;
     if (this.banner && !sim.frozen) this.hud.drawBanner(ctx, L, this.banner.text, this.banner.t / this.banner.dur, this.banner.color, low);

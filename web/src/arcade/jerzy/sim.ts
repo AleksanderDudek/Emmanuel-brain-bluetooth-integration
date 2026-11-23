@@ -28,6 +28,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
@@ -229,12 +230,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in
- * 3, 6 s in a 40 s test); then Tarcza / Postój pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a Postój, leaving the last stretch at the end.  No
- * block under 12 s.
+ * 3, 6 s in a 40 s test); then Tarcza / Postój pairs (45 ± 7 s and 20 ± 3 s, or the player's
+ * rhythm with the jitter scaled to it; scaled to end on time, jittered only when there is room)
+ * ending with a Postój, leaving the last stretch at the end.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -294,6 +295,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Tarcza, s of Postój); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class JerzySim {
@@ -439,7 +442,7 @@ export class JerzySim {
     this.bankBefore = p.bank;
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
     this.talk = new Talk(LINES, init.rng);
     this.knight = { x: 0, y: 0, mx: 0, my: 0, face: -Math.PI / 2, hearts: RULES.hearts, max: RULES.hearts, safe: 0, down: 0, hit: 0, walked: 0 };
     this.linda = { x: -1, y: 0.25, face: 1, walking: 0 };
