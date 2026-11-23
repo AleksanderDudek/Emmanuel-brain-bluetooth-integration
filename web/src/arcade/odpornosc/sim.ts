@@ -14,7 +14,9 @@
  */
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
+import { BREATH_DEFAULT, breathAt, type BreathState } from '../kit/breath';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import { Captions, type Caption } from './captions';
@@ -183,11 +185,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The session's blocks: a first-ever session opens with the warm-up (28 s in 5 and 10 min, 20 s in 3, 6 s in
- * a 40 s test); then Alarm / Gojenie pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time, jittered only when
- * there is room) ending with a rest, leaving the last stretch free.  No block under 12 s.
+ * a 40 s test); then defence / calm pairs (45 ± 7 s and 20 ± 3 s, or the player's rhythm with the jitter scaled
+ * to it; scaled to end on time, jittered only when there is room) ending with a rest, leaving the last stretch
+ * free.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -264,6 +267,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the player has a mouse, not a finger: Neo says "click" where he speaks of the hands */
   mouse?: boolean;
+  /** the rest's rhythm the player set (s of defence, s of calm); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 /**
@@ -325,12 +330,13 @@ export class OdpSim {
   nets = 0;
   private goodT = 0;
   private goodSaid = false;
-  /** a rest's breathing guide: 0..1 of the breath (in, then out) and whether it is the in-breath; null outside a rest */
-  get breath(): { k: number; inhale: boolean } | null {
+  /**
+   * A rest's breath (in 4, out 6 from the rest's start; kit/breath.ts): the runner's pacer shows it and the dozing
+   * swarm and the wound's glow breathe with it (`k`: the lungs' fullness); null outside a rest.
+   */
+  get breath(): BreathState | null {
     if (!this.restBlock) return null;
-    const R = RULES, cyc = R.breathIn + R.breathOut;
-    const x = ((this.blockT % cyc) + cyc) % cyc;
-    return x < R.breathIn ? { k: x / R.breathIn, inhale: true } : { k: (x - R.breathIn) / R.breathOut, inhale: false };
+    return breathAt({ ...BREATH_DEFAULT, in: RULES.breathIn, out: RULES.breathOut }, this.blockT);
   }
   /** the share of a blind block's window above the threshold (shown at its end) */
   blindShare = -1;
@@ -418,6 +424,8 @@ export class OdpSim {
   private chargeSaid = false;
   private gulpRingSaid = false;
 
+  private readonly rhythm: { focus: number; rest: number } | null;
+
   constructor(init: SimInit) {
     this.p = init.progress;
     this.plannedSec = Math.max(10, init.plannedSec);
@@ -431,6 +439,7 @@ export class OdpSim {
     this.pushesBase = this.p.pushes;
     this.finaleSec = finaleFor(this.plannedSec);
     this.mouse = !!init.mouse;
+    this.rhythm = init.rhythm ?? null;
     this.talk = new Talk(this.mouse ? LINES_MOUSE : LINES, this.rng);
     // what showed is remembered for the player (what was only queued is not)
     this.captions.onShow = (kind, what) => {
@@ -510,7 +519,7 @@ export class OdpSim {
     if (this.started) return;
     this.started = true;
     this.session = this.p.sessions + 1;
-    this.plan = planBlocks(this.plannedSec, this.firstEver, this.rng);
+    this.plan = planBlocks(this.plannedSec, this.firstEver, this.rng, this.rhythm);
     if (this.plannedSec - this.finaleSec < this.plan.reduce((s, b) => s + b.dur, 0) - 0.01) this.finaleSec = Math.max(0, this.plannedSec - this.plan.reduce((s, b) => s + b.dur, 0));
     this.woundX = this.W * 0.58;
     this.setupStage(true);

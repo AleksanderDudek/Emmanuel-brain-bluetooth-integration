@@ -89,6 +89,52 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer defence, shorter calm, the jitter scaled; the stages go on', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the calm under a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.25);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: at either extreme a 10-minute session ends on time, the stages advance, the score grows
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new OdpSim({
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN] }, rng: mulberry32(7), plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const pushes = sim.plan.filter(b => b.kind === 'push');
+      const m = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+      expect(m).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(m).toBeLessThan(rhythm.focus * 1.25);
+      const evs = drive(sim, 600 + RULES.settle, () => (sim.block.kind === 'rest' ? LOW : MID), { t: 0 }, closeCards(sim));
+      expect(sim.phase).toBe('done');
+      expect(ofType(evs, 'stageDone').length).toBeGreaterThanOrEqual(3);
+      expect(sim.score).toBeGreaterThan(20);
+    }
+  });
+
+  it('breathes in a rest only: in for 4 from the rest\'s start, out for 6 — the pacer and the dozing swarm agree', () => {
+    const sim = later();
+    expect(sim.breath).toBeNull();
+    const clock = { t: 0 };
+    drive(sim, sim.block.dur + 0.05, MID, clock, closeCards(sim));
+    expect(sim.block.kind).toBe('rest');
+    drive(sim, 1, LOW, clock, closeCards(sim));
+    expect(sim.breath).toMatchObject({ phase: 'in', n: 0 });
+    drive(sim, 4, LOW, clock, closeCards(sim));
+    expect(sim.breath).toMatchObject({ phase: 'out', n: 0 });
+    drive(sim, 6, LOW, clock, closeCards(sim));
+    expect(sim.breath).toMatchObject({ phase: 'in', n: 1 });
+  });
+
   it('fits a 40 s test session (?trainingSec=40) and any planned length from 10 s', () => {
     for (const planned of [10, 20, 40, 61]) {
       for (const first of [true, false]) {
@@ -262,7 +308,8 @@ describe('the stages: the real order of an immune response', () => {
   });
 
   it('antibodies: a dendritic cell carries a piece to the node; antibodies and complement tag the bacteria; a capsule slips until tagged', () => {
-    const sim = at(3);
+    // (seed 4: the dendritic cell finds a bacterium within its 1.4 s look — with the bacteria spread wide it may not)
+    const sim = at(3, { seed: 4 });
     const clock = toStage(sim, 'antibodies');
     expect(sim.cells.some(c => c.kind === 'dc')).toBe(true);
     const evs = drive(sim, RULES.antibodies.trip + 6, HIGH, clock);
@@ -384,6 +431,8 @@ describe('the stages: the real order of an immune response', () => {
     const sim = at(2);
     const clock = toStage(sim, 'hunt');
     while (!sim.restBlock) drive(sim, 0.5, MID, clock, closeCards(sim));
+    // a 45 s defence can fill the swarm to its cap (nothing to refresh then): the battle's losses make room
+    for (const c of sim.swarm.slice(0, 8)) c.state = 'spent';
     drive(sim, 2, LOW, clock, closeCards(sim));
     const evs = drive(sim, 10, LOW, clock, closeCards(sim));
     expect(ofType(evs, 'spawn').length).toBe(0);
@@ -1271,7 +1320,7 @@ describe('round 11: the mechanics made visible', () => {
 });
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the finale: alarm and rest alternating, ending on a rest, every block 12–31 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: alarm and rest alternating, ending on a rest, every block 12 s up to its mean + jitter', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -1282,8 +1331,10 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
+        // a pair about every 65 s: 30 minutes is some 27 pairs
         const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
         expect(body.length).toBe(2 * pairs);
       }

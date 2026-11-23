@@ -125,7 +125,10 @@ export const RULES = {
   restRecruit: 0.45,
   inflamUp: 0.012,
   inflamDown: 0.05,
-  /** a rest's breathing guide: in for this long, out for that long (s): six breaths a minute (§13.1) */
+  /**
+   * a rest's breath: in for this long, out for that long (s): six breaths a minute (§13.1) — the runner's pacer
+   * guides it (src/arcade/pacer.ts) and the dozing swarm and the wound's glow breathe with it (OdpSim.breath)
+   */
   breathIn: 4,
   breathOut: 6,
   /** the calm's lead-in in a rest block (s): Mendi / HALO */
@@ -139,9 +142,16 @@ export const RULES = {
   net: { r: 15, life: 8, dissolve: 3.2 },
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4] as const,
-  rest: [22, 3] as const,
+  /**
+   * push and rest: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): 45 s of defence — an inflammation's acute bout: the alarm, the recruits through the wall, a hunt with a
+   * respiratory burst or two — then 20 s of calm, two slow breaths in which the inflammation settles and the marrow
+   * sends fresh cells; rest under a third of the session (26 / 22 s made it nearly half, every 25 s).  The stages
+   * run on their own clocks (their caps), so only the band's mode changes.  The player sets both in the lobby
+   * (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [45, 7] as const,
+  rest: [20, 3] as const,
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: cards and Neo wait it out */

@@ -11,7 +11,7 @@ import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
 import type { Insets } from '../kit/types';
 import type { PassageLayout } from '../kit/scripture';
 import { PATHOGEN, factTitle, pathogenName, unlockName, type CoachAt } from './content';
-import { drawAimTag, drawBreath, drawBubble, drawButtons, drawCard, drawGoal, drawSongLine, drawStrip } from './hud';
+import { drawAimTag, drawBubble, drawButtons, drawCard, drawGoal, drawSongLine, drawStrip } from './hud';
 import { t } from './i18n';
 import { layout, onButton, onHelp, sx, sy, wx, wy, type Layout } from './layout';
 import { paintDragGesture, paintTapGesture } from './picture';
@@ -428,7 +428,9 @@ export class OdpView {
     // the strip (the stage, the help button), the goal line, the song or the bubble, the buttons, the card
     const over = this.overPart(sim);
     const pillRight = drawStrip(ctx, L, sim, this.now, over.part === 'help');
-    if (!sim.card) drawGoal(ctx, L, sim, this.now, pillRight);
+    // in a rest the runner's breath pacer stands where the goal line and the song row are (top centre, under the
+    // HUD, src/arcade/pacer.ts) and says what they would: breathe — so they step aside for it
+    if (!sim.card && !sim.restBlock) drawGoal(ctx, L, sim, this.now, pillRight);
     const line = sim.talk.line;
     if (line && !line.held) {
       if (line.text !== this.lastLine) { this.lastLine = line.text; this.bubbleK = 0; }
@@ -437,9 +439,7 @@ export class OdpView {
       this.bubbleBottom = drawBubble(ctx, L, line.text, line.speaker, Math.min(this.bubbleK, fade), this.now);
     } else {
       this.bubbleBottom = 0;
-      const br = sim.breath;
-      if (br && !sim.card) drawBreath(ctx, L, br);
-      else if (song.on && !sim.card) drawSongLine(ctx, L, song.line, pulse, song.chorus);
+      if (song.on && !sim.card && !sim.restBlock) drawSongLine(ctx, L, song.line, pulse, song.chorus);
     }
     if (this.toasts.length && !this.quiet) this.drawToast(ctx, this.toasts[0]);
     const aim = over.aim;
@@ -970,7 +970,7 @@ export class OdpView {
     // the wound bed shows the healing so far, and in the battle what the rests prepared under the surface
     const c = sim.stage === 'heal' ? sim.closure : Math.max(sim.closure, sim.prep);
     // inflammation: a warm glow around the wound that rises with the bacteria and settles with calm (breathing in a rest)
-    const br = sim.breath, bv = br ? (br.inhale ? 0.5 - 0.5 * Math.cos(Math.PI * br.k) : 0.5 + 0.5 * Math.cos(Math.PI * br.k)) : 0.5;
+    const br = sim.breath, bv = br ? br.k : 0.5;
     glow(ctx, wxs, sy(L, 18), 70 * k * (br ? 0.92 + 0.16 * bv : 1), PAL.inflam, 0.32 * sim.inflam);
     // the wound: a narrow puncture through the epidermis (no blood: a rose slit), closing as healing goes
     const open = 1 - ease.inOutSine(clamp((c - 0.35) / 0.65));
@@ -1351,7 +1351,7 @@ export class OdpView {
         const spent = c.state === 'spent' ? clamp(c.st / RULES.neut.spentSec) : 0;
         // in a rest the swarm dozes: half-closed eyes, a slow breathing glow
         const doze = sim.restBlock && !c.grab && !c.gut.length ? 0.55 : 0;
-        const br = sim.breath, bv = br ? (br.inhale ? 0.5 - 0.5 * Math.cos(Math.PI * br.k) : 0.5 + 0.5 * Math.cos(Math.PI * br.k)) : 0;
+        const br = sim.breath, bv = br ? br.k : 0;
         glow(ctx, x, y, r * (2.2 + 0.5 * bv), sim.bursting > 0 ? '160,225,255' : '236,226,255', sim.bursting > 0 ? 0.55 : 0.22 + 0.05 * pulse + 0.1 * bv);
         paintNeutrophil(ctx, x, y, r, { ...look, spent, doze, burst: sim.bursting > 0 ? 1 : 0, anucleate: c.anucleate, eyes: r >= 6 });
         if (c.grab) {

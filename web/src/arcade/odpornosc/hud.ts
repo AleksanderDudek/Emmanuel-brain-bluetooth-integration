@@ -150,34 +150,6 @@ export function fitLine(ctx: CanvasRenderingContext2D, text: string, maxW: numbe
   return lo > 0 ? `${text.slice(0, lo).trimEnd()}…` : '';
 }
 
-/** A rest's breathing guide in the song's row: a pill that swells on the in-breath and settles on the out-breath. */
-export function drawBreath(ctx: CanvasRenderingContext2D, L: Layout, b: { k: number; inhale: boolean }): void {
-  const r = L.song, u = L.u;
-  const v = b.inhale ? 0.5 - 0.5 * Math.cos(Math.PI * b.k) : 0.5 + 0.5 * Math.cos(Math.PI * b.k);
-  const word = t(b.inhale ? 'breath.in' : 'breath.out');
-  ctx.save();
-  const size = fitFont(ctx, word, r.w * 0.5, 14.5 * u, MIN_READ, 700);
-  ctx.font = font(size, 700);
-  const tw = ctx.measureText(word).width;
-  const w = Math.min(r.w, tw + 48 * u + 70 * u * v), x = r.x + (r.w - w) / 2;
-  rr(ctx, x, r.y, w, r.h, r.h / 2);
-  ctx.fillStyle = 'rgba(28,40,60,0.5)';
-  ctx.fill();
-  glow(ctx, r.x + r.w / 2, r.y + r.h / 2, w * 0.55, '150,200,255', 0.1 + 0.18 * v);
-  ctx.strokeStyle = 'rgba(170,215,255,0.55)';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = '#dff0ff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(word, r.x + r.w / 2, r.y + r.h / 2 + 0.5);
-  // a dot that rises and falls with the breath
-  circle(ctx, x + 14 * u, r.y + r.h / 2, (2.5 + 3 * v) * u);
-  ctx.fillStyle = 'rgba(200,230,255,0.9)';
-  ctx.fill();
-  ctx.restore();
-}
-
 /** The sing-along line: the current lyric in a soft italic, a thin line under it running with the song. */
 export function drawSongLine(ctx: CanvasRenderingContext2D, L: Layout, line: { text: string; p: number } | null, pulse: number, chorus: boolean): void {
   if (!line) return;

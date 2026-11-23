@@ -19,9 +19,11 @@
  * This module wires the parts to the arcade runner (kit/types.ts).  It visualises real processes and trains
  * attention; it does not heal and does not replace treatment (the how-to's last tip says so).
  */
+import type { BreathState } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { OdpSound } from './audio';
@@ -62,7 +64,7 @@ class OdpGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<OdpProgress>) {
     migrate(env.progress);
-    this.sim = new OdpSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch });
+    this.sim = new OdpSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch, rhythm: env.rhythm });
     this.view = new OdpView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new OdpSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -261,6 +263,9 @@ class OdpGame implements ArcadeGame {
 
   meter(): number | null { return this.sim.meter(); }
 
+  /** the rest's breath (in 4, out 6 from the rest's start): the runner's pacer and the dozing swarm share it */
+  breath(): BreathState | null { return this.sim.breath; }
+
   headline(): Headline {
     const s = this.sim;
     const stage = stageName(s.stage);
@@ -335,5 +340,7 @@ const mod: ArcadeModule<OdpProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of defence (the band's alarm) before a calm, and of the calm
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;
