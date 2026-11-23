@@ -93,6 +93,7 @@ try {
   let n = 0, shots = 0;
   const bannersShot = new Set();
   const end = Date.now() + (sec - 6) * 1000;
+  let breathAt = 0;
   while (Date.now() < end) {
     await page.mouse.click(box.x, box.y);
     if (n % 3 === 0) await page.keyboard.press('Space');
@@ -109,6 +110,15 @@ try {
     if (ban && !bannersShot.has(ban)) {
       bannersShot.add(ban);
       await shot(`3-banner-${ban}`);
+    }
+    // the runner's breath pacer in the first rest (src/arcade/pacer.ts): under the banner, then on its own
+    const breath = await page.evaluate(() => !!document.querySelector('#arcadeLayer .arcade-breath:not([hidden])'));
+    if (breath && !breathAt) {
+      breathAt = Date.now();
+      await shot('3-breath-1');
+    } else if (breath && breathAt > 0 && Date.now() - breathAt > 6500) {
+      breathAt = -1;
+      await shot('3-breath-2');
     }
     // two early shots, then one every ~26 s for long sessions (blocks, rests, the dock's block reports)
     if (n === 12 || n === 34 || (n > 34 && n % 40 === 0)) await shot(`3-play-${++shots}`);

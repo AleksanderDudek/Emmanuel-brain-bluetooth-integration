@@ -220,6 +220,26 @@ details:not([open])>summary{margin-bottom:0}
 .seg.len button b{font-size:15px;font-weight:650}
 .seg.len button small{font-size:10.5px;color:var(--tx3);font-weight:500}
 .seg.len button[aria-checked="true"] small{color:inherit;opacity:.85}
+/* the rest's rhythm in a game's lobby (src/arcade/lobby.ts renderRhythm): two dials with − and + */
+.field.rhythm{gap:7px;max-width:520px}
+.field.rhythm[hidden]{display:none}
+.rh-head{display:flex;align-items:center;gap:8px;min-height:28px}
+.rh-head>span{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.rh-tag{font-size:11.5px;color:var(--tx3);padding:2px 8px;border-radius:999px;background:var(--ink-4,rgba(255,255,255,.05))}
+.rh-tag.custom{color:var(--tool);background:var(--tool-dim)}
+.rh-reset{margin-left:auto;min-height:32px;padding:4px 10px;font-size:13px}
+.rh-dial{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(96px,auto) 44px;align-items:center;gap:6px}
+.rh-name{font-size:14px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.rh-step{min-width:44px;min-height:44px;padding:0;font-size:20px;font-weight:600;border-radius:12px}
+.rh-step[disabled]{opacity:.35;cursor:default}
+.rh-val{text-align:center;font-size:15px;font-weight:650;white-space:nowrap}
+.rh-line{margin:2px 0 0;font-size:13px;line-height:1.4}
+.rh-warn{margin:0;font-size:13px;line-height:1.4;color:var(--warn,#ffc27a)}
+.rh-why{font-size:13.5px;line-height:1.5;color:var(--tx2)}
+.rh-why>summary{color:var(--tx2);font-weight:600;padding:6px 0;min-height:32px;display:flex;align-items:center;gap:6px}
+.rh-why>summary::before{content:"ⓘ";color:var(--tool)}
+.rh-why p{margin:4px 0 8px}
+.rh-why a{color:var(--tool);font-weight:600}
 
 /* ── start ───────────────────────────────────────────────────── */
 .hero{padding:18px 0 6px}
@@ -901,6 +921,29 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-banner.show{animation:banner 5.2s ease both}
 @keyframes banner{0%{opacity:0;transform:translate(-50%,10px)}7%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
 .arcade-banner p{margin:0}
+/* the breath pacer in rest blocks (src/arcade/pacer.ts): under the banner while it shows, then in its place */
+.arcade-breath{position:absolute;left:calc(var(--hud-l) + (100% - var(--hud-l) - var(--dock-r)) / 2);top:calc(var(--hud-b,176px) + 10px + var(--ban-h,0px));
+  transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:12px;padding:8px 18px 8px 9px;border-radius:999px;pointer-events:none;
+  background:rgba(8,9,14,.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);color:#fff;
+  --ab-c:#9fd8ff;transition:top .45s ease;animation:ab-in .5s ease both}
+.arcade-breath[hidden]{display:none}
+.arcade-breath[data-phase="holdIn"]{--ab-c:#ffe2a0}
+.arcade-breath[data-phase="out"]{--ab-c:#b8f0d6}
+.arcade-breath[data-phase="holdOut"]{--ab-c:#cbc4ff}
+.arcade .hold:not([hidden]) ~ .arcade-breath{margin-top:44px}
+@keyframes ab-in{from{opacity:0}to{opacity:1}}
+.ab-ring{position:relative;width:50px;height:50px;flex:none;display:grid;place-items:center}
+.ab-fill{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--ab-c) 62%,transparent),color-mix(in srgb,var(--ab-c) 22%,transparent));
+  transform:scale(.34);transition:transform .12s linear,background .4s}
+.ab-arc{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--ab-c) var(--ab-p,0deg),rgba(255,255,255,.2) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3.5px))}
+.ab-sec{position:relative;font-size:21px;font-weight:800;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.ab-text{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ab-word{font-size:21px;font-weight:800;line-height:1.15;letter-spacing:.01em;white-space:nowrap}
+.ab-sub{font-size:13px;font-weight:600;color:rgba(235,240,255,.82);white-space:nowrap}
+.ab-sub:empty{display:none}
+@media (prefers-reduced-motion:reduce){.arcade-breath{transition:none;animation:none}.ab-fill{transition:none}}
+@media (pointer:fine) and (min-width:1580px) and (min-height:840px){.ab-ring{width:60px;height:60px}.ab-sec,.ab-word{font-size:24px}.ab-sub{font-size:14px}}
 .ban-task{font-size:15px;font-weight:650;line-height:1.3}
 .ban-link{font-size:12.5px;color:rgba(255,255,255,.75);line-height:1.3}
 .ban-chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase;background:rgba(255,160,80,.22);color:#ffc58a}

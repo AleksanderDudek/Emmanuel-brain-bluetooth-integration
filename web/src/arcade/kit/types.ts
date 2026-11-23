@@ -6,7 +6,9 @@
 import type { Tool } from '../../tools';
 import type { ArcadeAudio } from './audio';
 import type { BodySignals } from './body';
+import type { BreathState } from './breath';
 import type { FocusFrame, FocusTuning } from './focus';
+import type { Rhythm, RhythmSpec } from './rhythm';
 import type { PassageId } from './scripture';
 import type { TracePhase } from './trace';
 
@@ -107,6 +109,12 @@ export interface GameEnv<P extends object> {
    * reading", never a made-up value.  For games about the body (DESIGN.md §13); optional in test envs.
    */
   body?(): BodySignals;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts), in the units of the module's `rhythm()` dials:
+   * how long focus lasts before a rest, how long a rest lasts.  Null or absent (tests, a game without dials): the
+   * game's own defaults.  The game's plan of blocks must read it.
+   */
+  rhythm?: Rhythm | null;
 }
 
 export interface PointerInput { type: 'down' | 'move' | 'up'; x: number; y: number; id: number }
@@ -183,6 +191,12 @@ export interface ArcadeGame {
    * drag anywhere, a tap on the field) is not a target.
    */
   targets?(): TapTarget[];
+  /**
+   * The breath the game guides right now (kit/breath.ts `breathAt`), or null when it guides none: the runner's
+   * standard pacer (src/arcade/pacer.ts) then follows the game's own pattern in rest blocks instead of the default
+   * 4 · 0 · 6 · 0 counted from the block's start.  Not needed by a module with `ownBreath` (it draws its own guide).
+   */
+  breath?(): BreathState | null;
 }
 
 export interface ArcadeModule<P extends object = object> {
@@ -201,4 +215,14 @@ export interface ArcadeModule<P extends object = object> {
   preview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: P): void;
   /** How to play, in this page load's language (see HowTo); without it the card uses the registry's `how` lines. */
   howto?(): HowTo;
+  /**
+   * The rest's rhythm the lobby lets the player set (kit/rhythm.ts): two dials in the game's own words — how long
+   * focus lasts before a rest (seconds or the game's unit) and how long a rest lasts (seconds or whole breaths).
+   * Without it the lobby shows no rhythm row.  In this page load's language.
+   */
+  rhythm?(): RhythmSpec;
+  /**
+   * The game draws its own breath guide in rest (kit/breathguide.ts) — the runner then shows no pacer of its own.
+   */
+  ownBreath?: boolean;
 }

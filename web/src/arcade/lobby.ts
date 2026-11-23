@@ -5,12 +5,14 @@
  */
 import type { HubStatus } from '../hub';
 import { BAND_NAME, t } from '../i18n/arcade';
-import { SESSION_MINUTES, type AppSettings, type ArcadePrefs } from '../settings';
+import { t as tr } from '../i18n/rhythm';
+import { SESSION_MINUTES, plannedSeconds, type AppSettings, type ArcadePrefs } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { $, h, run } from '../ui/dom';
 import { readiness } from '../ui/focus';
 import { coarsePointer } from './kit/mobile';
 import { loadProgress, saveProgress } from './kit/progress';
+import { REST_SETTLE, restsIn, rhythmOf, stepDial, type RhythmDial, type RhythmSpec } from './kit/rhythm';
 import type { ArcadeModule } from './kit/types';
 import { arcadeEntry, forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
@@ -60,7 +62,76 @@ export class ArcadeLobby {
     void this.d.save();
     const m = this.d.settings.arcade.minutes;
     $('arcadeLen').querySelectorAll<HTMLButtonElement>('button').forEach((b, i) => b.setAttribute('aria-checked', String(LENGTHS[i] === m)));
+    // the rhythm's count ("about 6 rests a session") follows the length
+    if ('minutes' in patch) this.renderRhythm();
   }
+
+  /**
+   * The rest's rhythm (kit/rhythm.ts, DESIGN §19.2): the game's two dials in its own words with − and +, how many
+   * rests that makes in a session of the chosen length, a reset to the game's design, and why rests exist at all.
+   * Hidden for a game without dials.
+   */
+  private renderRhythm(): void {
+    const box = $('arcadeRhythm');
+    const id = this.entry?.id;
+    let spec: RhythmSpec | undefined;
+    try {
+      spec = this.mod?.rhythm?.();
+    } catch (e) {
+      console.error(e);
+    }
+    if (!id || !spec) {
+      box.hidden = true;
+      box.replaceChildren();
+      return;
+    }
+    const s = spec;
+    const prefs = this.d.settings.arcade;
+    const r = rhythmOf(s, prefs.rhythm?.[id])!;
+    const save = (focus: number, rest: number) => {
+      const all = { ...(prefs.rhythm ?? {}) };
+      if (focus === s.focus.def && rest === s.rest.def) delete all[id];
+      else all[id] = { focus, rest };
+      prefs.rhythm = all;
+      void this.d.save();
+      this.renderRhythm();
+      // keep the keyboard where it was: the same button after the redraw
+      box.querySelector<HTMLButtonElement>(`[data-dial="${this.lastDial}"]`)?.focus({ preventScroll: true });
+    };
+    const dial = (key: 'focus' | 'rest', d: RhythmDial, v: number) => {
+      const out = h('output', { class: 'rh-val mono', 'aria-live': 'polite' }, d.format(v));
+      const btn = (dir: -1 | 1) => {
+        const next = stepDial(d, v, dir);
+        return h('button', {
+          class: 'btn rh-step', type: 'button', 'data-dial': `${key}${dir}`, disabled: next === v,
+          'aria-label': tr(dir < 0 ? 'rhythm.minus' : 'rhythm.plus', { name: d.name }),
+          on: { click: () => { this.lastDial = `${key}${dir}`; save(key === 'focus' ? next : r.focus, key === 'rest' ? next : r.rest); } },
+        }, dir < 0 ? '−' : '+');
+      };
+      return h('div', { class: 'rh-dial', role: 'group', 'aria-label': d.name }, h('span', { class: 'rh-name' }, d.name), btn(-1), out, btn(1));
+    };
+    const count = restsIn(s, r, plannedSeconds(prefs.minutes));
+    const line = [s.note, count ? tr('rhythm.count', { n: count.rests }) : '', count ? tr('rhythm.share', { pct: Math.round(count.share * 100) }) : '']
+      .filter(Boolean).join(' · ');
+    const restSec = s.restSec?.(r.rest);
+    const why = h('details', { class: 'rh-why' },
+      h('summary', null, tr('rhythm.why')),
+      h('p', null, tr('rhythm.why1')), h('p', null, tr('rhythm.why2')),
+      h('a', { href: '#wiedza' }, tr('rhythm.whyLink')));
+    const kids: (HTMLElement | null)[] = [
+      h('div', { class: 'rh-head' },
+        h('span', null, tr('rhythm.title')),
+        h('small', { class: r.custom ? 'rh-tag custom' : 'rh-tag' }, tr(r.custom ? 'rhythm.custom' : 'rhythm.default')),
+        r.custom ? h('button', { class: 'btn ghost rh-reset', type: 'button', on: { click: () => { this.lastDial = ''; save(s.focus.def, s.rest.def); } } }, tr('rhythm.reset')) : null),
+      dial('focus', s.focus, r.focus), dial('rest', s.rest, r.rest),
+      line ? h('p', { class: 'muted rh-line' }, line) : null,
+      restSec !== undefined && restSec < REST_SETTLE ? h('p', { class: 'rh-warn' }, tr('rhythm.short')) : null,
+      why];
+    box.replaceChildren(...kids.filter((n): n is HTMLElement => n !== null));
+    box.hidden = false;
+  }
+
+  private lastDial = '';
 
   /** The route opened this game's lobby. */
   async show(id: string): Promise<void> {
@@ -72,6 +143,7 @@ export class ArcadeLobby {
       this.entry = entry;
       this.mod = null;
       this.progress = null;
+      $('arcadeRhythm').hidden = true;
       $('arcadeTitle').textContent = entry.title;
       $('arcadeTagline').textContent = entry.tagline;
       const [a, b] = entry.tools.map(tool => BAND_NAME[tool]);
@@ -95,6 +167,7 @@ export class ArcadeLobby {
       }
     }
     this.renderProgress();
+    this.renderRhythm();
     this.sizeHero();
     cancelAnimationFrame(this.raf);
     this.t0 = performance.now();

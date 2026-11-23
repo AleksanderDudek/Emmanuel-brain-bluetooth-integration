@@ -3,6 +3,7 @@ import type { SessionDB } from './storage/db';
 import type { StorageTarget } from './storage/format';
 import type { BalanceConfig, FNIRSConfig } from './core/types';
 import type { Tool } from './tools';
+import type { SavedRhythm } from './arcade/kit/rhythm';
 
 export type SceneId = 'hills' | 'dunes' | 'snow' | 'space';
 
@@ -54,6 +55,8 @@ export interface ArcadePrefs {
   haptics: boolean;
   /** the signal dock under the game: the band's chart and what it means, in plain words */
   signal: boolean;
+  /** the rest's rhythm each game's player set in its lobby (kit/rhythm.ts), by game id; a game not here plays as designed */
+  rhythm?: Record<string, SavedRhythm>;
 }
 
 export interface AppSettings {

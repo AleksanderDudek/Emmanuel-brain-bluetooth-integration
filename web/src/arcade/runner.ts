@@ -24,8 +24,10 @@ import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
 import { NO_INSETS, coarsePointer, safeAreas } from './kit/mobile';
+import { rhythmOf, type Rhythm } from './kit/rhythm';
 import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type Insets, type SignalPhase, type TapTarget } from './kit/types';
 import { fitSide, howToPages, howToPlay, howToSide, MendiPanel } from './mendi';
+import { BreathPacer, pacerState } from './pacer';
 import { forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
@@ -104,6 +106,8 @@ export class ArcadeRunner {
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
     dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement; panel: MendiPanel; marks: HTMLElement; top: HTMLElement;
     side: HTMLElement;
+    /** the breath pacer in rest blocks (null: the game draws its own guide) */
+    pacer: BreathPacer | null;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
@@ -226,6 +230,13 @@ export class ArcadeRunner {
     document.querySelector('.app')?.setAttribute('inert', '');
     this.build();
     const day = dayKey();
+    // the rest's rhythm the player set in this game's lobby (kit/rhythm.ts); a game without dials plays as designed
+    let rhythm: Rhythm | null = null;
+    try {
+      rhythm = rhythmOf(mod.rhythm?.(), prefs.rhythm?.[entry.id]);
+    } catch (e) {
+      console.error(e);
+    }
     const env = {
       canvas: this.ui!.canvas, hud: this.ui!.hud, audio: this.audio!, progress, rng: mulberry32((Date.now() ^ 0x5bd1e995) >>> 0),
       day, daySeed: daySeed(entry.id, day), plannedSec: planned, tool, simulated: this.d.hub.status.source === 'simulator',
@@ -235,6 +246,7 @@ export class ArcadeRunner {
       insets: () => this.insets(),
       touch: this.touch,
       body: () => this.bodySignals.value,
+      rhythm,
     };
     this.game = mod.create(env);
     this.resize();
@@ -265,6 +277,8 @@ export class ArcadeRunner {
     // the strategies start somewhere new each session, so the first block is not always the same task
     const dock = new SignalDock(this.session!.tool, entry.brain, Math.floor(Date.now() / 60_000) % 40);
     const banner = h('div', { class: 'arcade-banner', role: 'status', 'aria-live': 'polite', hidden: true });
+    // rest blocks get the standard breath pacer, unless the game guides the breath itself (src/arcade/pacer.ts)
+    const pacer = this.mod!.ownBreath ? null : new BreathPacer();
     dock.onBlock = b => this.showBanner(b);
     const docked = this.d.settings.arcade.signal;
     const dockBtn = h('button', { class: 'icon-btn arcade-dock-btn', type: 'button', 'aria-label': t('dock.toggle'), title: t('dock.toggle'), 'aria-pressed': String(docked) }, icon('i-signal'));
@@ -311,7 +325,7 @@ export class ArcadeRunner {
     const side = h('aside', { class: 'arcade-side', 'aria-hidden': 'true' },
       h('h2', null, entry.title), howToSide(entry, mod.howto?.() ?? null, this.session!.tool));
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, marks, panel.el, panel.score, side, dock.el, top, chip, hold, banner, overlay);
+      canvas, hud, marks, panel.el, panel.score, side, dock.el, top, chip, hold, banner, pacer?.el, overlay);
     if (this.touch) wrap.classList.add('touch');
     // a touch that began on the signal dock plays shifted onto the canvas's edge (see below), all its way
     const shift = new Map<number, { dx: number; dy: number }>();
@@ -344,7 +358,7 @@ export class ArcadeRunner {
     // (should the canvas not have taken the pointer over, its end still clears the shift)
     for (const end of ['pointerup', 'pointercancel'] as const) dock.el.addEventListener(end, e => { shift.delete(e.pointerId); });
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks, top, side };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks, top, side, pacer };
     wrap.focus({ preventScroll: true });
   }
 
@@ -517,6 +531,8 @@ export class ArcadeRunner {
     ui.banner.classList.remove('show');
     void ui.banner.offsetWidth;
     ui.banner.classList.add('show');
+    // the breath pacer waits under the banner while it shows, then takes its place (styles.css .arcade-breath)
+    ui.wrap.style.setProperty('--ban-h', `${ui.banner.offsetHeight + 10}px`);
     // a coach mark on screen steps aside for the banner and comes back after it
     const now = performance.now();
     if (this.hintNow && this.hintNow.until > now + 600) {
@@ -529,6 +545,7 @@ export class ArcadeRunner {
       this.bannerTimer = null;
       if (this.ui !== ui) return;
       ui.banner.hidden = true;
+      ui.wrap.style.setProperty('--ban-h', '0px');
       const later = this.hintLater;
       this.hintLater = null;
       if (later) this.hint(later.text, later.at, Math.max(1800, later.ms));
@@ -715,6 +732,14 @@ export class ArcadeRunner {
     });
     if (game.headline) this.safe(() => ui.panel.setScore(game.headline!()));
     else ui.panel.setScore(null);
+    if (ui.pacer) {
+      // the rest's breath: the game's own pattern when it gives one, else 4 · 0 · 6 · 0 from the rest's start
+      // (the coach's block clock moves with the samples; the frames between them carry it on smoothly)
+      let own: ReturnType<NonNullable<ArcadeGame['breath']>> = null;
+      if (rest && game.breath) this.safe(() => { own = game.breath!(); });
+      const sec = c.blockSec + Math.min(0.15, Math.max(0, (performance.now() - this.lastSampleAt) / 1000));
+      ui.pacer.update(rest && !ses.paused ? pacerState(sec, ph.left ?? null, own) : null);
+    }
   }
 
   private renderHold(): void {
