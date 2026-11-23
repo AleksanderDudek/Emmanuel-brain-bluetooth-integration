@@ -22,6 +22,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ArkaSound } from './audio';
 import { t, unit } from './i18n';
@@ -30,6 +31,7 @@ import { bestOf, freshProgress, migrate, type ArkaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { ArkaView } from './render';
+import { RULES } from './rules';
 import { ArkaSim, type SimEvent } from './sim';
 
 const ARROWS: Readonly<Record<string, [number, number]>> = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
@@ -51,6 +53,7 @@ class ArkaGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<ArkaProgress>) {
     this.sim = new ArkaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new ArkaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new ArkaSound(env.audio);
@@ -292,5 +295,7 @@ const mod: ArcadeModule<ArkaProgress> = {
   progressPanel: p => progressPanel(migrate(p)),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Mgła before the Tęcza, and of the rainbow
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

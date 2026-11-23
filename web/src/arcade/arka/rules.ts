@@ -55,9 +55,15 @@ export const RULES = {
   shineSec: 7,
 
   // ── the session ──────────────────────────────────────────────
-  /** Mgła and Tęcza blocks: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4] as const,
-  rest: [22, 3] as const,
+  /**
+   * Mgła and Tęcza blocks: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): 45 s of Mgła — a board or two worked through the mist — then a 20 s Tęcza, a rainbow's worth of
+   * calm after the lead-in (a passed rest always ends with one); the rest under a third of the session, about every
+   * 65 s (it was 26 / 22 s, nearly half, every 48 s).  The player sets both in the lobby (kit/rhythm.ts: whole steps
+   * of 5 s, so the defaults sit on them), the jitter scales with them.
+   */
+  push: [45, 7] as readonly [number, number],
+  rest: [20, 3] as readonly [number, number],
   minBlock: 12,
   telegraph: 4,
   finale: 5,

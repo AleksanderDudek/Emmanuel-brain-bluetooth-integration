@@ -27,12 +27,12 @@ const NOSIG = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
 
-type SimOpts = { progress?: Partial<ArkaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<ArkaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): ArkaSim {
   const sim = new ArkaSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -436,6 +436,32 @@ describe('the session plan', () => {
       }
     }
     expect(planBlocks(300, true, mulberry32(1))[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Mgła, shorter Tęcza, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const sec of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(sec, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s rainbow is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+      }
+    }
+    // the lobby's dials show the design itself (their 5 s steps keep it), named in the game's words
+    const spec = arka.rhythm!();
+    expect([spec.focus.def, spec.rest.def]).toEqual([RULES.push[0], RULES.rest[0]]);
+    expect([spec.focus.name, spec.rest.name]).toEqual(['Mgła', 'Tęcza']);
+    // no rhythm: the designed one, the rainbow a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
   });
 
   it('telegraphs each block 4 s ahead and names the next one for the panel', () => {
@@ -1070,6 +1096,48 @@ describe('Arka on a desktop and a big screen (DESIGN §14)', () => {
 // ── long sessions (15–30 min) ────────────────────────────────────
 
 describe('Arka at 15–30 minutes', () => {
+  /** A steady player: focus in a Mgła, calm in a Tęcza, a free animal tapped every 0.7 s (the dove when none is free). */
+  function steady(sim: ArkaSim, sec: number): { at23: number; rainbowsMax: number } {
+    let nextTap = 0.5, at23 = -1, rainbowsMax = 0, inBlock = 0, last = sim.rainbows, block = sim.blockIndex;
+    const dt = 1 / 30;
+    for (let i = 0; i < (sec + 3) / dt; i++) {
+      const t = sim.now + dt;
+      sim.update(dt, sim.block.kind === 'rest' ? REST : FOCUS, t);
+      if (sim.blockIndex !== block) { block = sim.blockIndex; inBlock = 0; }
+      inBlock += sim.rainbows - last;
+      last = sim.rainbows;
+      rainbowsMax = Math.max(rainbowsMax, inBlock);
+      if (at23 < 0 && t >= sec * 2 / 3) at23 = sim.pairs;
+      if (t >= nextTap) {
+        nextTap += 0.7;
+        if (sim.levelState === 'clear') sim.skip();
+        else {
+          const open = (x: (typeof sim.animals)[number]) => x.lockedBy < 0 || sim.animals[x.lockedBy].out;
+          const a = sim.animals.find(x => !x.out && open(x) && (x.asleep || sim.way(x).blocker < 0));
+          if (a) sim.tap(a.id); else sim.dove();
+        }
+      }
+      sim.take();
+    }
+    return { at23, rainbowsMax };
+  }
+
+  it('plays any rhythm the player sets to the finale: 3, 10 and 30 minutes, long mists or long rainbows, the pairs still grow', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = returning(12, { planned, seed: 9, rhythm });
+        const r = steady(sim, planned);
+        expect(sim.phase, name).toBe('finale');
+        expect(sim.pairs, name).toBeGreaterThan(r.at23);
+        // every passed Tęcza gives its rainbow (grace), never more than rainbowMax a rest
+        expect(sim.rainbows, name).toBeGreaterThanOrEqual(sim.plan.filter(b => b.kind === 'rest').length - 1);
+        expect(r.rainbowsMax, name).toBeLessThanOrEqual(RULES.rainbowMax);
+        for (const v of [sim.pairs, sim.levelN, sim.starsSession, sim.hearts]) expect(Number.isFinite(v), name).toBe(true);
+      }
+    }
+  });
+
   it('plans 900–1800 s to the finale: Mgła/Tęcza pairs at their design lengths, ending on a Tęcza', () => {
     for (const sec of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {

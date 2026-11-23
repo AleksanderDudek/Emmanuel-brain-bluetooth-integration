@@ -25,6 +25,7 @@
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import { boardFor, wayOut, type BoardSpec, type Cell } from './board';
@@ -95,6 +96,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Mgła, s of Tęcza); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 const PLAN_SALT = 0x4a1c;
@@ -110,12 +113,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with a warm-up (34 s in 5 and 10 min, 22 s in 3,
- * 8 s in a short test); then Mgła / Tęcza pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a rest, leaving the last 5 s to the finale.  No block
- * under 12 s, and any plannedSec ≥ 10 fits.
+ * 8 s in a short test); then Mgła / Tęcza pairs (45 ± 7 s and 20 ± 3 s, or the player's rhythm with
+ * the jitter scaled to it; scaled to end on time, jittered only when there is room) ending with a rest,
+ * leaving the last 5 s to the finale.  No block under 12 s, and any plannedSec ≥ 10 fits.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   const left0 = Math.max(4, plannedSec - R.finale);
   if (plannedSec <= 60) {
@@ -270,7 +273,7 @@ export class ArkaSim {
     this.plan = planBlocks(init.plannedSec, this.firstEver, (() => {
       let s = (init.daySeed ^ PLAN_SALT) >>> 0;
       return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
-    })());
+    })(), init.rhythm);
   }
 
   // ── the session ────────────────────────────────────────────────
