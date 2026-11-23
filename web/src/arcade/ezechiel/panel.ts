@@ -5,7 +5,8 @@
  *   what it is     how it goes, and plainly what it is not (not a treatment; a doctor for what hurts or worries)
  *   the places     where the leaves are laid, in turn (chips that toggle; at least one), how many were laid at each
  *   the label      a matter of the heart in a few words (≤ 40 characters, kept only on this device)
- *   the breath     the rest's pattern: presets, four steppers (0–15 s), the breaths in a rest (auto or 1–12)
+ *   the breath     the rest's pattern: presets, four steppers (0–15 s), one breath's length (the breaths in a rest
+ *                  and the step's length: the lobby's Rytm row, round 15)
  *
  * Built with h(); a choice saves the progress and redraws the card.
  */
@@ -15,9 +16,8 @@ import { BREATH_PHASES, BREATH_PRESETS, breathCycle, sameBreath, type BreathPhas
 import { LABEL_MAX, PLACES, type MarkId } from './content';
 import { markName, placeName, t, type Key } from './i18n';
 import {
-  autoBreaths, bestOf, breathOf, laidAll, restOf, setBreath, setLabel, setRestBreaths, stepBreathOf, togglePlace, type EzechielProgress,
+  bestOf, breathOf, laidAll, setBreath, setLabel, stepBreathOf, togglePlace, type EzechielProgress,
 } from './meta';
-import { RULES } from './rules';
 import { secText } from './sim';
 
 function stat(k: string, v: string): HTMLElement {
@@ -97,8 +97,9 @@ function build(p: EzechielProgress, changed: () => void, note: string, refuse: (
 }
 
 /**
- * The rest's breath: the presets as chips, four steppers (each phase 0…15 s), the breaths in a rest (auto or 1…12)
- * and the live line of what a rest will be.  A step that would leave a breath under 2 s is refused, and says why.
+ * The rest's breath: the presets as chips, four steppers (each phase 0…15 s) and one breath's length (how many
+ * breaths a rest lasts is the lobby's Rytm row since round 15).  A step that would leave a breath under 2 s is
+ * refused, and says why.
  */
 function breathCard(p: EzechielProgress, changed: () => void, note: string, refuse: (msg: string) => void): HTMLElement[] {
   const out: HTMLElement[] = [];
@@ -122,15 +123,8 @@ function breathCard(p: EzechielProgress, changed: () => void, note: string, refu
       h('span', { class: 'grow' }, name), less, h('output', { 'aria-live': 'polite' }, t('secs', { n: b[ph] })), more));
   }
   if (note) out.push(h('p', { class: 'task-feedback bad', role: 'alert' }, note));
-  const auto = p.restBreaths <= 0, n = auto ? autoBreaths(p) : p.restBreaths;
-  const setN = (v: number) => () => { setRestBreaths(p, Math.max(1, Math.min(RULES.restBreathsMax, v))); changed(); };
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.restBreaths')),
-    h('div', { class: 'row', role: 'group', 'aria-label': t('panel.restBreaths') },
-      big(button('−', setN(n - 1), 'btn', { 'aria-label': t('panel.less', { what: t('panel.restBreaths') }), disabled: n <= 1 ? '' : null })),
-      h('output', { 'aria-live': 'polite' }, auto ? t('panel.auto', { n }) : String(n)),
-      big(button('+', setN(n + 1), 'btn', { 'aria-label': t('panel.more', { what: t('panel.restBreaths') }), disabled: n >= RULES.restBreathsMax ? '' : null })),
-      big(button(t('panel.autoBtn'), () => { setRestBreaths(p, 0); changed(); }, auto ? 'btn on' : 'btn', { 'aria-pressed': String(auto) }))));
-  const rest = restOf(p);
-  out.push(h('p', null, `${t('panel.restLine', { breaths: t('breaths', { n: rest.cycles }), sec: secText(rest.sec) })} · ${t('panel.cycle', { sec: secText(breathCycle(b)) })}`));
+  // one breath's length; how many breaths a rest lasts, and how long a step of the way, is the lobby's Rytm row
+  // (kit/rhythm.ts, round 15) — one place for the rest's rhythm in every game
+  out.push(h('p', null, t('panel.cycle', { sec: secText(breathCycle(b)) })), h('p', { class: 'muted' }, t('panel.restRhythm')));
   return out;
 }

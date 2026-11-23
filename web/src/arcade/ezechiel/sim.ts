@@ -95,6 +95,12 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `ezechielRhythm`): seconds of one step of the way,
+   * whole breaths of the rest after it — taken when the player moved a dial (`custom`); absent: the panel's old count
+   * of breaths (p.restBreaths) and the way's curves; as designed: the curves.
+   */
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 }
 
 export class EzechielSim {
@@ -108,6 +114,8 @@ export class EzechielSim {
   readonly talk: Talk;
   readonly way: Way;
   readonly breathP: BreathPattern;
+  /** a push under 85 % this long rests by the valve (s): RULES.valveMax, longer for the player's long steps */
+  readonly valveMax: number;
   readonly contrast = new BlockContrast(4);
   /** how many steps the plan has (a strong player's extra trees come after) */
   readonly planned: number;
@@ -204,7 +212,13 @@ export class EzechielSim {
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
     this.breathP = breathOf(this.p);
-    this.way = planWay(this.plannedSec, { firstEver: this.firstEver, eeg: this.eeg, breath: this.breathP, restBreaths: this.p.restBreaths });
+    const rh = init.rhythm;
+    const own = rh ? (rh.custom !== false ? rh : null) : undefined;
+    this.way = planWay(this.plannedSec, {
+      firstEver: this.firstEver, eeg: this.eeg, breath: this.breathP,
+      restBreaths: own === undefined ? this.p.restBreaths : own ? own.rest : 0, pushSec: own ? own.focus : undefined,
+    });
+    this.valveMax = Math.max(RULES.valveMax, Math.round(1.5 * (own ? this.way.pushSec : 0)));
     this.steps = this.way.steps.slice();
     this.planned = this.steps.length;
     this.talk = new Talk(m => linesOf(m), init.rng);
@@ -560,7 +574,7 @@ export class EzechielSim {
       } else if (this.t >= this.tailAt) {
         this.endBlock();
         this.startRest('float');
-      } else if (this.blockT >= this.lead + R.valveStall && this.sinceGain >= R.valveStall || this.blockT >= R.valveMax && this.stepK < R.valveUnder) {
+      } else if (this.blockT >= this.lead + R.valveStall && this.sinceGain >= R.valveStall || this.blockT >= this.valveMax && this.stepK < R.valveUnder) {
         this.valves++;
         this.endBlock();
         this.startRest('valve');

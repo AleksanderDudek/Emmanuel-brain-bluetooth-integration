@@ -9,7 +9,9 @@ import {
 import { RULES, curve, finaleFor, mult, planWay, riseCuts } from '../src/arcade/ezechiel/rules';
 import { EzechielSim, type SimEvent } from '../src/arcade/ezechiel/sim';
 import { BTN, figRect, hitTest, layout, pickerRect, storyRect, tapTargets } from '../src/arcade/ezechiel/layout';
-import { coachText, howto } from '../src/arcade/ezechiel/index';
+import { coachText, ezechielRhythm, howto } from '../src/arcade/ezechiel/index';
+import { progressPanel } from '../src/arcade/ezechiel/panel';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 import { BREATH_DEFAULT, BREATH_PRESETS, breathCycle, type BreathPattern } from '../src/arcade/kit/breath';
 import { DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, MIN_READ, MIN_TAP, auditTargets } from '../src/arcade/kit/mobile';
@@ -32,11 +34,15 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['s.open', 'c.rise', 'c.breath', 'c.place', 'c.blind', 'c.leaf'];
 
-type SimOpts = { progress?: Partial<EzechielProgress>; planned?: number; seed?: number; eeg?: boolean };
+type SimOpts = {
+  progress?: Partial<EzechielProgress>; planned?: number; seed?: number; eeg?: boolean;
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
+};
 
 function makeSim(o: SimOpts = {}): EzechielSim {
   const sim = new EzechielSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: TUNING,
+    rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -435,7 +441,8 @@ describe('the meta: places, the label, the breath (meta.ts)', () => {
     setRestBreaths(q, 30);
     expect(q.restBreaths).toBe(RULES.restBreathsMax);
     setRestBreaths(q, 0);
-    expect(autoBreaths(freshProgress(), 1800)).toBe(3);
+    // 30 minutes: two breaths (round 15: 24 s aimed at, it was 30 — three)
+    expect(autoBreaths(freshProgress(), 1800)).toBe(2);
   });
 });
 
@@ -572,5 +579,69 @@ describe('mobile first, then the desk (layout.ts)', () => {
     expect(hitTest(L, { story: null, picker: true }, 2, L.h - 2)).toBe('outside');
     const fr = figRect(L);
     expect(fr.w).toBeGreaterThanOrEqual(MIN_TAP);
+  });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers one step of 20–90 s (30 by design) and the rest after it in whole breaths of the player’s pattern (2)', () => {
+    const spec = ezechielRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: RULES.focusDef, min: RULES.focusMin, max: RULES.focusMax, step: 5, name: 'Jeden krok' });
+    expect(spec.rest).toMatchObject({ def: RULES.restDef, min: 1, max: RULES.restBreathsMax, name: 'Odpoczynek' });
+    expect(spec.rest.format(2)).toBe('2\u00a0oddechy · 20\u00a0s');
+    expect(ezechielRhythm({ ...freshProgress(), breath: { ...BREATH_PRESETS.box } }).restSec!(2)).toBe(32);
+    const n = restsIn(spec, rhythmOf(spec, undefined)!, 600)!;
+    expect(n.rests).toBe(12);
+    expect(n.share).toBeCloseTo(20 / 50, 2);
+  });
+
+  it('plans the way with the player’s step and rest when a dial moved, by its curves as designed', () => {
+    const design = later({ planned: 600, rhythm: { focus: 30, rest: 2, custom: false } });
+    expect(design.way).toEqual(planWay(600, { firstEver: false, eeg: false, breath: BREATH_DEFAULT, restBreaths: 0 }));
+    const long = later({ planned: 600, rhythm: { focus: 60, rest: 4, custom: true } });
+    expect(long.way.pushSec).toBe(60);
+    expect(long.way.rest).toEqual({ cycles: 4, sec: 40 });
+    expect(long.way.steps.length).toBeLessThan(design.way.steps.length);
+    expect(long.valveMax).toBeGreaterThanOrEqual(90);
+    // the old panel's count of breaths is read only without the lobby's rhythm (a test, an old runner)
+    const old = later({ planned: 600, progress: { restBreaths: 5 } });
+    expect(old.way.rest.cycles).toBe(5);
+    const now = later({ planned: 600, progress: { restBreaths: 5 }, rhythm: { focus: 30, rest: 2, custom: false } });
+    expect(now.way.rest.cycles).toBe(design.way.rest.cycles);
+  });
+
+  it('reaches the river near the end of 3, 10 and 30 minutes with the dials at their extremes (an average player)', () => {
+    for (const P of [180, 600, 1800]) {
+      for (const rhythm of [{ focus: RULES.focusMin, rest: 1 }, { focus: RULES.focusMax, rest: 6 }, { focus: 45, rest: 3 }]) {
+        const sim = later({ planned: P, seed: 2, rhythm: { ...rhythm, custom: true } });
+        const fi = new FocusInput(TUNING);
+        const rnd = mulberry32(15);
+        let act = 0, noise = 0;
+        const evs = drive(sim, P + 10, (tt, s) => {
+          act += ((s.pushBlock ? 2 : 0) - act) * (1 - Math.exp(-STEP / 4));
+          noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+          return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+        }, { t: 0 });
+        const label = `${P}s ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, label).toBe('done');
+        expect(sim.markReached, label).toBeGreaterThanOrEqual(P >= 600 || rhythm.focus < 60 ? MARKS : 2);
+        if (P >= 600) {
+          expect(sim.arcAt, label).toBeGreaterThan(0.5 * P);
+          expect(sim.arcAt, label).toBeLessThan(0.97 * P);
+        }
+        // every rest after a step is the player's count of breaths (the floating rest at the end is the way's own)
+        const rests = ofType(evs, 'blockStart').map(e => e.block).filter(x => x.kind === 'rest' && !x.last && x.why !== 'valve' && x.why !== 'float');
+        expect(rests.length, label).toBeGreaterThan(0);
+        for (const b of rests) expect(b.cycles, label).toBe(rhythm.rest);
+      }
+    }
+  });
+
+  it('leaves the breaths in a rest to the lobby’s Rytm row: the card keeps the pattern and says where the rest is set', () => {
+    const p = freshProgress();
+    const root = progressPanel(p, () => undefined);
+    const text = root.textContent ?? '';
+    expect(text).toContain('Jeden oddech: 10\u00a0s');
+    expect(text).toContain('„Rytm”');
+    expect(text).not.toContain('auto');
   });
 });

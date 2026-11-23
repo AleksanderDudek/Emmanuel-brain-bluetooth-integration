@@ -270,6 +270,11 @@ const pl = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Odpoczynek: {breaths} · {sec}',
   'panel.cycle': 'Jeden oddech: {sec}',
+  // round 15: the rest's rhythm in the lobby (kit/rhythm.ts)
+  'rhythm.focus': 'Jeden krok',
+  'rhythm.rest': 'Odpoczynek',
+  'rhythm.note': 'Krok rzeki — woda o miarę wyżej, obmycie, liście drzew — a po nim odpoczynek',
+  'panel.restRhythm': 'Ile trwa jeden krok i ile oddechów odpoczynek po nim, ustawisz w wierszu „Rytm”, pod długością sesji.',
 };
 
 export type Key = keyof typeof pl;
@@ -516,6 +521,10 @@ const en: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Rest: {breaths} · {sec}',
   'panel.cycle': 'One breath: {sec}',
+  'rhythm.focus': 'One step',
+  'rhythm.rest': 'Rest',
+  'rhythm.note': 'A step of the river — the water a measure higher, a washing, the trees’ leaves — then a rest',
+  'panel.restRhythm': 'How long one step lasts, and how many breaths the rest after it, you set in the “Rhythm” row, under the session length.',
 };
 
 const de: Cat = {
@@ -759,6 +768,10 @@ const de: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Ruhe: {breaths} · {sec}',
   'panel.cycle': 'Ein Atemzug: {sec}',
+  'rhythm.focus': 'Ein Schritt',
+  'rhythm.rest': 'Ruhe',
+  'rhythm.note': 'Ein Schritt am Strom — das Wasser ein Maß höher, eine Waschung, die Blätter der Bäume — dann Ruhe',
+  'panel.restRhythm': 'Wie lange ein Schritt dauert und wie viele Atemzüge die Ruhe danach, stellst du in der Zeile „Rhythmus“ unter der Sitzungslänge ein.',
 };
 
 const sv: Cat = {
@@ -1002,6 +1015,10 @@ const sv: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Vila: {breaths} · {sec}',
   'panel.cycle': 'Ett andetag: {sec}',
+  'rhythm.focus': 'Ett steg',
+  'rhythm.rest': 'Vila',
+  'rhythm.note': 'Ett steg i floden — vattnet ett mått högre, en tvagning, trädens löv — sedan vila',
+  'panel.restRhythm': 'Hur länge ett steg varar och hur många andetag vilan efter det, ställer du in på raden ”Rytm”, under sessionslängden.',
 };
 
 export const CATALOGS = { pl, en, de, sv };

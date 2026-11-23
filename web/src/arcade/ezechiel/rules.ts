@@ -31,10 +31,13 @@ export const RULES = {
   // ── the plan: lengths by the session's planned length (3, 10, 30 min and between) ──
   /** the planned lengths the curves below are given at (s) */
   at: [180, 600, 1800] as readonly number[],
-  /** an average player's push (s, with its lead-in) */
-  pushSec: [21, 25, 30] as readonly number[],
-  /** a rest after a push, aimed at (s); whole breaths of the player's pattern */
-  restTarget: [10, 20, 30] as readonly number[],
+  /**
+   * an average player's push (s, with its lead-in), and a rest after it, aimed at (s; whole breaths of the player's
+   * pattern).  Round 15 (the founder: "dlaczego jest tak często?"): 30 s steps at 10 minutes and 36 at 30 (were 25
+   * and 30), the rest at 30 minutes two breaths (was three) — the rests a third to two fifths of the way, not a half
+   */
+  pushSec: [21, 30, 36] as readonly number[],
+  restTarget: [10, 20, 24] as readonly number[],
   /** the floating rest at the end (s) */
   floatTarget: [12, 30, 45] as readonly number[],
   /** leaves a trees push opens, one by one */
@@ -42,6 +45,16 @@ export const RULES = {
   /** the shortest rest (s) and the most breaths a player may set */
   restMin: 6,
   restBreathsMax: 12,
+  /**
+   * The rest's rhythm in the lobby (round 15, kit/rhythm.ts): one step of the way — the water a mark higher, a washing
+   * pass, the trees' leaves — lasts `focusDef` s for an average player by design (10 minutes; 21 s in 3, 36 s in 30),
+   * `focusMin`…`focusMax`; the rest after it `restDef` whole breaths (1…restBreathsMax).  Taken when the player moved
+   * a dial; then a push that runs long rests by the valve after valveMax or 1.5 × the player's step, the longer.
+   */
+  focusDef: 30,
+  focusMin: 20,
+  focusMax: 90,
+  restDef: 2,
   /** a session ends with a push no shorter than this (s): with less time left the floating rest begins instead */
   minPushRoom: 14,
 
@@ -156,12 +169,13 @@ export function riseCuts(pushes: number): number[] {
  * the rise (four pushes when six fit, fewer when fewer), one to three washing passes, and the trees with their leaves.
  * Three minutes reach the river and one leaf; thirty go through more breaths at each mark, more passes, many leaves.
  *
- * `restBreaths`: the player's own count of breaths in a rest (0 = auto).
+ * `restBreaths`: the player's own count of breaths in a rest (0 = auto); `pushSec`: the player's own step (s, the
+ * lobby's Rytm; absent = the curve for the length).
  */
-export function planWay(plannedSec: number, opts: { firstEver: boolean; eeg: boolean; breath: BreathPattern; restBreaths?: number }): Way {
+export function planWay(plannedSec: number, opts: { firstEver: boolean; eeg: boolean; breath: BreathPattern; restBreaths?: number; pushSec?: number }): Way {
   const P = Math.max(10, plannedSec);
   const lead = opts.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
-  const pushSec = curve(RULES.pushSec, P);
+  const pushSec = opts.pushSec ? Math.max(RULES.focusMin, Math.min(RULES.focusMax, opts.pushSec)) : curve(RULES.pushSec, P);
   const cyc = breathCycle(opts.breath);
   const own = Math.max(0, Math.min(RULES.restBreathsMax, Math.round(opts.restBreaths ?? 0)));
   const rest = own > 0 ? { cycles: own, sec: own * cyc } : breathRest(opts.breath, curve(RULES.restTarget, P), RULES.restMin);

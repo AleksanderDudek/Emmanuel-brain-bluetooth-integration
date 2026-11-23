@@ -14,13 +14,15 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { breathCycle } from '../kit/breath';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { EzechielSound } from './audio';
 import { placePoints, type PlaceId } from './content';
 import { leavesText, stageName, t, unit } from './i18n';
 import { figPt } from './layout';
-import { bestOf, freshProgress, migrate, type EzechielProgress } from './meta';
+import { bestOf, breathOf, freshProgress, migrate, type EzechielProgress } from './meta';
 import { progressPanel } from './panel';
 import { EzechielIntro, drawPreview } from './preview';
 import { EzechielView } from './render';
@@ -42,7 +44,7 @@ class EzechielGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<EzechielProgress>) {
     migrate(env.progress);
-    this.sim = new EzechielSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new EzechielSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new EzechielView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new EzechielSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -229,6 +231,22 @@ export function howto(touch = coarsePointer()): HowTo {
   };
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): how long one step of the way lasts for an average player
+ * (30 s by design, a 10-minute session's), and the whole breaths of the rest after it (2 of the player's pattern).
+ * As designed, the way keeps its curves for the session's length (21 s steps in 3 minutes, 36 s in 30).
+ */
+export function ezechielRhythm(p?: EzechielProgress): RhythmSpec {
+  const cyc = breathCycle(breathOf(p ? migrate(p) : freshProgress()));
+  return {
+    focus: secDial(RULES.focusDef, t('rhythm.focus'), { min: RULES.focusMin, max: RULES.focusMax, step: 5 }),
+    rest: breathDial(RULES.restDef, t('rhythm.rest'), cyc, { min: 1, max: RULES.restBreathsMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n,
+    restSec: n => n * cyc,
+  };
+}
+
 const mod: ArcadeModule<EzechielProgress> = {
   freshProgress,
   create: env => new EzechielGame(env),
@@ -240,5 +258,8 @@ const mod: ArcadeModule<EzechielProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => ezechielRhythm(p),
+  // the breath guide is the game's own (render.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

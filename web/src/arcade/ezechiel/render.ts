@@ -5,7 +5,8 @@
  * the place chooser and the story card.  It reads the sim and never changes it; the layers are baked per size
  * (paint.ts), so a frame composes them and draws a few dozen small shapes.
  */
-import { breathAt } from '../kit/breath';
+import { breathAt, type BreathPhase, type BreathState } from '../kit/breath';
+import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { figurePath } from '../kit/figure';
 import { approach, clamp } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
@@ -481,46 +482,45 @@ export class EzechielView {
     let y = B.y + pad;
     ctx.textBaseline = 'top';
     ctx.textAlign = 'left';
-    // row 1: the stage — and the breath in a rest (its phase, its seconds, a ring that swells), right-aligned
+    // a rest: the kit's breath guide (round 15) — on a phone held upright in place of the stage's name and the line
+    // of what to do now (the band is short there; the guide's word is the instruction), elsewhere between them
     const br = sim.restBlock ? breathAt(sim.breathP, sim.breathT) : null;
-    let right = '';
-    if (br) right = `${t(`ph.${br.phase}` as Key)} · ${Math.ceil(br.left - 1e-6)}${' '}s`;
-    else if (sim.pushBlock && sim.step?.kind === 'trees' && !sim.blind) right = t('next', { place: placeName(sim.nextPlace) });
-    ctx.font = font(L.font.label, 700);
-    let rw = right ? ctx.measureText(right).width + (br ? 22 * u : 0) : 0;
-    const lab = this.label(sim);
-    let lw = ctx.measureText(lab).width;
-    if (lw + rw + 12 > w && !br) {
-      right = '';
-      rw = 0;
-    }
-    ctx.fillStyle = GOLD;
-    let labText = lab;
-    if (lw + rw + 12 > w) {
-      labText = stageName(sim.stage);
-      lw = ctx.measureText(labText).width;
-    }
-    ctx.fillText(labText, x, y);
-    if (right) {
-      ctx.textAlign = 'right';
-      ctx.fillStyle = br ? AQUA : '#ffe6b0';
-      ctx.fillText(right, x + w, y);
-      if (br) {
-        const r = 6 * u + 3 * u * br.k;
-        const cxr = x + w - ctx.measureText(right).width - 12 * u, cyr = y + L.font.label * 0.55;
-        ctx.strokeStyle = 'rgba(159,233,239,.85)';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.arc(cxr, cyr, r, 0, TAU);
-        ctx.stroke();
+    const tallRest = !!br && L.shape === 'tall';
+    // row 1: the stage — and where the next leaf goes while the trees grow, right-aligned
+    if (!tallRest) {
+      let right = '';
+      if (!br && sim.pushBlock && sim.step?.kind === 'trees' && !sim.blind) right = t('next', { place: placeName(sim.nextPlace) });
+      ctx.font = font(L.font.label, 700);
+      let rw = right ? ctx.measureText(right).width : 0;
+      const lab = this.label(sim);
+      let lw = ctx.measureText(lab).width;
+      if (lw + rw + 12 > w) {
+        right = '';
+        rw = 0;
       }
+      ctx.fillStyle = GOLD;
+      let labText = lab;
+      if (lw + rw + 12 > w) {
+        labText = stageName(sim.stage);
+        lw = ctx.measureText(labText).width;
+      }
+      ctx.fillText(labText, x, y);
+      if (right) {
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#ffe6b0';
+        ctx.fillText(right, x + w, y);
+        ctx.textAlign = 'left';
+      }
+      y += Math.round(L.font.label * 1.45);
+    }
+    if (br) {
+      y += this.drawGuide(ctx, sim, br, B.x + B.w / 2, y, w) + 6 * u;
+      ctx.textBaseline = 'top';
       ctx.textAlign = 'left';
     }
-    y += Math.round(L.font.label * 1.45);
-    // row 2: the narrator's line while it speaks, else what to do now (+ "oddech 2 z 3" in a rest)
+    // row 2: the narrator's line while it speaks, else what to do now (in a rest on a phone held upright, the guide)
     const line = sim.talk.line;
-    let now = this.nowLine(sim);
-    if (br && sim.block.cycles > 1) now = `${now} · ${t('breathOf', { n: Math.min(sim.block.cycles, br.n + 1), of: sim.block.cycles })}`;
+    const now = this.nowLine(sim);
     const glowIn = sim.reshow > 0 ? 1 : 0;
     const row2 = (text: string, weight: number, italic: boolean): number => {
       const size = this.fitLine(ctx, text, w, L.font.now, weight, italic, italic);
@@ -536,11 +536,11 @@ export class EzechielView {
       ctx.fillStyle = '#ffffff';
       rows = row2(line.text, 500, true);
       ctx.globalAlpha = 1;
-    } else {
+    } else if (!tallRest) {
       ctx.fillStyle = glowIn ? '#ffffff' : '#e8fbff';
       rows = row2(now, 700, false);
-    }
-    y += Math.round(L.font.now * (1.55 + 1.3 * (rows - 1)));
+    } else rows = 0;
+    if (rows) y += Math.round(L.font.now * (1.55 + 1.3 * (rows - 1)));
     // the body: the prayer and the verse, in pages of whole lines that turn slowly when they do not fit
     const bodyH = B.y + B.h - pad - y;
     if (bodyH > 12) {
@@ -578,6 +578,25 @@ export class EzechielView {
       }
     }
     ctx.restore();
+  }
+
+  /**
+   * The breath guide in the band (kit/breathguide.ts, round 15): a row — the ring, the phase in a word beside it and
+   * "oddech 2 z 3" under it — centred at (cx, top + its height / 2); its height returned.
+   */
+  private drawGuide(ctx: CanvasRenderingContext2D, sim: EzechielSim, br: BreathState, cx: number, top: number, w: number): number {
+    const L = this.L;
+    const r = Math.max(26, Math.min(breathGuideRadius(L.w, L.h), Math.round(w * 0.16)));
+    const pad = Math.max(10, Math.round(r * 0.3));
+    const of = sim.block.cycles;
+    const words = Object.fromEntries((['in', 'holdIn', 'out', 'holdOut'] as const).map(k => [k, t(`ph.${k}` as Key)])) as Record<BreathPhase, string>;
+    const o: BreathGuideOpts = {
+      cx, cy: 0, r, layout: 'row', words, sub: of > 1 ? t('breathOf', { n: Math.min(of, br.n + 1), of }) : undefined,
+      maxW: Math.max(80, w - (2 * r + 2.9 * pad)), reducedMotion: this.opts.reducedMotion, time: this.time, scrim: 0.5,
+    };
+    const h = breathGuideBox(ctx, o).h;
+    drawBreathGuide(ctx, br, { ...o, cy: top + h / 2 });
+    return h;
   }
 
   /** A one-line text's size: from `px` down to 13 px; at 13 px it is cut with "…" by the caller's width (rare). */
