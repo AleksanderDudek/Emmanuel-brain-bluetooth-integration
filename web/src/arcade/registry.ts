@@ -61,7 +61,7 @@ export interface ArcadeEntry {
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
-  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo';
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -382,6 +382,15 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'psa1.3',
     brain: brain('drzewo'),
     load: () => import('./drzewo/index').then(m => m.default),
+  },
+  {
+    id: 'mysli', kind: 'heart', title: t('mysli.title'), tagline: t('mysli.tagline'), text: t('mysli.text'),
+    how: [t('mysli.how1'), t('mysli.how2'), t('mysli.how3')],
+    tips: [t('mysli.tip1'), t('mysli.tip2'), t('mysli.tip3'), t('mysli.tip4'), t('mysli.tip5')],
+    unit: t('mysli.unit'), art: 'art-mysli', fill: ['#fff4dc', '#ffd27a', '#8a4e2e', '#0b0810'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '2co10.5',
+    brain: brain('mysli'),
+    load: () => import('./mysli/index').then(m => m.default),
   },
 ];
 
