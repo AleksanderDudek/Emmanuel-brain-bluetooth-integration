@@ -48,8 +48,15 @@ export const RULES = {
   stars: [150, 500, 1200] as readonly number[],
 
   // ── the block plan ──
-  push: [24, 4] as readonly [number, number],
-  rest: [24, 3] as readonly [number, number],
+  /**
+   * Wiatr żniwny (push) and Pokłosie (rest): nominal length ± jitter (s).  The designed rhythm (round 15, DESIGN
+   * §19.2): 40 s of harvest wind — room for three or four winds at a held focus (a charge takes ~9 s) — then a 20 s
+   * gleaning: two slow breaths of the pacer while Ruth's gleaners carry the small fruit off; rest a third of the
+   * session (24 / 24 s made it half, every 24 s).  The player sets both in the lobby (kit/rhythm.ts); the jitter
+   * scales with them.
+   */
+  push: [40, 6] as readonly [number, number],
+  rest: [20, 3] as readonly [number, number],
   warm: { test: 6, short: 20, long: 30 },
   minBlock: 12,
   telegraph: 4,

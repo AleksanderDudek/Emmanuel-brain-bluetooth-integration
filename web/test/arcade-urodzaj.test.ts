@@ -263,6 +263,58 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer Wiatr, shorter Pokłosie, the jitter scaled; the sim plays it', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the gleaning a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: at either extreme the winds blow, the gleaners glean and the evening comes
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new UrodzajSim({
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, dailyDay: DAY }, rng: mulberry32(7), day: DAY, daySeed: 4242,
+        plannedSec: 300, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const winds = sim.plan.filter(b => b.kind === 'push');
+      const wind = winds.reduce((s, b) => s + b.dur, 0) / winds.length;
+      expect(wind).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(wind).toBeLessThan(rhythm.focus * 1.25);
+      const rnd = mulberry32(11);
+      const clock = { t: 0 };
+      let next = 0.8, ended = 0, blown = 0, gleaned = 0;
+      const dt = 1 / 30;
+      for (let i = 0; i < 303 / dt; i++) {
+        clock.t += dt;
+        sim.update(dt, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+        if (clock.t >= next) {
+          next += 0.9;
+          const x = (rnd() - 0.5) * 0.8;
+          sim.pointerDown(x);
+          sim.pointerUp(x);
+        }
+        for (const e of sim.take()) {
+          if (e.type === 'end') ended++;
+          if (e.type === 'wind') blown++;
+          if (e.type === 'glean') gleaned++;
+        }
+      }
+      expect(ended).toBe(1);
+      expect(sim.score).toBeGreaterThan(100);
+      expect(blown).toBeGreaterThan(0);
+      expect(gleaned).toBeGreaterThan(0);
+    }
+  });
+
   it('reports the block to the runner\'s panel: focus, rest, its seconds left, the next during the telegraph', () => {
     const sim = later();
     expect(sim.block.kind).toBe('push');
@@ -990,8 +1042,11 @@ describe('Urodzaj at 15–30 minutes', () => {
         expect(core.at(-1)!.kind).toBe('rest');
         for (const b of core) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
-          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
+        // a pair about every minute: 30 minutes is some 30 pairs
+        expect(core.length).toBe(2 * Math.round((sec - finaleFor(sec) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
       }
     }
   });

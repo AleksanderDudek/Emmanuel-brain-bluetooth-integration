@@ -16,6 +16,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer, target } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { UrodzajSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -46,6 +47,7 @@ class UrodzajGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new UrodzajSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new UrodzajView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new UrodzajSound(env.audio);
@@ -234,5 +236,7 @@ const mod: ArcadeModule<UrodzajProgress> = {
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Wiatr żniwny before the Pokłosie, and of the Pokłosie
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('world.gleaners') }, t('rhythm.note')),
 };
 export default mod;
