@@ -17,6 +17,7 @@
 import type { FocusFrame, FocusTuning } from '../kit/focus';
 import { BlockContrast, RoundJudge } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace } from '../kit/trace';
 import {
@@ -49,12 +50,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks, filling `plannedSec`: a first-ever session opens with a warm-up (one whole
- * order, taught), then Toczenie / Wypał pairs (25 ± 4 s, 25 ± 3 s, scaled to end on time, jittered
- * when there is room) ending with a Wypał, so every batch is fired and sold.  A test session under a
- * minute: whatever fits.
+ * order, taught), then Toczenie / Wypał pairs (40 ± 6 s, 20 ± 2 s, or the player's rhythm with the
+ * jitter scaled to it; scaled to end on time, jittered when there is room) ending with a Wypał, so
+ * every batch is fired and sold.  A test session under a minute: whatever fits.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   const total = Math.max(10, plannedSec);
   if (total <= 60) {
@@ -168,6 +169,8 @@ export interface SimInit {
   eeg: boolean;
   tuning: FocusTuning;
   day?: string;
+  /** the rest's rhythm the player set (s of Toczenie, s of Wypał); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class GlinaSim {
@@ -275,7 +278,7 @@ export class GlinaSim {
     this.pushesBase = p.pushes;
     this.bestBefore = p.best;
     this.openBefore = openCount(p);
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.talk = new Talk(LINES, init.rng);
     this.steady = this.base;
     this.brush = { glaze: p.glazes[0] ?? 'biel', pattern: p.patterns[0] ?? 'pas' };

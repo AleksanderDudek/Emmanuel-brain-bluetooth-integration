@@ -16,7 +16,7 @@ import type { Insets, TapTarget } from '../kit/types';
 import { traceBars } from '../kit/trace';
 import { FORM, GLAZE_NAME, PATTERN_NAME, type GlazeId } from './content';
 import { cap, coinsText, quote, t } from './i18n';
-import { layout, palette, stageScale, type Layout, type Palette, type Rect } from './layout';
+import { PACER_ROOM, layout, palette, stageScale, type Layout, type Palette, type Rect } from './layout';
 import { C, GLAZE, SANS, SERIF, cardBox, font, hand, mix, star } from './paint';
 import { RULES, zoneOf } from './rules';
 import { Room, cat, coin, customer, kilnDome, kilnDoor, type CatPose, type Mood } from './scene';
@@ -58,6 +58,8 @@ export class GlinaView {
   private salePiece: Piece | null = null;
   /** the glazing palette for the counts owned */
   private pal: { nc: number; np: number; p: Palette } | null = null;
+  /** upright in a rest: how far the ticket's slot and the cat's bubble stand below their places (the pacer's room) */
+  private pacerDrop = 0;
   /** the card on screen as last drawn (a tap there goes on) */
   private cardRect: Rect | null = null;
   /** the control last pressed, how long ago (s), and whether a finger still holds it */
@@ -104,7 +106,12 @@ export class GlinaView {
   /** The glazing stage's top: under the (compact, upright) ticket, or the throwing stage's top. */
   private glazeTop(sim: GlinaSim): number {
     const P = this.palette(sim);
-    return this.L.portrait ? P.ticket.y + P.ticket.h + 12 : this.L.floor - this.L.stageH;
+    return this.L.portrait ? P.ticket.y + P.ticket.h + 12 + this.pacerDrop : this.L.floor - this.L.stageH;
+  }
+
+  /** The ticket's slot where it stands now: upright in a rest, under the breath pacer. */
+  private slot(r: Rect): Rect {
+    return this.pacerDrop ? { ...r, y: r.y + this.pacerDrop } : r;
   }
 
   /** the glazing stage's scale (the palette takes the bottom) */
@@ -239,6 +246,10 @@ export class GlinaView {
   }
 
   update(dt: number, sim: GlinaSim): void {
+    // upright, a rest block's breath pacer takes the middle of the band under the HUD: the ticket steps down under it
+    const drop = this.L.portrait && sim.restBlock ? PACER_ROOM : 0;
+    this.pacerDrop = this.reduced ? drop : this.pacerDrop + (drop - this.pacerDrop) * Math.min(1, dt / 0.25);
+    if (Math.abs(drop - this.pacerDrop) < 0.5) this.pacerDrop = drop;
     if (this.stop > 0) {
       this.stop -= dt;
       dt *= 0.15;
@@ -547,17 +558,17 @@ export class GlinaView {
   private drawTicket(sim: GlinaSim): void {
     const { ctx, L } = this;
     if (this.react && (sim.kiln === 'sell' || sim.kiln === 'cool' || sim.kiln === 'cold' || !sim.order)) {
-      this.drawReaction(L.ticket);
+      this.drawReaction(this.slot(L.ticket));
       return;
     }
     const pc = sim.glazing;
     const o = pc ? pc.order : sim.wheel !== 'idle' ? sim.order : null;
     if (!o) {
-      if (sim.restBlock && sim.kiln !== 'sell') this.drawWaiting(sim, L.ticket);
+      if (sim.restBlock && sim.kiln !== 'sell') this.drawWaiting(sim, this.slot(L.ticket));
       return;
     }
     const compact = !!pc && L.portrait;
-    const r = compact ? this.palette(sim).ticket : L.ticket;
+    const r = this.slot(compact ? this.palette(sim).ticket : L.ticket);
     cardBox(ctx, r.x, r.y, r.w, r.h, 1, 12);
     const u = L.u, pad = 10 * u;
     const f1 = 13 * u, f2 = 16 * u, f3 = 14 * u;
@@ -1075,7 +1086,7 @@ export class GlinaView {
     // his bubble hangs at the room the layout keeps for it (upright under the kiln on the right, on its side under
     // the shelf), its tail up to him; 15 px on a phone
     const T = L.talk;
-    bubble(ctx, line.text, cx, cy + 6, T.x, T.y, T.maxW, a, Math.round(15 * L.u), L.left);
+    bubble(ctx, line.text, cx, cy + 6, T.x, T.y + this.pacerDrop, T.maxW, a, Math.round(15 * L.u), L.left);
   }
 
   // ── banners and cards ───────────────────────────────────────────

@@ -32,8 +32,8 @@ const lost = (): FocusFrame => frame({ reliable: false, activity: null, level: 0
 
 const returning = (o: Partial<GlinaProgress> = {}): GlinaProgress => ({ ...freshProgress(), sessions: 4, pushes: 1, ...o });
 
-function newSim(o: { progress?: GlinaProgress; plannedSec?: number; seed?: number; eeg?: boolean; beginner?: boolean } = {}): GlinaSim {
-  return new GlinaSim({ progress: o.progress ?? freshProgress(), rng: mulberry32(o.seed ?? 3), plannedSec: o.plannedSec ?? 180, eeg: !!o.eeg, tuning: o.beginner ? BEGINNER : TUNING });
+function newSim(o: { progress?: GlinaProgress; plannedSec?: number; seed?: number; eeg?: boolean; beginner?: boolean; rhythm?: { focus: number; rest: number } } = {}): GlinaSim {
+  return new GlinaSim({ progress: o.progress ?? freshProgress(), rng: mulberry32(o.seed ?? 3), plannedSec: o.plannedSec ?? 180, eeg: !!o.eeg, tuning: o.beginner ? BEGINNER : TUNING, rhythm: o.rhythm });
 }
 
 /** Run the sim for `sec` from `t0`, with frames from `f(t)` and an optional input each step. */
@@ -228,6 +228,51 @@ describe('Glina blocks', () => {
         expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
         expect(plan[plan.length - 1].kind).toBe('rest');
         if (planned >= 180) for (const b of plan.filter(x => x.kind !== 'warmup')) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+      }
+    }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Toczenie, shorter Wypał, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s Wypał is lifted to the 14 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.65);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan.at(-1)!.kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the Wypał a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
+  });
+
+  it('plays any rhythm the player sets to the end: 3 and 10 minutes, long Toczenie or long Wypał; every piece sold, the coins still grow', () => {
+    // (30 minutes of each, run by hand in round 15: all ended, every piece sold; long Toczenie sends more to the market)
+    for (const plannedSec of [180, 600]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${plannedSec} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = newSim({ progress: returning(), plannedSec, seed: 5, rhythm });
+        sim.start();
+        let at = -1;
+        const ev = run(sim, plannedSec + 1, t => {
+          if (at < 0 && t >= plannedSec * 2 / 3) at = sim.score;
+          return sim.restBlock ? resting() : focusing();
+        }, 0, skilledHands(sim), 0.1);
+        const made = ev.filter(e => e.type === 'cut').length;
+        const sold = ev.filter(e => e.type === 'sale').length + ev.filter((e): e is Extract<GlinaEvent, { type: 'market' }> => e.type === 'market').reduce((s, e) => s + e.n, 0);
+        expect(sim.ended, name).toBe(true);
+        expect(made, name).toBeGreaterThan(2);
+        expect(sold, name).toBe(made);
+        expect(ev.filter(e => e.type === 'sale').length, name).toBeGreaterThan(0);
+        expect(sim.score, name).toBeGreaterThan(at);
       }
     }
   });
@@ -856,7 +901,8 @@ describe('Glina: mobile first', () => {
       expect(env.canvas.style.cursor).toBe('grab');
       // glazing: a swatch under the mouse is lit
       sim.done();
-      until(game, clock, () => !!sim.glazing);
+      // the glazing waits for the Wypał: a whole Toczenie (40 s by design) may lie ahead
+      until(game, clock, () => !!sim.glazing, 60);
       const sw = game.targets!().find(x => x.label.startsWith('glaze '))!;
       game.pointer!({ type: 'move', x: sw.x + sw.w / 2, y: sw.y + sw.h / 2, id: 1 });
       play(game, clock, 1 / 60);

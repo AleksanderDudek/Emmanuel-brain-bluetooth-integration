@@ -136,8 +136,15 @@ export const RULES = {
   blindCoins: 0.4,
 
   // ── the session ────────────────────────────────────────────────
-  push: [25, 4],
-  rest: [25, 3],
+  /**
+   * Toczenie and Wypał: nominal length ± jitter (s).  The designed rhythm (round 15, DESIGN §19.2): a 40 s
+   * Toczenie throws a batch — three or four pieces at a real potter's 10–13 s each, the kiln shelf's 3 + its level —
+   * then a 20 s Wypał glazes, fires and sells it (glazing until ~12 s, the needle's window to ~17 s, the kiln opens
+   * for the last 3.4 s, as before).  It was 25 / 25 s, half the session, every 25 s; the player sets both in the
+   * lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 6],
+  rest: [20, 2],
   minBlock: 14,
   telegraph: 4,
   bannerSec: 4.5,

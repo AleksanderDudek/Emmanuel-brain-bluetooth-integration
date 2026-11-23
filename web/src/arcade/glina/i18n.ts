@@ -72,7 +72,11 @@ const pl = {
   'tip.rest.1': 'Oddychaj wolno: wdech na cztery, wydech na sześć.',
   'tip.rest.2': 'Rozluźnij czoło i szczękę, a wzrok połóż na żarze.',
   'tip.rest.3': 'Słuchaj odgłosów wokół, nie nazywając ich.',
-  'tip.rest.4': 'Licz oddechy od jednego do dziesięciu i zacznij od nowa.',
+  'tip.rest.4': 'Wdech na cztery, wydech na sześć — z Twoim spokojem żar w piecu się wyrównuje.',
+  // the rest's rhythm in the lobby (kit/rhythm.ts)
+  'rhythm.focus': 'Toczenie',
+  'rhythm.rest': 'Wypał',
+  'rhythm.note': 'Po każdym toczeniu partia idzie do pieca na wypał',
   'tip.blind.1': 'Licz po 50: 50, 100, 150…',
   'tip.blind.2': 'Wymieniaj zwierzęta na kolejne litery: antylopa, bóbr, czapla…',
 
@@ -358,7 +362,10 @@ const en: Catalog<Key> = {
   'tip.rest.1': 'Breathe slowly: in for four, out for six.',
   'tip.rest.2': 'Soften your forehead and jaw, and rest your eyes on the embers.',
   'tip.rest.3': 'Listen to the sounds around you without naming them.',
-  'tip.rest.4': 'Count your breaths from one to ten, then start again.',
+  'tip.rest.4': 'In for four, out for six — your calm evens out the heat in the kiln.',
+  'rhythm.focus': 'Throwing',
+  'rhythm.rest': 'Firing',
+  'rhythm.note': 'After each throwing the batch goes into the kiln',
   'tip.blind.1': 'Count by 50: 50, 100, 150…',
   'tip.blind.2': 'Name animals letter by letter: antelope, badger, camel…',
 
@@ -634,7 +641,10 @@ const de: Catalog<Key> = {
   'tip.rest.1': 'Atme langsam: vier Takte ein, sechs aus.',
   'tip.rest.2': 'Entspann Stirn und Kiefer und lass den Blick auf der Glut ruhen.',
   'tip.rest.3': 'Hör auf die Geräusche um dich, ohne sie zu benennen.',
-  'tip.rest.4': 'Zähl deine Atemzüge von eins bis zehn und fang wieder an.',
+  'tip.rest.4': 'Vier Takte ein, sechs aus – deine Ruhe macht die Glut im Ofen gleichmäßig.',
+  'rhythm.focus': 'Drehen',
+  'rhythm.rest': 'Brand',
+  'rhythm.note': 'Nach jedem Drehen kommt die Ladung in den Ofen',
   'tip.blind.1': 'Zähl in Fünfzigern: 50, 100, 150…',
   'tip.blind.2': 'Nenn Tiere von A bis Z: Antilope, Biber, Chamäleon…',
 
@@ -910,7 +920,10 @@ const sv: Catalog<Key> = {
   'tip.rest.1': 'Andas långsamt: in på fyra, ut på sex.',
   'tip.rest.2': 'Slappna av i pannan och käken, och låt blicken vila på glöden.',
   'tip.rest.3': 'Lyssna på ljuden omkring dig utan att sätta namn på dem.',
-  'tip.rest.4': 'Räkna andetagen från ett till tio och börja om.',
+  'tip.rest.4': 'In på fyra, ut på sex – ditt lugn gör glöden i ugnen jämn.',
+  'rhythm.focus': 'Drejning',
+  'rhythm.rest': 'Bränning',
+  'rhythm.note': 'Efter varje drejning går satsen in i ugnen',
   'tip.blind.1': 'Räkna med 50: 50, 100, 150…',
   'tip.blind.2': 'Räkna upp djur, bokstav för bokstav: antilop, bäver, cikada…',
 

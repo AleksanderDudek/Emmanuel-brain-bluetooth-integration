@@ -18,6 +18,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { blockRhythm } from '../kit/rhythm';
 import type { TracePhase } from '../kit/trace';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { GlinaSound } from './audio';
@@ -80,7 +81,7 @@ class GlinaGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<GlinaProgress>) {
     migrate(env.progress);
-    this.sim = new GlinaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day });
+    this.sim = new GlinaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day, rhythm: env.rhythm });
     this.view = new GlinaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new GlinaSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __glina?: unknown }).__glina = this.sim;
@@ -561,6 +562,8 @@ const mod: ArcadeModule<GlinaProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto,
+  // the rest's rhythm in the lobby: seconds of Toczenie before the batch goes to the kiln, and of the Wypał
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 
 export default mod;

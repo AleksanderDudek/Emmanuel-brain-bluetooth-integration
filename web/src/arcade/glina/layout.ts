@@ -76,6 +76,13 @@ export const EDGE = 16;
 export const DOCK_ROW = 4;
 /** Two neighbouring controls keep this far apart. */
 export const GAP = 8;
+/**
+ * Upright, in a rest block, the runner's breath pacer (src/arcade/pacer.ts; styles.css .arcade-breath: a pill round a
+ * 50 px ring, 10 px under the HUD, centred) covers the middle of the band under the HUD — where the ticket sits.  The
+ * ticket's slot (the compact ticket while glazing, "wróci po wypale", the customer's reaction) and the cat's bubble
+ * step down this far (CSS px) for the rest (render.ts), so the glaze and the band asked stay in sight.
+ */
+export const PACER_ROOM = 80;
 
 export function layout(w: number, h: number, insets: Insets | number = NO_INSETS, touch = true): Layout {
   const ins: Insets = typeof insets === 'number' ? { ...NO_INSETS, top: insets } : insets;
