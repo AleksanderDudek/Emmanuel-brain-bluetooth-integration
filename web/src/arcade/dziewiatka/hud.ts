@@ -592,11 +592,13 @@ export class Hud {
   }
 
   // ── under the HUD: the mission's pill, the boss's bar ───────────
-  drawPill(ctx: CanvasRenderingContext2D, L: Layout, sim: DziewiatkaSim): void {
-    // a sheet or a story card open: the battle holds, its pill steps aside for the card's title
-    if (sim.choice || sim.story) return;
+  drawPill(ctx: CanvasRenderingContext2D, L: Layout, sim: DziewiatkaSim, alpha = 1): void {
+    // a sheet or a story card open: the battle holds, its pill steps aside for the card's title; at the well it
+    // fades out (`alpha`), leaving its place under the HUD to the runner's breath pacer
+    if (sim.choice || sim.story || alpha <= 0.02) return;
     const r = L.pill, m = sim.mission, spec = m.spec;
     ctx.save();
+    ctx.globalAlpha *= alpha;
     ctx.fillStyle = 'rgba(251,241,220,.9)';
     roundRect(ctx, r.x, r.y, r.w, r.h, r.h / 2);
     ctx.fill();

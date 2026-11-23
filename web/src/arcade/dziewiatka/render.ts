@@ -480,7 +480,7 @@ export class DziewiatkaView {
       ctx.restore();
     }
     // the game's own bits
-    this.hud.drawPill(ctx, L, sim);
+    this.hud.drawPill(ctx, L, sim, 1 - this.restShown);
     this.hud.drawStrip(ctx, L, sim, this.clock);
     this.drawBanner();
     const line = sim.talk.line;

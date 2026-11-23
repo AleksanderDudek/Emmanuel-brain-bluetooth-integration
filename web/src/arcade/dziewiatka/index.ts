@@ -20,6 +20,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DziewiatkaSound } from './audio';
 import { HEROES, heroName, heroText, roleName, ultName } from './content';
@@ -51,7 +52,7 @@ class DziewiatkaGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new DziewiatkaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
-      touch: env.touch,
+      touch: env.touch, rhythm: env.rhythm,
     });
     this.view = new DziewiatkaView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.touch = env.touch;
@@ -266,7 +267,9 @@ class DziewiatkaGame implements ArcadeGame {
       case 'bell': at = { x: L.bell.x + L.bell.w / 2, y: L.bell.y + 4 }; break;
       case 'dial': at = { x: L.dial.x + L.dial.w / 2, y: L.dial.y + 4 }; break;
       case 'card': { const r = L.cards[0]; at = { x: r.x + r.w / 2, y: r.y + 4 }; break; }
-      case 'well': { const p = toScreen(L, RULES.wellX, 0.2, 2.4); at = { x: p.x, y: Math.max(L.top + 10, p.y) }; break; }
+      // the well's mark says "tap a hero to sew on a piece": it points at the five's middle card (what a tap sews
+      // onto), which keeps the top of the street to the runner's breath pacer
+      case 'well': { const r = L.slots[2] ?? L.slots[0]; at = r ? { x: r.x + r.w / 2, y: r.y + 4 } : null; break; }
       case 'field': { const p = toScreen(L, h.at.x, h.at.y, 1.6); at = { x: Math.max(20, Math.min(L.w - 20, p.x)), y: Math.max(L.top + 10, Math.min(L.fieldBottom - 10, p.y)) }; break; }
       default: at = null;
     }
@@ -376,5 +379,7 @@ const mod: ArcadeModule<DziewiatkaProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto,
+  // the rest's rhythm in the lobby: seconds of battle before the team sits at the well, and of the well
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

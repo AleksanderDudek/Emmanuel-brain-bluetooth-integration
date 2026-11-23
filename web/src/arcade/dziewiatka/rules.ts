@@ -181,9 +181,14 @@ export const RULES = {
   /** notes: a mission gives 2 + stars of its hero's notes; a wave one note to someone in the five */
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * push and rest: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): a 40 s battle — a mission's three waves (~10 s each and their breathers) fought through, the bell rung —
+   * then 20 s at the well, wounds healed, a piece sewn on and the boon chosen (it was 26 / 22 s, nearly half the
+   * session, every 24 s); the player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 6],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: Klara waits it out */

@@ -34,7 +34,7 @@ const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<DziewiatkaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<DziewiatkaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 const SEEN = ['ult', 'tap', 'mult', 'bell', 'well', 'boon', 'wind', 'split', 'swell', 'shield', 'steal', 'rush', 'yawn', 'copy', 'whisper', 'boss'];
 
@@ -42,6 +42,7 @@ function makeSim(o: SimOpts = {}): DziewiatkaSim {
   const progress = migrate(mergeSaved(freshProgress(), { ...freshProgress(), ...o.progress }));
   const sim = new DziewiatkaSim({
     progress, rng: mulberry32(o.seed ?? 1), day: DAY, daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -97,6 +98,51 @@ describe('the block plan', () => {
       expect(rest.at(-1)!.kind).toBe('rest');
       expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
       for (const b of rest) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer battles, a shorter well, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s well is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan.at(-1)!.kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the well a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
+  });
+
+  it('plays any rhythm the player sets to its end: 3 and 10 minutes, long battles or a long well; missions are still won', () => {
+    // (30 minutes of each, run by hand in round 15: 19–41 missions, at most one wipe, all to the end)
+    for (const planned of [180, 600]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = later({ planned, rhythm, seed: 3 });
+        let at = -1, won = 0;
+        const dt = 1 / 20;
+        for (let tt = dt; tt < planned + RULES.settle; tt += dt) {
+          sim.update(dt, sim.block?.kind === 'rest' ? CALM : HIGH, tt);
+          if (sim.story && sim.story.t > 0.7) sim.tap();
+          if (sim.choice && sim.choice.t >= 0.3) sim.pick(0);
+          won += ofType(sim.take(), 'won').length;
+          if (at < 0 && tt >= planned * 2 / 3) at = sim.score;
+        }
+        expect(sim.phase, name).toBe('done');
+        expect(won, name).toBeGreaterThanOrEqual(planned >= 600 ? 5 : 1);
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(JSON.stringify(sim.result()), name).not.toMatch(/undefined|NaN|Infinity/);
+      }
     }
   });
 
