@@ -19,10 +19,9 @@ import { BREATH_PHASES, BREATH_PRESETS, breathCycle, sameBreath, type BreathPhas
 import { CIRCLES, DEFAULT_LIST, KINDS, LIST_MAX, NAME_MAX, type Item, type KindId } from './content';
 import { circleName, kindName, t, whoName, type Key } from './i18n';
 import {
-  TALLIES, addItem, addPerson, autoBreaths, bestOf, breathOf, moveItem, queueOf, removeItem, restOf, setBreath, setKind, setRestBreaths, setStart, startOf,
+  TALLIES, addItem, addPerson, bestOf, breathOf, moveItem, queueOf, removeItem, setBreath, setKind, setStart, startOf,
   stepBreathOf, type BrzProgress,
 } from './meta';
-import { RULES } from './rules';
 import { secText } from './sim';
 
 function stat(k: string, v: string): HTMLElement {
@@ -200,15 +199,8 @@ function breathCard(p: BrzProgress, changed: () => void, note: string, refuse: (
       h('span', { class: 'grow' }, name), less, h('output', { 'aria-live': 'polite' }, t('secs', { n: b[ph] })), more));
   }
   if (note) out.push(h('p', { class: 'task-feedback bad', role: 'alert' }, note));
-  const auto = p.restBreaths <= 0, n = auto ? autoBreaths(p, 600) : p.restBreaths;
-  const setN = (v: number) => () => { setRestBreaths(p, Math.max(1, Math.min(RULES.restBreathsMax, v))); changed(); };
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.restBreaths')),
-    h('div', { class: 'row', role: 'group', 'aria-label': t('panel.restBreaths') },
-      big(button('−', setN(n - 1), 'btn', { 'aria-label': t('panel.less', { what: t('panel.restBreaths') }), disabled: n <= 1 ? '' : null })),
-      h('output', { 'aria-live': 'polite' }, auto ? t('panel.auto', { n }) : String(n)),
-      big(button('+', setN(n + 1), 'btn', { 'aria-label': t('panel.more', { what: t('panel.restBreaths') }), disabled: n >= RULES.restBreathsMax ? '' : null })),
-      big(button(t('panel.autoBtn'), () => { setRestBreaths(p, 0); changed(); }, auto ? 'btn on' : 'btn', { 'aria-pressed': String(auto) }))));
-  const rest = restOf(p, 600);
-  out.push(h('p', null, `${t('panel.restLine', { breaths: t('breaths', { n: rest.cycles }), sec: secText(rest.sec) })} · ${t('panel.cycle', { sec: secText(breathCycle(b)) })}`));
+  // one breath's length; how many breaths a rest lasts, and after how many circles it comes, is the lobby's Rytm row
+  // (kit/rhythm.ts, round 15) — one place for the rest's rhythm in every game
+  out.push(h('p', null, t('panel.cycle', { sec: secText(breathCycle(b)) })), h('p', { class: 'muted' }, t('panel.restRhythm')));
   return out;
 }

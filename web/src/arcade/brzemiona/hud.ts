@@ -4,12 +4,15 @@
  *   the band       what to do now (one short line), whom (the circle's label, "krąg 2/3", or what comes next in a
  *                  rest), the prayer — the address at a call, the words on the breath in the exchange ("Panie Jezu, weź
  *                  ten ciężar." / "Ześlij swój pokój i miłosierdzie."), in rest a thanks and then the verse in pages —
- *                  and the breath's guide (a ring that swells in and settles out, the phase, its seconds, what flows)
+ *                  and the breath's guide (a ring that swells in and settles out, the phase, its seconds, what flows);
+ *                  in a rest the kit's big breath guide on top of the band in place of the now-line (round 15,
+ *                  kit/breathguide.ts: the lungs' disc, the phase ≥ 20 px with its seconds, "oddech 2 z 3")
  *   the narrator   one line at a time over the picture's sky (atop the column on a wide screen)
  *   the controls   ≡ whom, ◎ widen, ▶ next — round, drawn icons; on a desk their keys under them and a name on hover
  *   the chooser    a card: whom to pray for, six a page
  *   the story      the first session's two pages
  */
+import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout } from '../kit/scripture';
@@ -55,7 +58,7 @@ let prayerMemo: Memo | null = null;
 let verseMemo: { key: string; lay: PassageLayout; pages: string[][] } | null = null;
 
 /** The words band. */
-export function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, glowK: number): void {
+export function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, glowK: number, still = false, time = 0): void {
   const B = L.words;
   if (!sim.started) return;
   ctx.save();
@@ -68,6 +71,11 @@ export function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, 
   const pad = Math.round(8 * Math.min(L.u, 1.6));
   const cx = B.x + B.w / 2, inner = B.w - 2 * pad;
   let y = B.y + pad;
+  if (sim.restBlock && sim.phase === 'play') {
+    restBand(ctx, L, sim, glowK, still, time, pad);
+    ctx.restore();
+    return;
+  }
   // 1 · what to do now
   const nowPx = L.font.now, nowH = Math.round(nowPx * 1.45);
   drawNow(ctx, L, sim, cx, y + nowH / 2, inner);
@@ -90,6 +98,45 @@ export function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, 
   else drawPrayer(ctx, L, pr.text, prayBox, sim.reshow > 0 ? 1 : glowK);
   drawBreath(ctx, L, sim, cx, B.y + B.h - pad - brH / 2, inner);
   ctx.restore();
+}
+
+/**
+ * A rest's band: the breath guide on top (it is what to do now), whom when there is room (or what comes next, chosen
+ * by a control), and the thanks and the verse in what is left.
+ */
+function restBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, glowK: number, still: boolean, time: number, pad: number): void {
+  const B = L.words;
+  const cx = B.x + B.w / 2, inner = B.w - 2 * pad;
+  let y = B.y + pad;
+  // the guide: the kit's radius for the screen, under about 42 % of the band's height, ≥ 26 px
+  const pp = (r: number) => Math.max(10, Math.round(r * 0.3));
+  let r = Math.min(breathGuideRadius(L.w, L.h), Math.round(inner * 0.16));
+  while (r > 26 && 2 * r + 1.4 * pp(r) > B.h * 0.42) r--;
+  r = Math.max(26, r);
+  const b = sim.breath;
+  const o: BreathGuideOpts = {
+    cx, cy: 0, r, layout: 'row',
+    words: { in: phaseWord('in'), holdIn: phaseWord('holdIn'), out: phaseWord('out'), holdOut: phaseWord('holdOut') },
+    sub: t('hud.breathOf', { n: b.cycle, of: b.cycles }), maxW: Math.max(80, inner - (2 * r + 2.9 * pp(r))),
+    reducedMotion: still, time, scrim: 0.45,
+  };
+  const gh = breathGuideBox(ctx, o).h;
+  drawBreathGuide(ctx, b, { ...o, cy: y + gh / 2 });
+  y += gh + 4;
+  // whom (or what comes next) where the band has room for it and the words
+  if (sim.queued || B.y + B.h - pad - y > 120) {
+    const whoPx = L.font.who, whoH = Math.round(whoPx * 1.4);
+    const who = fitLines(ctx, whoRow(sim), inner, whoPx, 13, 1, 600);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = rgba(sim.queued ? GOLD_HI : PEARL, 0.82);
+    ctx.fillText(who.lines[0] ?? '', cx, y + whoH / 2);
+    y += whoH + 2;
+  }
+  const prayBox: Rect = { x: B.x + pad, y, w: inner, h: B.y + B.h - pad - y };
+  const pr = prayerNow(sim);
+  if (pr.verse) drawVerse(ctx, L, pr.verse, prayBox, sim);
+  else drawPrayer(ctx, L, pr.text, prayBox, sim.reshow > 0 ? 1 : glowK);
 }
 
 function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, cx: number, y: number, w: number): void {

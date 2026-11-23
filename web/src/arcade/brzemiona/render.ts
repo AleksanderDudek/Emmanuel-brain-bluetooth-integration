@@ -122,7 +122,7 @@ export class BrzView {
       const a = Math.min(1, line.t / 0.35, (line.dur - line.t) / 0.5);
       drawCaption(ctx, L, line.text, a);
     }
-    drawBand(ctx, L, sim, this.glowK);
+    drawBand(ctx, L, sim, this.glowK, this.opts.reducedMotion, this.time);
     drawControls(ctx, L, sim, this.hover && !sim.chooser && !sim.story ? (this.hover as Control) : null);
     drawChooser(ctx, L, sim, this.hover);
     this.storyR = drawStory(ctx, L, sim, this.hover === 'story');

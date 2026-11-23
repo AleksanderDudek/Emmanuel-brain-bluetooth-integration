@@ -21,7 +21,9 @@ import { MOUSE_CATALOGS } from '../src/i18n/arcade-mouse';
 import { arcadeEntry } from '../src/arcade/registry';
 import { CHECK_SIZES, auditTargets } from '../src/arcade/kit/mobile';
 import { chooserLayout, hitAt, laneAt, lanes, layout, manyCount, stageOf, tapTargets } from '../src/arcade/brzemiona/layout';
-import { howto } from '../src/arcade/brzemiona/index';
+import { brzRhythm, howto } from '../src/arcade/brzemiona/index';
+import { progressPanel } from '../src/arcade/brzemiona/panel';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 
 const STEP = 1 / 30;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -36,12 +38,15 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['s.open', 'c.cross', 'c.breath', 'c.controls', 'c.tap', 'c.rest'];
 
-type SimOpts = { progress?: Partial<BrzProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = {
+  progress?: Partial<BrzProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning;
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
+};
 
 function makeSim(o: SimOpts = {}): BrzSim {
   const sim = new BrzSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
-    tuning: o.tuning ?? TUNING,
+    tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -810,5 +815,63 @@ describe('mobile first and the desk (layout.ts)', () => {
     const sim = later();
     expect(sim.coachWords('controls', true)).not.toMatch(/\(M\)/);
     expect(sim.coachWords('controls', false)).toMatch(/\(M\)/);
+  });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers a rest after 1–3 circles (1 by design) and its whole breaths of the player’s pattern (2)', () => {
+    const spec = brzRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: 1, min: 1, max: RULES.restAfterMax, name: 'Odpoczynek po' });
+    expect([1, 2, 3].map(n => spec.focus.format(n))).toEqual(['1\u00a0kręgu', '2\u00a0kręgach', '3\u00a0kręgach']);
+    expect(spec.rest).toMatchObject({ def: RULES.restDef, min: 1, max: RULES.restBreathsMax, name: 'Odpoczynek' });
+    expect(spec.rest.format(2)).toBe('2\u00a0oddechy · 20\u00a0s');
+    const n = restsIn(spec, rhythmOf(spec, undefined)!, 600)!;
+    expect(n.rests).toBe(10);
+    expect(n.share).toBeCloseTo(1 / 3, 2);
+  });
+
+  it('with a rest after 2 circles the light widens within the push; the rest’s breaths are the player’s, a breath more after the last', () => {
+    const sim = later({ planned: 900, rhythm: { focus: 2, rest: 3, custom: true } });
+    const evs = until(sim, () => sim.restsNow >= 3, steady(0.8));
+    const order = evs.filter(e => e.type === 'circle' || e.type === 'blockStart').map(e => (e.type === 'circle' ? 'circle' : `start:${e.block.kind}`));
+    expect(order.join(' ')).toContain('circle circle start:rest');
+    const rests = ofType(evs, 'blockStart').map(e => e.block).filter(b => b.kind === 'rest');
+    for (const b of rests) expect(b.cycles).toBe(b.leave ? 3 + RULES.leaveExtra : 3);
+    // the design: a rest after every circle, the session's own breaths
+    const design = later({ planned: 900, rhythm: { focus: 1, rest: 2, custom: false } });
+    const ev2 = until(design, () => design.restsNow >= 2, steady(0.8));
+    expect(ev2.filter(e => e.type === 'circle' || e.type === 'blockStart').map(e => (e.type === 'circle' ? 'c' : e.block.kind)).join(' ')).toContain('c rest push c rest');
+    expect(ofType(ev2, 'blockStart').map(e => e.block).find(b => b.kind === 'rest' && !b.leave)!.cycles).toBe(restOf(design.p, 900).cycles);
+  });
+
+  it('carries burdens through 3, 10 and 30 minutes with the dials at their extremes, the blocks alternating', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [{ focus: 1, rest: 1 }, { focus: RULES.restAfterMax, rest: 6 }, { focus: 2, rest: 2 }]) {
+        const sim = later({ planned, seed: 2, rhythm: { ...rhythm, custom: true } });
+        const fi = new FocusInput(TUNING);
+        const rnd = mulberry32(9);
+        let act = 0, noise = 0;
+        const evs = drive(sim, planned + 5, (tt, s) => {
+          act += ((s.pushBlock ? 2 : 0) - act) * (1 - Math.exp(-STEP / 4));
+          noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+          return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+        }, { t: 0 }, () => reader(sim)());
+        const tag = `${planned} s ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(sim.carriedNow, tag).toBeGreaterThanOrEqual(1);
+        const blocks = ofType(evs, 'blockStart').map(e => e.block);
+        blocks.forEach((b, i) => { if (i) expect(b.kind, tag).not.toBe(blocks[i - 1].kind); });
+        for (const b of blocks.filter(x => x.kind === 'rest' && x.why !== 'valve')) expect(b.cycles, tag).toBe(rhythm.rest + (b.leave ? RULES.leaveExtra : 0));
+        // more circles between rests: fewer rests
+        if (planned >= 600 && rhythm.focus === RULES.restAfterMax) expect(sim.restsNow, tag).toBeLessThan(sim.circlesNow);
+      }
+    }
+  });
+
+  it('leaves the breaths in a rest to the lobby’s Rytm row: the card keeps the pattern and says where the rest is set', () => {
+    const root = progressPanel(freshProgress(), () => undefined);
+    const text = root.textContent ?? '';
+    expect(text).toContain('„Rytm”');
+    expect(text).not.toContain('auto');
   });
 });

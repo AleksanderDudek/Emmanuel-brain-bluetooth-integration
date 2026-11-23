@@ -25,7 +25,7 @@
  * advances.  Deterministic for a given rng.
  */
 import { fmtNum } from '../../i18n';
-import { breathAt, breathCycle, type BreathPattern, type BreathPhase, type BreathState } from '../kit/breath';
+import { breathAt, breathCycle, breathRestOf, type BreathPattern, type BreathPhase, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { inTurn, passage, type PassageId } from '../kit/scripture';
@@ -121,6 +121,12 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `brzRhythm`): a rest after how many circles turned,
+   * and its whole breaths — the breaths taken when the player moved a dial (`custom`); absent: one circle, the panel's
+   * old count or the session's own.
+   */
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 }
 
 const zeroTally = (): Record<Tally, number> => ({ illness: 0, sadness: 0, loneliness: 0, fear: 0, grief: 0, conflict: 0, person: 0, me: 0, world: 0 });
@@ -139,6 +145,10 @@ export class BrzSim {
   /** the variant without smoke: only light flows from the Cross to them */
   readonly lightOnly: boolean;
   readonly pattern: BreathPattern;
+  /** a rest comes after this many circles turned in one push (the lobby's Rytm; 1 by design) */
+  readonly restAfter: number;
+  /** each rest's whole breaths as the player set them (null: the panel's old count or the session's own) */
+  readonly restBreaths: number | null;
   /** the list this session walks (the player's, or the six kinds and the world) */
   readonly queue: readonly Item[];
   readonly talk: Talk;
@@ -162,6 +172,9 @@ export class BrzSim {
   tip = '';
   private pushesBegun = 0;
   stallT = 0;
+  /** a push: the circles it turned so far, and the seconds since it began or turned one (the safety valve) */
+  turnedInPush = 0;
+  circleT = 0;
 
   // the burden
   index = 0;
@@ -239,6 +252,9 @@ export class BrzSim {
     this.need = needFor(this.plannedSec);
     this.lightOnly = this.p.lightOnly;
     this.pattern = breathOf(this.p);
+    const rh = init.rhythm;
+    this.restAfter = Math.max(1, Math.min(RULES.restAfterMax, Math.round(rh?.focus ?? RULES.restAfter)));
+    this.restBreaths = rh && rh.custom !== false ? Math.max(1, Math.min(RULES.restBreathsMax, Math.round(rh.rest))) : null;
     this.queue = queueOf(this.p).map(it => ({ ...it }));
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
@@ -403,6 +419,9 @@ export class BrzSim {
       if (this.stageT >= len && !this.warmBlock && this.pushBlock) this.beginPray();
     } else if (this.stage === 'pray' && this.pushBlock) {
       if (rate > 0) this.turn(rate * dt);
+    } else if ((this.stage === 'peace' || this.stage === 'leave') && this.pushBlock && this.stageT >= RULES.onSec) {
+      // the player's rhythm: the push goes on past a turned circle — wider, or the next burden called
+      this.goOn();
     }
     // the smoke and the light (shares of the burden): in-breath lifts a puff to the Cross while the Cross has room, the
     // turning takes from it, the out-breath returns the light to them — never back to the person as smoke
@@ -536,7 +555,17 @@ export class BrzSim {
     }
     this.stage = carried ? 'leave' : 'peace';
     this.stageT = 0;
-    if (this.pushBlock) this.endPush('done', carried);
+    if (this.pushBlock) {
+      this.turnedInPush++;
+      this.circleT = 0;
+      // a rest after the circles the rhythm asks for (by design every one); else the push goes on (updateStage)
+      if (this.restDue(0)) this.endPush('done', carried);
+    }
+  }
+
+  /** Does the push end in a rest once its circle is turned (`ahead` 1: asked while it still turns)? */
+  private restDue(ahead: 0 | 1): boolean {
+    return this.turnedInPush + ahead >= this.restAfter;
   }
 
   /** The next push begins: what a control queued, or the next circle, or the next burden; a valve's rest goes on. */
@@ -709,9 +738,11 @@ export class BrzSim {
     }
     if (b.kind === 'push') {
       this.stallT += dt;
+      this.circleT += dt;
       const nearly = this.stage === 'pray' && this.x >= R.telegraphX;
-      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.blockT);
-      this.telegraph(toFinale, nearly ? 0 : valveIn, 'rest');
+      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.circleT);
+      // the rest is announced at the circle that ends the push
+      this.telegraph(toFinale, nearly && this.restDue(1) ? 0 : valveIn, 'rest');
       if (valveIn <= 0) this.valve();
       return;
     }
@@ -747,7 +778,8 @@ export class BrzSim {
   }
 
   private open(kind: BlockKind, why: BlockWhy | null = null, leave = false): void {
-    const rest = kind === 'rest' ? restOf(this.p, this.plannedSec, leave ? RULES.leaveExtra : 0) : null;
+    const extra = leave ? RULES.leaveExtra : 0;
+    const rest = kind !== 'rest' ? null : this.restBreaths !== null ? breathRestOf(this.pattern, this.restBreaths + extra) : restOf(this.p, this.plannedSec, extra);
     const b: Block = {
       kind, dur: kind === 'warmup' ? warmFor(this.plannedSec) : rest ? rest.sec : Infinity, cycles: rest?.cycles ?? 0, why, len: 0, leave,
     };
@@ -758,6 +790,8 @@ export class BrzSim {
     this.telegraphed = false;
     this.nextKind = null;
     this.stallT = 0;
+    this.turnedInPush = 0;
+    this.circleT = 0;
     this.judge.reset();
     this.goodSaid = false;
     this.noSigSaid = false;

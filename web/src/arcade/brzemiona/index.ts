@@ -12,10 +12,11 @@
  * layout.ts, scene.ts, paint.ts and hud.ts; preview.ts for the lobby and the calibration), the sound (audio.ts), the
  * lobby's card (panel.ts); the words in i18n.ts.
  */
-import { BREATH_PRESETS, breathOk, type BreathPattern } from '../kit/breath';
+import { BREATH_PRESETS, breathCycle, breathOk, type BreathPattern } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { BrzSound } from './audio';
 import { breathWords, t, unit } from './i18n';
@@ -48,7 +49,7 @@ class BrzGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<BrzProgress>) {
     seen(migrate(env.progress));
-    this.sim = new BrzSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new BrzSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new BrzView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new BrzSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -189,6 +190,26 @@ export function howto(touch = coarsePointer(), breath: BreathPattern | null = kn
   };
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): a rest after 1–3 circles turned (1 by design — with more,
+ * the light widens, or the next burden is called, within the push) and its whole breaths of the player's own pattern
+ * (2 by design for 10 minutes; as designed the session's own length is kept: about 12 s in 3 minutes, 30 in 30; the
+ * rest after a burden's last circle a breath longer).
+ */
+export function brzRhythm(p?: BrzProgress): RhythmSpec {
+  const cyc = breathCycle(breathOf(p ? migrate(p) : freshProgress()));
+  return {
+    focus: {
+      def: RULES.restAfter, min: 1, max: RULES.restAfterMax, step: 1, name: t('rhythm.after'),
+      format: n => t('rhythm.circles', { n }),
+    },
+    rest: breathDial(RULES.restDef, t('rhythm.rest'), cyc, { min: 1, max: RULES.restBreathsMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n * RULES.circleSec,
+    restSec: n => n * cyc,
+  };
+}
+
 const mod: ArcadeModule<BrzProgress> = {
   freshProgress,
   create: env => new BrzGame(env),
@@ -200,5 +221,8 @@ const mod: ArcadeModule<BrzProgress> = {
   progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => brzRhythm(p),
+  // the breath guide is the game's own (hud.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

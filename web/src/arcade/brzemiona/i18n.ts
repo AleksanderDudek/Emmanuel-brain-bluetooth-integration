@@ -251,6 +251,12 @@ const pl = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Odpoczynek (sesja 10 min): {breaths} · {sec}',
   'panel.cycle': 'Jeden oddech: {sec}',
+  // round 15: the rest's rhythm in the lobby (kit/rhythm.ts)
+  'rhythm.after': 'Odpoczynek po',
+  'rhythm.circles': { one: `{n}${N}kręgu`, few: `{n}${N}kręgach`, many: `{n}${N}kręgach`, other: `{n}${N}kręgach` },
+  'rhythm.rest': 'Odpoczynek',
+  'rhythm.note': 'Krąg przemieniony w skupieniu, potem odpoczynek przy krzyżu — z ostatnim kręgiem brzemię zostaje u Niego',
+  'panel.restRhythm': 'Ile oddechów trwa odpoczynek i po ilu kręgach przychodzi, ustawisz w wierszu „Rytm”, pod długością sesji.',
   'panel.tooShort': 'Tak krótki oddech niczego nie poprowadzi: cały musi trwać co najmniej 2 s.',
 
   // the narrator (each ≤ 90 characters)
@@ -522,6 +528,11 @@ const en: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'A rest (10-minute session): {breaths} · {sec}',
   'panel.cycle': 'One breath: {sec}',
+  'rhythm.after': 'Rest after',
+  'rhythm.circles': { one: `{n}${N}circle`, other: `{n}${N}circles` },
+  'rhythm.rest': 'Rest',
+  'rhythm.note': 'A circle turned in focus, then a rest at the Cross — with the last circle the burden stays with Him',
+  'panel.restRhythm': 'How many breaths a rest lasts, and after how many circles it comes, you set in the “Rhythm” row, under the session length.',
   'panel.tooShort': 'A breath that short cannot guide anything: the whole of it must last at least 2 s.',
 
   'say.open.1': 'We bring to the Cross what others carry. The burden stays with Him.',
@@ -789,6 +800,11 @@ const de: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'Eine Pause (Sitzung 10 Min.): {breaths} · {sec}',
   'panel.cycle': 'Ein Atemzug: {sec}',
+  'rhythm.after': 'Pause nach',
+  'rhythm.circles': { one: `{n}${N}Kreis`, other: `{n}${N}Kreisen` },
+  'rhythm.rest': 'Pause',
+  'rhythm.note': 'Ein Kreis im Fokus verwandelt, dann eine Pause am Kreuz — mit dem letzten Kreis bleibt die Last bei Ihm',
+  'panel.restRhythm': 'Wie viele Atemzüge eine Pause dauert und nach wie vielen Kreisen sie kommt, stellst du in der Zeile „Rhythmus“ unter der Sitzungslänge ein.',
   'panel.tooShort': 'Ein so kurzer Atemzug kann nichts führen: Er muss insgesamt mindestens 2 s dauern.',
 
   'say.open.1': 'Wir bringen zum Kreuz, was andere tragen. Die Last bleibt bei ihm.',
@@ -1056,6 +1072,11 @@ const sv: Cat = {
   'panel.autoBtn': 'auto',
   'panel.restLine': 'En vila (session på 10 min): {breaths} · {sec}',
   'panel.cycle': 'Ett andetag: {sec}',
+  'rhythm.after': 'Vila efter',
+  'rhythm.circles': { one: `{n}${N}krets`, other: `{n}${N}kretsar` },
+  'rhythm.rest': 'Vila',
+  'rhythm.note': 'En krets förvandlas i fokus, sedan vila vid korset — med den sista kretsen stannar bördan hos Honom',
+  'panel.restRhythm': 'Hur många andetag en vila varar och efter hur många kretsar den kommer ställer du in på raden ”Rytm”, under sessionslängden.',
   'panel.tooShort': 'Så kort andning kan inte leda något: hela andetaget måste vara minst 2 s.',
 
   'say.open.1': 'Vi bär fram till korset det som andra bär. Bördan stannar hos honom.',

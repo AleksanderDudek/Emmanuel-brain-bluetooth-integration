@@ -45,6 +45,18 @@ export const RULES = {
   /** the rest after a burden's last circle (left at the Cross) is this many breaths longer */
   leaveExtra: 1,
   restBreathsMax: 12,
+  /**
+   * The rest's rhythm in the lobby (round 15, kit/rhythm.ts): a rest after 1…restAfterMax circles turned (1 by design:
+   * the founder's series rule, a rest after every circle) — with more, the light widens to the next circle, or the next
+   * burden is called, within the same push after `onSec` of peace; and the rest's whole breaths (`restDef` by design
+   * for 10 minutes, 1…restBreathsMax; taken when the player moved a dial).  `circleSec`: about how long a circle takes
+   * an average player, lead-in included, for the lobby's count of rests.
+   */
+  restAfter: 1,
+  restAfterMax: 3,
+  restDef: 2,
+  onSec: 1.4,
+  circleSec: 40,
   /** peace held in a rest (calm at least this, a reliable signal) */
   calmAt: 0.5,
 
