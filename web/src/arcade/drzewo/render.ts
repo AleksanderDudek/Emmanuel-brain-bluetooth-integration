@@ -269,6 +269,8 @@ export class DrzewoView {
     if (line) this.hud.capText = line.text;
     this.hud.capK = approach(this.hud.capK, line ? 1 : 0, dt, 0.25);
     this.hud.bandGlow = sim.reshow > 0 ? Math.min(1, sim.reshow / RULES.reshowSec) : 0;
+    this.hud.time = this.time;
+    this.hud.still = this.opts.reducedMotion;
   }
 
   draw(sim: DrzewoSim): void {

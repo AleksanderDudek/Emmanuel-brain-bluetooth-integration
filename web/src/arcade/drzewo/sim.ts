@@ -111,6 +111,11 @@ export interface SimInit {
   tuning: FocusTuning;
   /** today ("YYYY-MM-DD"): the calendar's season */
   day?: string;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `drzewoRhythm`): a rest after how many stages, and its
+   * whole breaths — the breaths taken when the player moved a dial (`custom`); absent: one stage, the plan's breaths.
+   */
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 }
 
 export class DrzewoSim {
@@ -121,6 +126,8 @@ export class DrzewoSim {
   readonly session: number;
   readonly firstEver: boolean;
   readonly plan: Plan;
+  /** a rest comes after this many stages done in one push (the lobby's Rytm; 1 by design) */
+  readonly restAfter: number;
   readonly pattern: BreathPattern;
   readonly talk: Talk;
   readonly contrast = new BlockContrast(4);
@@ -140,6 +147,9 @@ export class DrzewoSim {
   tip = '';
   private pushesBegun = 0;
   stallT = 0;
+  /** a push: the stages it completed so far, and the seconds since it began or completed one (the safety valve) */
+  doneInPush = 0;
+  stageSecT = 0;
   /** the time the wind's rest takes over (s of play) */
   readonly reserveAt: number;
   windDone = false;
@@ -225,7 +235,10 @@ export class DrzewoSim {
     this.session = this.p.sessions + 1;
     this.firstEver = this.p.sessions === 0;
     this.pattern = breathOf(this.p);
-    this.plan = planFor(this.plannedSec, this.pattern, this.eeg);
+    const rh = init.rhythm;
+    this.restAfter = Math.max(1, Math.min(RULES.restAfterMax, Math.round(rh?.focus ?? RULES.restAfter)));
+    const own = rh && rh.custom !== false ? Math.max(1, Math.min(RULES.restBreathsMax, Math.round(rh.rest))) : null;
+    this.plan = planFor(this.plannedSec, this.pattern, this.eeg, { restAfter: this.restAfter, restBreaths: own });
     this.reserveAt = this.plannedSec - this.plan.finaleSec - this.plan.windSec;
     this.judge = RoundJudge.from(init.tuning);
     this.pushesBase = this.p.pushes;
@@ -466,11 +479,26 @@ export class DrzewoSim {
     this.syncCurrent();
     if (Math.floor(before * 10) !== Math.floor(this.fill * 10)) this.emit({ type: 'grow', kind: this.kind, fill: this.fill });
     if (this.fill < 1 - 1e-9) return;
-    if (this.blockT < RULES.minPush) {
-      // full before the push's least length: the light flows on into the next station in the same push
+    if (this.blockT < RULES.minPush || !this.restDue()) {
+      // full before the push's least length, or the player's rhythm asks for more stages before a rest: the light
+      // flows on into the next station in the same push
       this.complete();
       this.moveOn(true);
+      this.doneInPush++;
+      this.stageSecT = 0;
     } else this.endPush('full');
+  }
+
+  /**
+   * Does the push end in a rest when its current station is full?  After the stages the rhythm asks for (by design
+   * every one), after a blind push (its growth shown), and always when the roots reach the stream (the water) or the
+   * crown is whole — the arc's own rests.
+   */
+  private restDue(): boolean {
+    if (this.block.blind || this.doneInPush + 1 >= this.restAfter) return true;
+    if (this.kind === 'roots' && this.rootsDone + 1 >= this.plan.roots && !this.streamReached) return true;
+    if (this.kind === 'trunk' && this.trunkDone + 1 >= this.plan.trunk && !this.crownWhole) return true;
+    return false;
   }
 
   /** On to the next station: its fill (a resumed fruit: the light gathered last time), and it arrives now or with the next push. */
@@ -678,10 +706,11 @@ export class DrzewoSim {
     }
     if (b.kind === 'push') {
       this.stallT += dt;
+      this.stageSecT += dt;
       const toReserve = this.reserveAt - now;
       const nearly = this.fill + (b.blind ? this.hidden : 0) >= R.telegraphFill;
-      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.blockT);
-      const soon = !b.blind && this.fill >= R.telegraphFill && this.blockT >= R.minPush - R.telegraph;
+      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.stageSecT);
+      const soon = !b.blind && this.fill >= R.telegraphFill && this.blockT >= R.minPush - R.telegraph && this.restDue();
       this.telegraph(Math.min(toReserve, soon ? 0 : valveIn), 'rest');
       if (toReserve <= 0) {
         this.endPush('time');
@@ -766,6 +795,8 @@ export class DrzewoSim {
     this.telegraphed = false;
     this.nextKind = null;
     this.stallT = 0;
+    this.doneInPush = 0;
+    this.stageSecT = 0;
     this.judge.reset();
     this.goodSaid = false;
     this.noSigSaid = false;

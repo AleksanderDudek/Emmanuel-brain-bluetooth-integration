@@ -1,11 +1,14 @@
 /**
  * Drzewo nad wodą's own words on the canvas (the runner draws the standard HUD): the words band — the stage's name
  * ("Korzenie · glina", "Cierpliwość · 4/9"), one short line of what to do now (an icon and a few words; in rest the
- * breath's guide: the phase, its seconds, "oddech 1 z 2"), and the prayer in a calm serif, or in rest the verse to
+ * kit's big breath guide in its place — round 15, kit/breathguide.ts: the lungs' disc, the phase ≥ 20 px with its
+ * seconds, "oddech 1 z 2"; on a phone held upright it takes the stage's name's row too), and the prayer in a calm
+ * serif, or in rest the verse to
  * abide in or the fruit's reflection — the narrator's caption, a fruit's card, the story cards (the opening's two
  * pages, the closing card), the ≡ button and its picker (posture, season).  Every text has a floor (never under 11
  * px; what is read, 13 px and more; the prayer 15 px and more) and is drawn in screen space.
  */
+import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp } from '../kit/juice';
 import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout } from '../kit/scripture';
@@ -16,7 +19,11 @@ import { GOLD, GOLD_HI, INK, PEARL, WATER, fitFont, font, mix, rr, wrap } from '
 import { layerBands } from './tree';
 import { pageOf, type DrzewoSim, type NowWhat } from './sim';
 
-export interface HudState { capK: number; capText: string; bandGlow: number }
+export interface HudState {
+  capK: number; capText: string; bandGlow: number;
+  /** seconds of the view (the held breath's pulse) and reduced motion (no pulse) for the breath guide */
+  time?: number; still?: boolean;
+}
 
 /** Whether the play's words are drawn (from the start of play to its end). */
 export const hudOn = (sim: DrzewoSim): boolean => sim.started && sim.phase !== 'done';
@@ -150,13 +157,19 @@ function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: DrzewoSim, hs: 
   const labH = Math.round(lpx * 1.6);
   const nowH = nowRowH(L);
   let y = r.y + 2;
-  ctx.font = font(lpx, 700);
-  outlined(ctx, lab.text, cx, y + labH / 2, lab.color);
-  y += labH;
-  drawNow(ctx, L, sim, cx, y + nowH / 2, r.w);
-  y += nowH;
+  const rest = sim.restBlock;
+  if (!(rest && L.shape === 'tall')) {
+    ctx.font = font(lpx, 700);
+    outlined(ctx, lab.text, cx, y + labH / 2, lab.color);
+    y += labH;
+  }
+  if (rest) y += drawGuide(ctx, L, sim, cx, y, r.w, r.h, hs) + 4;
+  else {
+    drawNow(ctx, L, sim, cx, y + nowH / 2, r.w);
+    y += nowH;
+  }
   const body = { x: r.x, y, w: r.w, h: r.y + r.h - y - 2 };
-  if (sim.restBlock) {
+  if (rest) {
     const f = sim.restKind === 'fruit' ? sim.restFruit : null;
     if (f) drawReflection(ctx, L, f, sim.restPage, body);
     else {
@@ -199,6 +212,30 @@ function drawReflection(ctx: CanvasRenderingContext2D, L: Layout, f: keyof typeo
     ctx.font = font(px, 600);
     outlined(ctx, hint, cx, box.y + box.h - hintH / 2, 'rgba(230,226,214,.8)');
   }
+}
+
+/**
+ * Rest's breath guide (kit/breathguide.ts): a row — the ring, the phase beside it, "oddech 1 z 2" under it — at the
+ * top `y` of what is left of the band, centred; the kit's radius for the screen, under about 42 % of the band's
+ * height (≥ 26 px).  Its height returned.
+ */
+function drawGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: DrzewoSim, cx: number, y: number, w: number, bandH: number, hs: HudState): number {
+  const pp = (r: number) => Math.max(10, Math.round(r * 0.3));
+  let r = Math.min(breathGuideRadius(L.w, L.h), Math.round(w * 0.16));
+  while (r > 26 && 2 * r + 1.4 * pp(r) > bandH * 0.42) r--;
+  r = Math.max(26, r);
+  const b = sim.breath;
+  const o: BreathGuideOpts = {
+    cx, cy: 0, r, layout: 'row',
+    words: { in: phaseWord('in'), holdIn: phaseWord('holdIn'), out: phaseWord('out'), holdOut: phaseWord('holdOut') },
+    sub: t('hud.breathOf', { n: b.cycle, of: b.cycles }), maxW: Math.max(80, w - (2 * r + 2.9 * pp(r))),
+    reducedMotion: hs.still, time: hs.time, scrim: 0.5,
+  };
+  const h = breathGuideBox(ctx, o).h;
+  drawBreathGuide(ctx, b, { ...o, cy: y + h / 2 });
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  return h;
 }
 
 /** The line of what to do now (an icon and a few words); in rest, the breath's guide. */

@@ -11,10 +11,11 @@
  * pictures (render.ts on tree.ts's geometry and layout.ts, paint.ts; the words in hud.ts; preview.ts for the lobby,
  * the cards and the intro), the sound (audio.ts), the lobby's card (panel.ts); the words in i18n.ts.
  */
-import { BREATH_DEFAULT, breathOk, type BreathPattern } from '../kit/breath';
+import { BREATH_DEFAULT, breathCycle, breathOk, type BreathPattern } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DrzewoSound } from './audio';
 import { POSTURES, SEASON_MODES } from './content';
@@ -48,7 +49,9 @@ class DrzewoGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<DrzewoProgress>) {
     seen(migrate(env.progress));
-    this.sim = new DrzewoSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day });
+    this.sim = new DrzewoSim({
+      progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day, rhythm: env.rhythm,
+    });
     this.ctx = env.canvas.getContext('2d');
     this.view = new DrzewoView(this.ctx, { reducedMotion: env.reducedMotion, touch: env.touch, seed: Math.floor(env.rng() * 1e9) });
     this.sound = new DrzewoSound(env.audio);
@@ -230,6 +233,25 @@ export function howto(touch = coarsePointer(), breath: BreathPattern | null = kn
   };
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): a rest after 1–3 stages (a layer of roots, a part of the
+ * tree, a fruit; 1 by design — the water at the stream and the whole crown always rest) and its whole breaths of the
+ * player's own pattern (2 by design for 10 minutes; as designed the session's own table keeps the length's rest).
+ */
+export function drzewoRhythm(p?: DrzewoProgress): RhythmSpec {
+  const cyc = breathCycle(breathOf(p ? migrate(p) : freshProgress()));
+  return {
+    focus: {
+      def: RULES.restAfter, min: 1, max: RULES.restAfterMax, step: 1, name: t('rhythm.after'),
+      format: n => t('rhythm.stages', { n }),
+    },
+    rest: breathDial(RULES.restDef, t('rhythm.rest'), cyc, { min: 1, max: RULES.restBreathsMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n * RULES.stageSec,
+    restSec: n => n * cyc,
+  };
+}
+
 const mod: ArcadeModule<DrzewoProgress> = {
   freshProgress,
   create: env => new DrzewoGame(env),
@@ -241,5 +263,8 @@ const mod: ArcadeModule<DrzewoProgress> = {
   progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => drzewoRhythm(p),
+  // the breath guide is the game's own (hud.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

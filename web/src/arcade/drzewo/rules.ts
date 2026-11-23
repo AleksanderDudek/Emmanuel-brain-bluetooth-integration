@@ -9,7 +9,7 @@
  * strong, held focus).  A station needs `need` focus-seconds.  Nothing grows in rest, the posture, the finale,
  * without a signal, below the threshold or from taps; what has grown stays.
  */
-import { breathCycle, breathRest, type BreathPattern } from '../kit/breath';
+import { breathCycle, breathRest, breathRestOf, type BreathPattern } from '../kit/breath';
 
 export const RULES = {
   // ── growth ───────────────────────────────────────────────────
@@ -56,6 +56,19 @@ export const RULES = {
   repeatEvery: 3,
   /** a rest begins no later than this many seconds before the reserved end, or the wind rest comes instead of a push */
   windLead: 10,
+  /**
+   * The rest's rhythm in the lobby (round 15, kit/rhythm.ts): a rest after 1…restAfterMax stages (a root layer, a part
+   * of the tree, a fruit; 1 by design) — with more, the light flows on into the next stage within the push, though the
+   * water (the roots at the stream) and the whole crown still rest; and the rest's whole breaths (`restDef`, the
+   * 10-minute session's; 1…restBreathsMax; taken when the player moved a dial).  `stageSec`: about how long a stage
+   * takes an average player, lead-in included, for the lobby's count of rests.
+   */
+  restAfter: 1,
+  restAfterMax: 3,
+  restDef: 2,
+  restBreathsMax: 8,
+  restCap: 0.55,
+  stageSec: 35,
 
   // ── the plan's average player (planFor) ─────────────────────
   /** focus-seconds a second an average player gathers past the lead-in (~70 % of the time focused, a little above the threshold) */
@@ -157,18 +170,28 @@ export const rowFor = (plannedSec: number): Row => TABLE.find(r => plannedSec <=
  * any length, never at 40 %.  A stronger player ripens more fruit; a weaker one fewer; the wind and the close always
  * come at the end.
  */
-export function planFor(plannedSec: number, pattern: BreathPattern, eeg = false): Plan {
+export function planFor(plannedSec: number, pattern: BreathPattern, eeg = false, rhythm?: { restAfter?: number; restBreaths?: number | null }): Plan {
   const T = Math.max(10, plannedSec);
   const r = rowFor(T);
   const R = RULES;
   const lead = eeg ? R.leadIn.eeg : R.leadIn.fnirs;
-  const rest = breathRest(pattern, r.rest, Math.min(8, r.rest));
-  const cyc = breathCycle(pattern) > 0 ? rest.sec / rest.cycles : 10;
-  const windSec = rest.sec + r.extra * cyc;
+  const N = Math.max(1, Math.round(rhythm?.restAfter ?? 1));
   const finaleSec = finaleFor(T);
   const stations = r.roots + r.trunk + r.fruits * r.steps;
-  // the rests between stations (the last fruit's rest is the wind's), the water's extra breaths
-  const fixed = 3 * r.cue + finaleSec + windSec + (stations - 1) * rest.sec + r.extra * cyc + stations * lead;
+  // the rests between stations (the last fruit's rest is the wind's; with the player's rhythm one every N stages, the
+  // water's and the crown's kept), the water's extra breaths, a lead-in a push
+  const rests = N === 1 ? stations - 1 : Math.min(stations - 1, Math.ceil((stations - 1) / N) + 1);
+  // the player's count of breaths, never leaving the arc without room: the rests and the wind at most restCap of it
+  let rest = breathRest(pattern, r.rest, Math.min(8, r.rest));
+  if (rhythm?.restBreaths) {
+    const one = breathRestOf(pattern, 1).sec, room = R.restCap * Math.max(0, T - finaleSec - 3 * r.cue);
+    let n = Math.max(1, Math.round(rhythm.restBreaths));
+    while (n > 1 && ((rests + 1) * n + 2 * r.extra) * one > room) n--;
+    rest = breathRestOf(pattern, n);
+  }
+  const cyc = breathCycle(pattern) > 0 ? rest.sec / rest.cycles : 10;
+  const windSec = rest.sec + r.extra * cyc;
+  const fixed = 3 * r.cue + finaleSec + windSec + rests * rest.sec + r.extra * cyc + (rests + 1) * lead;
   const free = Math.max(0, T - fixed) * R.avgShare * R.avgRate;
   const wRoot = 1.3, wTrunk = 1.2, wFruit = r.steps === 2 ? 0.6 : 0.9;
   const unit = free / (r.roots * wRoot + r.trunk * wTrunk + r.fruits * r.steps * wFruit);

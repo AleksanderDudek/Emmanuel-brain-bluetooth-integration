@@ -18,7 +18,8 @@ import { camFor, crownRect, layout, pickerParts, previewLayout, tapTargets, type
 import { worldTop as worldTopOf } from '../src/arcade/drzewo/tree';
 import { BOTTOM, DEPTH, SEATED_OUTLINE, branchesFor, crownOf, fruitPlace, grownTo, leavesFor, rootsFor, stonesFor, tipsAt } from '../src/arcade/drzewo/tree';
 import { OUTLINE } from '../src/arcade/kit/figure';
-import { howto } from '../src/arcade/drzewo/index';
+import { drzewoRhythm, howto } from '../src/arcade/drzewo/index';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 
 const STEP = 1 / 30;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -33,12 +34,15 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['s.open', 'c.grow', 'c.breath', 'c.tap', 'c.menu', 'c.blind'];
 
-type SimOpts = { progress?: Partial<DrzewoProgress>; planned?: number; seed?: number; eeg?: boolean; day?: string };
+type SimOpts = {
+  progress?: Partial<DrzewoProgress>; planned?: number; seed?: number; eeg?: boolean; day?: string;
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
+};
 
 function makeSim(o: SimOpts = {}): DrzewoSim {
   const sim = new DrzewoSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
-    tuning: TUNING, day: o.day ?? '2026-11-22',
+    tuning: TUNING, day: o.day ?? '2026-11-22', rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -662,4 +666,51 @@ describe('rest, calm and reading time', () => {
     expect(pageTime('open', 0)).toBeGreaterThanOrEqual(RULES.pageSec);
     expect(pageTime('open', 1)).toBeGreaterThan(readTime(t('story.open2.text')));
   });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers a rest after 1–3 stages (1 by design) and its whole breaths of the player’s pattern (2)', () => {
+    const spec = drzewoRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: 1, min: 1, max: RULES.restAfterMax, name: 'Odpoczynek po' });
+    expect([1, 2, 3].map(n => spec.focus.format(n))).toEqual(['1\u00a0etapie', '2\u00a0etapach', '3\u00a0etapach']);
+    expect(spec.rest).toMatchObject({ def: RULES.restDef, min: 1, max: RULES.restBreathsMax, name: 'Odpoczynek' });
+    expect(spec.rest.format(2)).toBe('2\u00a0oddechy · 20\u00a0s');
+    const n = restsIn(spec, rhythmOf(spec, undefined)!, 600)!;
+    expect(n.rests).toBeGreaterThanOrEqual(10);
+    expect(n.rests).toBeLessThanOrEqual(12);
+  });
+
+  it('with a rest after 2 stages the light flows on within the push; the water and the whole crown still rest', () => {
+    const sim = later({ planned: 900, rhythm: { focus: 2, rest: 3, custom: true } });
+    const { events } = playAll(sim, average);
+    const rests = sim.blocks.filter(b => b.kind === 'rest' && b.rest !== 'wind' && b.rest !== 'valve');
+    for (const b of rests) expect(b.cycles).toBe(b.rest === 'water' ? 3 + sim.plan.extra : 3);
+    expect(rests.some(b => b.rest === 'water')).toBe(true);
+    expect(rests.some(b => b.rest === 'crown')).toBe(true);
+    // fewer rests than stages done (two stages a push on the fruits)
+    const fulls = ofType(events, 'full').length;
+    expect(rests.length).toBeLessThan(fulls - 2);
+    const design = later({ planned: 900 });
+    playAll(design, average);
+    expect(design.blocks.filter(b => b.kind === 'rest').length).toBeGreaterThan(sim.blocks.filter(b => b.kind === 'rest').length);
+  });
+
+  for (const min of [3, 10, 30]) {
+    it(`walks an average player through ${min} minutes with the dials at their extremes: the arc closes near the end`, () => {
+      for (const rhythm of [{ focus: 1, rest: 1 }, { focus: RULES.restAfterMax, rest: RULES.restBreathsMax }, { focus: 2, rest: 2 }]) {
+        const sim = later({ planned: min * 60, rhythm: { ...rhythm, custom: true } });
+        playAll(sim, average);
+        const T = min * 60, tag = `${min} min ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(sim.streamReached, tag).toBe(true);
+        expect(sim.crownWhole, tag).toBe(true);
+        expect(sim.fruitsNow, tag).toBeGreaterThanOrEqual(min <= 3 ? 2 : 6);
+        const last = sim.ripeAt[Math.min(sim.plan.fruits, sim.fruitsNow) - 1];
+        expect(last / T, tag).toBeGreaterThan(min <= 3 ? 0.45 : 0.55);
+        expect(sim.blocks.filter(b => b.rest === 'wind'), tag).toHaveLength(1);
+        // pushes and rests alternate (the wind's rest may follow a rest: the end is reserved for it)
+        sim.blocks.forEach((b, i) => { if (i && b.rest !== 'wind') expect(b.kind, tag).not.toBe(sim.blocks[i - 1].kind); });
+      }
+    });
+  }
 });
