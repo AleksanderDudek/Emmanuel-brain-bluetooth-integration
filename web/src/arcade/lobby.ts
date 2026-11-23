@@ -76,7 +76,7 @@ export class ArcadeLobby {
     const id = this.entry?.id;
     let spec: RhythmSpec | undefined;
     try {
-      spec = this.mod?.rhythm?.();
+      spec = this.mod?.rhythm?.(this.progress ?? undefined);
     } catch (e) {
       console.error(e);
     }

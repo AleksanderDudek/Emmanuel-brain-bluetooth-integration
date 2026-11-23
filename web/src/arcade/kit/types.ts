@@ -218,9 +218,10 @@ export interface ArcadeModule<P extends object = object> {
   /**
    * The rest's rhythm the lobby lets the player set (kit/rhythm.ts): two dials in the game's own words — how long
    * focus lasts before a rest (seconds or the game's unit) and how long a rest lasts (seconds or whole breaths).
-   * Without it the lobby shows no rhythm row.  In this page load's language.
+   * Without it the lobby shows no rhythm row.  In this page load's language.  `p`: the player's progress (a
+   * breath pattern kept there sets how long a breath is); absent on a fresh lobby before it loaded.
    */
-  rhythm?(): RhythmSpec;
+  rhythm?(p?: P): RhythmSpec;
   /**
    * The game draws its own breath guide in rest (kit/breathguide.ts) — the runner then shows no pacer of its own.
    */

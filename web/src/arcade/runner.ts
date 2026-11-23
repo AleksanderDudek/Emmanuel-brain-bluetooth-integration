@@ -233,7 +233,7 @@ export class ArcadeRunner {
     // the rest's rhythm the player set in this game's lobby (kit/rhythm.ts); a game without dials plays as designed
     let rhythm: Rhythm | null = null;
     try {
-      rhythm = rhythmOf(mod.rhythm?.(), prefs.rhythm?.[entry.id]);
+      rhythm = rhythmOf(mod.rhythm?.(progress), prefs.rhythm?.[entry.id]);
     } catch (e) {
       console.error(e);
     }
