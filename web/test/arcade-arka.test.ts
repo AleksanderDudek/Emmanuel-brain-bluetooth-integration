@@ -5,7 +5,8 @@ import { boardFor, cloneBoard, firstBoard, generate, gridOf, solve, wayOut, type
 import { FIRST_OF, KINDS, STAGES, kindsAt, levelSpec } from '../src/arcade/arka/content';
 import { CATALOGS, t, unit } from '../src/arcade/arka/i18n';
 import arka, { howto } from '../src/arcade/arka/index';
-import { cellAt, cellCentre, cellRect, layout, reachOf, sdir, sightRadius, tapTargets, toScreen, toSim, type Layout } from '../src/arcade/arka/layout';
+import { cellAt, cellCentre, cellRect, layout, pacerAt, reachOf, sdir, sightRadius, tapTargets, toScreen, toSim, type Layout } from '../src/arcade/arka/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { SANS, font, fontPx } from '../src/arcade/arka/paint';
 import { clearLevel, freshProgress, homestead, migrate, settle, totalStars, type ArkaProgress } from '../src/arcade/arka/meta';
 import { DX, DY, RULES, parFor, sightShare, starsFor } from '../src/arcade/arka/rules';
@@ -1184,5 +1185,57 @@ describe('Arka at 15–30 minutes', () => {
       for (const s of out.highlights) expect(s.length).toBeLessThan(100);
       for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
     }
+  });
+});
+
+describe('Arka: the breath pacer in a Tęcza stands off the deck (pacerAt)', () => {
+  const LEVELS = [1, 2, 6, 9, 12, 20, 40];
+  const cover = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+    Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  it('keeps the pill whole under the HUD band, clear of the bar, the dove and the raven, beside the deck where there is room, at every size and board', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        for (const n of LEVELS) {
+          const b = boardFor(n);
+          const L = layout(c.w, c.h, c.insets, b.cols, b.rows, touch);
+          const at = pacerAt(L);
+          const name = `${c.name}${touch ? '' : ' (mouse)'}, level ${n}`;
+          expect(at, name).not.toBeNull();
+          const size = pacerSize(L.kind === 'big');
+          const s = L.raven.s;
+          const hull = { label: 'hull', x: L.deck.x - L.rim, y: L.deck.y - L.rim, w: L.deck.w + 2 * L.rim, h: L.deck.h + 2 * L.rim };
+          const keep = [
+            { label: 'bar', ...L.bar },
+            { label: 'raven', x: L.raven.x - s * 0.8, y: L.raven.y - s * 1.2, w: s * 1.6, h: s * 1.2 },
+            ...tapTargets(L, { card: null, dove: true }),
+          ];
+          // a desktop, a tablet: beside or above the hull; an upright phone: at the foot, off the deck's cells (over
+          // the waiting firsts); a phone on its side and a big screen: clear of the cells where the columns beside the
+          // deck are wide enough, else a corner of the deck (never more than 30 % of the pill over its cells)
+          const also = L.mode === 'wide' && L.kind !== 'big' ? [hull] : L.mode === 'tall' ? [{ label: 'deck', ...L.deck }] : [];
+          expect(pacerProblems(at, c.w, c.h, c.insets, [...keep, ...also], size), name).toEqual([]);
+          if (L.mode === 'tall' && at!.y > L.deck.y) expect(at!.y, name).toBeGreaterThanOrEqual(L.deck.y + L.deck.h);
+          expect(cover(pacerBox(at!, size), L.deck), name).toBeLessThanOrEqual(size.w * size.h * 0.3);
+        }
+      }
+    }
+  });
+
+  it('answers from the game in play, the same spot as the layout\'s (left of the deck on a desktop)', () => {
+    const c = CHECK_SIZES[8];
+    const env: GameEnv<ArkaProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 5, level: 9 }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => c.insets.top, insets: () => c.insets, touch: false,
+    };
+    const game = arka.create(env);
+    expect(game.pacerAt!()).toBeNull();
+    game.resize(c.w, c.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ArkaSim; view: { L: Layout; lay: (s: ArkaSim) => Layout } };
+    const L = inner.view.lay(inner.sim);
+    expect(game.pacerAt!()).toEqual(pacerAt(L));
+    expect(game.pacerAt!()!.x + 105).toBeLessThan(L.deck.x - L.rim);
   });
 });

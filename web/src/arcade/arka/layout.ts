@@ -24,6 +24,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
+import { pacerLeast, pacerSize, pacerSpot, safeBand } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -294,6 +295,37 @@ export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean =>
 
 /** How far a finger may land off an animal and still take it (px): the cells grown to a finger, at least a few px. */
 export const reachOf = (L: Layout): number => Math.max(6, (MIN_TAP - L.cell) / 2 + 4);
+
+/**
+ * Where the runner's breath pacer stands in a Tęcza (ArcadeGame.pacerAt; kit/pacerspot.ts): the deck is the play in a
+ * rest too (the rainbow lights a safe move on it), so the pill keeps off the hull, the bar with the hearts the rainbow
+ * gives back, the dove's pill, the raven, the gangway and the waiting firsts — in the sky beside or above the deck (a
+ * desktop: under the Mendi panel; a big screen: left of the hull; a phone on its side: over the new land's column
+ * when the deck leaves it the width).  An upright phone has no such room: the pill stands at the foot, on the new
+ * land's left end over the waiting firsts and the gangway's foot, clear of the deck's cells and the dove.  A small
+ * phone on its side whose deck fills the band between its two narrow columns, and a big screen's widest deck, get
+ * the spot clear of the hearts, the raven and the dove that covers the least of the deck (a corner of it, or its
+ * hull's rim over the new land).
+ */
+export function pacerAt(L: Layout): Pt | null {
+  const size = pacerSize(L.kind === 'big');
+  const band = safeBand(L.w, L.h, L.ins);
+  const hull = { x: L.deck.x - L.rim - 2, y: L.deck.y - L.rim - 2, w: L.deck.w + 2 * L.rim + 4, h: L.deck.h + 2 * L.rim + 4 };
+  // the dove's pill with its "resting" word over it; the raven on his perch
+  const dove = { x: L.dove.x, y: L.dove.y - 26, w: L.dove.w, h: L.dove.h + 26 };
+  const s = L.raven.s;
+  const raven = { x: L.raven.x - s * 0.9, y: L.raven.y - s * 1.35, w: s * 1.8, h: s * 1.45 };
+  const gw = Math.max(18, L.cell * 0.7);
+  const gangway = { x: L.door.x - gw / 2 - 4, y: L.door.y, w: gw + 8, h: Math.max(0, L.shore.y + L.shore.h * 0.85 - L.door.y) };
+  const xs = L.slots.map(p => p.x);
+  const waiting = xs.length ? { x: Math.min(...xs) - L.slotH * 0.6, y: L.slots[0].y - L.slotH - 24, w: Math.max(...xs) - Math.min(...xs) + L.slotH * 1.2, h: L.slotH + 26 } : null;
+  const hard = [L.bar, dove, raven];
+  return pacerSpot([band], waiting ? [...hard, hull, gangway, waiting] : [...hard, hull, gangway], { size })
+    // an upright phone: the foot, the new land's left end
+    ?? (L.mode === 'tall' ? pacerSpot([band], [...hard, L.deck], { size, from: 'bottom', align: 'left', pad: 2, edge: 2 }) : null)
+    // (the cells count twice, the hull's rim, the gangway and the waiting firsts once)
+    ?? pacerLeast([band], hard, waiting ? [L.deck, hull, gangway, waiting] : [L.deck, hull, gangway], { size, align: 'right' });
+}
 
 /** What on screen decides the targets: a card that takes a tap (its rectangle), else the dove's button in play. */
 export interface TargetState { card: Rect | null; dove: boolean }

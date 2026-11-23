@@ -26,7 +26,7 @@ import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ArkaSound } from './audio';
 import { t, unit } from './i18n';
-import { tapTargets } from './layout';
+import { pacerAt, tapTargets, type Layout, type Pt } from './layout';
 import { bestOf, freshProgress, migrate, type ArkaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -194,6 +194,16 @@ class ArkaGame implements ArcadeGame {
     if (card && (this.view.blocking || sim.levelState === 'clear')) return tapTargets(L, { card, dove: false });
     return tapTargets(L, { card: null, dove: sim.levelState === 'play' || sim.levelState === 'drop' });
   }
+
+  /** The breath pacer's spot in a Tęcza: off the deck and its bar (layout.ts `pacerAt`), kept per layout. */
+  pacerAt(): Pt | null {
+    const L = this.view.L;
+    if (!L) return null;
+    if (this.pacer?.L !== L) this.pacer = { L, at: pacerAt(L) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; at: Pt | null } | null = null;
 
   /** Arrows move the cursor, Enter sends the animal under it, Space (or H) calls the dove. */
   key(key: string, down: boolean): boolean {
