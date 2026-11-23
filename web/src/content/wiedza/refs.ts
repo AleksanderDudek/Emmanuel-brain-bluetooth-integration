@@ -1,0 +1,77 @@
+/**
+ * The sources of the article on the prefrontal cortex, the same in every language. Each one was fetched from PubMed
+ * (2026-11) and checked: authors, year, title, journal and what kind of paper it is. Meta-analyses and systematic
+ * reviews first, then reviews; a single study only where no review gives the point. The notes behind every finding
+ * (sample sizes, limits) are in the round's research file.
+ */
+import type { Ref } from './types';
+
+export const REFS: readonly Ref[] = [
+  // ── what the band sees ───────────────────────────────────────
+  { key: 'pinti2020', authors: 'Pinti et al.', year: 2020, title: 'The present and future use of functional near-infrared spectroscopy (fNIRS) for cognitive neuroscience', journal: 'Ann N Y Acad Sci 1464(1):5–29', type: 'review', pmid: '30085354', doi: '10.1111/nyas.13948' },
+  { key: 'scholkmann2014', authors: 'Scholkmann et al.', year: 2014, title: 'A review on continuous wave functional near-infrared spectroscopy and imaging instrumentation and methodology', journal: 'Neuroimage 85 Pt 1:6–27', type: 'review', pmid: '23684868', doi: '10.1016/j.neuroimage.2013.05.004' },
+  { key: 'tachtsidis2016', authors: 'Tachtsidis & Scholkmann', year: 2016, title: 'False positives and false negatives in functional near-infrared spectroscopy: issues, challenges, and the way forward', journal: 'Neurophotonics 3(3):031405', type: 'review', pmid: '27054143', doi: '10.1117/1.NPh.3.3.031405' },
+  { key: 'cavanagh2014', authors: 'Cavanagh & Frank', year: 2014, title: 'Frontal theta as a mechanism for cognitive control', journal: 'Trends Cogn Sci 18(8):414–421', type: 'review', pmid: '24835663', doi: '10.1016/j.tics.2014.04.012' },
+  { key: 'vandervinne2017', authors: 'van der Vinne et al.', year: 2017, title: 'Frontal alpha asymmetry as a diagnostic marker in depression: fact or fiction? A meta-analysis', journal: 'Neuroimage Clin 16:79–87', type: 'meta', pmid: '28761811', doi: '10.1016/j.nicl.2017.07.006' },
+  // ── what it is ───────────────────────────────────────────────
+  { key: 'miller2001', authors: 'Miller & Cohen', year: 2001, title: 'An integrative theory of prefrontal cortex function', journal: 'Annu Rev Neurosci 24:167–202', type: 'review', pmid: '11283309', doi: '10.1146/annurev.neuro.24.1.167' },
+  { key: 'szczepanski2014', authors: 'Szczepanski & Knight', year: 2014, title: 'Insights into human behavior from lesions to the prefrontal cortex', journal: 'Neuron 83(5):1002–1018', type: 'review', pmid: '25175878', doi: '10.1016/j.neuron.2014.08.011' },
+  { key: 'niendam2012', authors: 'Niendam et al.', year: 2012, title: 'Meta-analytic evidence for a superordinate cognitive control network subserving diverse executive functions', journal: 'Cogn Affect Behav Neurosci 12(2):241–268', type: 'meta', pmid: '22282036', doi: '10.3758/s13415-011-0083-5' },
+  { key: 'menon2011', authors: 'Menon', year: 2011, title: 'Large-scale brain networks and psychopathology: a unifying triple network model', journal: 'Trends Cogn Sci 15(10):483–506', type: 'review', pmid: '21908230', doi: '10.1016/j.tics.2011.08.003' },
+  // ── executive functions ──────────────────────────────────────
+  { key: 'diamond2013', authors: 'Diamond', year: 2013, title: 'Executive functions', journal: 'Annu Rev Psychol 64:135–168', type: 'review', pmid: '23020641', doi: '10.1146/annurev-psych-113011-143750' },
+  { key: 'owen2005', authors: 'Owen et al.', year: 2005, title: 'N-back working memory paradigm: a meta-analysis of normative functional neuroimaging studies', journal: 'Hum Brain Mapp 25(1):46–59', type: 'meta', pmid: '15846822', doi: '10.1002/hbm.20131' },
+  { key: 'aron2014', authors: 'Aron, Robbins & Poldrack', year: 2014, title: 'Inhibition and the right inferior frontal cortex: one decade on', journal: 'Trends Cogn Sci 18(4):177–185', type: 'review', pmid: '24440116', doi: '10.1016/j.tics.2013.12.003' },
+  // ── attention ────────────────────────────────────────────────
+  { key: 'langner2013', authors: 'Langner & Eickhoff', year: 2013, title: 'Sustaining attention to simple tasks: a meta-analytic review of the neural mechanisms of vigilant attention', journal: 'Psychol Bull 139(4):870–900', type: 'meta', pmid: '23163491', doi: '10.1037/a0030694' },
+  { key: 'fox2015', authors: 'Fox et al.', year: 2015, title: 'The wandering brain: meta-analysis of functional neuroimaging studies of mind-wandering and related spontaneous thought processes', journal: 'Neuroimage 111:611–621', type: 'meta', pmid: '25725466', doi: '10.1016/j.neuroimage.2015.02.039' },
+  // ── emotion ──────────────────────────────────────────────────
+  { key: 'ochsner2005', authors: 'Ochsner & Gross', year: 2005, title: 'The cognitive control of emotion', journal: 'Trends Cogn Sci 9(5):242–249', type: 'review', pmid: '15866151', doi: '10.1016/j.tics.2005.03.010' },
+  { key: 'buhle2014', authors: 'Buhle et al.', year: 2014, title: 'Cognitive reappraisal of emotion: a meta-analysis of human neuroimaging studies', journal: 'Cereb Cortex 24(11):2981–2990', type: 'meta', pmid: '23765157', doi: '10.1093/cercor/bht154' },
+  { key: 'kohn2014', authors: 'Kohn et al.', year: 2014, title: 'Neural network of cognitive emotion regulation — an ALE meta-analysis and MACM analysis', journal: 'Neuroimage 87:345–355', type: 'meta', pmid: '24220041', doi: '10.1016/j.neuroimage.2013.11.001' },
+  // ── stress ───────────────────────────────────────────────────
+  { key: 'arnsten2009', authors: 'Arnsten', year: 2009, title: 'Stress signalling pathways that impair prefrontal cortex structure and function', journal: 'Nat Rev Neurosci 10(6):410–422', type: 'review', pmid: '19455173', doi: '10.1038/nrn2648' },
+  { key: 'shields2016', authors: 'Shields, Sazma & Yonelinas', year: 2016, title: 'The effects of acute stress on core executive functions: a meta-analysis and comparison with cortisol', journal: 'Neurosci Biobehav Rev 68:651–668', type: 'meta', pmid: '27371161', doi: '10.1016/j.neubiorev.2016.06.038' },
+  { key: 'liston2009', authors: 'Liston, McEwen & Casey', year: 2009, title: 'Psychosocial stress reversibly disrupts prefrontal processing and attentional control', journal: 'Proc Natl Acad Sci U S A 106(3):912–917', type: 'study', pmid: '19139412', doi: '10.1073/pnas.0807041106' },
+  { key: 'mcewen2013', authors: 'McEwen & Morrison', year: 2013, title: 'The brain on stress: vulnerability and plasticity of the prefrontal cortex over the life course', journal: 'Neuron 79(1):16–29', type: 'review', pmid: '23849196', doi: '10.1016/j.neuron.2013.06.028' },
+  // ── anxiety ──────────────────────────────────────────────────
+  { key: 'etkin2007', authors: 'Etkin & Wager', year: 2007, title: 'Functional neuroimaging of anxiety: a meta-analysis of emotional processing in PTSD, social anxiety disorder, and specific phobia', journal: 'Am J Psychiatry 164(10):1476–1488', type: 'meta', pmid: '17898336', doi: '10.1176/appi.ajp.2007.07030504' },
+  { key: 'milad2012', authors: 'Milad & Quirk', year: 2012, title: 'Fear extinction as a model for translational neuroscience: ten years of progress', journal: 'Annu Rev Psychol 63:129–151', type: 'review', pmid: '22129456', doi: '10.1146/annurev.psych.121208.131631' },
+  // ── depression ───────────────────────────────────────────────
+  { key: 'snyder2013', authors: 'Snyder', year: 2013, title: 'Major depressive disorder is associated with broad impairments on neuropsychological measures of executive function: a meta-analysis and review', journal: 'Psychol Bull 139(1):81–132', type: 'meta', pmid: '22642228', doi: '10.1037/a0028727' },
+  { key: 'koenigs2009', authors: 'Koenigs & Grafman', year: 2009, title: 'The functional neuroanatomy of depression: distinct roles for ventromedial and dorsolateral prefrontal cortex', journal: 'Behav Brain Res 201(2):239–243', type: 'review', pmid: '19428640', doi: '10.1016/j.bbr.2009.03.004' },
+  { key: 'brunoni2017', authors: 'Brunoni et al.', year: 2017, title: 'Repetitive transcranial magnetic stimulation for the acute treatment of major depressive episodes: a systematic review with network meta-analysis', journal: 'JAMA Psychiatry 74(2):143–152', type: 'meta', pmid: '28030740', doi: '10.1001/jamapsychiatry.2016.3644' },
+  { key: 'yeung2021', authors: 'Yeung & Lin', year: 2021, title: 'Probing depression, schizophrenia, and other psychiatric disorders using fNIRS and the verbal fluency test: a systematic review and meta-analysis', journal: 'J Psychiatr Res 140:416–435', type: 'meta', pmid: '34146793', doi: '10.1016/j.jpsychires.2021.06.015' },
+  // ── decisions ────────────────────────────────────────────────
+  { key: 'bartra2013', authors: 'Bartra, McGuire & Kable', year: 2013, title: 'The valuation system: a coordinate-based meta-analysis of BOLD fMRI experiments examining neural correlates of subjective value', journal: 'Neuroimage 76:412–427', type: 'meta', pmid: '23507394', doi: '10.1016/j.neuroimage.2013.02.063' },
+  { key: 'hare2009', authors: 'Hare, Camerer & Rangel', year: 2009, title: 'Self-control in decision-making involves modulation of the vmPFC valuation system', journal: 'Science 324(5927):646–648', type: 'study', pmid: '19407204', doi: '10.1126/science.1168450' },
+  // ── other people ─────────────────────────────────────────────
+  { key: 'amodio2006', authors: 'Amodio & Frith', year: 2006, title: 'Meeting of minds: the medial frontal cortex and social cognition', journal: 'Nat Rev Neurosci 7(4):268–277', type: 'review', pmid: '16552413', doi: '10.1038/nrn1884' },
+  { key: 'schurz2014', authors: 'Schurz et al.', year: 2014, title: 'Fractionating theory of mind: a meta-analysis of functional brain imaging studies', journal: 'Neurosci Biobehav Rev 42:9–34', type: 'meta', pmid: '24486722', doi: '10.1016/j.neubiorev.2014.01.009' },
+  { key: 'schjoedt2009', authors: 'Schjoedt et al.', year: 2009, title: 'Highly religious participants recruit areas of social cognition in personal prayer', journal: 'Soc Cogn Affect Neurosci 4(2):199–207', type: 'study', pmid: '19246473', doi: '10.1093/scan/nsn050' },
+  // ── sleep ────────────────────────────────────────────────────
+  { key: 'lim2010', authors: 'Lim & Dinges', year: 2010, title: 'A meta-analysis of the impact of short-term sleep deprivation on cognitive variables', journal: 'Psychol Bull 136(3):375–389', type: 'meta', pmid: '20438143', doi: '10.1037/a0018883' },
+  { key: 'ma2015', authors: 'Ma et al.', year: 2015, title: 'How acute total sleep loss affects the attending brain: a meta-analysis of neuroimaging studies', journal: 'Sleep 38(2):233–240', type: 'meta', pmid: '25409102', doi: '10.5665/sleep.4404' },
+  { key: 'goldstein2014', authors: 'Goldstein & Walker', year: 2014, title: 'The role of sleep in emotional brain function', journal: 'Annu Rev Clin Psychol 10:679–708', type: 'review', pmid: '24499013', doi: '10.1146/annurev-clinpsy-032813-153716' },
+  // ── exercise ─────────────────────────────────────────────────
+  { key: 'colcombe2003', authors: 'Colcombe & Kramer', year: 2003, title: 'Fitness effects on the cognitive function of older adults: a meta-analytic study', journal: 'Psychol Sci 14(2):125–130', type: 'meta', pmid: '12661673', doi: '10.1111/1467-9280.t01-1-01430' },
+  { key: 'chang2012', authors: 'Chang et al.', year: 2012, title: 'The effects of acute exercise on cognitive performance: a meta-analysis', journal: 'Brain Res 1453:87–101', type: 'meta', pmid: '22480735', doi: '10.1016/j.brainres.2012.02.068' },
+  { key: 'ludyga2020', authors: 'Ludyga et al.', year: 2020, title: 'Systematic review and meta-analysis investigating moderators of long-term effects of exercise on cognition in healthy individuals', journal: 'Nat Hum Behav 4(6):603–612', type: 'meta', pmid: '32231280', doi: '10.1038/s41562-020-0851-8' },
+  { key: 'jung2025', authors: 'Jung', year: 2025, title: 'Does prefrontal cortex oxygenation mediate executive function during high-intensity exercise? A systematic review of fNIRS studies', journal: 'Behav Brain Res 495:115765', type: 'sysrev', pmid: '40754149', doi: '10.1016/j.bbr.2025.115765' },
+  // ── prayer, meditation, breath ───────────────────────────────
+  { key: 'fox2016', authors: 'Fox et al.', year: 2016, title: 'Functional neuroanatomy of meditation: a review and meta-analysis of 78 functional neuroimaging investigations', journal: 'Neurosci Biobehav Rev 65:208–228', type: 'meta', pmid: '27032724', doi: '10.1016/j.neubiorev.2016.03.021' },
+  { key: 'fox2014', authors: 'Fox et al.', year: 2014, title: 'Is meditation associated with altered brain structure? A systematic review and meta-analysis of morphometric neuroimaging in meditation practitioners', journal: 'Neurosci Biobehav Rev 43:48–73', type: 'meta', pmid: '24705269', doi: '10.1016/j.neubiorev.2014.03.016' },
+  { key: 'zaccaro2018', authors: 'Zaccaro et al.', year: 2018, title: 'How breath-control can change your life: a systematic review on psycho-physiological correlates of slow breathing', journal: 'Front Hum Neurosci 12:353', type: 'sysrev', pmid: '30245619', doi: '10.3389/fnhum.2018.00353' },
+  // ── a life ───────────────────────────────────────────────────
+  { key: 'gogtay2004', authors: 'Gogtay et al.', year: 2004, title: 'Dynamic mapping of human cortical development during childhood through early adulthood', journal: 'Proc Natl Acad Sci U S A 101(21):8174–8179', type: 'study', pmid: '15148381', doi: '10.1073/pnas.0402680101' },
+  { key: 'casey2008', authors: 'Casey, Jones & Hare', year: 2008, title: 'The adolescent brain', journal: 'Ann N Y Acad Sci 1124:111–126', type: 'review', pmid: '18400927', doi: '10.1196/annals.1440.010' },
+  { key: 'spreng2010', authors: 'Spreng, Wojtowicz & Grady', year: 2010, title: 'Reliable differences in brain activity between young and old adults: a quantitative meta-analysis across multiple cognitive domains', journal: 'Neurosci Biobehav Rev 34(8):1178–1194', type: 'meta', pmid: '20109489', doi: '10.1016/j.neubiorev.2010.01.009' },
+  // ── neurofeedback ────────────────────────────────────────────
+  { key: 'sitaram2017', authors: 'Sitaram et al.', year: 2017, title: 'Closed-loop brain training: the science of neurofeedback', journal: 'Nat Rev Neurosci 18(2):86–100', type: 'review', pmid: '28003656', doi: '10.1038/nrn.2016.164' },
+  { key: 'kohl2020', authors: 'Kohl et al.', year: 2020, title: 'The potential of functional near-infrared spectroscopy-based neurofeedback — a systematic review and recommendations for best practice', journal: 'Front Neurosci 14:594', type: 'sysrev', pmid: '32848528', doi: '10.3389/fnins.2020.00594' },
+  { key: 'cortese2016', authors: 'Cortese et al.', year: 2016, title: 'Neurofeedback for attention-deficit/hyperactivity disorder: meta-analysis of clinical and neuropsychological outcomes from randomized controlled trials', journal: 'J Am Acad Child Adolesc Psychiatry 55(6):444–455', type: 'meta', pmid: '27238063', doi: '10.1016/j.jaac.2016.03.007' },
+  { key: 'melbylervag2016', authors: 'Melby-Lervåg, Redick & Hulme', year: 2016, title: 'Working memory training does not improve performance on measures of intelligence or other measures of "far transfer": evidence from a meta-analytic review', journal: 'Perspect Psychol Sci 11(4):512–534', type: 'meta', pmid: '27474138', doi: '10.1177/1745691616635612' },
+];
+
+/** A reference by key (undefined for a key that is not in the list — the tests make sure none is cited). */
+export const refByKey = (key: string): Ref | undefined => REFS.find(r => r.key === key);

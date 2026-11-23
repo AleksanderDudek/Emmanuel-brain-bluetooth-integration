@@ -1,0 +1,318 @@
+/** Den prefrontala barken — the article in Swedish (from the Polish source, pfc-pl.ts; DESIGN.md §15). */
+import type { Article } from './types';
+
+const article: Article = {
+  kicker: 'Artikel · hjärna och sinne',
+  title: 'Den prefrontala barken',
+  lede: 'Precis bakom pannan, ovanför ögonbrynen, ligger den prefrontala barken — den del av hjärnan som ditt pannband mäter. Den hjälper dig att hålla ett mål i tankarna, hejda en förhastad impuls, lugna dina känslor och förstå andra människor. Här får du veta vad forskningen vet om den: begripligt och med källor, framför allt metaanalyser och systematiska översikter.',
+
+  band: {
+    title: 'Vad ditt pannband ser',
+    intro: 'Båda pannbanden tittar på samma del av hjärnan — den främre prefrontala barken, under pannan — men de mäter olika saker.',
+    fnirs: {
+      title: 'Mendi · fNIRS',
+      text: 'Det lyser in nära infrarött ljus i pannan och mäter hur mycket som kommer tillbaka. Utifrån det räknar det ut förändringar i syrerikt (HbO) och syrefattigt (HbR) blod i barken strax under sensorerna: i frontalpolen och i den dorsolaterala prefrontala barken. När området arbetar hårdare strömmar mer syrerikt blod dit.',
+    },
+    eeg: {
+      title: 'HALO · EEG',
+      text: 'Elektroder på pannan (Fp1, Fp2) och i nacken fångar upp små elektriska spänningar — rytmer som uppstår när stora grupper av nervceller arbetar tillsammans. Pannbandet ser inte djupt in i hjärnan, bara det som når huden.',
+    },
+    points: [
+      { text: 'fNIRS är ofarligt, tål rörelse och ryms i ett pannband, så man kan mäta även utanför labbet — från nyfödda till äldre.', refs: ['pinti2020'] },
+      { text: 'Förändringar i syrerikt och syrefattigt hemoglobin räknas fram ur ljuset som kommer tillbaka; de flesta apparater på marknaden använder kontinuerligt ljus, så även Mendi.', refs: ['scholkmann2014'] },
+      { text: 'En del förändringar i en fNIRS-signal kommer inte från arbetande nervceller utan från andra processer i kroppen. Forskarna kallar det falska positiva och lär sig att filtrera bort dem.', refs: ['tachtsidis2016'] },
+      { text: 'I EEG ser thetarytmen över mitten av pannan ut som en signal om att kontroll behövs — hjärnan ”märker” att den måste fokusera eller rätta något.', refs: ['cavanagh2014'] },
+      { text: 'Skillnaden i alfavågor mellan vänster och höger sida av pannan framställs ibland som ett tecken på depression. En metaanalys av 16 studier visade dock att den inte duger för diagnos.', refs: ['vandervinne2017'] },
+    ],
+  },
+
+  sections: [
+    {
+      id: 'what',
+      title: 'Vad den prefrontala barken är',
+      short: 'Den främre delen av pannloberna — en dirigent som håller fast vid målet och styr resten av hjärnans arbete.',
+      body: [
+        { text: 'Den prefrontala barken upptar hjärnans främre del, bakom pannan och ovanför ögonhålorna. Forskarna delar in den i flera områden: dorsolateral (på pannans sidor, viktig för tänkande och planering), ventromedial och orbitofrontal (ovanför ögonen, viktiga för värderingar och känslor), medial (viktig för att förstå oss själva och andra) och frontalpolen, precis bakom pannans mitt.', refs: [] },
+        { text: 'Dess arbete beskrivs bäst med orden ”kognitiv kontroll”: tankar och handlingar följer ditt mål i stället för det som för tillfället hörs mest. Den prefrontala barken håller en bild av målet redo och visar andra delar av hjärnan vilken väg signalen ska ta.', refs: ['miller2001'] },
+        { text: 'Den arbetar aldrig ensam, utan i nätverk med hjässloben, gördelvindlingen, insulan och strukturer djupt inne i hjärnan — och hur väl nätverken samarbetar avgör om det är lätt att fokusera, växla eller vila.', refs: ['niendam2012', 'menon2011'] },
+      ],
+      points: [
+        { text: 'Miller och Cohens teori: kognitiv kontroll innebär att den prefrontala barken aktivt upprätthåller mönster som står för målet och vägen dit, och de styr flödet av signaler i andra delar av hjärnan.', refs: ['miller2001'] },
+        { text: 'Studier av människor med skador på den prefrontala barken visar att den är nödvändig för att ordna och styra målinriktat beteende — trots att man en gång trodde att den var oviktig.', refs: ['szczepanski2014'] },
+        { text: 'En metaanalys av 193 hjärnavbildningsstudier (2 832 friska personer) fann ett gemensamt nätverk — dorsolaterala prefrontala barken, främre gördelvindlingen och hjässloben — som är aktivt vid mycket olika uppgifter som kräver kontroll.', refs: ['niendam2012'] },
+        { text: 'Vid depression, ångest eller demens ligger problemet ofta i hur hjärnans nätverk slås på och av, inte i en enda ”trasig” punkt.', refs: ['menon2011'] },
+      ],
+      strength: 'strong',
+      forYou: 'När ditt pannband visar den prefrontala barken i arbete ser du en bit av en större helhet: signalen från ett område som samarbetar med hela hjärnan.',
+      link: '#sygnal',
+    },
+    {
+      id: 'executive',
+      title: 'Tänkande, arbetsminne och hämning',
+      short: 'Exekutiva funktioner — att hålla information i huvudet, stoppa en impuls, ändra en plan — vilar på ett nätverk med den prefrontala barken i centrum.',
+      body: [
+        { text: 'Psykologer skiljer mellan tre grundläggande exekutiva funktioner. Arbetsminnet låter dig hålla information i huvudet och göra något med den, som att räkna i huvudet. Hämningen gör att du inte gör det första du kommer att tänka på och inte låter dig distraheras. Flexibiliteten låter dig ändra en plan och se saken från ett annat håll. På dem bygger planering, problemlösning och resonerande.', refs: ['diamond2013'] },
+        { text: 'De här förmågorna är känsliga för vardagen: stress, sömnbrist, ensamhet och brist på rörelse försvagar dem tydligt, och övning stärker dem.', refs: ['diamond2013'] },
+      ],
+      points: [
+        { text: 'Kärnan i de exekutiva funktionerna är hämning, arbetsminne och flexibilitet. Med dem kan vi leka med idéer, tänka innan vi handlar, möta nya utmaningar, stå emot frestelser och hålla oss till uppgiften.', refs: ['diamond2013'] },
+        { text: 'En metaanalys av 24 studier med n-back-uppgiften (ett klassiskt test av arbetsminnet): uppgiften aktiverar tillförlitligt den dorsolaterala och ventrolaterala prefrontala barken, frontalpolerna och hjässloben.', refs: ['owen2005'] },
+        { text: 'Hämningen vilar till stor del på den högra nedre pannloben, som tillsammans med basala ganglierna fungerar som en broms — helt nedtryckt eller bara en kort stund för att stanna upp.', refs: ['aron2014'] },
+        { text: 'Olika exekutiva funktioner delar ett gemensamt kontrollnätverk, men var och en lägger också till egna områden.', refs: ['niendam2012'] },
+      ],
+      strength: 'strong',
+      forYou: 'Om något ”inte vill fastna”, skyll inte genast på svag vilja — titta först på sömn, stress och rörelse. De påverkar de exekutiva funktionerna snabbast.',
+      link: '#gry',
+    },
+    {
+      id: 'attention',
+      title: 'Uppmärksamhet och långvarigt fokus',
+      short: 'Att hålla uppmärksamheten i många minuter är svårt för alla, särskilt vid en enkel och enformig uppgift. Ett främst högersidigt nätverk med den prefrontala barken hjälper till.',
+      body: [
+        { text: 'Alla känner igen stunden när man läser samma stycke för tredje gången. Förmågan att hålla sig till en uppgift avtar med tiden — och, överraskande nog, fortare vid enkla och upprepade uppgifter.', refs: ['langner2013'] },
+        { text: 'Uthållig uppmärksamhet är inte en process utan två sammanflätade: att stadigt hålla fast vid uppgiften och korta, snabba återkomster till den när något drar oss bort.', refs: ['langner2013'] },
+        { text: 'Tankevandring betyder inte att hjärnan ”stänger av”. När tankarna glider iväg arbetar hjärnans vilolägesnätverk (med den mediala prefrontala barken) — men lika ihärdigt också kontrollområden i den främre prefrontala barken.', refs: ['fox2015'] },
+      ],
+      points: [
+        { text: 'En metaanalys av hjärnavbildningsstudier om vaksamhet: kärnan i nätverket för uthållig uppmärksamhet ligger mest till höger — i dorsomediala, mellersta och ventrolaterala prefrontala barken, främre insulan, hjässloben och strukturer under barken.', refs: ['langner2013'] },
+        { text: 'Att prestationen sjunker med tiden är regel, inte undantag — en välkänd effekt som gäller alla.', refs: ['langner2013'] },
+        { text: 'En metaanalys av 24 studier om tankevandring: utöver vilolägesnätverket (mediala prefrontala barken, bakre gördelvindlingen) är kontrollområden lika ihärdigt aktiva — bland dem den rostrolaterala prefrontala barken och den dorsala främre gördelvindlingen.', refs: ['fox2015'] },
+      ],
+      strength: 'strong',
+      forYou: 'Tankar som glider iväg är inget misslyckande. I träningen räknas den milda återkomsten — och varje sådan återkomst är just den övning som ditt pannband ser.',
+      link: '#trening/focus',
+    },
+    {
+      id: 'emotion',
+      title: 'Känslor och hur vi reglerar dem',
+      short: 'Den prefrontala barken stänger inte av känslorna, men den hjälper oss att leva med dem klokare — genom att styra uppmärksamheten eller ändra vad en situation betyder.',
+      body: [
+        { text: 'Känslor uppstår på många ställen i hjärnan, också djupt under barken — till exempel i amygdala. Den prefrontala barken och gördelvindlingen kan dämpa den reaktionen.', refs: ['ochsner2005', 'buhle2014'] },
+        { text: 'Två vägar är bäst utforskade: att vända uppmärksamheten åt ett annat håll eller att tänka annorlunda om situationen. Den andra kallar psykologer omvärdering — till exempel: ”han är inte otrevlig, han har bara en dålig dag”.', refs: ['ochsner2005', 'buhle2014'] },
+        { text: 'Omvärdering tar kontrollområden i pann- och hjässloben i anspråk och lugnar därigenom amygdala.', refs: ['buhle2014'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 48 studier: omvärdering aktiverade genomgående områden för kognitiv kontroll och den laterala tinningloben och påverkade amygdalas aktivitet på båda sidor.', refs: ['buhle2014'] },
+        { text: 'Författarnas slutsats: den kognitiva kontrollen ändrar betydelsen av det vi ser, och det är den nya betydelsen som lugnar amygdala.', refs: ['buhle2014'] },
+        { text: 'En annan metaanalys (23 studier, 479 personer) föreslår en rollfördelning: den dorsolaterala prefrontala barken styr uppmärksamheten, den ventrolaterala signalerar att något behöver regleras och den mellersta delen av gördelvindlingen för samman det.', refs: ['kohn2014'] },
+        { text: 'Båda vägarna — att styra uppmärksamheten och att ändra betydelsen — vilar på att prefrontala kontrollsystem samarbetar med de system som skapar känslor.', refs: ['ochsner2005'] },
+      ],
+      strength: 'strong',
+      forYou: 'När en känsla är stark kan du försöka se situationen från ett annat håll eller medvetet flytta uppmärksamheten. Det är samma vägar för reglering som forskarna ser i hjärnan.',
+      link: '#gra/serce',
+    },
+    {
+      id: 'stress',
+      title: 'Stress',
+      short: 'Den prefrontala barken känner av stress mer än någon annan del av hjärnan — men försvagningen går ofta över när stressen släpper.',
+      body: [
+        { text: 'Vid akut stress växlar hjärnan över till snabba, invanda reaktioner. Redan lindrig men okontrollerbar stress kan snabbt och tydligt försvaga de förmågor som den prefrontala barken står för.', refs: ['arnsten2009'] },
+        { text: 'Långvarig stress förändrar till och med nervcellernas byggnad där. Den goda nyheten: förändringarna behöver inte vara bestående. Den prefrontala barken är mycket formbar hela livet, även om den blir mindre motståndskraftig med åldern.', refs: ['arnsten2009', 'mcewen2013'] },
+      ],
+      points: [
+        { text: 'Den prefrontala barken är det område i hjärnan som är känsligast för stressens skadliga verkningar; långvarig stress förändrar förgreningarna (dendriterna) hos dess nervceller.', refs: ['arnsten2009'] },
+        { text: 'En metaanalys: akut stress försvagar arbetsminnet och flexibiliteten; effekten på hämningen är mer sammansatt, och många effekter beror på andra faktorer, till exempel kön.', refs: ['shields2016'] },
+        { text: 'En hjärnavbildningsstudie: hos 20 friska personer försvagade en månads psykosocial stress uppmärksamhetskontrollen och förbindelserna i ett fronto-parietalt nätverk. Efter en månad med mindre stress skilde de sig inte längre från en lugn jämförelsegrupp.', refs: ['liston2009'] },
+        { text: 'Stressorsakade förändringar behöver inte vara bestående: hos unga djur återhämtar sig nervcellerna när stressen upphör; med åldern minskar den motståndskraften.', refs: ['mcewen2013'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Om du inte kan samla tankarna under stress är det inget karaktärsfel, utan fysiologi. Vila, sömn och lugn andning ger din prefrontala bark en chans att återhämta sig.',
+      link: '#gra/drzewo',
+    },
+    {
+      id: 'anxiety',
+      title: 'Ångest',
+      short: 'Vid ångestsyndrom arbetar hjärnans larmområden för hårt; den prefrontala barken hjälper oss att lära oss att vi är trygga nu.',
+      body: [
+        { text: 'Rädsla behövs — den skyddar oss mot fara. Problemen börjar när larmet går för ofta, för starkt eller inte vill stängas av.', refs: [] },
+        { text: 'Människor med olika ångestsyndrom har starkare aktivitet i amygdala och insulan — samma strukturer som hos friska reagerar när de lär sig rädsla. Vid posttraumatiskt stressyndrom (PTSD) är dessutom områden som hjälper till att reglera känslor mindre aktiva, bland dem den ventromediala prefrontala barken.', refs: ['etkin2007'] },
+        { text: 'Att avlära sig rädsla, så kallad utsläckning, är aktiv inlärning med egna kretsar i hjärnan, som studeras sida vid sida hos djur och människor; den ventromediala prefrontala barken hör till de områden som kopplas till den.', refs: ['milad2012', 'buhle2014'] },
+      ],
+      points: [
+        { text: 'En metaanalys av studier om PTSD, social ångest och specifik fobi: i alla tre var amygdala och insulan mer aktiva.', refs: ['etkin2007'] },
+        { text: 'Bara vid PTSD var den dorsala och den främre gördelvindlingen samt den ventromediala prefrontala barken mindre aktiva — områden som hör ihop med att uppleva och reglera känslor.', refs: ['etkin2007'] },
+        { text: 'Utsläckning av rädsla har blivit en förebild för forskning som går ”från djur till människa” — tack vare nära samarbete mellan de två fälten.', refs: ['milad2012'] },
+        { text: 'Att ändra vad en situation betyder (omvärdering) lugnar amygdala.', refs: ['buhle2014'] },
+        { text: 'Hos friska gick långsam andning hand i hand med mindre uppvarvning och mildare ångestsymtom.', refs: ['zaccaro2018'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Om ångesten tar ifrån dig sömnen eller vardagen, tala med en läkare eller psykoterapeut. Lugn andning och bön kan hjälpa dig att varva ner, men de ersätter inte behandling.',
+    },
+    {
+      id: 'depression',
+      title: 'Depression',
+      short: 'Vid depression arbetar den prefrontala barken annorlunda och tänkandet blir lidande; därför är hjärnans främre del målet för magnetstimulering.',
+      body: [
+        { text: 'Depression är inte bara nedstämdhet. Den försvagar ofta också koncentrationen, arbetsminnet och förmågan att fatta beslut — verkliga, mätbara svårigheter, inte lättja.', refs: ['snyder2013'] },
+        { text: 'Olika metoder — hjärnavbildning, studier av människor med hjärnskador och hjärnstimulering — pekar på två nyckelområden: den ventromediala och den dorsolaterala prefrontala barken, som spelar olika roller vid depression.', refs: ['koenigs2009'] },
+        { text: 'Repetitiv transkraniell magnetstimulering (rTMS) är en behandling där en spole mot huvudet stimulerar en vald del av barken — vid depression oftast den dorsolaterala prefrontala barken. Beslut om behandling fattas alltid av en läkare.', refs: ['koenigs2009', 'brunoni2017'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 113 studier: depression hänger ihop med sämre resultat på test av exekutiva funktioner (effektstorlekar från 0,32 till 0,97); svårigheterna är större vid svårare symtom.', refs: ['snyder2013'] },
+        { text: 'Hjärnavbildning, skadestudier och hjärnstimulering pekar samstämmigt ut den ventromediala och den dorsolaterala prefrontala barken som centrala vid depression — var och en med en annan roll.', refs: ['koenigs2009'] },
+        { text: 'En nätverksmetaanalys av 81 randomiserade studier (4 233 patienter): flera former av rTMS fungerade bättre än skenstimulering vid en akut depressiv episod; nyare varianter (accelererad, djup) gjorde det inte.', refs: ['brunoni2017'] },
+        { text: 'En metaanalys av 121 fNIRS-studier — med den metod som Mendi använder: under en ordflödesuppgift ökade syresättningen i pann- och tinningloben mindre hos personer med depression än hos friska.', refs: ['yeung2021'] },
+        { text: 'Det är skillnader mellan gruppgenomsnitt. Varken fNIRS eller asymmetri i EEG-vågor kan i dag ställa diagnosen depression hos en enskild person.', refs: ['yeung2021', 'vandervinne2017'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Emmanuel ställer inte diagnos på och behandlar inte depression. Om du i veckor har känt nedstämdhet, tomhet eller kraftlöshet, tala med en läkare. Träning kan följa med en behandling, men inte ersätta den.',
+    },
+    {
+      id: 'decisions',
+      title: 'Beslut, värden och självkontroll',
+      short: 'Den ventromediala prefrontala barken ”prissätter” alternativen, och den dorsolaterala hjälper oss att välja det som betyder mer i längden.',
+      body: [
+        { text: 'Vid varje val jämför hjärnan mycket olika saker — smak, pengar, hälsa, tid — på en enda inre värdeskala. Den gemensamma värdesignalen bärs av den ventromediala prefrontala barken tillsammans med ventrala striatum.', refs: ['bartra2013'] },
+        { text: 'Självkontroll ser inte ut som att ”viljestyrkan” besegrar frestelsen. I en välkänd studie tog värdesignalen hos dem som behärskade sig med även hälsan, inte bara smaken — och den dorsolaterala prefrontala barken var då mer aktiv och samarbetade med värderingsområdet.', refs: ['hare2009'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 206 hjärnavbildningsstudier: den ventromediala prefrontala barken och främre ventrala striatum bildar ett ”värderingssystem” som kodar subjektivt värde — vid beslutet och vid belöningen, för pengar och för grundläggande belöningar.', refs: ['bartra2013'] },
+        { text: 'En studie av personer som bantade: aktiviteten i den ventromediala prefrontala barken följde ett vals värde; den dorsolaterala prefrontala barken var mer aktiv när någon behärskade sig, och dess aktivitet gick hand i hand med värderingsområdets.', refs: ['hare2009'] },
+        { text: 'Att stå emot frestelser hör till de exekutiva funktionerna — samma som stress och sömnbrist försvagar.', refs: ['diamond2013'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Fatta viktiga beslut utvilad och lugn, inte i all hast. Och påminn dig om vad som verkligen betyder något för dig — hos dem med självkontroll tog värdesignalen med även det långsiktiga målet.',
+    },
+    {
+      id: 'social',
+      title: 'Den andra människan: förståelse och empati',
+      short: 'Den mediala prefrontala barken hör till ett nätverk som arbetar när vi försöker förstå andras tankar och känslor.',
+      body: [
+        { text: 'Förmågan att förstå vad någon tänker, vill och känner kallar psykologer ”theory of mind”. Hjärnavbildningsstudier pekar gång på gång på den mediala pannloben här.', refs: ['amodio2006'] },
+        { text: 'Oavsett om människor läste berättelser eller såg teckningar eller filmer framträdde samma kärna: den mediala prefrontala barken och området mellan tinning- och hjässloben på båda sidor av hjärnan.', refs: ['schurz2014'] },
+      ],
+      points: [
+        { text: 'Samstämmiga fynd från hjärnavbildning pekar på en unik roll för den mediala pannloben i social kognition.', refs: ['amodio2006'] },
+        { text: 'En metaanalys av studier om theory of mind: gemensam aktivitet i den mediala prefrontala barken och den bakre temporoparietala övergången på båda sidor, oavsett uppgiftens form — kärnan i nätverket för att förstå andra.', refs: ['schurz2014'] },
+        { text: 'En studie av troende kristna: personlig bön med egna ord — till skillnad från en inlärd formel — aktiverade samma områden för social kognition, bland dem den mediala prefrontala barken.', refs: ['schjoedt2009'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Att lyssna uppmärksamt på någon och fråga dig vad hen kanske känner just nu är att använda det här nätverket i vardagen.',
+      link: '#gra/brzemiona',
+    },
+    {
+      id: 'sleep',
+      title: 'Sömn',
+      short: 'Efter en sömnlös natt drabbas uppmärksamheten mest, och den prefrontala barken arbetar sämre.',
+      body: [
+        { text: 'Sömnbrist är mer än trötthet. Redan en vaknatt försämrar tydligt den uthålliga uppmärksamheten och arbetsminnet, och hjärnavbildning visar svagare aktivitet i uppmärksamhetsnätverket i pann- och hjässloben.', refs: ['lim2010', 'ma2015'] },
+        { text: 'Sömn och känslor hänger tätt ihop: nästan alla förstämnings- och ångestsyndrom följs av sömnproblem. Forskarna tror att sömnen — särskilt REM-sömnen — hjälper hjärnan att återställa sin känslomässiga balans inför nästa dag.', refs: ['goldstein2014'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 70 artiklar (147 test) om sömnbrist kortare än 48 h: från en liten, icke-signifikant effekt på träffsäkerheten i resonerande (g = −0,125) till en stor effekt på luckor i enkel uppmärksamhet (g = −0,776).', refs: ['lim2010'] },
+        { text: 'En metaanalys av 11 hjärnavbildningsstudier (185 personer): efter en vaknatt var bland annat den högra prefrontala barken, den mediala pannloben, intraparietala fåran och insulan mindre aktiva.', refs: ['ma2015'] },
+        { text: 'Sambandet mellan sömn och hjärnans känslomässiga arbete är nära och orsakande; REM-sömn kan stödja hjärnans känslomässiga balans.', refs: ['goldstein2014'] },
+        { text: 'Sömnbrist hör till det som mest försvagar de exekutiva funktionerna.', refs: ['diamond2013'] },
+      ],
+      strength: 'strong',
+      forYou: 'Om träningen går sämre efter en dålig natt är det normalt. God sömn är något av det enklaste du kan göra för din prefrontala bark.',
+    },
+    {
+      id: 'exercise',
+      title: 'Rörelse',
+      short: 'Regelbunden rörelse stöder tänkandet — tydligast de exekutiva funktionerna hos äldre; ett enstaka träningspass har liten effekt.',
+      body: [
+        { text: 'Fysisk träning hör till de bäst studerade sätten att hålla sinnet i form. Hos äldre var det just de exekutiva funktionerna, som hänger ihop med den prefrontala barken, som vann mest.', refs: ['colcombe2003'] },
+        { text: 'Effekterna är verkliga men måttliga: ett träningspass förbättrar testresultaten något, och rörelse under flera månader ger en liten, allmän vinst. Mest hjälpte övningar som kräver koordination.', refs: ['chang2012', 'ludyga2020'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 18 studier med friska, lite aktiva äldre: konditionsträning gav tydliga men selektiva fördelar — störst för den exekutiva kontrollen.', refs: ['colcombe2003'] },
+        { text: 'En metaanalys av 79 studier: ett enda träningspass har en liten positiv effekt på kognitiv prestation (g = 0,097) — under, direkt efter och en tid efter ansträngningen.', refs: ['chang2012'] },
+        { text: 'En metaanalys av 80 randomiserade studier: rörelsens långsiktiga effekt på tänkandet är liten och allmän, inte knuten till en enda funktion; större efter koordinationsträning.', refs: ['ludyga2020'] },
+        { text: 'En översikt av fNIRS-studier: under mycket hård ansträngning sjunker syresättningen i den prefrontala barken ibland och ibland inte — resultaten är spretiga, bland annat på grund av signaler utanför hjärnan.', refs: ['jung2025'] },
+      ],
+      strength: 'moderate',
+      forYou: 'En promenad, dans eller ett bollspel hjälper huvudet på sikt. Träna dock inte med pannbandet under hård ansträngning — signalen är inte pålitlig då.',
+    },
+    {
+      id: 'prayer',
+      title: 'Bön, meditation och andning',
+      short: 'Kontemplativa övningar engagerar bland annat den prefrontala barken; fynden är lovande men än så länge preliminära.',
+      body: [
+        { text: 'Meditation är en hel familj av övningar: att samla sig kring en punkt, upprepa ett ord, öppen medvetenhet, vänlighet mot andra. Var och en har en lite annorlunda ”signatur” i hjärnan, och vissa områden — bland dem frontalpolen, insulan och främre gördelvindlingen — dyker upp i många av dem.', refs: ['fox2016'] },
+        { text: 'Studierna av bön är få. I en av dem engagerade personlig bön med egna ord de områden vi använder i relationer med andra människor — författarna beskriver den som en upplevelse av möte, inte bara som uppläsning.', refs: ['schjoedt2009'] },
+        { text: 'Den enklaste vägen in i stillheten är långsam andning. En systematisk översikt kopplar den till högre hjärtfrekvensvariabilitet, ett lugnare EEG och bättre välbefinnande.', refs: ['zaccaro2018'] },
+      ],
+      points: [
+        { text: 'En metaanalys av 78 hjärnavbildningsstudier om meditation: olika stilar har egna aktivitetsmönster, och gemensamma områden är snarare undantag än regel; måttliga effekter, med många metodologiska förbehåll.', refs: ['fox2016'] },
+        { text: 'En metaanalys av studier om hjärnans struktur (21 studier, omkring 300 utövare): skillnader bland annat i frontalpolen (medvetenhet om de egna tankarna), insulan och orbitofrontala barken; författarna varnar för publiceringsbias.', refs: ['fox2014'] },
+        { text: 'Personlig bön aktiverade den mediala prefrontala barken och det temporoparietala området — nätverket för social kognition.', refs: ['schjoedt2009'] },
+        { text: 'En översikt av 15 studier om långsam andning (färre än 10 andetag i minuten): mer alfa och mindre theta i EEG, högre hjärtfrekvensvariabilitet och i måendet mer lugn och vakenhet, mindre ångest och ilska.', refs: ['zaccaro2018'] },
+      ],
+      strength: 'early',
+      forYou: 'Forskningen visar vad som händer i hjärnan medan du ber — den säger inte vem som lyssnar. Emmanuel skapar ingen tro; den hjälper dig att öva den stillhet där bönen kommer lättare.',
+      link: '#gra/dlonie',
+    },
+    {
+      id: 'life',
+      title: 'Från barndom till ålderdom',
+      short: 'Den prefrontala barken mognar längst, in i tidig vuxen ålder, och arbetar på äldre dagar ofta hårdare för att hålla prestationen uppe.',
+      body: [
+        { text: 'Hjärnbarken mognar i etapper: först sinnenas områden (känsel, syn), senare de som för samman information — och den prefrontala barken hör till de sista. Processen pågår genom tonåren och in i tidig vuxen ålder.', refs: ['gogtay2004'] },
+        { text: 'Hos tonåringar reagerar belönings- och känslosystemen mycket starkt, medan impulskontrollen fortfarande utvecklas. Det hjälper oss att förstå varifrån riskfyllda beslut i den åldern kommer.', refs: ['casey2008'] },
+        { text: 'Hos äldre arbetar den prefrontala barken ofta hårdare än hos unga vid samma uppgifter, som om hjärnan lade till ansträngning. Formbarheten varar livet ut, även om motståndskraften mot stress minskar med åldern.', refs: ['spreng2010', 'mcewen2013'] },
+      ],
+      points: [
+        { text: 'En longitudinell studie (13 barn, en hjärnbild vartannat år, 4–21 år gamla): associationsområden av högre ordning mognar först efter sinnesbarken; evolutionärt äldre områden mognar tidigare än nyare.', refs: ['gogtay2004'] },
+        { text: 'Under tonåren går en ökad känslighet för belöningar och socioemotionella sammanhang hand i hand med en ännu omogen impulskontroll.', refs: ['casey2008'] },
+        { text: 'En metaanalys av 80 urval: äldre använde den prefrontala barken mer än yngre; vid lika prestation den vänstra, vid sämre prestation den högra.', refs: ['spreng2010'] },
+        { text: 'Den prefrontala barken förblir formbar hela livet; med åldern blir dess nervceller mindre motståndskraftiga mot stress.', refs: ['mcewen2013'] },
+        { text: 'Hos äldre gynnade rörelse framför allt de exekutiva funktionerna.', refs: ['colcombe2003'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Det är aldrig för sent att öva uppmärksamhet — hjärnan förändras hela livet.',
+    },
+    {
+      id: 'neurofeedback',
+      title: 'Neurofeedback: vad vi vet och vad vi inte vet',
+      short: 'Människor kan lära sig att ändra signalen från sin egen prefrontala bark; om och hur det förs över till vardagen vet man ännu inte säkert.',
+      body: [
+        { text: 'Neurofeedback är träning med en spegel: en app visar din hjärnas signal medan den händer, och du lär dig att ändra den. Så fungerar Emmanuel — klotet, spelet eller ljuset svarar på din prefrontala barks arbete.', refs: ['sitaram2017'] },
+        { text: 'fNIRS-studier visar att den prefrontala barkens syresättning kan påverkas på det sättet. Men de är fortfarande få, små och spretiga, och välkontrollerade kliniska studier bekräftar ofta inte de effekter som svagare studier visat.', refs: ['kohl2020', 'cortese2016'] },
+        { text: 'Forskningen om hjärnträning visar också att träning främst förbättrar det man övar — och betydligt mindre det som ligger långt därifrån.', refs: ['melbylervag2016'] },
+      ],
+      points: [
+        { text: 'Kontroll över bestämda hjärnområden, inlärd genom neurofeedback, kan förändra bestämda beteenden; mekanismerna har vi bara börjat förstå.', refs: ['sitaram2017'] },
+        { text: 'En systematisk översikt av 22 studier om fNIRS-neurofeedback (441 personer): människor kan reglera barkens signal; studiernas kvalitet är måttlig, stora randomiserade studier saknas och slutsatser om klinisk nytta är förhastade.', refs: ['kohl2020'] },
+        { text: 'En metaanalys av 13 randomiserade studier (adhd, 520 personer): förbättring sågs främst av bedömare som kände till behandlingen; med ”blinda” bedömningar och jämfört med skenträning var effekten inte signifikant.', refs: ['cortese2016'] },
+        { text: 'En metaanalys av 87 publikationer om träning av arbetsminnet: förbättringar på tränade och närliggande uppgifter, inga övertygande belägg för överföring till intelligens eller läsning.', refs: ['melbylervag2016'] },
+      ],
+      strength: 'early',
+      forYou: 'Se Emmanuel som en spegel och en vana av stillhet, inte som en mirakelkur. Mest gör regelbundenhet, sömn, rörelse och bön; pannbandet hjälper dig att märka när uppmärksamheten glider iväg.',
+      link: '#trening/focus',
+    },
+    {
+      id: 'practice',
+      title: 'Vad det betyder i praktiken',
+      short: 'Den prefrontala barken fungerar bäst när du är utvilad, lugn och i rörelse — och uppmärksamhet tränas genom att tålmodigt komma tillbaka.',
+      body: [
+        { text: 'Ur forskningen växer en enkel bild fram. Den prefrontala barken är kraftfull men ömtålig: den försvagas snabbt av stress och utan sömn, och återhämtar sig när den får vila. Den är inget ”viljestyrkans centrum”, utan en del av ett nätverk som lär sig genom upprepning.', refs: ['arnsten2009', 'liston2009', 'menon2011'] },
+        { text: 'Du behöver inte ändra allt på en gång. Välj en sak: sömn, rörelse, några minuter långsam andning eller en kort daglig stund av fokus.', refs: [] },
+      ],
+      points: [
+        { text: 'Sömn: sömnbrist slår hårdast mot enkel, uthållig uppmärksamhet.', refs: ['lim2010'] },
+        { text: 'Stress: den prefrontala försvagningen efter en månads stress gick över när stressen minskade.', refs: ['liston2009'] },
+        { text: 'Rörelse: regelbunden ansträngning ger en liten men allmän vinst för tänkandet.', refs: ['ludyga2020'] },
+        { text: 'Andning: långsam andning gick hand i hand med mer lugn och vakenhet.', refs: ['zaccaro2018'] },
+        { text: 'Realism: träning förbättrar främst det du övar — så öva det du behöver i livet: stillhet, uppmärksamhet och att komma tillbaka.', refs: ['melbylervag2016'] },
+      ],
+      forYou: 'Börja med några minuter om dagen. När tankarna glider iväg, kom tillbaka — utan att döma. Det är träningen.',
+      link: '#trening',
+    },
+  ],
+
+  limits: {
+    title: 'Den här kunskapens gränser',
+    points: [
+      { text: 'De flesta studier visar samband, inte orsaker: att ett område ”lyser upp” under en uppgift betyder inte att det ensamt står för den.', refs: [] },
+      { text: 'Hjärnan arbetar i nätverk. Det finns inget ”viljestyrkans centrum” och inget ”empatins centrum” — genvägar som ”prefrontala barken = viljestyrka” är en myt.', refs: ['menon2011'] },
+      { text: 'Resultaten är gruppgenomsnitt. De kan inte ge en diagnos för en enskild person — varken från en hjärnskanner eller från ett pannband.', refs: ['yeung2021', 'vandervinne2017'] },
+      { text: 'En mätning från pannan kan innehålla signaler utanför hjärnan, och belägget för att neurofeedback fungerar är fortfarande blygsamt.', refs: ['tachtsidis2016', 'kohl2020', 'cortese2016'] },
+      { text: 'Den här texten är inte medicinsk rådgivning. I frågor om hälsa — kroppens och själens — tala med en läkare.', refs: [] },
+    ],
+  },
+
+  reviewed: '2026-11',
+};
+
+export default article;

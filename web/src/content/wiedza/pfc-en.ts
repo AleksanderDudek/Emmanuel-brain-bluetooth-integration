@@ -1,0 +1,318 @@
+/** The prefrontal cortex — the article in English (from the Polish source, pfc-pl.ts; DESIGN.md §15). */
+import type { Article } from './types';
+
+const article: Article = {
+  kicker: 'Article · brain and mind',
+  title: 'The prefrontal cortex',
+  lede: 'Just behind your forehead, above the eyebrows, lies the prefrontal cortex — the part of the brain your headband measures. It helps you keep a goal in mind, hold back a rash impulse, calm your emotions and understand other people. Below is what research knows about it: in plain words and with sources, above all meta-analyses and systematic reviews.',
+
+  band: {
+    title: 'What your headband sees',
+    intro: 'Both headbands look at the same patch of brain — the front of the prefrontal cortex, under the forehead — but they measure different things.',
+    fnirs: {
+      title: 'Mendi · fNIRS',
+      text: 'It shines near-infrared light into the forehead and measures how much comes back. From that it works out changes in oxygenated (HbO) and deoxygenated (HbR) blood in the cortex just under the sensors: the frontal pole and the dorsolateral prefrontal cortex. When that area works harder, more oxygen-rich blood flows in.',
+    },
+    eeg: {
+      title: 'HALO · EEG',
+      text: 'Electrodes on the forehead (Fp1, Fp2) and at the back of the head pick up tiny electrical voltages — rhythms that arise when large groups of neurons work together. The band cannot see deep into the brain, only what reaches the skin.',
+    },
+    points: [
+      { text: 'fNIRS is harmless, tolerates movement and fits into a headband, so it can measure outside the lab — from newborns to the elderly.', refs: ['pinti2020'] },
+      { text: 'Changes in oxygenated and deoxygenated haemoglobin are calculated from the light that comes back; most devices on the market, Mendi among them, use continuous light.', refs: ['scholkmann2014'] },
+      { text: 'Some changes in an fNIRS signal may come not from working neurons but from other processes in the body. Researchers call these false positives and are learning to filter them out.', refs: ['tachtsidis2016'] },
+      { text: 'In EEG, theta rhythm over the middle of the forehead looks like a signal that control is needed — the brain “notices” it has to focus or correct something.', refs: ['cavanagh2014'] },
+      { text: 'The alpha-wave asymmetry between the left and right forehead is sometimes presented as a marker of depression. A meta-analysis of 16 studies showed, however, that it is no use for diagnosis.', refs: ['vandervinne2017'] },
+    ],
+  },
+
+  sections: [
+    {
+      id: 'what',
+      title: 'What the prefrontal cortex is',
+      short: 'The front part of the frontal lobes — a conductor that holds the goal and directs the work of the rest of the brain.',
+      body: [
+        { text: 'The prefrontal cortex takes up the front of the brain, behind the forehead and above the eye sockets. Researchers divide it into several areas: dorsolateral (at the sides of the forehead, important for thinking and planning), ventromedial and orbitofrontal (above the eyes, important for values and emotions), medial (important for understanding ourselves and others), and the frontal pole, right behind the middle of the forehead.', refs: [] },
+        { text: 'Its work is best described as “cognitive control”: your thoughts and actions follow your goal rather than whatever happens to be loudest. The prefrontal cortex keeps a picture of the goal ready and tells other parts of the brain which way to send the signal.', refs: ['miller2001'] },
+        { text: 'It never works alone. It works in networks with the parietal cortex, the cingulate, the insula and structures deep in the brain — and how well those networks cooperate decides whether it is easy to focus, to switch or to rest.', refs: ['niendam2012', 'menon2011'] },
+      ],
+      points: [
+        { text: 'Miller and Cohen’s theory: cognitive control means the prefrontal cortex actively keeps up patterns that stand for the goal and the way to it, and these steer the flow of signals elsewhere in the brain.', refs: ['miller2001'] },
+        { text: 'Studies of people with damage to the prefrontal cortex show that it is essential for organising and controlling goal-directed behaviour — although it was once thought to be unimportant.', refs: ['szczepanski2014'] },
+        { text: 'A meta-analysis of 193 imaging studies (2,832 healthy people) found a shared network — the dorsolateral prefrontal cortex, the anterior cingulate and the parietal cortex — active across very different tasks that demand control.', refs: ['niendam2012'] },
+        { text: 'In depression, anxiety or dementia the trouble often lies in how the brain’s networks switch on and off, not in a single “broken” spot.', refs: ['menon2011'] },
+      ],
+      strength: 'strong',
+      forYou: 'When your headband shows the prefrontal cortex at work, you see a piece of a larger whole: the signal of one area that cooperates with the entire brain.',
+      link: '#sygnal',
+    },
+    {
+      id: 'executive',
+      title: 'Thinking, working memory and inhibition',
+      short: 'Executive functions — holding information in mind, stopping an impulse, changing a plan — rest on a network with the prefrontal cortex at its centre.',
+      body: [
+        { text: 'Psychologists distinguish three core executive functions. Working memory lets you hold information in mind and do something with it, like mental arithmetic. Inhibition lets you not do the first thing that comes to mind, and not be distracted. Flexibility lets you change a plan and see things from another side. Planning, problem solving and reasoning are built on them.', refs: ['diamond2013'] },
+        { text: 'These skills are sensitive to everyday life: stress, lack of sleep, loneliness and lack of exercise clearly weaken them, and practice strengthens them.', refs: ['diamond2013'] },
+      ],
+      points: [
+        { text: 'The core of executive functions is inhibition, working memory and flexibility. They let us play with ideas, think before acting, meet new challenges, resist temptation and stay on task.', refs: ['diamond2013'] },
+        { text: 'A meta-analysis of 24 studies using the n-back task (a classic working-memory test): the task reliably engages the dorsolateral and ventrolateral prefrontal cortex, the frontal poles and the parietal cortex.', refs: ['owen2005'] },
+        { text: 'Inhibition relies largely on the right inferior frontal cortex, which with the basal ganglia works like a brake — pressed all the way, or only for a moment to pause.', refs: ['aron2014'] },
+        { text: 'Different executive functions share a common control network, but each also adds areas of its own.', refs: ['niendam2012'] },
+      ],
+      strength: 'strong',
+      forYou: 'If something “won’t go in”, before you blame weak willpower, check your sleep, stress and exercise — they change executive functions fastest.',
+      link: '#gry',
+    },
+    {
+      id: 'attention',
+      title: 'Attention and sustained focus',
+      short: 'Holding attention for many minutes is hard for everyone, especially on a simple, monotonous task. A mainly right-sided network with the prefrontal cortex helps.',
+      body: [
+        { text: 'Everyone knows the moment of reading the same paragraph for the third time. The ability to stay on task wanes over time — and, surprisingly, faster on simple, repetitive tasks.', refs: ['langner2013'] },
+        { text: 'Sustained attention is not one process but two intertwined ones: steadily keeping up the task set, and quick, brief returns to it when something knocks us off.', refs: ['langner2013'] },
+        { text: 'Mind-wandering is not the brain “switching off”. When thoughts drift, the brain’s default network (with the medial prefrontal cortex) is at work — but just as consistently so are control areas in the front of the prefrontal cortex.', refs: ['fox2015'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of imaging studies of vigilance: the core network of sustained attention is mainly right-sided — dorsomedial, mid- and ventrolateral prefrontal cortex, anterior insula, parietal cortex and subcortical structures.', refs: ['langner2013'] },
+        { text: 'Performance dropping with time on task is the rule, not the exception — a well-known effect that applies to everyone.', refs: ['langner2013'] },
+        { text: 'A meta-analysis of 24 studies of mind-wandering: besides the default network (medial prefrontal cortex, posterior cingulate), control areas are just as consistently active — among them the rostrolateral prefrontal cortex and the dorsal anterior cingulate.', refs: ['fox2015'] },
+      ],
+      strength: 'strong',
+      forYou: 'Drifting thoughts are not a failure. In training what counts is the gentle return — and every such return is exactly the exercise your headband sees.',
+      link: '#trening/focus',
+    },
+    {
+      id: 'emotion',
+      title: 'Emotions and how we regulate them',
+      short: 'The prefrontal cortex does not switch emotions off, but it helps us live them more wisely — by steering attention or by changing what a situation means.',
+      body: [
+        { text: 'Emotions arise in many places in the brain, also deep beneath the cortex — in the amygdala, for instance. The prefrontal cortex and the cingulate can soften that response.', refs: ['ochsner2005', 'buhle2014'] },
+        { text: 'Two routes are best studied: turning attention elsewhere, or changing the way you think about the situation. Psychologists call the second one reappraisal — for example: “he isn’t rude, he’s just having a bad day”.', refs: ['ochsner2005', 'buhle2014'] },
+        { text: 'Reappraisal engages control areas in the frontal and parietal cortex and, as a result, quiets the amygdala.', refs: ['buhle2014'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 48 studies: reappraisal consistently engaged cognitive control areas and the lateral temporal cortex, and modulated the amygdala on both sides.', refs: ['buhle2014'] },
+        { text: 'The authors’ conclusion: cognitive control changes the meaning of what we see, and it is this new meaning that quiets the amygdala.', refs: ['buhle2014'] },
+        { text: 'Another meta-analysis (23 studies, 479 people) proposes a division of roles: the dorsolateral prefrontal cortex steers attention, the ventrolateral signals that something needs regulating, and the middle part of the cingulate brings it together.', refs: ['kohn2014'] },
+        { text: 'Both routes — steering attention and changing meaning — depend on prefrontal control systems working together with the systems that generate emotion.', refs: ['ochsner2005'] },
+      ],
+      strength: 'strong',
+      forYou: 'When an emotion is strong, try to see the situation from another side, or move your attention on purpose. These are the same routes of regulation researchers see in the brain.',
+      link: '#gra/serce',
+    },
+    {
+      id: 'stress',
+      title: 'Stress',
+      short: 'The prefrontal cortex feels stress more than any other part of the brain — but its weakening often passes once the stress eases.',
+      body: [
+        { text: 'Under acute stress the brain switches to fast, habitual reactions. Even mild but uncontrollable stress can quickly and markedly weaken the abilities the prefrontal cortex is responsible for.', refs: ['arnsten2009'] },
+        { text: 'Long-lasting stress even changes the structure of the nerve cells there. The good news: these changes need not be permanent. The prefrontal cortex stays highly plastic throughout life, though it becomes less resilient with age.', refs: ['arnsten2009', 'mcewen2013'] },
+      ],
+      points: [
+        { text: 'The prefrontal cortex is the part of the brain most sensitive to the harmful effects of stress; prolonged stress changes the branches (dendrites) of its neurons.', refs: ['arnsten2009'] },
+        { text: 'A meta-analysis: acute stress weakens working memory and flexibility; its effect on inhibition is more complex, and many effects depend on other factors such as sex.', refs: ['shields2016'] },
+        { text: 'A brain-imaging study: in 20 healthy people, a month of psychosocial stress weakened attentional control and connections in a fronto-parietal network. After a month of less stress they no longer differed from a calm group.', refs: ['liston2009'] },
+        { text: 'Stress-induced changes need not be permanent: in young animals neurons recover when the stress stops; with age this resilience declines.', refs: ['mcewen2013'] },
+      ],
+      strength: 'moderate',
+      forYou: 'If you can’t gather your thoughts under stress, that is not a flaw of character but physiology. Rest, sleep and calm breathing give your prefrontal cortex a chance to recover.',
+      link: '#gra/drzewo',
+    },
+    {
+      id: 'anxiety',
+      title: 'Anxiety',
+      short: 'In anxiety disorders the brain’s alarm areas work too hard; the prefrontal cortex helps us learn that we are safe now.',
+      body: [
+        { text: 'Fear is needed — it protects us from danger. Trouble begins when the alarm goes off too often, too strongly, or will not switch off.', refs: [] },
+        { text: 'People with various anxiety disorders show stronger activity in the amygdala and the insula — the same structures that respond in healthy people as they learn fear. In post-traumatic stress disorder (PTSD), areas that help regulate emotion, the ventromedial prefrontal cortex among them, are also less active.', refs: ['etkin2007'] },
+        { text: 'Unlearning fear, called extinction, is active learning with circuits of its own in the brain, studied side by side in animals and humans; the ventromedial prefrontal cortex is among the areas linked to it.', refs: ['milad2012', 'buhle2014'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of studies of PTSD, social anxiety disorder and specific phobia: in all three, the amygdala and insula were more active.', refs: ['etkin2007'] },
+        { text: 'Only in PTSD were the dorsal and rostral anterior cingulate and the ventromedial prefrontal cortex less active — areas linked to experiencing and regulating emotion.', refs: ['etkin2007'] },
+        { text: 'Fear extinction has become a model of research that moves “from animals to humans” — thanks to close cooperation between the two fields.', refs: ['milad2012'] },
+        { text: 'Changing what a situation means (reappraisal) quiets the amygdala.', refs: ['buhle2014'] },
+        { text: 'In healthy people, slow breathing went together with less arousal and milder symptoms of anxiety.', refs: ['zaccaro2018'] },
+      ],
+      strength: 'moderate',
+      forYou: 'If anxiety takes away your sleep or your ordinary life, talk to a doctor or a psychotherapist. Calm breathing and prayer can help you settle, but they do not replace treatment.',
+    },
+    {
+      id: 'depression',
+      title: 'Depression',
+      short: 'In depression the prefrontal cortex works differently and thinking suffers; that is why the front of the brain is the target of magnetic stimulation.',
+      body: [
+        { text: 'Depression is not only sadness. It often weakens concentration, working memory and decision-making too — real, measurable difficulties, not laziness.', refs: ['snyder2013'] },
+        { text: 'Different methods — imaging, studies of people with brain injuries, and brain stimulation — point to two key areas: the ventromedial and the dorsolateral prefrontal cortex, which play different roles in depression.', refs: ['koenigs2009'] },
+        { text: 'Repetitive transcranial magnetic stimulation (rTMS) is a treatment in which a coil held to the head stimulates a chosen piece of cortex — in depression, usually the dorsolateral prefrontal cortex. Treatment is always a doctor’s decision.', refs: ['koenigs2009', 'brunoni2017'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 113 studies: depression goes with poorer results on tests of executive function (effect sizes from 0.32 to 0.97); the difficulties are greater with more severe symptoms.', refs: ['snyder2013'] },
+        { text: 'Imaging, lesion studies and brain stimulation converge on the ventromedial and dorsolateral prefrontal cortex as key to depression — each with a different role.', refs: ['koenigs2009'] },
+        { text: 'A network meta-analysis of 81 randomised trials (4,233 patients): several forms of rTMS worked better than sham stimulation in an acute depressive episode; newer variants (accelerated, deep) did not.', refs: ['brunoni2017'] },
+        { text: 'A meta-analysis of 121 fNIRS studies — the method Mendi uses: during a word task, the frontal and temporal cortex of people with depression increased its oxygenation less than in healthy people.', refs: ['yeung2021'] },
+        { text: 'These are differences between group averages. Neither fNIRS nor EEG wave asymmetry can diagnose depression in a single person today.', refs: ['yeung2021', 'vandervinne2017'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Emmanuel does not diagnose or treat depression. If you have felt sadness, emptiness or a lack of strength for weeks, talk to a doctor. Training can accompany treatment, but it cannot replace it.',
+    },
+    {
+      id: 'decisions',
+      title: 'Decisions, values and self-control',
+      short: 'The ventromedial prefrontal cortex “prices” the options, and the dorsolateral one helps choose what matters more in the long run.',
+      body: [
+        { text: 'With every choice the brain compares very different things — taste, money, health, time — on a single inner scale of value. That shared value signal is carried by the ventromedial prefrontal cortex together with the ventral striatum.', refs: ['bartra2013'] },
+        { text: 'Self-control does not look like “willpower” defeating temptation. In a well-known study, in people who controlled themselves the value signal included health, not only taste — and the dorsolateral prefrontal cortex was then more active and worked together with the valuation area.', refs: ['hare2009'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 206 brain-imaging studies: the ventromedial prefrontal cortex and the anterior ventral striatum form a “valuation system” that encodes subjective value — at the moment of decision and of reward, for money and for basic rewards alike.', refs: ['bartra2013'] },
+        { text: 'A study of people on a diet: activity in the ventromedial prefrontal cortex tracked the value of a choice; the dorsolateral prefrontal cortex was more active when someone exercised self-control, and its activity went together with that of the valuation area.', refs: ['hare2009'] },
+        { text: 'Resisting temptation is one of the executive functions — the same ones that stress and lack of sleep weaken.', refs: ['diamond2013'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Make important decisions rested and calm, not in a rush. And remind yourself what really matters to you — in people with self-control, the value signal also took the longer-term goal into account.',
+    },
+    {
+      id: 'social',
+      title: 'Other people: understanding and empathy',
+      short: 'The medial prefrontal cortex belongs to a network that works when we try to understand other people’s thoughts and feelings.',
+      body: [
+        { text: 'Psychologists call the ability to understand what someone thinks, wants and feels “theory of mind”. Brain-imaging studies consistently point to the medial frontal cortex here.', refs: ['amodio2006'] },
+        { text: 'Whether people read stories or looked at drawings or films, the same core appeared: the medial prefrontal cortex and the temporo-parietal region on both sides of the brain.', refs: ['schurz2014'] },
+      ],
+      points: [
+        { text: 'Converging imaging evidence points to a unique role for the medial frontal cortex in social cognition.', refs: ['amodio2006'] },
+        { text: 'A meta-analysis of theory-of-mind studies: shared activity in the medial prefrontal cortex and the posterior temporo-parietal junction on both sides, whatever the form of the task — the core of the network for understanding others.', refs: ['schurz2014'] },
+        { text: 'A study of devout Christians: personal prayer in one’s own words — unlike a memorised formula — engaged the same social-cognition areas, the medial prefrontal cortex among them.', refs: ['schjoedt2009'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Listening closely to someone and asking yourself what they might be feeling right now is putting this network to everyday use.',
+      link: '#gra/brzemiona',
+    },
+    {
+      id: 'sleep',
+      title: 'Sleep',
+      short: 'After a sleepless night attention suffers most, and the prefrontal cortex works less well.',
+      body: [
+        { text: 'Lack of sleep is more than tiredness. A single sleepless night clearly worsens sustained attention and working memory, and imaging shows weaker activity in the attention network of the frontal and parietal cortex.', refs: ['lim2010', 'ma2015'] },
+        { text: 'Sleep and emotion are closely linked: almost all mood and anxiety disorders come with sleep problems. Researchers think that sleep — REM sleep especially — helps the brain restore its emotional balance for the next day.', refs: ['goldstein2014'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 70 articles (147 tests) on sleep deprivation shorter than 48 h: from a small, non-significant effect on reasoning accuracy (g = −0.125) to a large effect on lapses of simple attention (g = −0.776).', refs: ['lim2010'] },
+        { text: 'A meta-analysis of 11 imaging studies (185 people): after a sleepless night, the right prefrontal cortex, the medial frontal cortex, the intraparietal sulcus and the insula, among others, were less active.', refs: ['ma2015'] },
+        { text: 'The link between sleep and the brain’s emotional work is close and causal; REM sleep may support the brain’s emotional balance.', refs: ['goldstein2014'] },
+        { text: 'Lack of sleep is one of the main things that weaken executive functions.', refs: ['diamond2013'] },
+      ],
+      strength: 'strong',
+      forYou: 'If training goes worse after a poor night, that is normal. Good sleep is one of the simplest things you can do for your prefrontal cortex.',
+    },
+    {
+      id: 'exercise',
+      title: 'Exercise',
+      short: 'Regular exercise supports thinking — most clearly the executive functions of older adults; a single workout has a small effect.',
+      body: [
+        { text: 'Physical exercise is one of the best-studied ways of keeping the mind fit. In older adults it was precisely the executive functions, linked to the prefrontal cortex, that gained most.', refs: ['colcombe2003'] },
+        { text: 'The effects are real but modest: one workout improves test scores slightly, and months of exercise bring a small, general gain. Exercise that demands coordination helped most.', refs: ['chang2012', 'ludyga2020'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 18 studies with healthy, inactive older adults: aerobic training brought clear but selective benefits — the largest for executive control.', refs: ['colcombe2003'] },
+        { text: 'A meta-analysis of 79 studies: a single exercise session has a small positive effect on cognitive performance (g = 0.097) — during, right after and some time after the exertion.', refs: ['chang2012'] },
+        { text: 'A meta-analysis of 80 randomised trials: the long-term effect of exercise on thinking is small and general, not tied to one function; larger after coordinative exercise.', refs: ['ludyga2020'] },
+        { text: 'A review of fNIRS studies: during very intense exercise, prefrontal oxygenation sometimes drops and sometimes does not — the results are inconsistent, partly because of signals from outside the brain.', refs: ['jung2025'] },
+      ],
+      strength: 'moderate',
+      forYou: 'A walk, a dance or a ball game help your head in the long run. Don’t train with the headband during hard exertion, though — the signal is unreliable then.',
+    },
+    {
+      id: 'prayer',
+      title: 'Prayer, meditation and breathing',
+      short: 'Contemplative practices engage the prefrontal cortex among other areas; the evidence is promising but still early.',
+      body: [
+        { text: 'Meditation is a whole family of practices: focusing on one point, repeating a word, open awareness, kindness towards others. Each has a slightly different “signature” in the brain, and some areas — the frontal pole, the insula and the anterior cingulate among them — appear in many of them.', refs: ['fox2016'] },
+        { text: 'Studies of prayer are few. In one of them, personal prayer in one’s own words engaged the areas we use in relationships with other people — the authors describe it as an experience of encounter, not mere recitation.', refs: ['schjoedt2009'] },
+        { text: 'The simplest way into stillness is slow breathing. A systematic review links it with higher heart-rate variability, a calmer EEG and better well-being.', refs: ['zaccaro2018'] },
+      ],
+      points: [
+        { text: 'A meta-analysis of 78 imaging studies of meditation: different styles have distinct patterns of activity, and shared areas are the exception rather than the rule; medium effects, with many methodological caveats.', refs: ['fox2016'] },
+        { text: 'A meta-analysis of brain-structure studies (21 studies, about 300 practitioners): differences in the frontal pole (awareness of one’s own thoughts), the insula and the orbitofrontal cortex, among others; the authors warn of publication bias.', refs: ['fox2014'] },
+        { text: 'Personal prayer engaged the medial prefrontal cortex and the temporo-parietal region — the social-cognition network.', refs: ['schjoedt2009'] },
+        { text: 'A review of 15 studies of slow breathing (fewer than 10 breaths a minute): more alpha and less theta in the EEG, higher heart-rate variability, and in mood more calm and alertness, less anxiety and anger.', refs: ['zaccaro2018'] },
+      ],
+      strength: 'early',
+      forYou: 'Research shows what happens in the brain while you pray — it does not say who is listening. Emmanuel does not create faith; it helps you practise the stillness in which prayer comes more easily.',
+      link: '#gra/dlonie',
+    },
+    {
+      id: 'life',
+      title: 'From childhood to old age',
+      short: 'The prefrontal cortex takes longest to mature, into early adulthood, and in later life it often works harder to keep performance up.',
+      body: [
+        { text: 'The cortex matures in stages: first the areas of the senses (touch, sight), later those that bring information together — and the prefrontal cortex is among the last. The process runs through the teenage years and into early adulthood.', refs: ['gogtay2004'] },
+        { text: 'In teenagers the reward and emotion systems respond very strongly while impulse control is still developing. That helps explain where risky decisions at that age come from.', refs: ['casey2008'] },
+        { text: 'In older adults the prefrontal cortex often works harder than in the young on the same tasks, as if the brain were adding effort. Plasticity lasts a lifetime, though resilience to stress declines with age.', refs: ['spreng2010', 'mcewen2013'] },
+      ],
+      points: [
+        { text: 'A longitudinal study (13 children, a brain scan every 2 years, ages 4–21): higher-order association areas mature only after the sensory cortex; evolutionarily older areas mature earlier than newer ones.', refs: ['gogtay2004'] },
+        { text: 'In adolescence a heightened sensitivity to rewards and socio-emotional context goes together with still-immature impulse control.', refs: ['casey2008'] },
+        { text: 'A meta-analysis of 80 samples: older adults engaged the prefrontal cortex more than young ones; with equal performance the left side, with poorer performance the right.', refs: ['spreng2010'] },
+        { text: 'The prefrontal cortex stays plastic throughout life; with age its neurons become less resilient to stress.', refs: ['mcewen2013'] },
+        { text: 'In older adults, exercise helped executive functions most of all.', refs: ['colcombe2003'] },
+      ],
+      strength: 'moderate',
+      forYou: 'It is never too late to practise attention — the brain keeps changing throughout life.',
+    },
+    {
+      id: 'neurofeedback',
+      title: 'Neurofeedback: what we know and what we don’t',
+      short: 'People can learn to change the signal of their own prefrontal cortex; whether and how that carries over into daily life is still not known for sure.',
+      body: [
+        { text: 'Neurofeedback is training with a mirror: an app shows your brain’s signal as it happens, and you learn to change it. That is how Emmanuel works — the orb, the game or the light respond to the work of your prefrontal cortex.', refs: ['sitaram2017'] },
+        { text: 'fNIRS studies show that prefrontal oxygenation can be influenced this way. But there are still few of them, they are small and varied, and well-controlled clinical trials often fail to confirm the effects seen in weaker ones.', refs: ['kohl2020', 'cortese2016'] },
+        { text: 'Research on brain training also shows that training mostly improves what is practised — and far less what lies far from it.', refs: ['melbylervag2016'] },
+      ],
+      points: [
+        { text: 'Control over specific brain areas learnt through neurofeedback can change specific behaviours; we are only beginning to understand the mechanisms.', refs: ['sitaram2017'] },
+        { text: 'A systematic review of 22 fNIRS-neurofeedback studies (441 people): people can regulate the cortical signal; study quality is moderate, large randomised trials are missing, and conclusions about clinical use are premature.', refs: ['kohl2020'] },
+        { text: 'A meta-analysis of 13 randomised trials (ADHD, 520 people): improvement was seen mainly by raters who knew about the treatment; with “blind” ratings and against sham training the effect was not significant.', refs: ['cortese2016'] },
+        { text: 'A meta-analysis of 87 publications on working-memory training: gains on the trained and closely related tasks, no convincing evidence of transfer to intelligence or reading.', refs: ['melbylervag2016'] },
+      ],
+      strength: 'early',
+      forYou: 'Treat Emmanuel as a mirror and a habit of stillness, not as a miracle cure. Regularity, sleep, exercise and prayer do the most; the headband helps you notice when your attention drifts.',
+      link: '#trening/focus',
+    },
+    {
+      id: 'practice',
+      title: 'What it means in practice',
+      short: 'The prefrontal cortex works best when you are rested, calm and active — and attention is trained by patiently coming back.',
+      body: [
+        { text: 'A simple picture emerges from the research. The prefrontal cortex is powerful but delicate: it weakens quickly under stress and without sleep, and recovers when it gets rest. It is not a “willpower centre” but part of a network that learns through repetition.', refs: ['arnsten2009', 'liston2009', 'menon2011'] },
+        { text: 'You don’t have to change everything at once. Choose one thing: sleep, exercise, a few minutes of slow breathing, or a short daily moment of focus.', refs: [] },
+      ],
+      points: [
+        { text: 'Sleep: lack of sleep hits simple, sustained attention hardest.', refs: ['lim2010'] },
+        { text: 'Stress: the prefrontal weakening after a month of stress passed once the stress eased.', refs: ['liston2009'] },
+        { text: 'Exercise: regular exertion brings a small but general gain for thinking.', refs: ['ludyga2020'] },
+        { text: 'Breath: slow breathing went together with more calm and alertness.', refs: ['zaccaro2018'] },
+        { text: 'Realism: training mostly improves what you practise — so practise what you need in life: stillness, attention and coming back.', refs: ['melbylervag2016'] },
+      ],
+      forYou: 'Start with a few minutes a day. When your thoughts drift, come back — without judging. That is the training.',
+      link: '#trening',
+    },
+  ],
+
+  limits: {
+    title: 'The limits of this knowledge',
+    points: [
+      { text: 'Most studies show associations, not causes: an area “lighting up” during a task does not mean it alone is responsible for it.', refs: [] },
+      { text: 'The brain works in networks. There is no “willpower centre” and no “empathy centre” — shortcuts like “prefrontal cortex = willpower” are a myth.', refs: ['menon2011'] },
+      { text: 'Results are group averages. They cannot give a diagnosis for one person — neither from a scanner nor from a headband.', refs: ['yeung2021', 'vandervinne2017'] },
+      { text: 'A measurement from the forehead can contain signals from outside the brain, and the evidence that neurofeedback works is still modest.', refs: ['tachtsidis2016', 'kohl2020', 'cortese2016'] },
+      { text: 'This text is not medical advice. For matters of health — of body and mind — talk to a doctor.', refs: [] },
+    ],
+  },
+
+  reviewed: '2026-11',
+};
+
+export default article;

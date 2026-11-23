@@ -39,6 +39,7 @@ import { SettingsView } from './ui/settings-view';
 import { ConnectPanel, type ConnectActions } from './ui/connect';
 import { StartView } from './ui/start';
 import { ScreenAwake } from './ui/wakelock';
+import { WiedzaView } from './ui/wiedza';
 
 /** index.html in this page's language: its static texts, `lang` and the title. */
 function applyPageTexts(): void {
@@ -72,9 +73,9 @@ async function main(): Promise<void> {
   const eegMonitor = new EegMonitor();
   const recording = new RecordingCard(engine, folder, settings, save);
   const settingsView = new SettingsView(engine, folder, settings, save, db);
-  const activities = new ActivitiesView('activities', EXERCISES());
   const offline = new OfflineCard();
   watchNetwork();
+  const activities = new ActivitiesView('activities', EXERCISES());
   // the Games tab: the game of the day (a new one at midnight), the arcade games by kind, HolyHolyHoly
   const kindCards = KINDS.map(k => new ActivitiesView(`games-${k}`, GAME_ACTIVITIES().filter(a => a.arcade?.kind === k)));
   const holyCards = new ActivitiesView('gamesHoly', GAME_ACTIVITIES().filter(a => !a.arcade));
@@ -107,6 +108,8 @@ async function main(): Promise<void> {
   const buy = new BuyBox();
   const support = new Support();
   const awake = new ScreenAwake();
+  // Wiedza: the article and its sources load the first time the tab opens
+  const wiedza = new WiedzaView($('wiedzaRoot'), hash => router.go(hash));
 
   let trainings: TrainingResult[] = await db.listTrainings().catch(() => []);
   const setTrainings = (list: TrainingResult[]) => {
@@ -208,6 +211,7 @@ async function main(): Promise<void> {
       void settingsView.renderStorage();
       void offline.refresh();
     }
+    if (r.view === 'wiedza') wiedza.show(r.wiedza);
     renderStrip();
     if (r.game) games.open(r.game); else games.close();
     needsSig = '';

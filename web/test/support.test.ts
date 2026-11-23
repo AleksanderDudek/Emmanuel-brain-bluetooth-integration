@@ -44,9 +44,9 @@ describe('support and contact', () => {
     expect(tipOfTheDay('not a day')).toBe('support.tip1');
   });
 
-  it('has a window at the end of each of the six tabs, after where to buy a band', () => {
+  it('has a window at the end of each of the seven tabs, after where to buy a band', () => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const tabs = ['start', 'trening', 'gry', 'sygnal', 'sesje', 'ustawienia'];
+    const tabs = ['start', 'trening', 'gry', 'sygnal', 'sesje', 'wiedza', 'ustawienia'];
     for (const tab of tabs) {
       const last = doc.querySelector(`#view-${tab}`)!.lastElementChild!;
       expect(last.matches('[data-support]'), tab).toBe(true);
@@ -67,7 +67,7 @@ describe('support and contact', () => {
     expect(ribbon.getAttribute('aria-label')).toContain('buycoffee.to');
 
     const windows = [...document.querySelectorAll<HTMLElement>('[data-support]')];
-    expect(windows).toHaveLength(6);
+    expect(windows).toHaveLength(7);
     for (const [i, w] of windows.entries()) {
       expect(w.hidden).toBe(false);
       expect(document.getElementById(w.getAttribute('aria-labelledby')!)?.textContent).toBe('Pomóż Emmanuelowi trwać');
