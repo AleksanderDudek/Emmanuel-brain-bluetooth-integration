@@ -17,11 +17,14 @@ export const PACER_PATTERN: BreathPattern = BREATH_DEFAULT;
 
 /** What the pacer shows for a rest block `sec` seconds in, with `left` seconds to go (null: unknown). */
 export function pacerState(sec: number, left: number | null, own: BreathState | null, pattern: BreathPattern = PACER_PATTERN): { b: BreathState; n: number; of: number | null } {
-  const b = own ?? breathAt(pattern, sec);
+  const def = breathAt(pattern, sec);
+  const b = own ?? def;
   const cyc = breathCycle(pattern);
-  // a game's own breath counts its own cycles; the default counts from the rest's start
+  // the count of breaths holds for the default from the rest's start — and for a game's own breath that is that same
+  // breath (most games that give one breathe 4 · 0 · 6 · 0 from the rest's start too); another pattern shows no count
+  const same = !own || (own.phase === def.phase && own.n === def.n && Math.abs(own.p - def.p) < 0.08);
   const n = b.n + 1;
-  const of = own ? null : left !== null && Number.isFinite(left) ? Math.max(n, Math.round((sec + left) / cyc)) : null;
+  const of = same && left !== null && Number.isFinite(left) ? Math.max(n, Math.round((sec + left) / cyc)) : null;
   return { b, n, of };
 }
 

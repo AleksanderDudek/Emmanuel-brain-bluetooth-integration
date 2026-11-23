@@ -84,9 +84,12 @@ describe('kit/breathguide and the runner\'s pacer', () => {
     expect(later.n).toBe(2);
     expect(later.of).toBe(2);
     expect(pacerState(5, null, null).of).toBeNull();
-    // a game's own breath is shown as it is, without a count of its own
+    // a game's own breath on another pattern is shown as it is, without a count
     const own = breathAt({ in: 5, holdIn: 0, out: 5, holdOut: 0 }, 6);
     expect(pacerState(6, 10, own)).toMatchObject({ b: own, of: null });
+    // a game's own breath that is the default from the rest's start keeps the count
+    const same = breathAt(BREATH_DEFAULT, 12);
+    expect(pacerState(12, 8, same)).toMatchObject({ b: same, n: 2, of: 2 });
   });
 
   it('has every text in all four languages', () => {
