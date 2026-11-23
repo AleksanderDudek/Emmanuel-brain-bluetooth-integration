@@ -12,14 +12,17 @@ import {
 import { RULES, readSec } from '../src/arcade/jestem/rules';
 import { SCENES, inPolygon, type DeclId } from '../src/arcade/jestem/scenes';
 import {
-  JestemSim, finaleFor, nextPushCells, playSecOf, pourRate, restSec, warmFor, type SimEvent, type SimVision,
+  JestemSim, finaleFor, nextPushCells, playSecOf, pourRate, pushBand, pushSecAt, restSec, warmFor, type SimEvent, type SimVision,
 } from '../src/arcade/jestem/sim';
 import { ARCH_H, autoNext, buildVision, inWindow, photoSpace, pickAt, type VisionGeo } from '../src/arcade/jestem/vision';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { BREATH_DEFAULT, breathCycle, breathRest } from '../src/arcade/kit/breath';
 import { IMAGE_ACCEPT, ImageError, putImage, getImage } from '../src/arcade/kit/images';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
-import { coachText, howto } from '../src/arcade/jestem/index';
+import mod, { coachText, howto, rhythm } from '../src/arcade/jestem/index';
+import { JestemView } from '../src/arcade/jestem/render';
+import { breathGuideBox, GUIDE_WORD_MIN } from '../src/arcade/kit/breathguide';
+import { rhythmOf } from '../src/arcade/kit/rhythm';
 import { ARCH, formButtons, layout, tapTargets, tu, windowAt, type PicShape } from '../src/arcade/jestem/layout';
 import { fitFont, fitLines, font, fontPx, layoutFinale, windowPath, wrapAll } from '../src/arcade/jestem/paint';
 import { edgeMap, makeMosaic, type Pixels } from '../src/arcade/kit/mosaic';
@@ -70,12 +73,15 @@ function photoGeo(aspect: number, n = 60, seed = 3): VisionGeo {
 const visionOf = (id: DeclId = 'zdrowy', n = 48): SimVision => ({ key: declKey(id), geo: geoOf(id, n), decl: id, word: declWord(id, 'm') });
 const ownVision = (cont = 'mam pokój', aspect = 4 / 3): SimVision => ({ key: ownKey('img-1'), geo: photoGeo(aspect), decl: null, word: cont });
 
-type SimOpts = { progress?: Partial<JestemProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; ask?: boolean; vision?: SimVision | null };
+type SimOpts = {
+  progress?: Partial<JestemProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; ask?: boolean; vision?: SimVision | null;
+  rhythm?: { focus: number; rest: number } | null;
+};
 
 function makeSim(o: SimOpts = {}): JestemSim {
   const sim = new JestemSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY, plannedSec: o.planned ?? 300,
-    eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, askForm: o.ask ?? false,
+    eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, askForm: o.ask ?? false, rhythm: o.rhythm,
   });
   if (o.vision !== null) sim.setVision(o.vision ?? visionOf());
   sim.start();
@@ -1412,5 +1418,120 @@ describe('the Polish form', () => {
     expect(formSample('nowy')).toBe('silny');
     expect(formSample(null)).toBe('silny');
     for (const id of DECL_ORDER) expect(declWord(formSample(id), 'm')).not.toBe(declWord(formSample(id), 'f'));
+  });
+});
+
+describe('the rest’s rhythm and the breath guide (round 15)', () => {
+  it('offers two dials in the game’s words: rest after 2–8 pieces (4: 3–5 with the pace), 1–6 breaths of 4 in, 6 out (2: 20 s)', () => {
+    const spec = rhythm();
+    expect(mod.rhythm).toBeDefined();
+    expect(mod.ownBreath).toBe(true);
+    expect([spec.focus.def, spec.focus.min, spec.focus.max, spec.focus.step]).toEqual([4, 2, 8, 1]);
+    expect([spec.rest.def, spec.rest.min, spec.rest.max, spec.rest.step]).toEqual([2, 1, 6, 1]);
+    expect(spec.focus.name).toBe(t('rhythm.after'));
+    expect(spec.focus.format(4)).toBe('4\u00a0częściach');
+    expect(spec.focus.format(2)).toBe('2\u00a0częściach');
+    expect(spec.rest.format(2)).toContain('20');
+    expect(spec.restSec!(2)).toBe(20);
+    expect(spec.restSec!(6)).toBe(60);
+    // a piece takes about 6 s at the threshold, past the band's lead-in: 4 → about half a minute
+    expect(spec.focusSec!(4)).toBeCloseTo(29, 0);
+    expect(spec.focusSec!(8)).toBeGreaterThan(spec.focusSec!(4) * 1.6);
+    // the design reads the same as before round 15 (3–5, first 3; two breaths)
+    expect(pushBand(4)).toEqual([3, 5]);
+    expect(pushBand(2)).toEqual([2, 3]);
+    expect(pushBand(8)).toEqual([7, 9]);
+    expect(restSec()).toBe(20);
+    expect(pushSecAt(RULES.pushMax)).toBe(RULES.pushMax);
+    expect(rhythmOf(spec, null)).toEqual({ focus: 4, rest: 2, custom: false });
+    expect(rhythmOf(spec, { focus: 99, rest: -3 })).toEqual({ focus: 8, rest: 1, custom: true });
+    // the how-to card names the player's band
+    expect(howto(true, 4).goal).toContain('3–5');
+    expect(howto(true, 7).goal).toContain('6–8');
+  });
+
+  it('asks the player’s mean ± 1 cells before a rest, and rests for their whole breaths', () => {
+    for (const [focus, rest, lo, hi] of [[2, 1, 2, 3], [4, 2, 3, 5], [6, 4, 5, 7], [8, 6, 7, 9]] as const) {
+      const sim = later({ planned: 900, rhythm: { focus, rest } });
+      const clock = { t: 0 };
+      expect(sim.block.cells, `${focus}`).toBe(lo);
+      const asked: number[] = [], lit: number[] = [];
+      for (let i = 0; i < 4; i++) {
+        until(sim, 'push', good(HIGH), clock);
+        asked.push(sim.block.cells);
+        const before = sim.score;
+        pushOut(sim, good(HIGH), clock);
+        lit.push(sim.score - before);
+        if (sim.block.kind === 'rest' && sim.next) expect(sim.block.dur, `${focus}/${rest}`).toBe(rest * 10);
+      }
+      for (const k of asked) {
+        expect(k, `${focus}`).toBeGreaterThanOrEqual(lo);
+        expect(k, `${focus}`).toBeLessThanOrEqual(hi);
+      }
+      expect(lit).toEqual(asked);
+    }
+    // the quick and slow marks scale with the mean: 8 cells in 44 s at the threshold keep 8
+    expect(nextPushCells(8, 44, false, 8)).toBe(8);
+    expect(nextPushCells(8, 30, false, 8)).toBe(9);
+    expect(nextPushCells(8, 70, false, 8)).toBe(7);
+    expect(nextPushCells(2, 15, false, 2)).toBe(2);
+    expect(nextPushCells(2, 40, true, 2)).toBe(2);
+    // without focus a push still ends at its cap, which grows with the cells (8 → 75 s)
+    const sim = later({ planned: 900, rhythm: { focus: 8, rest: 2 } });
+    const clock = { t: 0 };
+    drive(sim, 1, LOW, clock);
+    expect(pushOut(sim, LOW, clock)).toBeCloseTo(pushSecAt(RULES.pushMax, 8), 0);
+  });
+
+  it('completes 3, 10 and 30 minutes near their end with the design and with the dials’ extremes', () => {
+    for (const planned of [180, 600, 1800]) {
+      const dials = planned < 1800 ? [null, { focus: 2, rest: 1 }, { focus: 8, rest: 6 }, { focus: 2, rest: 6 }, { focus: 8, rest: 1 }] : [null, { focus: 2, rest: 1 }, { focus: 8, rest: 6 }];
+      for (const r of dials) {
+        const feeds = planned < 1800 ? [good(MID), (s: JestemSim) => (s.block.kind === 'rest' ? CALM : LOW)] : [good(MID)];
+        for (const feed of feeds) {
+          const sim = later({ planned, rhythm: r });
+          const clock = { t: 0 };
+          for (let g = 0; sim.phase !== 'done' && g < 1000; g++) drive(sim, 5, feed, clock);
+          const id = `${planned} s · ${JSON.stringify(r)}`;
+          expect(sim.phase, id).toBe('done');
+          expect(sim.t, id).toBeGreaterThan(planned - 1);
+          expect(sim.t, id).toBeLessThanOrEqual(planned + RULES.settle + 0.1);
+          // the last rest ends in reach of the finale's nominal length (it takes what is left)
+          expect(sim.finaleSec, id).toBeLessThan(finaleFor(planned) + Math.max(16, 26));
+          for (const b of sim.plan.filter(x => x.kind === 'rest')) expect(b.dur % 10, id).toBeCloseTo(0, 6);
+          // rests stay the player's (or the session's last, shorter one)
+          const rests = sim.plan.filter(x => x.kind === 'rest');
+          for (const b of rests.slice(0, -1)) expect(b.dur, id).toBe((r?.rest ?? 2) * 10);
+        }
+      }
+    }
+  }, 180_000);
+
+  it('draws the rest’s breath guide inside the band, its word at least 20 px, the window’s heart clear', () => {
+    const ctx = measuring();
+    const stub = { getContext: () => null } as unknown as HTMLCanvasElement;
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        const view = new JestemView(stub, { reducedMotion: false, touch });
+        view.resize(c.w, c.h, 1, c.insets);
+        const sim = later({ planned: 600 });
+        until(sim, 'rest', good(HIGH));
+        expect(sim.restBlock).toBe(true);
+        const o = view.breathPlace(ctx, sim)!;
+        const id = `${c.name} · ${touch ? 'touch' : 'mouse'}`;
+        expect(o, id).not.toBeNull();
+        const L = view.L, box = breathGuideBox(ctx, o);
+        expect(o.r, id).toBeGreaterThanOrEqual(26);
+        expect(box.y, id).toBeGreaterThanOrEqual(L.band.y - 0.5);
+        expect(box.y + box.h, id).toBeLessThanOrEqual(L.band.y + L.band.h + 0.5);
+        expect(box.x, id).toBeGreaterThanOrEqual(L.band.x - 0.5);
+        expect(box.x + box.w, id).toBeLessThanOrEqual(L.band.x + L.band.w + 0.5);
+        // never over the picture's heart (the middle of the window)
+        const hx = L.win.x + L.win.w / 2, hy = L.win.y + L.win.h * 0.45;
+        expect(hx >= box.x && hx <= box.x + box.w && hy >= box.y && hy <= box.y + box.h, id).toBe(false);
+        expect(o.sub, id).toBe('oddech 1 z 2');
+        expect(Math.max(GUIDE_WORD_MIN, Math.round(o.r * (o.layout === 'row' ? 0.62 : 0.5))), id).toBeGreaterThanOrEqual(20);
+      }
+    }
   });
 });

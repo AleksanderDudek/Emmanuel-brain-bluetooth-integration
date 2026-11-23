@@ -11,13 +11,14 @@
  * Per frame only what moves: the watercolour bloom in the cell being filled, the stream from the oculus
  * (the gauge: its width is the band's level), flashes, sparkles and motes, the aura behind the window
  * (its halo, the rings of the rests, the rays of the pushes), the night's veil, captions, Hanna's bubble,
- * the "what to do now" line, the opening card and the finale's writing.  Everything bright is drawn with
- * baked sprites.
+ * the "what to do now" line — in a rest the kit's breath guide in its place (round 15) — the opening card and the
+ * finale's writing.  Everything bright is drawn with baked sprites.
  *
  * An own photo (round 11) keeps its own shape: a thin gallery frame instead of the stone arch, thin grout
  * instead of lead, a ring medallion on the frame's corner for the gauge, and at the finale the grout dissolves
  * and the photo itself shines through, glowing, with its aura.
  */
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { Particles, clamp, ease } from '../kit/juice';
 import { isMoving, LivingPicture, LookInput, motionFor, type Look } from '../kit/living';
 import { MIN_READ } from '../kit/mobile';
@@ -119,6 +120,10 @@ export class JestemView {
   hoverForm: 0 | 1 | -1 = -1;
   /** the card's box as drawn (the hit test reads it) */
   cardBox: Rect | null = null;
+  /** the breath guide's box as drawn last (null: none this frame), for tests and the debug view */
+  breathBox: Rect | null = null;
+  /** where the side column's words end (wide layouts), so the breath guide stands under them */
+  private sideBottom = 0;
   pressed: 0 | 1 | -1 = -1;
 
   constructor(readonly canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; touch: boolean }) {
@@ -1046,8 +1051,54 @@ export class JestemView {
       paintBubble(ctx, line.text, cx, top, maxW, L.u, a, L.desk);
     }
     if (L.side && this.vis && !sim.story && this.fin < 0) this.drawSide(ctx, sim);
-    if (this.vis && this.fin < 0) this.drawNow(ctx, sim);
+    this.breathBox = null;
+    // a rest: the breath guide is the instruction (the now line's "Odpocznij — wdech" would only repeat it)
+    if (this.vis && this.fin < 0 && sim.restBlock && !sim.story) this.drawBreath(ctx, sim);
+    else if (this.vis && this.fin < 0) this.drawNow(ctx, sim);
     if (sim.story) this.drawStory(ctx, sim);
+  }
+
+  /**
+   * Where the rest's breath guide stands (round 15, kit/breathguide): with a column beside the window (wide), stacked
+   * in it under the declaration and its fragments, where there is room; else a row in the now line's place — under
+   * the window, or over its lower edge (the picture's heart, higher up, stays clear).  Null: no room at all.
+   */
+  breathPlace(ctx: CanvasRenderingContext2D, sim: JestemSim): BreathGuideOpts | null {
+    const L = this.L;
+    const r = breathGuideRadius(L.w, L.h);
+    const sub = breathOf(sim.breath.n + 1, Math.max(sim.breaths, sim.breath.n + 1));
+    if (L.side) {
+      const S = L.side;
+      const colW = Math.min(S.w, 420 * L.u);
+      const top = Math.max(this.sideBottom + 12, S.y), room = S.y + S.h - top;
+      // the ring shrinks (not under 30 px) before the guide leaves the column for the window's foot
+      for (let rr = r; rr >= Math.min(r, 30); rr -= 2) {
+        const o: BreathGuideOpts = { cx: S.x + colW / 2, cy: 0, r: rr, sub, layout: 'stack', maxW: colW - 16 };
+        const box = breathGuideBox(ctx, o);
+        if (room >= box.h + 8) {
+          const y0 = top + Math.min(Math.max(8, (room - box.h) * 0.3), 48 * L.u);
+          return { ...o, cy: y0 - box.y };
+        }
+      }
+    }
+    const N = L.now;
+    const o: BreathGuideOpts = { cx: N.cx, cy: 0, r, sub, layout: 'row', maxW: Math.max(120, N.maxW - 2 * r - 60) };
+    const box = breathGuideBox(ctx, o);
+    const lo = L.band.y + 4, hi = L.band.y + L.band.h - 4;
+    if (box.h > hi - lo) return null;
+    const y0 = clamp(N.anchor === 'top' ? N.y : N.y - box.h, lo, hi - box.h);
+    const x0 = clamp(N.cx - box.w / 2, L.band.x + 4, L.band.x + L.band.w - 4 - box.w);
+    return { ...o, cx: x0 + box.w / 2, cy: y0 - box.y };
+  }
+
+  /** The rest's breath guide (kit/breathguide): fades in as the rest begins and out as it ends. */
+  private drawBreath(ctx: CanvasRenderingContext2D, sim: JestemSim): void {
+    const o = this.breathPlace(ctx, sim);
+    if (!o) return;
+    const b = sim.block;
+    const a = clamp(Math.min(sim.blockT / 0.6, (b.dur - sim.blockT) / 0.6));
+    drawBreathGuide(ctx, sim.breath, { ...o, alpha: a, reducedMotion: this.opts.reducedMotion, time: this.clock });
+    this.breathBox = breathGuideBox(ctx, o);
   }
 
   /**
@@ -1224,6 +1275,7 @@ export class JestemView {
       }
       y += px * 1.6;
     }
+    this.sideBottom = y;
   }
 
   /** The opening card: Hanna, the root verse, and (in Polish) how to speak to the player. */

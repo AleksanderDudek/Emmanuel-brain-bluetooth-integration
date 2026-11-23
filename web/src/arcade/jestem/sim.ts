@@ -5,11 +5,13 @@
  *   warm-up (first session)  a quick flow while focused; taps choose where
  *   push (Barwa)             while focused (past the band's lead-in, a reliable signal) colour pours into the
  *                            chosen cell, wider above the threshold; a full cell LIGHTS; the push ends when its
- *                            3rd, 4th or 5th cell lights (round 11: "rest after 3–5 completed tiles"), or at
- *                            its cap; a whole fragment lit becomes one pane; every cell lit → the light pass
+ *                            3rd, 4th or 5th cell lights (round 11: "rest after 3–5 completed tiles"; round 15:
+ *                            the player's mean ± 1, set in the lobby), or at its cap; a whole fragment lit
+ *                            becomes one pane; every cell lit → the light pass
  *   blind push (Noc)         what focus pours is kept unseen; the night ends when it holds the push's cells,
  *                            and they light at dawn
- *   rest (Blask)             whole breaths (kit/breath: 4 in, 6 out → 20 s); calm makes the lit glass glow
+ *   rest (Blask)             whole breaths (kit/breath: 4 in, 6 out; 2 → 20 s, or the player's 1–6); calm makes
+ *                            the lit glass glow
  *   each block's verdict     a passed push leaves a RAY in the aura, a passed rest a RING
  *   the finale               the light fills what is still unlit (grace), the leading dissolves, the
  *                            declaration is written out with its verse (the view)
@@ -18,7 +20,7 @@
  * stays; a bad signal never takes anything away.  Touch chooses where (and a drop joins flowing colour).
  * Events go out through `take()`; the view, the sound and the coach marks read them.
  */
-import { BREATH_DEFAULT, breathAt, breathCycle, breathRest, type BreathState } from '../kit/breath';
+import { BREATH_DEFAULT, breathAt, breathCycle, breathRest, breathRestOf, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import type { ArcadeOutcome } from '../kit/types';
@@ -80,6 +82,8 @@ export interface SimInit {
   askForm: boolean;
   /** the window's cells, forced (tests, and `?debug&jestemCells=144` for the frame-time audit); else from the pace */
   cells?: number;
+  /** the rest's rhythm the player set (kit/rhythm): the mean cells before a rest, the rest's whole breaths; absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 /** The opening card of the first session (and the form question in Polish). */
@@ -105,15 +109,33 @@ export const warmFor = (plannedSec: number): number =>
 export const playSecOf = (plannedSec: number, firstEver: boolean): number =>
   Math.max(0, plannedSec - finaleFor(plannedSec) - (firstEver ? warmFor(plannedSec) : 0));
 
-/** A rest of whole breaths (kit/breath): about 22 s, at least 12 → 2 breaths of 4 in, 6 out = 20 s. */
-export const restSec = (): number => breathRest(BREATH, RULES.restTarget, RULES.restMin).sec;
+/** A rest of `breaths` whole breaths of 4 in, 6 out (kit/breath): 2 by design → 20 s. */
+export const restSec = (breaths: number = RULES.restBreaths): number => breathRestOf(BREATH, breaths).sec;
 
-/** The cells the next push asks after one that took `sec` (cut at its cap: `capped`): quicker → one more, slow → one fewer. */
-export function nextPushCells(k: number, sec: number, capped: boolean): number {
+/** The player's mean cells before a rest (the lobby's dial, kit/rhythm), kept whole and inside the dial's range. */
+export const pieceMean = (m?: number | null): number =>
+  Math.round(clamp(typeof m === 'number' && Number.isFinite(m) ? m : RULES.pushCells, RULES.pushCellsDial.min, RULES.pushCellsDial.max));
+
+/** The cells a push may ask around the mean `m`: m ± 1, never under the dial's least (2 → 2…3, 4 → 3…5, 8 → 7…9). */
+export function pushBand(m: number = RULES.pushCells): [number, number] {
+  const mm = pieceMean(m);
+  return [Math.max(RULES.pushCellsDial.min, mm - RULES.pushCellsVar), mm + RULES.pushCellsVar];
+}
+
+/** A push's seconds `x` designed at the mean of 4, for the mean `m`: the part past the band's lead-in grows with the cells. */
+export const pushSecAt = (x: number, m: number = RULES.pushCells): number =>
+  RULES.pushLead + ((x - RULES.pushLead) * pieceMean(m)) / RULES.pushCells;
+
+/**
+ * The cells the next push asks after one that took `sec` (cut at its cap: `capped`): quicker → one more, slow → one
+ * fewer, inside the band around the player's mean `m` (the quick and slow marks scale with it).
+ */
+export function nextPushCells(k: number, sec: number, capped: boolean, m: number = RULES.pushCells): number {
   let n = k;
-  if (capped || sec > RULES.pushSlow) n = k - 1;
-  else if (sec < RULES.pushQuick) n = k + 1;
-  return Math.round(clamp(n, RULES.pushCellsMin, RULES.pushCellsMax));
+  if (capped || sec > pushSecAt(RULES.pushSlow, m)) n = k - 1;
+  else if (sec < pushSecAt(RULES.pushQuick, m)) n = k + 1;
+  const [lo, hi] = pushBand(m);
+  return Math.round(clamp(n, lo, hi));
 }
 
 /** The flow while focused in a sighted push past its lead-in (units per second): wider above the threshold. */
@@ -183,8 +205,11 @@ export class JestemSim {
   graced = 0;
   /** cells the current push has lit (it ends at its `cells`) */
   pushLit = 0;
-  /** the cells the next push will ask */
-  private nextCells: number = RULES.pushCells;
+  /** the player's mean cells before a rest and the rest's whole breaths (the lobby's rhythm, or the rules') */
+  readonly pieces: number;
+  readonly restBreaths: number;
+  /** the cells the next push will ask (the first: the band's lowest) */
+  private nextCells: number;
   /** the finale's clock, and when each still-unlit cell turns to light */
   finaleT = 0;
   graceAt: number[] = [];
@@ -243,6 +268,10 @@ export class JestemSim {
     this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsLongMax
       ? Math.round(init.cells) : planCells(this.p.pace, playSecOf(init.plannedSec, this.session === 1));
     this.talk = new Talk(LINES, init.rng);
+    this.pieces = pieceMean(init.rhythm?.focus);
+    const rb = init.rhythm?.rest;
+    this.restBreaths = Math.round(clamp(typeof rb === 'number' && Number.isFinite(rb) ? rb : RULES.restBreaths, RULES.restBreathsDial.min, RULES.restBreathsDial.max));
+    this.nextCells = pushBand(this.pieces)[0];
   }
 
   // ── state ───────────────────────────────────────────────────────
@@ -598,20 +627,20 @@ export class JestemSim {
       after = this.blk('push');
     } else if (kind === 'push') {
       cells = this.nextCells;
-      // a light pass has no cells to light: a timed push
-      dur = this.complete ? Math.min(R.pushMax, 20) : R.pushMax;
+      // a light pass has no cells to light: a timed push (both caps grow with the player's mean cells)
+      dur = pushSecAt(this.complete ? R.pushLight : R.pushMax, this.pieces);
       dur = Math.max(this.pushRoom, Math.min(dur, room - oneBreath));
       after = this.blk('rest');
     } else {
-      const nominal = restSec();
+      const nominal = restSec(this.restBreaths);
       // another push only if it has its room and still leaves a breath of rest before the finale
       if (room - nominal - oneBreath >= this.pushRoom) {
         dur = nominal;
         after = this.blk('push');
       } else {
-        // the last rest: the whole breaths that bring the session nearest its finale (at most three: the finale
-        // takes what is left)
-        dur = room > 0 ? Math.min(3 * oneBreath, breathRest(BREATH, room, Math.min(R.restMin, room)).sec) : oneBreath;
+        // the last rest: the whole breaths that bring the session nearest its finale (at most three, or the
+        // player's longer rest: the finale takes what is left)
+        dur = room > 0 ? Math.min(Math.max(3, this.restBreaths) * oneBreath, breathRest(BREATH, room, Math.min(R.restMin, room)).sec) : oneBreath;
         after = null;
       }
     }
@@ -656,7 +685,7 @@ export class JestemSim {
 
   /** A block to come (its length is decided when it begins). */
   private blk(kind: BlockKind): Block {
-    return { kind, dur: kind === 'rest' ? restSec() : RULES.pushMax, blind: false, cells: kind === 'push' ? this.nextCells : 0 };
+    return { kind, dur: kind === 'rest' ? restSec(this.restBreaths) : pushSecAt(RULES.pushMax, this.pieces), blind: false, cells: kind === 'push' ? this.nextCells : 0 };
   }
 
   /**
@@ -708,8 +737,8 @@ export class JestemSim {
             if (!b.blind) this.say('ray', 1, 5);
           }
         }
-        // the next push asks for as many cells as this one's pace allows (3…5)
-        if (b.cells > 0 && !this.complete) this.nextCells = nextPushCells(b.cells, this.blockT, capped);
+        // the next push asks for as many cells as this one's pace allows (the player's mean ± 1: 3…5 by design)
+        if (b.cells > 0 && !this.complete) this.nextCells = nextPushCells(b.cells, this.blockT, capped, this.pieces);
         b.dur = this.blockT;
       } else if (verdict) {
         this.passedRest++;

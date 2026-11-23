@@ -19,6 +19,10 @@ const pl = {
   // counts
   'pieces': { one: `{n}${N}część`, few: `{n}${N}części`, many: `{n}${N}części`, other: `{n}${N}części` },
   'pct': '{n}%',
+  // the lobby's rhythm (kit/rhythm, round 15): "Odpoczynek po: 4 częściach"
+  'rhythm.after': 'Odpoczynek po',
+  'rhythm.pieces': { one: `{n}${N}części`, few: `{n}${N}częściach`, many: `{n}${N}częściach`, other: `{n}${N}częściach` },
+  'rhythm.note': 'Z Twoim tempem o jedną część więcej lub mniej',
 
   // the declaration
   'sentence': 'Przez potężne imię Jezusa ja jestem {word}.',
@@ -127,7 +131,7 @@ const pl = {
   'tip.light.2': 'Wejdź w obraz: zobacz to światło na swoich dłoniach.',
 
   // how to play
-  'howto.goal': 'Skup się na obrazie: barwa wypełnia szkic część po części. Po 3–5 częściach odpoczynek: oddychaj, a szkło nabiera blasku.',
+  'howto.goal': 'Skup się na obrazie: barwa wypełnia szkic część po części. Po {range} częściach odpoczynek: oddychaj, a szkło nabiera blasku.',
   'howto.tap': 'Stuknij część szkicu: tam popłynie barwa. Bez stukania barwa sama wybiera drogę, od serca obrazu.',
   'howto.drag': 'Przeciągnij palcem po szkicu, by wyznaczyć barwie drogę przez kilka części.',
   'howto.click': 'Kliknij część szkicu: tam popłynie barwa. Bez klikania barwa sama wybiera drogę, od serca obrazu.',
@@ -335,6 +339,9 @@ type Cat = { readonly [K in Key]: string | { one: string; few?: string; many?: s
 
 const en: Cat = {
   'pieces': { one: `{n}${N}piece`, other: `{n}${N}pieces` },
+  'rhythm.after': 'Rest after',
+  'rhythm.pieces': { one: `{n}${N}piece`, other: `{n}${N}pieces` },
+  'rhythm.note': 'One piece more or fewer with your pace',
   'pct': '{n}%',
 
   'sentence': 'In the powerful name of Jesus I am {word}.',
@@ -438,7 +445,7 @@ const en: Cat = {
   'tip.light.1': 'See the whole picture shine from within, brighter and brighter.',
   'tip.light.2': 'Step into the picture: see that light on your hands.',
 
-  'howto.goal': 'Focus on the picture: colour fills the sketch piece by piece. After 3–5 pieces, a rest: breathe, and the glass gathers its glow.',
+  'howto.goal': 'Focus on the picture: colour fills the sketch piece by piece. After {range} pieces, a rest: breathe, and the glass gathers its glow.',
   'howto.tap': 'Tap a part of the sketch: the colour flows there. Untouched, the colour finds its own way from the heart of the picture.',
   'howto.drag': 'Drag across the sketch to lay the colour’s path through several parts.',
   'howto.click': 'Click a part of the sketch: the colour flows there. Without a click, the colour finds its own way from the heart of the picture.',
@@ -637,6 +644,9 @@ const en: Cat = {
 
 const de: Cat = {
   'pieces': { one: `{n}${N}Teil`, other: `{n}${N}Teile` },
+  'rhythm.after': 'Ruhe nach',
+  'rhythm.pieces': { one: `{n}${N}Teil`, other: `{n}${N}Teilen` },
+  'rhythm.note': 'Mit deinem Tempo ein Teil mehr oder weniger',
   'pct': `{n}${N}%`,
 
   'sentence': 'Im mächtigen Namen Jesu bin ich {word}.',
@@ -740,7 +750,7 @@ const de: Cat = {
   'tip.light.1': 'Sieh, wie das ganze Bild von innen leuchtet, immer heller.',
   'tip.light.2': 'Tritt ins Bild: Sieh dieses Licht auf deinen Händen.',
 
-  'howto.goal': 'Fokussiere dich aufs Bild: Farbe füllt die Skizze Teil für Teil. Nach 3–5 Teilen kommt die Ruhe: Atme, und das Glas sammelt seinen Schein.',
+  'howto.goal': 'Fokussiere dich aufs Bild: Farbe füllt die Skizze Teil für Teil. Nach {range} Teilen kommt die Ruhe: Atme, und das Glas sammelt seinen Schein.',
   'howto.tap': 'Tippe einen Teil der Skizze an: Dorthin fließt die Farbe. Ohne Tippen findet sie selbst ihren Weg, vom Herzen des Bildes aus.',
   'howto.drag': 'Ziehe über die Skizze, um der Farbe einen Weg durch mehrere Teile zu legen.',
   'howto.click': 'Klicke einen Teil der Skizze an: Dorthin fließt die Farbe. Ohne Klick findet sie selbst ihren Weg, vom Herzen des Bildes aus.',
@@ -939,6 +949,9 @@ const de: Cat = {
 
 const sv: Cat = {
   'pieces': { one: `{n}${N}del`, other: `{n}${N}delar` },
+  'rhythm.after': 'Vila efter',
+  'rhythm.pieces': { one: `{n}${N}del`, other: `{n}${N}delar` },
+  'rhythm.note': 'En del mer eller mindre efter din takt',
   'pct': `{n}${N}%`,
 
   'sentence': 'I Jesu mäktiga namn är jag {word}.',
@@ -1042,7 +1055,7 @@ const sv: Cat = {
   'tip.light.1': 'Se hela bilden lysa inifrån, allt klarare.',
   'tip.light.2': 'Stig in i bilden: se ljuset på dina händer.',
 
-  'howto.goal': 'Fokusera på bilden: färgen fyller skissen del för del. Efter 3–5 delar kommer vilan: andas, och glaset samlar sitt sken.',
+  'howto.goal': 'Fokusera på bilden: färgen fyller skissen del för del. Efter {range} delar kommer vilan: andas, och glaset samlar sitt sken.',
   'howto.tap': 'Tryck på en del av skissen: dit flödar färgen. Utan tryck hittar färgen själv sin väg från bildens hjärta.',
   'howto.drag': 'Dra över skissen för att lägga färgens väg genom flera delar.',
   'howto.click': 'Klicka på en del av skissen: dit flödar färgen. Utan klick hittar färgen själv sin väg från bildens hjärta.',

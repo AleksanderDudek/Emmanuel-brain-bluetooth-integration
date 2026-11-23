@@ -6,7 +6,8 @@
  * Units: a declaration's picture lives in its own space, PW × PH (the window's rectangle; the round arch cuts
  * its top corners); an own photo keeps its own shape (its aspect within 9:16…16:9) over about the same area.
  * Colour is poured in "units": a cell of the mean size holds `capUnit` units, so a push of 3–5 cells lasts
- * about 20–30 s of focus at the threshold (round 11: the rest comes after the cells, not after a clock).
+ * about 20–30 s of focus at the threshold (round 11: the rest comes after the cells, not after a clock; round 15:
+ * the player sets how many cells — their mean — and how many breaths a rest lasts, in the lobby).
  */
 export const RULES = {
   // ── the window and its picture ────────────────────────────────
@@ -91,8 +92,12 @@ export const RULES = {
   /** the light pass (every cell lit before the end): glow per second in a push, (base + level) / lightSec */
   lightSec: 22,
   lightBase: 0.3,
-  /** a rest: about this many seconds of whole breaths (kit/breath, 4 · 0 · 6 · 0 → 2 breaths, 20 s), at least `restMin` */
-  restTarget: 22,
+  /**
+   * a rest: whole breaths of 4 · 0 · 6 · 0 (kit/breath) — 2 by design (20 s), the player sets 1–6 in the lobby
+   * ("Odpoczynek", round 15); the session's last rest at least `restMin` s where it has the room
+   */
+  restBreaths: 2,
+  restBreathsDial: { min: 1, max: 6 },
   restMin: 12,
 
   // ── the aura ─────────────────────────────────────────────────
@@ -103,15 +108,26 @@ export const RULES = {
   // ── the blocks ───────────────────────────────────────────────
   /** the first-ever session's warm-up (s): long sessions (≥ 300 s), shorter ones, a ≤ 60 s test */
   warm: { long: 30, short: 20, test: 6 },
-  /** a push ends when this many of its cells light: the first push's, and the bounds (the player's pace moves it) */
-  pushCells: 3,
-  pushCellsMin: 3,
-  pushCellsMax: 5,
-  /** a push shorter than this (s) asks one cell more next time; one longer (or cut at its cap) one fewer */
+  /**
+   * a push ends when this many of its cells light (round 11: "rest after 3–5 completed tiles"): the mean — 4 by
+   * design, the player sets 2–8 in the lobby ("Odpoczynek po", round 15) — and how far the player's pace moves a
+   * push around it (± 1, never under the dial's least); a session's first push asks the band's lowest
+   */
+  pushCells: 4,
+  pushCellsVar: 1,
+  pushCellsDial: { min: 2, max: 8 },
+  /**
+   * at the mean of 4 cells: a push shorter than this (s) asks one cell more next time; one longer (or cut at its cap)
+   * one fewer — another mean scales the part past the band's lead-in (`pushLead`) with it
+   */
   pushQuick: 24,
   pushSlow: 34,
-  /** a push never lasts longer than this (s): without focus the rest still comes */
+  /** a push never lasts longer than this (s) at the mean of 4 (scaled the same way): without focus the rest still comes */
   pushMax: 40,
+  /** a light pass (every cell lit) is a timed push of this (s) at the mean of 4 (scaled the same way) */
+  pushLight: 20,
+  /** the part of a push's seconds that does not grow with its cells (the band's lead-in, fNIRS) */
+  pushLead: 5,
   /** the shortest push worth starting (s) before the finale; a ≤ 60 s test session's */
   pushRoom: 16,
   pushRoomTest: 5,

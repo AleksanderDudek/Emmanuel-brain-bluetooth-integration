@@ -3,7 +3,8 @@
  * receives a declaration — loved, healthy, strong, free… — or takes their own dream: a photo of it and their
  * own words after "ja" ("…mam pokój").  The picture is turned into a mosaic sketch before the game begins (a
  * declaration's stained-glass window; an own photo in its own shape); their focus pours colour into it cell by
- * cell (a full cell lights, a whole fragment becomes one pane; after 3–5 cells comes a rest of whole breaths),
+ * cell (a full cell lights, a whole fragment becomes one pane; after 3–5 cells comes a rest of whole breaths — the
+ * player sets both in the lobby, and the rest's breath is drawn as the kit's guide, kit/breathguide.ts),
  * their calm makes the glass glow, and at the end the leading dissolves, the picture shines with its aura, and
  * the affirmation is written out with the verse it stands on.  One a session, the next not yet received unless
  * the player chooses.
@@ -15,9 +16,11 @@
  * sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
  */
 import { lang } from '../../i18n';
+import { BREATH_DEFAULT, breathCycle } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { JestemSound } from './audio';
 import { declWord, formSample, type Form } from './content';
@@ -30,7 +33,7 @@ import { cut, prepare, seedOf, type PrepJob, type Prepared } from './prep';
 import { drawPreview } from './preview';
 import { JestemView } from './render';
 import { RULES, readSec } from './rules';
-import { JestemSim, type Coach, type CoachAt, type SimEvent } from './sim';
+import { JestemSim, pieceMean, pushBand, pushSecAt, restSec, type Coach, type CoachAt, type SimEvent } from './sim';
 import { cellUnder } from './vision';
 
 /** a finger that moves farther than this (px) drags; less is a tap */
@@ -53,6 +56,9 @@ class JestemGame implements ArcadeGame {
   private readonly hints: { what: Coach; at: CoachAt; k?: number }[] = [];
   /** the first coach mark (where to tap) stays until the player's first touch */
   private tapHint = false;
+  /** the coach mark on screen now (its kind) and until when (s of play): a push's mark goes when a rest begins */
+  private hintNowWhat: Coach | null = null;
+  private hintUntil = 0;
   private hintCool = 1.5;
   private cardUp = false;
   private waitSec = 0;
@@ -63,8 +69,10 @@ class JestemGame implements ArcadeGame {
     const q = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search) ? new URLSearchParams(location.search).get('jestemCells') : null;
     this.sim = new JestemSim({
       progress: p, rng: env.rng, day: env.day, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, askForm: lang === 'pl',
-      cells: q ? Number(q) : undefined,
+      cells: q ? Number(q) : undefined, rhythm: env.rhythm,
     });
+    // the how-to card (shown after this) names the player's own count of pieces
+    howtoPieces = this.sim.pieces;
     this.visionKey = nextVision(p);
     this.job = prepare(this.visionKey, legacyLabel(p, keyOwn(this.visionKey)));
     this.view = new JestemView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
@@ -260,6 +268,11 @@ class JestemGame implements ArcadeGame {
       this.view.on(e);
       this.sound.on(e);
       if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at, k: e.k });
+      // a rest begins: a push's explanation still up ("after 3 pieces comes the rest") goes, the breath guide stays clear
+      if (e.type === 'blockStart' && e.block.kind === 'rest' && this.hintNowWhat && ['push', 'oculus', 'night', 'light'].includes(this.hintNowWhat) && this.sim.t < this.hintUntil) {
+        this.env.hint('');
+        this.hintNowWhat = null;
+      }
       if (this.env.haptics) haptic(e);
     }
   }
@@ -306,6 +319,8 @@ class JestemGame implements ArcadeGame {
     const text = coachText(h.what, this.env.touch, { photo: this.view.photo, k: h.k });
     const ms = h.what === 'tap' ? 15000 : readSec(text) * 1000;
     this.tapHint = h.what === 'tap';
+    this.hintNowWhat = h.what;
+    this.hintUntil = this.sim.t + ms / 1000;
     this.hintCool = (h.what === 'tap' ? readSec(text) : ms / 1000) + 1;
     this.env.hint(text, at, ms);
   }
@@ -383,13 +398,18 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/** The mean pieces before a rest the how-to card names: the session's (set when it is created), else the design's. */
+let howtoPieces: number = RULES.pushCells;
+
 /**
  * How to play, for the hand the player has: tap and drag on a phone; click and drag, the drop on Space on a desktop.
- * The goal says the rule of the round (focus pours, rest after 3–5 pieces); the last tip, what the band measures.
+ * The goal says the rule of the round (focus pours, rest after 3–5 pieces — the player's own band around their
+ * mean, `pieces`); the last tip, what the band measures.
  */
-export function howto(touch = coarsePointer()): HowTo {
+export function howto(touch = coarsePointer(), pieces: number = howtoPieces): HowTo {
+  const [lo, hi] = pushBand(pieces);
   return {
-    goal: t('howto.goal'),
+    goal: t('howto.goal', { range: `${lo}–${hi}` }),
     hands: [
       { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
       { gesture: 'drag', text: t(touch ? 'howto.drag' : 'howto.drag.mouse') },
@@ -410,5 +430,27 @@ const mod: ArcadeModule<JestemProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: () => rhythm(),
+  // the rest's breath is drawn in the scene (render.ts drawBreath): the runner adds no pacer of its own
+  ownBreath: true,
 };
 export default mod;
+
+/**
+ * The rest's rhythm in the lobby (kit/rhythm, round 15): how many pieces light before a rest — the mean of the
+ * push's cells, 2–8 (4 by design: 3–5 with the player's pace) — and how many whole breaths of 4 in, 6 out a rest
+ * lasts, 1–6 (2 by design: 20 s).  A piece takes about 6 s of focus at the threshold, past the band's lead-in.
+ */
+export function rhythm(): RhythmSpec {
+  const R = RULES;
+  return {
+    focus: {
+      def: R.pushCells, min: R.pushCellsDial.min, max: R.pushCellsDial.max, step: 1,
+      name: t('rhythm.after'), format: n => t('rhythm.pieces', { n }),
+    },
+    rest: breathDial(R.restBreaths, undefined, breathCycle(BREATH_DEFAULT), R.restBreathsDial),
+    note: t('rhythm.note'),
+    focusSec: n => pushSecAt((R.pushQuick + R.pushSlow) / 2, pieceMean(n)),
+    restSec: n => restSec(n),
+  };
+}
