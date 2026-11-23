@@ -18,11 +18,12 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { MothSound } from './audio';
 import { speciesById } from './content';
 import { t, type Key } from './i18n';
-import { tapTargets } from './layout';
+import { PACER, tapTargets } from './layout';
 import { freshProgress, migrate, type MothProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -49,6 +50,7 @@ class Motylarnia implements ArcadeGame {
   constructor(private readonly env: GameEnv<MothProgress>) {
     this.sim = new MothSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new MothView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.stick = new Stick(this.view.L.stick);
@@ -187,8 +189,12 @@ class Motylarnia implements ArcadeGame {
     else at = this.view.worldToScreen(x, y);
     // the bubble is centred on its point: keep it whole on the screen and inside the play area
     const side = Math.min(150, L.w / 2 - 10);
-    // (low enough for a two-line bubble above the point under the HUD)
-    at = { x: Math.max(side, Math.min(L.w - side, at.x)), y: Math.max(L.play.y + 76 * L.u, Math.min(L.play.y + L.play.h - 10, at.y)) };
+    // (low enough for a two-line bubble above the point under the HUD; in the Sjesta, where the bubble would reach
+    // the runner's breath pacer at the top centre, under it too, so the first siesta's mark never hides the breath)
+    const ax = Math.max(side, Math.min(L.w - side, at.x));
+    const pacer = what === 'rest' && Math.abs(ax - L.w / 2) < PACER.half + side;
+    const floor = L.play.y + (pacer ? Math.max(76 * L.u, PACER.coach) : 76 * L.u);
+    at = { x: ax, y: Math.max(floor, Math.min(L.play.y + L.play.h - 10, at.y)) };
     this.env.hint(teachText(what, this.env.touch), at, 4200);
   }
 
@@ -264,5 +270,7 @@ const mod: ArcadeModule<MothProgress> = {
   progressPanel: p => progressPanel(migrate(p)),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Apetyt before the Sjesta, and of the siesta
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

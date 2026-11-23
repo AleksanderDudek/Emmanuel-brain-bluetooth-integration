@@ -7,7 +7,7 @@ import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { GARDENS, LINES, LINE_COUNT, SPECIES, TIPS, gardenAt, speciesById } from '../src/arcade/motylarnia/content';
 import { CATALOGS, t } from '../src/arcade/motylarnia/i18n';
-import { computeLayout, gardenCardBox, openCard, tapTargets, toScreen, toWorld, zoomFor } from '../src/arcade/motylarnia/layout';
+import { PACER, computeLayout, gardenCardBox, openCard, tapTargets, toScreen, toWorld, zoomFor } from '../src/arcade/motylarnia/layout';
 import { fitFont, font, fontPx } from '../src/arcade/motylarnia/paint';
 import { Stick } from '../src/arcade/motylarnia/stick';
 import { howto, teachText } from '../src/arcade/motylarnia/index';
@@ -33,10 +33,10 @@ const frame = (level: number, reliable = true): FocusFrame => ({
   reliable, activity: reliable ? (level >= 0.5 ? 5 : -1) : null, threshold: 2, level, focused: level >= 0.5, hold: 0, calm: 1 - level,
 });
 
-function newSim(o: { progress?: MothProgress; seed?: number; plannedSec?: number; eeg?: boolean } = {}): MothSim {
+function newSim(o: { progress?: MothProgress; seed?: number; plannedSec?: number; eeg?: boolean; rhythm?: { focus: number; rest: number } } = {}): MothSim {
   const sim = new MothSim({
     progress: o.progress ?? veteran(), rng: mulberry32(o.seed ?? 7), day: DAY, daySeed: 4242, plannedSec: o.plannedSec ?? 300,
-    eeg: o.eeg ?? false, tuning: DEFAULT_TUNING,
+    eeg: o.eeg ?? false, tuning: DEFAULT_TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -87,6 +87,30 @@ describe('the plan', () => {
     }
     const five = planBlocks(300, false, mulberry32(1)).filter(b => b.kind === 'push');
     for (const b of five) expect(b.dur).toBeGreaterThan(19);
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Apetyt, shorter Sjesta, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.8);
+        expect(k).toBeLessThan(1.2);
+        expect(Math.abs(plan.reduce((s, b) => s + b.dur, 0) - (planned - RULES.finale))).toBeLessThan(0.5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-6);
+        expect(plan.at(-1)!.kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the Sjesta under a third of the session; the lobby's dials start there
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.34);
+    const spec = motylarnia.rhythm!();
+    expect([spec.focus.def, spec.rest.def]).toEqual([RULES.push[0], RULES.rest[0]]);
+    expect([spec.focus.name, spec.rest.name]).toEqual(['Apetyt', 'Sjesta']);
   });
 
   it('makes every 4th push block blind from the third session, never the first of a session', () => {
@@ -162,8 +186,11 @@ describe('the caterpillar', () => {
     // a row of flowers straight ahead, one every few frames
     for (let i = 1; i <= 10; i++) sim.food.push({ id: 900 + i, kind: 'flower', x: h.x + Math.cos(sim.player.dir) * i * 14, y: h.y + Math.sin(sim.player.dir) * i * 14, r: 9, pig: i % 5, age: 0, pulled: false });
     const ev = run(sim, 1.6);
+    // the row's ten flowers all eaten (an eaten flower grows again somewhere: with this seed's draw one lands in the path)
     const eats = ev.filter(e => e.type === 'eat');
-    expect(eats.length).toBe(10);
+    expect(sim.food.some(f => f.id > 900 && f.id <= 910)).toBe(false);
+    expect(eats.length).toBeGreaterThanOrEqual(10);
+    expect(eats.length).toBeLessThanOrEqual(11);
     expect(sim.len).toBeGreaterThanOrEqual(len0 + 5);
     expect(Math.max(...eats.map(e => (e.type === 'eat' ? e.mult : 0)))).toBe(2);
     expect(sim.score).toBeGreaterThan(30);
@@ -513,6 +540,34 @@ describe('the session', () => {
     expect(p.tut).toBe(true);
   });
 
+  it('teaches only the Sjesta in a Sjesta: a rival met there is taught at the next Apetyt', () => {
+    const sim = newSim({ progress: veteran({ seen: [] }) });
+    // no rival near before the Sjesta (the garden's own would be taught in the first Apetyt)
+    for (let i = 0; i < 200 / DT && !(sim.block.kind === 'rest' && sim.blockT > 0); i++) {
+      sim.rivals.length = 0;
+      sim.update(DT, frame(0.3), sim.t + DT);
+      sim.take();
+    }
+    expect(sim.block.kind).toBe('rest');
+    clearField(sim);
+    const rival = () => {
+      // beside the caterpillar, a little behind, heading the other way: near, never in its path
+      const h = sim.player.segs[0], d = sim.player.dir, nx = -Math.sin(d), ny = Math.cos(d);
+      const x0 = h.x + nx * 150 - Math.cos(d) * 60, y0 = h.y + ny * 150 - Math.sin(d) * 60;
+      sim.rivals.length = 0;
+      sim.rivals.push({ ...sim.player, id: 79, sp: 'bielinek', segs: Array.from({ length: 12 }, (_, i) => ({ x: x0 + Math.cos(d) * i * 9, y: y0 + Math.sin(d) * i * 9 })), dir: d + Math.PI, want: d + Math.PI, curl: 0, safe: 0, away: 0, think: 5, tx: 0, ty: 0, grow: 0, sprinting: false });
+    };
+    rival();
+    // through the rest of the Sjesta and into the next Apetyt, each rival mark with the block it came in
+    const marks: string[] = [];
+    for (let i = 0; i < 120 / DT && !(sim.block.kind === 'push' && sim.blockT > 1); i++) {
+      if (sim.block.kind === 'push' && !sim.rivals.length) rival();
+      sim.update(DT, frame(0.3), sim.t + DT);
+      for (const e of sim.take()) if (e.type === 'teach' && e.what === 'rival') marks.push(sim.block.kind);
+    }
+    expect(marks).toEqual(['push']);
+  });
+
   it('has Hieronim speak one short line at a time', () => {
     const sim = newSim({ plannedSec: 180 });
     let lines = 0, prev: unknown = null;
@@ -833,6 +888,33 @@ describe('big screens and the mouse (DESIGN §14)', () => {
     expect([0, 4, 6, 7, 9].map(z)).toEqual([1, 1, 1.91, 1.72, 1.69]);
   });
 
+  it('drops the twig under the runner\'s breath pacer in a Sjesta where its chrysalises would hide behind it, and lifts it after', () => {
+    for (const c of CHECK_SIZES.filter(x => ['small phone (Chrome)', 'phone on its side (chart on)', 'desktop'].includes(x.name))) {
+      const hints: { y: number }[] = [];
+      const env: GameEnv<MothProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: veteran(), rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true,
+        haptics: false, tuning: DEFAULT_TUNING, hint: (_t, at) => { if (at) hints.push(at); }, hudTop: () => c.insets.top, insets: () => c.insets, touch: true,
+      };
+      const game = motylarnia.create(env);
+      game.resize(c.w, c.h, 1);
+      game.start();
+      const sim = (game as unknown as { sim: MothSim }).sim;
+      const view = (game as unknown as { view: { L: { w: number; play: { y: number }; twig: { y: number; len: number } }; twigSpot(): { x: number; y: number } } }).view;
+      const spotY = () => view.twigSpot().y - view.L.twig.y - view.L.twig.len * 0.9;
+      let time = 0;
+      while (!(sim.block.kind === 'rest' && sim.blockT > 1) && time < 120) game.update(DT, frame(0.3), (time += DT));
+      expect(sim.block.kind, c.name).toBe('rest');
+      // an upright phone: the twig reaches the pacer's half under the play's centre; on its side and at a desk it is clear
+      const phone = c.w < 500;
+      expect(spotY(), c.name).toBeCloseTo(phone ? PACER.drop : 0, 6);
+      while (sim.block.kind === 'rest' && time < 240) game.update(DT, frame(0.3), (time += DT));
+      game.update(DT, frame(0.3), (time += DT));
+      expect(spotY(), c.name).toBeCloseTo(0, 6);
+      game.destroy();
+    }
+  });
+
   it('answers the mouse: a crosshair over the garden, an aim ring where the caterpillar heads, a hand over a card', () => {
     for (const c of BIG) {
       const env: GameEnv<MothProgress> = {
@@ -942,6 +1024,37 @@ describe('Motylarnia at 15–30 minutes', () => {
     expect(out.highlights.length).toBeLessThanOrEqual(4);
     for (const s of out.highlights) expect(s.length).toBeLessThan(160);
     for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+
+  it('plays any rhythm the player sets to its finale: 3, 10 and 30 minutes, long feeding runs or long siestas, the score still grows', () => {
+    for (const plannedSec of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${plannedSec} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = newSim({ progress: veteran({ garden: 0 }), plannedSec, seed: 5, rhythm });
+        const dt = 1 / 15;
+        let at = 0, radiant = 0;
+        for (let i = 0; i < (plannedSec + 6) / dt && sim.phase !== 'done'; i++) {
+          if (i % 3 === 0) {
+            const h = sim.player.segs[0];
+            let best: { x: number; y: number } | null = null, bd = Infinity;
+            for (const f of sim.food) {
+              const d = ((f.x - h.x) ** 2 + (f.y - h.y) ** 2) / (f.kind === 'flower' ? 3 : 1);
+              if (d < bd) { bd = d; best = f; }
+            }
+            if (best) sim.aim(Math.atan2(best.y - h.y, best.x - h.x));
+          }
+          sim.update(dt, frame(sim.block.kind === 'push' ? 0.85 : 0.2), sim.t + dt);
+          for (const e of sim.take()) if (e.type === 'hatch' && e.b.radiant) radiant++;
+          if (!at && sim.t >= plannedSec * 2 / 3) at = sim.score;
+        }
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(sim.twig.length, name).toBeLessThanOrEqual(RULES.twigMax);
+        expect(Number.isFinite(sim.score), name).toBe(true);
+        // a Sjesta of the designed length still deepens the chrysalises to radiant
+        if (plannedSec >= 600 && (!rhythm || rhythm.rest >= RULES.rest[0])) expect(radiant, name).toBeGreaterThan(0);
+      }
+    }
   });
 
   it('plateaus the map\'s laps: a far lap is a harder garden, never an endless caterpillar', () => {

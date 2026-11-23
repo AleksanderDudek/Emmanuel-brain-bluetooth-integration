@@ -70,6 +70,14 @@ export interface Layout {
 }
 
 /**
+ * The runner's breath pacer in a Sjesta (src/arcade/pacer.ts, DESIGN §19.3): a pill centred at the top of the play
+ * area, about 66 px tall and at most `half` × 2 wide.  A twig whose chrysalises reach under it drops `drop` CSS px for
+ * the rest (render.ts), so their colour rings stay in sight; the first siesta's coach mark points at least `coach` px
+ * under the play's top (index.ts), its bubble under the pacer.
+ */
+export const PACER = { drop: 80, half: 100, coach: 176 } as const;
+
+/**
  * The layout for a canvas of w × h CSS px with these insets (a number: only the HUD band on top); `touch` as the
  * runner's env says (without it a finger: the shapes as before).
  */

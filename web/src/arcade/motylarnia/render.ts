@@ -24,7 +24,7 @@ import { PIGMENTS, capital, gardenAt, speciesById, type Species } from './conten
 import { drawBird, drawBubble, drawDecor, drawFlowerbed, drawHedge, drawSnail, drawSwoop, foodSprite, gardenDecor, lawnTile, type Decor } from './garden';
 import { t } from './i18n';
 import { buildLeaf } from './leaf';
-import { camAt, computeLayout, gardenCardBox, openCard, toScreen, toWorld, zoomFor, type Camera, type Layout, type OpenCard, type Rect } from './layout';
+import { PACER, camAt, computeLayout, gardenCardBox, openCard, toScreen, toWorld, zoomFor, type Camera, type Layout, type OpenCard, type Rect } from './layout';
 import { INK, PAPER, SANS, SERIF, darken, font, fontPx, rgba, roundRect } from './paint';
 import { drawCaterpillar, type BodyPoint } from './paint';
 import { REACH_MARK, RULES } from './rules';
@@ -122,10 +122,20 @@ export class MothView {
   /** Where the twig's first chrysalis hangs (CSS px): the coach mark for the siesta. */
   twigSpot(): { x: number; y: number } {
     const tw = this.L.twig;
-    return { x: tw.x1 - tw.len * 0.8, y: tw.y + tw.len * 0.9 };
+    return { x: tw.x1 - tw.len * 0.8, y: tw.y + this.twigDrop + tw.len * 0.9 };
   }
 
+  /**
+   * How far the twig hangs lower now (CSS px): in a Sjesta, when its chrysalises reach under the runner's breath pacer
+   * (a phone, upright or on its side), it drops below it and rises back after — a fade's step with reduced motion.
+   */
+  private twigDrop = 0;
+
   update(dt: number, sim: MothSim): void {
+    const rest = sim.block.kind === 'rest' && sim.phase === 'play';
+    const drop = rest && this.twigLeft(sim) - 12 < this.L.w / 2 + PACER.half ? PACER.drop : 0;
+    this.twigDrop = this.opts.reducedMotion ? drop : this.twigDrop + (drop - this.twigDrop) * Math.min(1, dt / 0.3);
+    if (Math.abs(drop - this.twigDrop) < 0.5) this.twigDrop = drop;
     this.clock += dt;
     this.particles.update(dt);
     this.floaters.update(dt);
@@ -231,7 +241,7 @@ export class MothView {
       }
       case 'hatch': {
         const rec = sim.p.butterflies.find(r => r.id === e.b.rec.id);
-        const tw = this.L.twig, x = tw.x1 - (e.slot + 0.8) * tw.len * 0.95, y = tw.y + tw.len;
+        const tw = this.L.twig, x = tw.x1 - (e.slot + 0.8) * tw.len * 0.95, y = tw.y + this.twigDrop + tw.len;
         if (rec) {
           const size = Math.max(22, Math.min(46, this.L.zoom * 34)) * (0.8 + 0.1 * e.b.cls);
           this.fliers.push({ s: spriteOfRecord(rec, size * this.dpr * 1.2), sp: e.b.sp, x, y, vx: -40 - 30 * Math.random(), vy: -40, t: 0, size });
@@ -647,27 +657,27 @@ export class MothView {
   private drawTwig(ctx: CanvasRenderingContext2D, sim: MothSim, rest: boolean): void {
     const tw = this.L.twig;
     if (!sim.twig.length && !rest) return;
-    const len = tw.len * (rest ? 1.15 : 1);
+    const len = tw.len * (rest ? 1.15 : 1), wy = tw.y + this.twigDrop;
     // the branch from the right edge, as long as its chrysalises need and a slot more
     const bx0 = this.twigLeft(sim);
     ctx.strokeStyle = '#6E4B2E';
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(tw.x1, tw.y - 4);
-    ctx.quadraticCurveTo((bx0 + tw.x1) / 2, tw.y + 6, bx0, tw.y);
+    ctx.moveTo(tw.x1, wy - 4);
+    ctx.quadraticCurveTo((bx0 + tw.x1) / 2, wy + 6, bx0, wy);
     ctx.stroke();
     ctx.fillStyle = '#6FA548';
     for (let i = 0; i < 4; i++) {
       const x = bx0 + ((tw.x1 - bx0) * (i + 0.5)) / 4;
       ctx.beginPath();
-      ctx.ellipse(x, tw.y - 7, 9, 4, -0.5 + i * 0.3, 0, TAU);
+      ctx.ellipse(x, wy - 7, 9, 4, -0.5 + i * 0.3, 0, TAU);
       ctx.fill();
     }
     if (rest) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const gx = tw.x1 - Math.max(1, sim.twig.length) * len * 0.5, gy = tw.y + len * 0.7;
+      const gx = tw.x1 - Math.max(1, sim.twig.length) * len * 0.5, gy = wy + len * 0.7;
       const gl = ctx.createRadialGradient(gx, gy, 4, gx, gy, len * 2.2);
       gl.addColorStop(0, 'rgba(255,240,190,.4)');
       gl.addColorStop(1, 'rgba(255,240,190,0)');
@@ -683,10 +693,10 @@ export class MothView {
         kind: 'hanging', color: sp.pupa.color, accent: sp.pupa.accent, glass: 0.25 + 0.75 * c.depth, depth: c.depth, blind: false,
         pale: wg.pale, deep: wg.deep, warm: 0,
       };
-      drawChrysalis(ctx, x, tw.y + 2, len * pop, look, Math.sin(this.clock * 1.3 + i) * 0.05, this.dpr);
+      drawChrysalis(ctx, x, wy + 2, len * pop, look, Math.sin(this.clock * 1.3 + i) * 0.05, this.dpr);
       if (rest) {
         // the colour depth, as a ring that fills
-        const ry = tw.y + len * 1.25;
+        const ry = wy + len * 1.25;
         ctx.strokeStyle = 'rgba(255,255,255,.35)';
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -707,11 +717,11 @@ export class MothView {
       ctx.fillStyle = rgba(sp.pupa.color, 0.15 + 0.6 * sim.depth);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.ellipse(x, tw.y + len * 0.5, len * 0.2, len * 0.45, 0, 0, TAU);
+      ctx.ellipse(x, wy + len * 0.5, len * 0.2, len * 0.45, 0, 0, TAU);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
-      const ry = tw.y + len * 1.25;
+      const ry = wy + len * 1.25;
       ctx.strokeStyle = 'rgba(255,255,255,.35)';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -727,7 +737,7 @@ export class MothView {
       const word = sim.twig.length ? t('hud.hatchAt') : t('hud.rest');
       const right = this.L.x1, maxW = Math.max(80, Math.min(280 * this.L.u, right - this.L.x0));
       const text = fitText(ctx, word, maxW, 13, 700, SANS, MIN_READ);
-      const tw2 = ctx.measureText(text).width, ty = tw.y + len * 1.45;
+      const tw2 = ctx.measureText(text).width, ty = wy + len * 1.45;
       ctx.fillStyle = 'rgba(255,251,239,.78)';
       roundRect(ctx, right - tw2 - 8, ty - 2, tw2 + 12, 19, 9);
       ctx.fill();

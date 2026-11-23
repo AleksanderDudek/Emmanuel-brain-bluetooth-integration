@@ -17,6 +17,7 @@
  */
 import { fmtSigned } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace } from '../kit/trace';
 import type { ArcadeOutcome, Headline } from '../kit/types';
@@ -117,11 +118,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks: a warm-up the first time (30 s in 5–10 min, 20 s in 3 min, 8 s in a short
- * test), then Apetyt / Sjesta pairs (25 ± 3 s and 22 ± 3 s, scaled to end on time, jittered when
- * there is room), the last seconds left to the finale.  No block under 10 s.
+ * test), then Apetyt / Sjesta pairs (45 ± 5 s and 20 ± 3 s, or the player's rhythm with the jitter
+ * scaled to it; scaled to end on time, jittered when there is room), the last seconds left to the
+ * finale.  No block under 10 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   let left = Math.max(2 * R.minBlock, plannedSec - R.finale);
   const plan: Block[] = [];
@@ -189,6 +191,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Apetyt, s of Sjesta); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class MothSim {
@@ -290,7 +294,7 @@ export class MothSim {
     this.bestBefore = this.p.sessions > 0 ? this.p.bestSession : null;
     this.firstEver = !this.p.tut;
     this.pushesBase = this.p.sessions * 4;
-    this.plan = planBlocks(o.plannedSec, this.firstEver, o.rng);
+    this.plan = planBlocks(o.plannedSec, this.firstEver, o.rng, o.rhythm);
     for (const s of this.p.seen) this.taught.add(s);
     this.gardenIndex = this.p.garden;
     this.garden = gardenAt(this.gardenIndex);
@@ -428,6 +432,9 @@ export class MothSim {
 
   private teach(what: Teach, x: number, y: number): void {
     if (this.taught.has(what)) return;
+    // the Sjesta teaches only the Sjesta: a rival's, a bird's or a sprint's mark waits for the next Apetyt (asked
+    // again then), so the rest stays calm and its bubble never covers the runner's breath pacer
+    if (what !== 'rest' && this.phase === 'play' && this.block.kind === 'rest') return;
     this.taught.add(what);
     if (!this.p.seen.includes(what)) this.p.seen.push(what);
     this.teachAt = this.t;

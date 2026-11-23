@@ -118,8 +118,14 @@ export const RULES = {
   gardenPts: 20,
 
   // ── the session ──────────────────────────────────────────────
-  push: [25, 3] as readonly [number, number],
-  rest: [22, 3] as readonly [number, number],
+  /**
+   * Apetyt and Sjesta: nominal length ± jitter (s).  The designed rhythm (round 15, DESIGN §19.2): a 45 s Apetyt —
+   * a whole feeding run across a garden, a chain built and a garden's goal within reach — then a 20 s Sjesta, the dew
+   * falls and calm deepens the chrysalises past radiant (≈ 8 s at a good calm) with time to spare (it was 25 / 22 s,
+   * nearly half the session, every 24 s); the player sets both in the lobby (kit/rhythm.ts), the jitter scales.
+   */
+  push: [45, 5] as readonly [number, number],
+  rest: [20, 3] as readonly [number, number],
   minBlock: 10,
   telegraph: 3.5,
   /** the runner's banner covers the first seconds of a block: Hieronim waits it out */
