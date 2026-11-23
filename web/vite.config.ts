@@ -53,7 +53,18 @@ export default defineConfig({
         // the exercise cards' images (4K ~9 MB, previews ~1 MB) are cached the first time they are shown,
         // not precached: the app's install stays the same size for those who never open the cards
         globIgnores: ['holyholyholy/**', 'holyholyholy3d/**', 'cards/**'],
+        // every chunk of the app is precached (all the arcade games, the Scripture, the knowledge articles); none may
+        // fall out for its size, or that game would not open offline
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [{
+          // the embedded HolyHolyHoly games (DESIGN.md §16): the network first, so an update arrives as soon as it is
+          // deployed; offline (or a network slower than 4 s) the copy kept when they were played or downloaded in
+          // Ustawienia → Praca offline (src/ui/offline.ts).  The iframe opens "holyholyholy3d/?hub=1": the search
+          // is ignored, so the kept "holyholyholy3d/" answers it.
+          urlPattern: ({ url, sameOrigin }) => sameOrigin && /\/holyholyholy(3d)?\//.test(url.pathname),
+          handler: 'NetworkFirst',
+          options: { cacheName: 'emmanuel-games', networkTimeoutSeconds: 4, matchOptions: { ignoreSearch: true } },
+        }, {
           urlPattern: ({ url }) => url.pathname.includes('/cards/full/'),
           handler: 'CacheFirst',
           options: { cacheName: 'cards-full', expiration: { maxEntries: 40 } },

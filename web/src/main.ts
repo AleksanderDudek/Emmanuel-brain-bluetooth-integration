@@ -31,6 +31,7 @@ import { GameLayer } from './ui/games';
 import { LanguagePicker } from './ui/language';
 import { renderMonitor } from './ui/monitor';
 import { setupPwa } from './ui/pwa';
+import { OfflineCard, watchNetwork } from './ui/offline';
 import { RecordingCard } from './ui/recording';
 import { Router, type Route } from './ui/router';
 import { SessionsView } from './ui/sessions';
@@ -72,6 +73,8 @@ async function main(): Promise<void> {
   const recording = new RecordingCard(engine, folder, settings, save);
   const settingsView = new SettingsView(engine, folder, settings, save, db);
   const activities = new ActivitiesView('activities', EXERCISES());
+  const offline = new OfflineCard();
+  watchNetwork();
   // the Games tab: the game of the day (a new one at midnight), the arcade games by kind, HolyHolyHoly
   const kindCards = KINDS.map(k => new ActivitiesView(`games-${k}`, GAME_ACTIVITIES().filter(a => a.arcade?.kind === k)));
   const holyCards = new ActivitiesView('gamesHoly', GAME_ACTIVITIES().filter(a => !a.arcade));
@@ -201,7 +204,10 @@ async function main(): Promise<void> {
       void sessions.refresh();
       sessions.renderTrainings(trainings);
     }
-    if (r.view === 'ustawienia') void settingsView.renderStorage();
+    if (r.view === 'ustawienia') {
+      void settingsView.renderStorage();
+      void offline.refresh();
+    }
     renderStrip();
     if (r.game) games.open(r.game); else games.close();
     needsSig = '';

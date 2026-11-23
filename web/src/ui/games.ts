@@ -8,6 +8,7 @@ import type { Hub, HubStatus } from '../hub';
 import { t } from '../i18n/shell';
 import type { GameId } from './router';
 import { $, h } from './dom';
+import { gameCached, gameMissingNote } from './offline';
 
 export interface GameInfo { id: GameId; title: string; path: string; text: string }
 
@@ -49,6 +50,16 @@ export class GameLayer {
     document.documentElement.style.overflow = 'hidden';
     this.lastSig = '';
     frame.focus();
+    // offline and never downloaded: a plain note instead of the browser's error page in the frame
+    if (!navigator.onLine) {
+      void gameCached(g.path).then(ok => {
+        if (ok || this.current !== id || this.frame !== frame) return;
+        this.hub.games.attach(null);
+        frame.remove();
+        this.frame = null;
+        $('gameFrame').replaceChildren(gameMissingNote());
+      });
+    }
   }
 
   close(): void {
