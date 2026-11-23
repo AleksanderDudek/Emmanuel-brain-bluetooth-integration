@@ -117,7 +117,7 @@ export class ArcadeLobby {
     const why = h('details', { class: 'rh-why' },
       h('summary', null, tr('rhythm.why')),
       h('p', null, tr('rhythm.why1')), h('p', null, tr('rhythm.why2')),
-      h('a', { href: '#wiedza' }, tr('rhythm.whyLink')));
+      h('a', { href: '#wiedza/neurofeedback' }, tr('rhythm.whyLink')));
     const kids: (HTMLElement | null)[] = [
       h('div', { class: 'rh-head' },
         h('span', null, tr('rhythm.title')),
