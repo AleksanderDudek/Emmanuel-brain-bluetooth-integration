@@ -552,3 +552,96 @@ its sources disabled and pointed at the switch "at the top".
 * **Nobody is sent to Start.** No step links there; choosing, connecting and the simulator keep the player in the view
   they are in (test/connect.test.ts; checked in Chrome on a phone and a desktop: a game lobby, the sheet from Sesje,
   Trening, the focus setup, the signal view, a card game's lobby — the hash never changes).
+
+## 15. Wiedza: what the research says about the brain you train (2026-11-23)
+
+The founder: *"Dodać zakładkę na temat wpływu kory przedczołowej na różne aspekty psychiki, emocji, kognitywnych
+aspektów etc. Na bazie badań pubmed (najlepiej metaanaliz, przeglądów, systematycznych przeglądów)."* The app trains
+the prefrontal cortex — the very place under the forehead that Mendi lights and HALO listens to — but never said what
+that part of the brain does. Wiedza is a seventh rail tab (en Knowledge, de Wissen, sv Kunskap; a book icon with a
+small light over its spine, `#i-know`) that holds articles from the research; the first one is **Kora przedczołowa**.
+
+* **Research before words.** Every source was found and then fetched on PubMed (2026-11): authors, year, title,
+  journal and the kind of paper checked against the record, each finding taken from the abstract, numbers quoted only
+  as the abstract gives them (Lim & Dinges g = −0.776 for lapses of simple attention; Snyder effect sizes 0.32–0.97…).
+  49 sources: 24 meta-analyses, 3 systematic reviews, 18 reviews and 4 single studies — the studies only where no
+  review gives the point (Liston 2009: a month of stress weakens prefrontal attention control and it comes back;
+  Hare 2009: self-control and the vmPFC/dlPFC; Gogtay 2004: the prefrontal cortex matures last; Schjoedt 2009: personal
+  prayer engages the social-cognition network). The notes behind each one — PMID, DOI, sample sizes, the findings used
+  and their limits, and what was fetched and left out (and why) — are the round's research file
+  (`research-15-pfc.md`).
+* **Data, not prose in components.** `src/content/wiedza/refs.ts` is the source list, the same in every language
+  (key, authors, year, title, journal, type `meta | sysrev | review | study`, PMID, DOI). One article file per language
+  (`pfc-pl.ts` first, then `-en`, `-de`, `-sv`; types in `types.ts`) with the same shape: a kicker, title and lede; a
+  **"what your band sees"** box (Mendi · fNIRS: near-infrared light, HbO/HbR in the frontal pole and dorsolateral PFC;
+  HALO · EEG: rhythms from Fp1/Fp2; with the honest points — skin and body signals can pass for brain, frontal alpha
+  asymmetry cannot diagnose depression); **fifteen sections** (`what, executive, attention, emotion, stress, anxiety,
+  depression, decisions, social, sleep, exercise, prayer, life, neurofeedback, practice`), each with a one-line *in
+  short*, 2–4 short paragraphs, 3–6 *what the research says* points that cite source keys, an evidence word (strong /
+  moderate / early) where it helps, one *what it means for you* line and sometimes a way into the app (the focus
+  training, the signal, a game: Z głowy do serca, Drzewo nad wodą, Brzemiona, Światło w dłoniach); **the limits of
+  this knowledge** (associations not causes; networks, no "PFC = willpower"; group averages, no diagnosis from a
+  scanner or a headband; signals from outside the brain, modest neurofeedback evidence; not medical advice); and the
+  month the literature was last reviewed. Anxiety, depression, sleep, exercise, decisions and the life course link to
+  nothing in the app on purpose: where health is at stake the line points to a doctor, not a game.
+* **Honest by construction.** Depression is described with facts only (the dlPFC is where rTMS is usually aimed;
+  treatment is a doctor's decision; Emmanuel neither diagnoses nor treats); neurofeedback is "early" — people can learn
+  to change their prefrontal signal, but well-blinded trials often do not confirm clinical effects and trained skills
+  transfer narrowly; prayer research "shows what happens in the brain while you pray — it does not say who is
+  listening".
+* **The view** (`src/ui/wiedza.ts`). The article and its sources load with `import()` the first time the tab opens, so
+  the first load of the app is unchanged. A hero (the title, the lede, "49 sources · 24 meta-analyses · literature last
+  reviewed: November 2026" and a quiet drawing of a head with the band over the forehead and the cortex behind it lit
+  in the band's colour), then the contents beside the text on a desk (sticky, the section in view marked) and as a
+  row of chips on a phone, then the band box, the sections as cards, the limits and the sources. Citation numbers
+  follow the order in which sources first appear; pressing one scrolls to the source (it flashes, gets the focus and
+  offers *↩ back to the text*) without changing the hash — a bare `#fragment` would be read by the router as an unknown
+  route. Each source shows its kind as a badge (Metaanaliza, Przegląd systematyczny, Przegląd, Badanie), opens on
+  PubMed and at its DOI in a new tab (`rel=noopener`). Polish one-letter words are tied to the next word with a
+  no-break space so none is left at the end of a line.
+* **Routes.** `#wiedza` is the article's top; `#wiedza/<part>` scrolls to a section or to `band`, `limits`, `refs`
+  (the contents' links are those routes, so a section can be shared and the back button works).
+* **Seven tabs on a phone.** The bottom bar keeps its rules: at 360 px every label fits in all four languages (the
+  longest, "Einstellungen", 63 px of text in a 67 px tab; the bar takes 346–349 px of 360), checked headlessly.
+* **Tests** (`test/wiedza.test.ts`): every cited key exists and every source is cited; each source has a numeric
+  PMID, a DOI and a known type, and syntheses outnumber single studies; the four languages have the same section ids,
+  no empty strings and cite the same sources in the same places as the Polish text; numbers use the language's decimal
+  mark; links lead to real views and games; the rendered article has a number for every citation, a PubMed link for
+  every source and no inline style; `#wiedza` and `#wiedza/<part>` parse and the old routes still do.
+* **Next articles** go in the same folder with their own refs keys; the tab can grow a list of articles when there is
+  more than one.
+
+## 16. Everything offline (2026-11-23)
+
+The founder: *"Zrobić tak, żeby te gry przeglądarkowe działały w trybie offline też (PWA?)."* The app has been a PWA
+since the first web round (vite-plugin-pwa, `registerType: 'prompt'`), and its service worker precaches the whole app:
+every view, the focus training, the exercises, every arcade game (each its own chunk, loaded on first use), the fonts,
+the Scripture and the knowledge articles. What never worked offline were the parts kept out of the precache for their
+size: the two **HolyHolyHoly** games (separate apps in an iframe; the 3D one is ~22 MB of models and textures) and the
+exercise cards' **4K images** (~10 MB).
+
+* **The embedded games are cached** by the app's service worker (vite.config.ts `runtimeCaching`, cache
+  `emmanuel-games`): network first, so a new version arrives as soon as it is deployed; offline, or on a network slower
+  than 4 s, the copy kept the last time they were played or downloaded. The iframe opens `holyholyholy3d/?hub=1`: the
+  search is ignored, so the kept `holyholyholy3d/` answers it. (The 2D game registers its own service worker once
+  opened; until then the app's covers it.)
+* **No chunk falls out of the precache for its size** (`maximumFileSizeToCacheInBytes` 5 MB; the default 2 MB would
+  silently drop a big game chunk and that game alone would not open offline).
+* **Packs to download** (`scripts/offline-files.mjs`, the build's last step): `dist/offline-files.json` lists the 3D
+  game, the 2D game and the cards — every file with its size (no source maps), each game with its directory URL too.
+* **Ustawienia → Praca offline** (`src/ui/offline.ts`, texts `src/i18n/offline.ts`): whether the app is ready offline
+  ("gotowe" once the service worker controls the page), each pack with its size and state (pobrane ✓ / pobrane 40 %),
+  **Pobierz** one or **Pobierz wszystko**, **Usuń**, and the space used on the device. A download asks the browser to
+  keep the site's storage (`navigator.storage.persist()`), six files at a time, into the caches the service worker
+  reads (`emmanuel-games`, `cards-full`, `cards-thumb`). The manifest itself is kept, so the card works offline too.
+* **Offline, said plainly**: a toast when the network goes ("Jesteś offline. Aplikacja i gry działają dalej, opaska
+  też.") and comes back; an embedded game that is not on the device shows a note with a way to Ustawienia instead of
+  the browser's error page (`src/ui/games.ts`).
+* **The proof** — `npm run offline:smoke` (scripts/offline-smoke.mjs): loads the build online, lets the service worker
+  take over, picks Mendi on the simulator, downloads every pack, then **closes the server** (and sets the page offline)
+  and reloads: Start, Trening, Gry, Sygnał, Sesje, every arcade game's lobby (35 chunks), one game played, the
+  knowledge article, the cards with their images, both HolyHolyHoly games inside the app (the 3D scene renders), and
+  the 3D game removed again shows its note. Run on 5c1e88a: pass.
+
+Bluetooth needs no network, so a band works offline as well; the sessions are stored in the browser (or a chosen
+folder) as before.
