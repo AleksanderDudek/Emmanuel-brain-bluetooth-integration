@@ -80,6 +80,12 @@ try {
   page.setDefaultTimeout(90_000);
   page.on('pageerror', e => errors.push(`page error: ${e.message}`));
   page.on('dialog', d => void d.accept());
+  // the console's last lines, printed when something fails
+  const consoleTail = [];
+  page.on('console', m => { consoleTail.push(`${m.type()}: ${m.text()}`); if (consoleTail.length > 30) consoleTail.shift(); });
+  page.on('requestfailed', r => { consoleTail.push(`failed: ${r.url()} ${r.failure()?.errorText}`); if (consoleTail.length > 30) consoleTail.shift(); });
+  globalThis.__tail = consoleTail;
+  globalThis.__page = page;
   const shot = name => page.screenshot({ path: join(SHOTS, `offline-${name}.png`) });
   const go = async (hash, view) => {
     await page.evaluate(h => { location.hash = h; }, hash);
@@ -113,7 +119,8 @@ try {
   await new Promise(r => { server.close(r); server.closeAllConnections(); });
   await page.setOfflineMode(true);
   await page.reload({ waitUntil: 'load' });
-  await page.waitForFunction(() => !document.getElementById('view-start').hidden);
+  await page.waitForFunction(() => !!document.querySelector('.view:not([hidden])'));
+  await go('start', 'start');
   if (await page.evaluate(() => navigator.onLine)) throw new Error('the page still thinks it is online');
   await shot('2-start');
 
@@ -191,6 +198,8 @@ try {
 } catch (e) {
   failed = true;
   console.error(`✗ ${e.message}`);
+  if (globalThis.__tail?.length) console.error(`console:\n  ${globalThis.__tail.join('\n  ')}`);
+  await globalThis.__page?.screenshot({ path: join(SHOTS, 'offline-failed.png') }).catch(() => undefined);
   if (errors.length) console.error(errors.join('\n'));
 } finally {
   await browser.close();
