@@ -23,6 +23,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
+import { pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -308,6 +309,36 @@ export function outButtons(L: Layout, can: boolean): { use: Rect | null; retry: 
   const retry = { x, y: r.y + r.h - Math.round(34 * u) - bh, w: bw, h: bh };
   const use = can ? { x, y: retry.y - Math.round(12 * u) - bh, w: bw, h: bh } : null;
   return { use, retry };
+}
+
+/**
+ * Where the runner's breath pacer stands in a Cisza nocy (ArcadeGame.pacerAt; kit/pacerspot.ts): the board stays the
+ * play in a rest (calm draws falling stars onto it), so the pill keeps off it, the goal (the moves, what is left),
+ * Bubo and his bubble, the telescope that calm fills, its words and the tray — in the night sky under Bubo (a desktop), beside the
+ * board (a big screen), above the board (a phone or a tablet upright whose band leaves the room).  Where the play
+ * fills the band (a small phone, a phone on its side) it takes the spot clear of the moves, the telescope, Bubo and
+ * the tray that covers the least of the board (its cells count thrice, the goal's words once).
+ */
+export function pacerAt(L: Layout): Pt | null {
+  const size = pacerSize(L.kind === 'big');
+  const band = safeBand(L.w, L.h, L.ins);
+  const o = L.owl, sc = L.scope, u = L.u;
+  const owl = { x: o.x - o.r * 1.4, y: o.y - o.r * 1.5, w: o.r * 2.8, h: o.r * 2.7 };
+  const scope = { x: sc.x - sc.r * 1.3, y: sc.y - sc.r * 1.3, w: sc.r * 2.6, h: sc.r * 2.6 };
+  const st = L.scopeText;
+  const words = st ? { x: st.x - st.w / 2, y: st.y - 4, w: st.w, h: st.h + 4 } : null;
+  // the tools' names over the tray (a column), the tray itself
+  const t0 = L.tray[0];
+  const names = t0 && L.mode !== 'tall' ? { x: Math.min(...L.tray.map(r => r.x)), y: t0.y - 28 * u, w: Math.max(...L.tray.map(r => r.x + r.w)) - Math.min(...L.tray.map(r => r.x)), h: 28 * u } : null;
+  // the moves: the ring at the strip's left end, the card's ring
+  const moves = L.mode === 'tall' ? { x: L.goal.x, y: L.goal.y, w: L.goal.h * 1.1, h: L.goal.h } : L.goal;
+  const board = { x: L.board.x - 4, y: L.board.y - 4, w: L.board.w + 8, h: L.board.h + 8 };
+  // Bubo's bubble (three lines over its lower edge) where it stands in a column: he talks in a rest too
+  const bb = L.bubble;
+  const talk = L.mode === 'tall' ? null : { x: bb.x, y: bb.y - 84 * L.tk, w: bb.w, h: 84 * L.tk };
+  const keep = [L.goal, owl, scope, ...L.tray, ...(words ? [words] : []), ...(names ? [names] : [])];
+  return pacerSpot([band], [...keep, board, ...(talk ? [talk] : [])], { size })
+    ?? pacerLeast([band], [moves, owl, scope, ...L.tray], [L.board, L.board, L.board, L.goal, ...(words ? [words] : [])], { size });
 }
 
 export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;

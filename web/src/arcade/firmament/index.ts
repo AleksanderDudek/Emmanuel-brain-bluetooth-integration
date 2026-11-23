@@ -24,13 +24,14 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { FirmamentSound } from './audio';
 import { AIMED } from './content';
 import { t, unit, type Key } from './i18n';
 import { FirmamentIntro } from './intro';
-import { inRect, tapTargets } from './layout';
+import { inRect, pacerAt, tapTargets, type Layout } from './layout';
 import { bestOf, freshProgress, migrate, type FirmamentProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -286,6 +287,16 @@ class FirmamentGame implements ArcadeGame {
   }
 
   result(): ArcadeOutcome { return this.sim.result(); }
+
+  /** The breath pacer's spot in a Cisza nocy: off the board, the goal and the tray (layout.ts `pacerAt`), kept per layout. */
+  pacerAt(): Pt | null {
+    const L = this.view.L;
+    if (!L) return null;
+    if (this.pacer?.L !== L) this.pacer = { L, at: pacerAt(L) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; at: Pt | null } | null = null;
 
   /** The tray's tools in play, a card (a tap goes on), or out of moves its two buttons (layout.ts). */
   targets(): TapTarget[] {

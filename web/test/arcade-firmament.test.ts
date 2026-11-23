@@ -3,7 +3,8 @@ import { Board, MOON, PULSAR, setCells, type Sp } from '../src/arcade/firmament/
 import { CONSTELLATIONS, constName, figure } from '../src/arcade/firmament/content';
 import { CATALOGS, line, t, unit } from '../src/arcade/firmament/i18n';
 import firmament, { howto } from '../src/arcade/firmament/index';
-import { cardRect, layout, outButtons, tapTargets, type Layout } from '../src/arcade/firmament/layout';
+import { cardRect, layout, outButtons, pacerAt, tapTargets, type Layout } from '../src/arcade/firmament/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { boardSpec, difficulty, layoutCounts, levelAt, starsFor, traySize } from '../src/arcade/firmament/levels';
 import { bestOf, freshProgress, migrate, winLevel, type FirmamentProgress } from '../src/arcade/firmament/meta';
 import { SANS, font, fontPx } from '../src/arcade/firmament/paint';
@@ -1279,5 +1280,52 @@ describe('Firmament — long sessions (15–30 minutes)', () => {
       const b = new Board(boardSpec(l, 3));
       expect(b.hasMove()).toBe(true);
     }
+  });
+});
+
+describe('Firmament: the breath pacer in a Cisza nocy stands off the board (pacerAt)', () => {
+  const cover = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+    Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  it('keeps the pill whole under the HUD band, clear of the moves, Bubo, the telescope and the tray, off the board where the band leaves room', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        for (const slots of [3, 4]) {
+          const L = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, slots, touch);
+          const at = pacerAt(L);
+          const name = `${c.name}${touch ? '' : ' (mouse)'}, ${slots} slots`;
+          expect(at, name).not.toBeNull();
+          const size = pacerSize(L.kind === 'big');
+          const o = L.owl, sc = L.scope;
+          const keep = [
+            L.mode === 'tall' ? { label: 'moves', x: L.goal.x, y: L.goal.y, w: L.goal.h, h: L.goal.h } : { label: 'goal card', ...L.goal },
+            { label: 'Bubo', x: o.x - o.r, y: o.y - o.r, w: 2 * o.r, h: 2 * o.r },
+            { label: 'telescope', x: sc.x - sc.r, y: sc.y - sc.r, w: 2 * sc.r, h: 2 * sc.r },
+            ...tapTargets(L, { stage: 'play', tools: slots, can: false }),
+          ];
+          // the board too, wherever the band leaves the room beside or above it (a desktop, a big screen, a wide phone on
+          // its side, an upright one with a pill's height between the goal strip and the board)
+          const room = L.mode === 'wide' || (L.mode === 'side' && L.w - L.ins.left - L.ins.right >= 700) || L.board.y - (L.goal.y + L.goal.h) >= size.h + 12;
+          expect(pacerProblems(at, c.w, c.h, c.insets, room ? [...keep, { label: 'board', ...L.board }] : keep, size), name).toEqual([]);
+          // elsewhere (a small phone, a narrow phone on its side) at most an edge of it: under a third of the pill
+          expect(cover(pacerBox(at!, size), L.board), name).toBeLessThanOrEqual(size.w * size.h * 0.33);
+        }
+      }
+    }
+  });
+
+  it('answers from the game in play, the same spot as the layout\'s', () => {
+    const c = CHECK_SIZES[8];
+    const env: GameEnv<FirmamentProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 5, pushes: 1, story: [0, 1, 2, 3, 4, 5, 6, 7], seen: ['x'] }, rng: mulberry32(7), day: DAY, daySeed: 1,
+      plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => c.insets.top, insets: () => c.insets, touch: false,
+    };
+    const game = firmament.create(env);
+    game.resize(c.w, c.h, 1);
+    game.start();
+    const L = (game as unknown as { view: { L: Layout } }).view.L;
+    expect(game.pacerAt!()).toEqual(pacerAt(L));
+    expect(game.pacerAt!()!.x + 105).toBeLessThan(L.board.x);
   });
 });
