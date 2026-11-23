@@ -950,6 +950,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   background:rgba(8,9,14,.8);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);color:#fff;
   --ab-c:#9fd8ff;transition:top .45s ease;animation:ab-in .5s ease both}
 .arcade-breath[hidden]{display:none}
+.arcade-breath.placed{transition:none}   /* a game's own spot (pacerAt): left/top come from the runner */
 .arcade-breath[data-phase="holdIn"]{--ab-c:#ffe2a0}
 .arcade-breath[data-phase="out"]{--ab-c:#b8f0d6}
 .arcade-breath[data-phase="holdOut"]{--ab-c:#cbc4ff}

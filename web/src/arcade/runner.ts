@@ -739,6 +739,11 @@ export class ArcadeRunner {
       if (rest && game.breath) this.safe(() => { own = game.breath!(); });
       const sec = c.blockSec + Math.min(0.15, Math.max(0, (performance.now() - this.lastSampleAt) / 1000));
       ui.pacer.update(rest && !ses.paused ? pacerState(sec, ph.left ?? null, own) : null);
+      if (rest && game.pacerAt) {
+        let at: { x: number; y: number } | null = null;
+        this.safe(() => { at = game.pacerAt!(); });
+        ui.pacer.place(at, { left: ui.canvas.offsetLeft, top: ui.canvas.offsetTop });
+      }
     }
   }
 

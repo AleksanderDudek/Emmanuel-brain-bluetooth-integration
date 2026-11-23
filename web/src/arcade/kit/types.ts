@@ -197,6 +197,12 @@ export interface ArcadeGame {
    * 4 · 0 · 6 · 0 counted from the block's start.  Not needed by a module with `ownBreath` (it draws its own guide).
    */
   breath?(): BreathState | null;
+  /**
+   * Where the runner's breath pacer stands in a rest: the pill's top centre in canvas CSS px, when its standard
+   * place (the top centre, under the HUD band) would cover what the rest is about — a board's top row, a goal card.
+   * Null or absent: the standard place.  Cheap, no side effects; read every frame of a rest.
+   */
+  pacerAt?(): { x: number; y: number } | null;
 }
 
 export interface ArcadeModule<P extends object = object> {

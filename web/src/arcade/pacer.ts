@@ -56,6 +56,19 @@ export class BreathPacer {
     el.textContent = text;
   }
 
+  /**
+   * Stand where the game asks (the pill's top centre in canvas CSS px, `origin` the canvas's offset in the pacer's
+   * parent), or — null — in the standard place the stylesheet gives (top centre, under the banner while it shows).
+   */
+  place(at: { x: number; y: number } | null, origin: { left: number; top: number }): void {
+    const key = at ? `${Math.round(at.x + origin.left)},${Math.round(at.y + origin.top)}` : '';
+    if (this.memo.at === key) return;
+    this.memo.at = key;
+    this.el.classList.toggle('placed', !!at);
+    this.el.style.left = at ? `${Math.round(at.x + origin.left)}px` : '';
+    this.el.style.top = at ? `${Math.round(at.y + origin.top)}px` : '';
+  }
+
   /** Show the breath (null hides the pacer). */
   update(s: { b: BreathState; n: number; of: number | null } | null): void {
     if (!s) {
