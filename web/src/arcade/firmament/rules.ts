@@ -66,8 +66,11 @@ export const RULES = {
   carry: 2,
 
   // ── the calm sky (rest: Cisza nocy) ──────────────────────────
-  /** calm × dt accumulates; every `starEvery` a falling star lands; at most `starMax` a block */
-  starEvery: 4,
+  /**
+   * calm × dt accumulates; every `starEvery` a falling star lands; at most `starMax` a block.  3.5 (was 4) since the
+   * night is 20 ± 3 s (was 22 ± 3): all three still land at a good calm (0.9) in the shortest night.
+   */
+  starEvery: 3.5,
   starMax: 3,
   /** the block's third star refills this many moves */
   starMoves: 2,
@@ -92,9 +95,15 @@ export const RULES = {
   idleHint: 5,
 
   // ── the session ──────────────────────────────────────────────
-  /** Obserwacja and Cisza nocy: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * Obserwacja and Cisza nocy: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): a 40 s Obserwacja — a watch at the telescope, some four charges of the lens at a strong focus and
+   * room for a 12 s held focus (a pulsar) — then a 20 s Cisza nocy, in which all three falling stars land at a good
+   * calm (lead-in + 3 × starEvery ≈ 16 s at calm 0.9); the night a third of the session, every minute (it was 26 / 22 s,
+   * nearly half, every 48 s).  The player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [40, 6],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   finale: 4,

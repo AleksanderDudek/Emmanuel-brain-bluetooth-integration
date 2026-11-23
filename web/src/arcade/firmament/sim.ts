@@ -22,6 +22,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -86,12 +87,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up "Pierwsze gwiazdy" (30 s in 5 and
- * 10 min, 20 s in 3, 6 s in a 40 s test); then Obserwacja / Cisza nocy pairs (26 ± 4 s and 22 ± 3 s,
- * scaled to end on time, jittered only when there is room) ending with a night, leaving the last 4 s
- * to the dawn.  No block under 12 s.
+ * 10 min, 20 s in 3, 6 s in a 40 s test); then Obserwacja / Cisza nocy pairs (40 ± 6 s and 20 ± 3 s,
+ * or the player's rhythm with the jitter scaled to it; scaled to end on time, jittered only when there
+ * is room) ending with a night, leaving the last 4 s to the dawn.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
     const left = Math.max(2 * R.minBlock, plannedSec - R.finale);
@@ -136,6 +137,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Obserwacja, s of Cisza nocy); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 /** Moments that may wait for a free slot (the banner, the telegraph) and those that drop when late. */
@@ -258,7 +261,7 @@ export class FirmamentSim {
     this.session = p.sessions + 1;
     this.firstEver = p.sessions === 0;
     this.pushBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.toolTurn = p.tools;
     this.tray = p.kit.slice(0, traySize(Math.floor(p.level / RULES.perConst)));
     p.kit = [];

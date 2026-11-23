@@ -27,11 +27,11 @@ const HIGH = frame({ activity: 6, level: 0.9, focused: true, hold: 3, calm: 0.05
 const LOW = frame({ activity: -2, level: 0.1, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<FirmamentProgress>; planned?: number; seed?: number; eeg?: boolean };
+type SimOpts = { progress?: Partial<FirmamentProgress>; planned?: number; seed?: number; eeg?: boolean; rhythm?: { focus: number; rest: number } };
 function makeSim(o: SimOpts = {}): FirmamentSim {
   const sim = new FirmamentSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY, daySeed: 4242,
-    plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: TUNING,
+    plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -308,6 +308,32 @@ describe('Firmament — the session', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer Obserwacja, shorter Cisza nocy, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const sec of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(sec, false, mulberry32(5), r);
+        const obs = plan.filter(b => b.kind === 'obs'), night = plan.filter(b => b.kind === 'night');
+        // the shares the player asked for (a 10 s night is lifted to the 12 s floor)
+        const k = mean(obs) / mean(night) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('night');
+      }
+    }
+    // the lobby's dials show the design itself (their 5 s steps keep it), named as the blocks are
+    const spec = firmament.rhythm!();
+    expect([spec.focus.def, spec.rest.def]).toEqual([RULES.push[0], RULES.rest[0]]);
+    expect([spec.focus.name, spec.rest.name]).toEqual([t('block.obs'), t('block.night')]);
+    // no rhythm: the designed one, the night a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'night').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.27);
+    expect(share).toBeLessThan(0.36);
+  });
+
   it('opens a first-ever session with the story card and the root verse, then the goal card, then play', () => {
     const sim = makeSim();
     const evs = sim.take();
@@ -383,7 +409,9 @@ describe('Firmament — the session', () => {
     toPlay(sim, clock);
     while (sim.block.kind !== 'night') drive(sim, 0.5, frame(), clock);
     const moves = sim.movesLeft;
-    const evs = drive(sim, 18, LOW, clock);
+    // the whole night but its last breath (a designed night is 20 ± 3 s): all three stars at a good calm
+    const evs = drive(sim, sim.block.dur - sim.blockT - 0.3, LOW, clock);
+    expect(sim.block.kind).toBe('night');
     expect(ofType(evs, 'star').length).toBe(RULES.starMax);
     expect(ofType(evs, 'changed').filter(e => e.why === 'star').length).toBe(2);
     expect(sim.movesLeft).toBe(moves + RULES.starMoves);
@@ -1177,11 +1205,13 @@ describe('Firmament — long sessions (15–30 minutes)', () => {
   });
 
   /** A whole session at a steady pace: Space (the best move) every second, a tool used when the tray is full; focus in Obserwacja, calm at night. */
-  function longRun(progress: Partial<FirmamentProgress>, planned = 1800) {
-    const sim = makeSim({ progress, planned });
-    let t = 0, hand = 0, stageSince = 0, longest = 0, last = sim.stage, finales = 0, won = 0, empty = 0;
+  function longRun(progress: Partial<FirmamentProgress>, planned = 1800, rhythm?: { focus: number; rest: number }) {
+    const sim = makeSim({ progress, planned, rhythm });
+    let t = 0, hand = 0, stageSince = 0, longest = 0, last = sim.stage, finales = 0, won = 0, empty = 0, at23 = -1, starsMax = 0;
     while (sim.phase !== 'done' && t < planned + 10) {
       t += STEP;
+      if (at23 < 0 && t >= planned * 2 / 3) at23 = sim.score;
+      starsMax = Math.max(starsMax, sim.starsBlock);
       const want = sim.signal().want;
       sim.update(STEP, want === 'focus' ? HIGH : want === 'rest' ? LOW : frame({ level: 0.6 }), t);
       if ((hand += STEP) >= 1) {
@@ -1201,8 +1231,25 @@ describe('Firmament — long sessions (15–30 minutes)', () => {
       longest = Math.max(longest, t - stageSince);
       expect(sim.tray.length).toBeLessThanOrEqual(RULES.trayMax);
     }
-    return { sim, t, longest, finales, won, empty };
+    return { sim, t, longest, finales, won, empty, at23, starsMax };
   }
+
+  it('plays any rhythm the player sets to the dawn: 3, 10 and 30 minutes, long watches or long nights, the score still grows', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const r = longRun({ sessions: 5, pushes: 1, level: 20, story: [0, 1, 2, 3, 4, 5, 6, 7], seen: ['x'] }, planned, rhythm);
+        expect(r.sim.phase, name).toBe('done');
+        expect(r.finales, name).toBe(1);
+        expect(r.sim.score, name).toBeGreaterThan(r.at23);
+        expect(r.won, name).toBeGreaterThan(0);
+        expect(r.longest, name).toBeLessThan(180);
+        expect(r.starsMax, name).toBeLessThanOrEqual(RULES.starMax);
+        // a designed night at a good calm lands all its stars
+        if (!rhythm || rhythm.rest >= 20) expect(r.starsMax, name).toBe(RULES.starMax);
+      }
+    }
+  });
 
   it('a 30-minute session keeps giving levels to the dawn: the saga never runs out, nothing stalls, the numbers stay finite', () => {
     for (const progress of [{}, { sessions: 30, pushes: 400, level: 400, story: Array.from({ length: 51 }, (_, i) => i), seen: ['x'] }] as Partial<FirmamentProgress>[]) {

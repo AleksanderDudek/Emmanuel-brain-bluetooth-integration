@@ -24,6 +24,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { FirmamentSound } from './audio';
 import { AIMED } from './content';
@@ -67,6 +68,7 @@ class FirmamentGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new FirmamentSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new FirmamentView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new FirmamentSound(env.audio);
@@ -332,5 +334,7 @@ const mod: ArcadeModule<FirmamentProgress> = {
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p),
   howto: (): HowTo => howto(coarsePointer()),
+  // the rest's rhythm in the lobby: seconds of Obserwacja before the Cisza nocy, and of the night's quiet
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('block.obs'), rest: t('block.night') }, t('rhythm.note')),
 };
 export default mod;
