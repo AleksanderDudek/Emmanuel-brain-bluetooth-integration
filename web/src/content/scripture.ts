@@ -355,6 +355,14 @@ export type PassageId =
   | 'psa16.8'
   | 'jer17.7'
   | 'psa104.16'
+  | '2co10.5'
+  | 'php4.6'
+  | 'psa94.19'
+  | 'psa56.3'
+  | 'eph4.26'
+  | 'psa34.18'
+  | 'rom8.1'
+  | 'jhn16.33'
   ;
 
 export interface Passage {
@@ -2426,6 +2434,54 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['The trees of the LORD have their fill, the cedars of Lebanon that He planted…', 'Psalm 104:16'],
     de: ['…daß die Bäume des HERRN voll Saft stehen, die Zedern Libanons, die er gepflanzt hat.', 'Psalm 104,16'],
     sv: ['HERRENS träd varda ock mättade, Libanons cedrar, som han har planterat…', 'Ps 104:16'],
+  },
+  '2co10.5': {
+    pl: ['Burząc rady i wszelaką wysokość, wynoszącą się przeciwko znajomości Bożej, i podbijając wszelaką myśl pod posłuszeństwo Chrystusowe…', '2 Kor 10,5'],
+    en: ['We demolish arguments and every presumption set up against the knowledge of God; and we take captive every thought to make it obedient to Christ.', '2 Corinthians 10:5'],
+    de: ['…wir zerstören damit die Anschläge und alle Höhe, die sich erhebt wider die Erkenntnis Gottes, und nehmen gefangen alle Vernunft unter den Gehorsam Christi…', '2. Korinther 10,5'],
+    sv: ['Ja, vi bryta ned tankebyggnader och alla slags höga bålverk, som uppresas mot kunskapen om Gud, och vi taga alla slags tankefunder till fånga och lägga dem under Kristi lydnad.', '2 Kor 10:5'],
+  },
+  'php4.6': {
+    pl: ['Nie troszczcie się o żadną rzecz, ale we wszystkiem przez modlitwę i prośbę z dziękowaniem żądności wasze niech będą znajome u Boga.', 'Flp 4,6'],
+    en: ['Be anxious for nothing, but in everything, by prayer and petition, with thanksgiving, present your requests to God.', 'Philippians 4:6'],
+    de: ['Sorget nichts! sondern in allen Dingen lasset eure Bitten im Gebet und Flehen mit Danksagung vor Gott kund werden.', 'Philipper 4,6'],
+    sv: ['Gören eder intet bekymmer, utan låten i allting edra önskningar bliva kunniga inför Gud, genom åkallan och bön, med tacksägelse.', 'Fil 4:6'],
+  },
+  'psa94.19': {
+    pl: ['W wielkości utrapienia mego, we wnętrznościach moich, pociechy twoje rozweselały duszę moję.', 'Ps 94,19'],
+    en: ['When anxiety overwhelms me, Your consolation delights my soul.', 'Psalm 94:19'],
+    de: ['Ich hatte viel Bekümmernisse in meinem Herzen; aber deine Tröstungen ergötzten meine Seele.', 'Psalm 94,19'],
+    sv: ['När jag hade mycket bekymmer i mitt hjärta, då gladde din tröst min själ.', 'Ps 94:19'],
+  },
+  'psa56.3': {
+    pl: ['Któregokolwiek mię dnia strach ogarnia, ja w tobie ufam.', 'Ps 56,4'],
+    en: ['When I am afraid, I put my trust in You.', 'Psalm 56:3'],
+    de: ['Wenn ich mich fürchte, so hoffe ich auf dich.', 'Psalm 56,4'],
+    sv: ['Men när fruktan kommer över mig, sätter jag min förtröstan på dig.', 'Ps 56:4'],
+  },
+  'eph4.26': {
+    pl: ['Gniewajcie się, a nie grzeszcie; słońce niech nie zachodzi na rozgniewanie wasze.', 'Ef 4,26'],
+    en: ['“Be angry, yet do not sin.” Do not let the sun set upon your anger…', 'Ephesians 4:26'],
+    de: ['Zürnet, und sündiget nicht; lasset die Sonne nicht über eurem Zorn untergehen.', 'Epheser 4,26'],
+    sv: ['»Vredgens, men synden icke»; låten icke solen gå ned över eder vrede…', 'Ef 4:26'],
+  },
+  'psa34.18': {
+    pl: ['Bliski jest Pan tym, którzy są skruszonego serca, a utrapionych w duchu zachowuje.', 'Ps 34,19'],
+    en: ['The LORD is near to the brokenhearted; He saves the contrite in spirit.', 'Psalm 34:18'],
+    de: ['Der HERR ist nahe bei denen, die zerbrochnes Herzens sind, und hilft denen, die ein zerschlagen Gemüt haben.', 'Psalm 34,19'],
+    sv: ['HERREN är nära dem som hava ett förkrossat hjärta och frälsar dem som hava en bedrövad ande.', 'Ps 34:19'],
+  },
+  'rom8.1': {
+    pl: ['Przetoż teraz żadnego potępienia nie masz tym, który będąc w Chrystusie Jezusie nie według ciała chodzą, ale według Ducha.', 'Rz 8,1'],
+    en: ['Therefore, there is now no condemnation for those who are in Christ Jesus.', 'Romans 8:1'],
+    de: ['So ist nun nichts Verdammliches an denen, die in Christo Jesu sind, die nicht nach dem Fleisch wandeln, sondern nach dem Geist.', 'Römer 8,1'],
+    sv: ['Så finnes nu ingen fördömelse för dem som äro i Kristus Jesus.', 'Rom 8:1'],
+  },
+  'jhn16.33': {
+    pl: ['Tomci wam powiedział, abyście we mnie pokój mieli. Na świecie ucisk mieć będziecie; ale ufajcie, jam zwyciężył świat.', 'J 16,33'],
+    en: ['I have told you these things so that in Me you may have peace. In the world you will have tribulation. But take courage; I have overcome the world!', 'John 16:33'],
+    de: ['Solches habe ich mit euch geredet, daß ihr in mir Frieden habet. In der Welt habt ihr Angst; aber seid getrost, ich habe die Welt überwunden.', 'Johannes 16,33'],
+    sv: ['Detta har jag talat till eder, för att I skolen hava frid i mig. I världen liden i betryck; men varen vid gott mod, jag har övervunnit världen.', 'Joh 16:33'],
   },
 };
 

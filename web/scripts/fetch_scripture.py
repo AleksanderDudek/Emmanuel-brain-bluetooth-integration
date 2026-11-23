@@ -269,6 +269,9 @@ PASSAGES: list[tuple[str, str]] = [
     # Drzewo nad wodą — roots, trunk, the fruit of the Spirit
     ("col2.6-7", "Colossians 2:6-7"), ("psa92.12-13", "Psalm 92:12-13"), ("psa16.8", "Psalm 16:8"), ("jer17.7", "Jeremiah 17:7"),
     ("psa104.16", "Psalm 104:16"),
+    # Każda myśl — one point of light, the anxious, sad and angry thoughts given to the fire
+    ("2co10.5", "2 Corinthians 10:5"), ("php4.6", "Philippians 4:6"), ("psa94.19", "Psalm 94:19"), ("psa56.3", "Psalm 56:3"),
+    ("eph4.26", "Ephesians 4:26"), ("psa34.18", "Psalm 34:18"), ("rom8.1", "Romans 8:1"), ("jhn16.33", "John 16:33"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
