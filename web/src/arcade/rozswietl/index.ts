@@ -15,11 +15,13 @@
  * pictures (scenes.ts on scenekit.ts; render.ts with layout.ts and paint.ts; preview.ts for the lobby and
  * the calibration), the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
  */
+import type { BreathState } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { getImage, loadPixels, pixelsToCanvas } from '../kit/images';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
 import { detailWeight, edgeMap, veil, type Pixels } from '../kit/mosaic';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { RozSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -30,6 +32,7 @@ import { progressPanel } from './panel';
 import { RozIntro, drawPreview } from './preview';
 import { RozView } from './render';
 import { paintScene } from './scenes';
+import { RULES } from './rules';
 import { RozSim, type Coach, type CoachAt, type SimEvent } from './sim';
 
 /** a finger that moves farther than this (px) drags; less is a tap */
@@ -63,6 +66,7 @@ class RozGame implements ArcadeGame {
     this.sim = new RozSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
       tuning: env.tuning, aspect: 1, ownReady: () => [...this.ready], weight: (src, w, h) => this.weightFor(src, w, h),
+      rhythm: env.rhythm,
     });
     this.sound = new RozSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -320,6 +324,9 @@ class RozGame implements ArcadeGame {
 
   meter(): number | null { return this.sim.meter(); }
 
+  /** The rest's breath: the firefly's glow follows it, so the runner's pacer shows the same one. */
+  breath(): BreathState | null { return this.sim.breath(); }
+
   headline(): Headline {
     const s = this.sim;
     if (!s.started) return { value: 0 };
@@ -430,5 +437,7 @@ const mod: ArcadeModule<RozProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of light before the gazing, and of the gazing
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

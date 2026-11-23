@@ -145,9 +145,15 @@ export const RULES = {
   calmTau: 1.5,
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4] as const,
-  rest: [22, 3] as const,
+  /**
+   * push and rest: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): 40 s of light breaking through, then 20 s of gazing at what it uncovered — two slow breaths of the
+   * pacer (4 in, 6 out) while the gold runs in the seams; rest a third of the session (26 / 22 s made it nearly
+   * half, every 25 s).  A picture still takes ~105–140 s of light: about three light blocks instead of four.  The
+   * player sets both in the lobby (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [40, 6] as const,
+  rest: [20, 3] as const,
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: the voice and the cards wait it out */

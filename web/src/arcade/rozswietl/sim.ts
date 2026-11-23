@@ -19,13 +19,16 @@
  *   a card        (the opening one, a picture's) waits for a tap, never time; the light rests under it, and the
  *                 block's seconds under it are not judged (a block mostly under a card gets no verdict)
  *
- * Blocks as in every arcade game: a first-ever session's warm-up, push and rest blocks of 20–30 s with a
- * 4 s telegraph, each judged once at its end over its last 15 s, every 4th push blind from the 3rd session.
+ * Blocks as in every arcade game: a first-ever session's warm-up, push and rest blocks (40 and 20 s, or the
+ * player's rhythm) with a 4 s telegraph, each judged once at its end over its last 15 s, every 4th push blind
+ * from the 3rd session.
  * Pure: no DOM; the game reads the state and the event queue (`take()`).
  */
+import { BREATH_DEFAULT, breathAt, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
 import { cellAt, makeMosaic, type Mosaic, type Pt } from '../kit/mosaic';
+import { scaledBlock } from '../kit/rhythm';
 import type { PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
@@ -154,11 +157,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in
- * 3, 6 s in a 40 s test); then light / gazing pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time,
- * jittered only when there is room) ending with a gazing block, leaving the finale at the end.
+ * 3, 6 s in a 40 s test); then light / gazing pairs (40 ± 6 s and 20 ± 3 s, or the player's rhythm
+ * with the jitter scaled to it; scaled to end on time, jittered only when there is room) ending with a
+ * gazing block, leaving the finale at the end.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -203,6 +207,8 @@ export interface SimInit {
   ownReady?: () => readonly string[];
   /** a density for a picture's tiles (denser where it has detail); nothing: even tiles */
   weight?: (src: PicSrc, w: number, h: number) => ((x: number, y: number) => number) | undefined;
+  /** the rest's rhythm the player set (s of light, s of gazing); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y);
@@ -319,7 +325,7 @@ export class RozSim {
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.plan = planBlocks(this.plannedSec, this.session === 1, this.rng);
+    this.plan = planBlocks(this.plannedSec, this.session === 1, this.rng, this.init.rhythm);
     this.newPicture();
     this.startBlock(0);
     if (this.session === 1 && !this.p.seen.includes('story.open')) {
@@ -1274,11 +1280,12 @@ export class RozSim {
     this.emit({ type: 'coach', what, at });
   }
 
-  /** In a rest block: the breath guide (in for 4, out for 6), `k` 0..1 through the breath. */
-  breath(): { inhale: boolean; k: number } | null {
-    if (!this.restBlock) return null;
-    const c = this.blockT % 10;
-    return c < 4 ? { inhale: true, k: c / 4 } : { inhale: false, k: (c - 4) / 6 };
+  /**
+   * In a rest block: the breath (in for 4, out for 6 from the block's start — kit/breath.ts), which the firefly's
+   * glow follows and the runner's pacer shows (index.ts `breath()`), so the two agree.
+   */
+  breath(): BreathState | null {
+    return this.restBlock ? breathAt(BREATH_DEFAULT, this.blockT) : null;
   }
 
   // ── output ──────────────────────────────────────────────────────

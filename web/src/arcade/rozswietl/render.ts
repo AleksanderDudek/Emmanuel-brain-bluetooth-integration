@@ -1046,7 +1046,8 @@ export class RozView {
 
   /**
    * The line at the frame's top: a dark glass pill, the action's icon and a few words (two lines at most), fading in
-   * when it changes; out of the way while the runner's banner says the block (it says the same).
+   * when it changes; out of the way while the runner's banner says the block (it says the same).  In a rest the
+   * runner's breath pacer takes the top (src/arcade/pacer.ts), so the line sits at the frame's foot.
    */
   private drawNow(ctx: CanvasRenderingContext2D, sim: RozSim): void {
     this.nowBox = null;
@@ -1061,7 +1062,10 @@ export class RozView {
     const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
     const lh = Math.round(size * 1.25);
     const w = Math.min(maxW, tw + icon + gap + 2 * padX), h = lines.length * lh + 14 * u;
-    const x = f.x + (f.w - w) / 2, y = f.y + 8 * u;
+    // (at the foot: above the firefly when it sits inside the frame, beside it when it sits in the wall)
+    const spot = flySpot(this.L, f);
+    const foot = spot.outside ? f.y + f.h - h - 10 * u : Math.min(f.y + f.h - h - 10 * u, spot.y - spot.r * 2.4 - h);
+    const x = f.x + (f.w - w) / 2, y = k === 'rest' ? foot : f.y + 8 * u;
     const a = Math.min(1, this.nowLine.t / 0.35);
     this.nowBox = { x, y, w, h };
     ctx.globalAlpha = a;
@@ -1202,7 +1206,7 @@ export class RozView {
     const size = Math.max(15, 18 * u);
     ctx.font = font(size, 600, SERIF);
     const tw = Math.min(f.w - 24, ctx.measureText(name).width + 28);
-    const x = f.x + f.w / 2, y = (this.nowBox ? this.nowBox.y + this.nowBox.h + 6 * u : f.y + 12 * u);
+    const x = f.x + f.w / 2, y = (this.nowBox && this.nowBox.y < f.y + f.h / 2 ? this.nowBox.y + this.nowBox.h + 6 * u : f.y + 12 * u);
     ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(8,10,16,.72)';
     roundRect(ctx, x - tw / 2, y, tw, size + 14, (size + 14) / 2);
@@ -1222,25 +1226,12 @@ export class RozView {
   private drawFly(ctx: CanvasRenderingContext2D, sim: RozSim): void {
     const f = this.frame, u = this.L.u;
     const spot = flySpot(this.L, f);
+    // in a rest its glow fills and empties with the breath the runner's pacer shows (sim.breath())
     const br = sim.breath();
-    const glowK = br ? (br.inhale ? ease.inOutSine(br.k) : 1 - ease.inOutSine(br.k)) : 0.5 + 0.2 * Math.sin(this.clock * 1.6);
+    const glowK = br ? br.k : 0.5 + 0.2 * Math.sin(this.clock * 1.6);
     const wander = this.reduced ? 0 : Math.sin(this.clock * 0.5) * 6 * u;
     const x = spot.x + wander, y = spot.y + Math.cos(this.clock * 0.37) * 3 * u;
     paintFly(ctx, x, y, spot.r, { t: this.clock, glow: glowK, charge: sim.flare, ready: sim.flareReady, wait: sim.flareWaiting, talk: !!sim.talk.line, dim: sim.blind });
-    // the breath guide's word under the firefly
-    if (br && !sim.story) {
-      ctx.font = font(13 * u, 600);
-      ctx.textAlign = spot.outside ? 'center' : 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(8,10,16,.6)';
-      const word = br.inhale ? t('hud.breathIn') : t('hud.breathOut');
-      const wx = spot.outside ? x : x + spot.r * 2.8, wy = spot.outside ? y + spot.r * 3.4 : y;
-      const ww = ctx.measureText(word).width;
-      roundRect(ctx, spot.outside ? wx - ww / 2 - 8 : wx - 8, wy - 11, ww + 16, 22, 11);
-      ctx.fill();
-      ctx.fillStyle = br.inhale ? '#e9f7c0' : '#c9d6f0';
-      ctx.fillText(word, wx, wy + 1);
-    }
     // its bubble
     const line = sim.talk.line;
     if (line && !sim.story) {

@@ -102,6 +102,46 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: longer light, shorter gazing, the jitter scaled; the sim plays it', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, gazing a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: at either extreme the pictures still break and the session ends on time
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new RozSim({
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN], lastDay: DAY },
+        rng: mulberry32(7), day: DAY, daySeed: 3, plannedSec: 600, eeg: false, tuning: TUNING, aspect: 1, rhythm,
+      });
+      sim.start();
+      const lights = sim.plan.filter(b => b.kind === 'push');
+      const light = lights.reduce((s, b) => s + b.dur, 0) / lights.length;
+      expect(light).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(light).toBeLessThan(rhythm.focus * 1.25);
+      let hold = 0;
+      drive(sim, 600 + RULES.settle + 1, tt => {
+        const on = tt % 16 < 16 * 0.66;
+        hold = on ? hold + STEP : 0;
+        return on ? frame({ level: 0.7, activity: 3.5, focused: true, hold, calm: 0.2 }) : frame({ level: 0.3, activity: 1, calm: 0.7 });
+      }, { t: 0 }, tt => {
+        if (sim.story && sim.story.t > 1.5) sim.tapCard();
+        if (Math.round(tt * 60) % 150 === 0) sim.tap(centre(sim));
+      });
+      expect(sim.phase).toBe('done');
+      expect(sim.score).toBeGreaterThan(20);
+    }
+  });
+
   it('tells the block, its seconds left and, during the telegraph, the next one', () => {
     const sim = later();
     expect(sim.block.kind).toBe('push');
@@ -345,7 +385,8 @@ describe('gazing (rest)', () => {
       const clock = { t: 0 };
       drive(sim, sim.block.dur - 0.1, HELD, clock);
       until(sim, 'rest', HELD, clock);
-      drive(sim, 18, f, clock);
+      // (to the rest's last seconds, before its banner of the next block)
+      drive(sim, Math.min(18, sim.block.dur - RULES.telegraph - 0.5), f, clock);
       return sim;
     };
     const calm = run(CALM), none = run(NONE);
@@ -401,9 +442,11 @@ describe('gazing (rest)', () => {
     const clock = { t: 0 };
     until(sim, 'rest', MID, clock);
     drive(sim, 2, CALM, clock);
-    expect(sim.breath()!.inhale).toBe(true);
+    expect(sim.breath()!.phase).toBe('in');
     drive(sim, 3, CALM, clock);
-    expect(sim.breath()!.inhale).toBe(false);
+    expect(sim.breath()!.phase).toBe('out');
+    // the game hands the same breath to the runner's pacer
+    expect(sim.breath()!.k).toBeLessThan(1);
   });
 });
 
@@ -465,6 +508,8 @@ describe('pictures', () => {
     expect(sim.pic.tiles[sim.aim].open).toBe(false);
     expect(sim.refit(1.95)).toBe(false);
     const before = sim.score;
+    // (the refit may fall in a gazing block: the light breaks tiles again in the next light block)
+    until(sim, 'push', HIGH, clock);
     drive(sim, 12, HIGH, clock);
     expect(sim.score).toBeGreaterThan(before);
   });
@@ -621,7 +666,7 @@ describe('the session', () => {
     expect(sim.story?.verse).toBe('isa60.1');
     expect(sim.block.kind).toBe('warmup');
     const clock = { t: 0 };
-    const evs = drive(sim, 70, MID, clock, t => {
+    const evs = drive(sim, 95, MID, clock, t => {
       if (sim.story && sim.story.t > 1.3) sim.tapCard();
       const c = sim.pic.mosaic.cells[sim.aim];
       if (Math.abs(t - 12) < STEP / 2 || Math.abs(t - 12.8) < STEP / 2) sim.tap({ x: c.cx, y: c.cy });
@@ -1256,7 +1301,7 @@ describe('round 11: the founder’s asks (2026-11-17)', () => {
 });
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the finale: light and gazing alternating, ending on gazing, every block 12–31 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: light and gazing alternating, ending on gazing, every block 12 s up to its mean + jitter', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -1267,8 +1312,10 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
+        // a pair about every minute: 30 minutes is some 30 pairs
         const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
         expect(body.length).toBe(2 * pairs);
       }
