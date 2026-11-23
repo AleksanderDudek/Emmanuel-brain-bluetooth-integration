@@ -6,12 +6,13 @@
  * narrator, the picker, the story cards).  A frame composes the baked night, a few dozen path fills through one
  * transform and a handful of baked glows: no shadowBlur, no filters.
  */
+import { drawBreathGuide } from '../kit/breathguide';
 import { clamp, ease, Particles } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
 import { LISTS, isBrainView, type Element, type View } from './content';
 import { geoBox } from './figure';
 import {
-  drawBubble, drawCard, drawControls, drawList, drawNow, drawPicker, drawStory, drawTag, luxFloat, toneOf,
+  drawBubble, drawCard, drawControls, drawList, drawNow, drawPicker, drawStory, drawTag, guideSpot, luxFloat, toneOf,
 } from './hud';
 import {
   brainCam, camInv, camPt, easeCam, elementCam, figCam, fitCam, hitTest, layout, lerpCam, pickerRect, tapTargets,
@@ -118,8 +119,11 @@ export class SwiatloView {
   private camGoal(sim: SwiatloSim): Cam {
     const L = this.L;
     const e = sim.element;
-    if (isBrainView(e.view)) return brainCam(L);
-    const whole = figCam(L);
+    // a rest whose breath guide stands under the picture: the whole picture in the stage less the guide's strip
+    const spot = sim.restBlock && sim.phase === 'play' && this.ctx ? guideSpot(this.ctx, L, sim) : null;
+    const LL = spot && !spot.inCard ? { ...L, stage: { ...L.stage, h: L.stage.h - spot.strip } } : L;
+    if (isBrainView(e.view)) return brainCam(LL);
+    const whole = figCam(LL);
     if (!sim.started || sim.story || sim.restBlock || sim.phase !== 'play' || sim.stage === 'turn' || sim.stage === 'whole') return whole;
     // a big screen shows the figure large already: it zooms less
     const z = MAX_Z[sim.variant] ?? 2;
@@ -243,9 +247,17 @@ export class SwiatloView {
     }
     this.parts.draw(ctx);
     this.floats.draw(ctx);
+    // a rest's breath guide under the picture, where the card has no room for it beside a fact (hud.ts guideSpot)
+    if (sim.restBlock && sim.phase === 'play' && !sim.story) {
+      const spot = guideSpot(ctx, L, sim);
+      if (!spot.inCard) {
+        const a = Math.min(1, sim.blockT / 0.6, Math.max(0, sim.block.dur - sim.blockT) / 0.6);
+        drawBreathGuide(ctx, sim.breath, { ...spot.o, alpha: a, reducedMotion: this.o.reducedMotion, time: sim.t });
+      }
+    }
     // the words
     drawNow(ctx, L, sim.doNow(), toneOf(sim));
-    this.cardRect = sim.started ? drawCard(ctx, L, sim, pulse) : null;
+    this.cardRect = sim.started ? drawCard(ctx, L, sim, pulse, this.o.reducedMotion) : null;
     drawList(ctx, L, sim);
     const hoverCtrl = this.hoverCtrl(sim);
     drawControls(ctx, L, this.down, hoverCtrl, !!sim.story);

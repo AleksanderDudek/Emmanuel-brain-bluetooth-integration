@@ -6,10 +6,12 @@
  *   a push      fills the element in the light: at (fillBase + fillLevel × level + fillHold × hold/holdFull) /
  *               elementSec a second while the push is past its lead-in, the signal reliable and the player focused
  *               (the first-ever warm-up at half that rate); nothing fills without focus, nothing is ever lost
- *   full        the element glows, its fact card opens, and the push ends there — the rest always begins on a
- *               finished element (a push ends no sooner than minPush: an early fill flows on into the next element)
- *   a rest      of whole breaths (kit/breath, 4 in · 6 out): the whole lit body breathes, the fact is read, calm pours
- *               a little light; near its end the light moves on to the next element and the next push begins there
+ *   full        the element glows, its fact card opens; the push's last element (2 by design, the player's 1–4:
+ *               round 15) ends it there — the rest always begins on a finished element (a push ends no sooner than
+ *               minPush: an early fill flows on into the next element), the others hand the light on to the next
+ *   a rest      of whole breaths (kit/breath, 4 in · 6 out; 2 by design, the player's 1–6): the whole lit body
+ *               breathes, the facts of the push's places are read one after another, calm pours a little light;
+ *               near its end the light moves on to the next element and the next push begins there
  *   blind       every 4th push from the 3rd session: the fill gathers unseen and is shown when the push ends
  *   valve       a push that cannot fill ends after maxPush anyway (a kind line; the element keeps its light)
  *
@@ -19,7 +21,7 @@
  * summary, a quiet finale at the end of the session.
  */
 import { fmtNum } from '../../i18n';
-import { BREATH_DEFAULT, breathAt, breathCycle, breathRest, breathRestOf, type BreathState } from '../kit/breath';
+import { BREATH_DEFAULT, breathAt, breathCycle, breathRestOf, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp, ease } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
@@ -83,10 +85,18 @@ export function warmFor(plannedSec: number): number {
   return plannedSec >= 300 ? RULES.warm.long : RULES.warm.short;
 }
 
-/** A rest of whole breaths of the default pattern: about restTarget s (one breath in a short test). */
-export function restFor(plannedSec: number): number {
-  return plannedSec <= 60 ? breathRestOf(BREATH_DEFAULT, RULES.shortRestBreaths).sec : breathRest(BREATH_DEFAULT, RULES.restTarget, RULES.restMin).sec;
+/** A rest of `breaths` whole breaths of the default pattern (2 by design: 20 s; one breath in a short test). */
+export function restFor(plannedSec: number, breaths: number = RULES.restBreaths): number {
+  const n = plannedSec <= 60 ? RULES.shortRestBreaths : Math.round(clamp(breaths, RULES.restBreathsDial.min, RULES.restBreathsDial.max));
+  return breathRestOf(BREATH_DEFAULT, n).sec;
 }
+
+/** The elements a push fills before its rest (the lobby's dial, kit/rhythm), kept whole and inside the dial's range. */
+export const perPushOf = (n?: number | null): number =>
+  Math.round(clamp(typeof n === 'number' && Number.isFinite(n) ? n : RULES.perPush, RULES.perPushDial.min, RULES.perPushDial.max));
+
+/** The valve of a push asking `n` elements (s): 60 for one, 25 more for each further one. */
+export const maxPushFor = (n: number): number => RULES.maxPush + RULES.maxPushPer * (perPushOf(n) - 1);
 
 /** The fill multiplier for a focus frame: faster with the level and with a sustained hold. */
 export function fillMult(f: Pick<FocusFrame, 'level' | 'hold'>): number {
@@ -113,6 +123,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the player has a mouse, not a finger: the narrator says "click" where she speaks of the hands */
   mouse?: boolean;
+  /** the rest's rhythm the player set (kit/rhythm): elements a push fills, the rest's whole breaths; absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class SwiatloSim {
@@ -128,6 +140,9 @@ export class SwiatloSim {
   private readonly lead: number;
   private readonly finaleSec: number;
   private readonly restSec: number;
+  /** the elements a push fills before its rest, and the push's valve (s) */
+  readonly perPush: number;
+  private readonly maxPush: number;
   private readonly pushesBase: number;
   private readonly bestBefore: number | null;
 
@@ -225,7 +240,9 @@ export class SwiatloSim {
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.restSec = restFor(this.plannedSec);
+    this.restSec = restFor(this.plannedSec, init.rhythm?.rest ?? RULES.restBreaths);
+    this.perPush = perPushOf(init.rhythm?.focus);
+    this.maxPush = maxPushFor(this.perPush);
     this.talk = new Talk(m => linesOf(m, init.mouse === true), init.rng);
     this.variant = this.p.variant;
     const place = this.p.pos[this.variant];
@@ -282,7 +299,11 @@ export class SwiatloSim {
     return !!f && this.factT < readSec(f.text) + this.factExtra;
   }
   private factExtra = 0;
-  private litThisPush = false;
+  /** the places the current push lit (their facts are read in the rest, one after another), and the facts still to read */
+  private pushFacts: { id: string; depth: number }[] = [];
+  private factQueue: { id: string; depth: number }[] = [];
+  /** elements the current push has filled */
+  pushLit = 0;
   /** the fact card is on screen: in a rest or the finale, or while its element glows */
   get factShown(): boolean {
     if (!this.factUp) return false;
@@ -328,6 +349,14 @@ export class SwiatloSim {
     else this.setFilling(false);
     this.updateLux(dt);
     if (this.factT >= 0) this.factT += dt;
+    // a rest reads the facts of the push's places one after another
+    if (this.restBlock && this.factQueue.length && this.factT >= 0 && !this.factUp) {
+      const next = this.factQueue.shift()!;
+      this.factId = next.id;
+      this.factDepth = next.depth;
+      this.factT = 0;
+      this.factExtra = 0;
+    }
     this.reshow = Math.max(0, this.reshow - dt);
     if (this.picker) {
       this.pickerT += dt;
@@ -579,10 +608,12 @@ export class SwiatloSim {
     this.factDepth = Math.min(3, before + 1);
     this.factT = 0;
     this.factExtra = 0;
-    this.litThisPush = this.pushBlock || this.warmBlock;
+    if (this.pushBlock || this.warmBlock) this.pushFacts.push({ id: e.id, depth: this.factDepth });
     this.emit({ type: 'lit', id: e.id, lux: RULES.luxElement, first: before === 0, times: before + 1 });
     if (this.rng() < 0.5) this.talk.ask('lit', 1, 4);
-    if (this.pushBlock && this.blockT >= RULES.minPush) this.pushDone = true;
+    // the push's last element ends it (its others hand the light on to the next: the 'full' stage steps)
+    if (this.pushBlock) this.pushLit++;
+    if (this.pushBlock && this.pushLit >= this.perPush && this.blockT >= RULES.minPush) this.pushDone = true;
     if (this.litNow.length === 1) this.coach('nav', 'controls');
     // the meditation's last element: the whole of it in light
     if (this.idx >= this.count - 1 && LISTS[this.variant].every(x => this.litNow.includes(x.id) || (this.p.lit[x.id] ?? 0) > 0)) {
@@ -735,13 +766,14 @@ export class SwiatloSim {
       const fillNow = b.blind ? this.hidden : this.fill;
       const done = this.pushDone && (this.stage === 'full' || this.stage === 'lit' || this.stage === 'whole' || b.blind);
       if (!this.telegraphed) {
-        const soon = this.stage === 'at' && fillNow >= RULES.announceAt && this.blockT >= RULES.minPush - RULES.telegraph;
-        if (soon || this.blockT >= RULES.maxPush - RULES.telegraph) this.telegraph('rest');
+        const last = b.blind || this.pushLit >= this.perPush - 1;
+        const soon = last && this.stage === 'at' && fillNow >= RULES.announceAt && this.blockT >= RULES.minPush - RULES.telegraph;
+        if (soon || this.blockT >= this.maxPush - RULES.telegraph) this.telegraph('rest');
       }
       if (done) {
         this.endBlock();
         this.beginBlock('rest', this.restSec);
-      } else if (this.blockT >= RULES.maxPush) {
+      } else if (this.blockT >= this.maxPush) {
         if (!this.valveSaid) {
           this.valveSaid = true;
           this.talk.ask('valve', 3, 8);
@@ -780,8 +812,10 @@ export class SwiatloSim {
     this.stillSaid = false;
     this.stillRun = 0;
     this.pushDone = false;
-    const litBefore = this.litThisPush;
-    this.litThisPush = false;
+    const facts = this.pushFacts;
+    this.pushFacts = [];
+    this.pushLit = 0;
+    this.factQueue = [];
     if (kind === 'push') {
       this.pushesBegun++;
       b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
@@ -793,8 +827,11 @@ export class SwiatloSim {
       if (b.blind) this.coach('blind', 'element');
     } else if (kind === 'rest') {
       this.restT = 0;
-      // the fact of what the push lit is read in the rest (an early fill's card was only a glimpse)
-      if (litBefore && this.factId) {
+      // the facts of what the push lit are read in the rest, one after another (in the push each was a glimpse)
+      if (facts.length) {
+        this.factId = facts[0].id;
+        this.factDepth = facts[0].depth;
+        this.factQueue = facts.slice(1);
         this.factT = 0;
         this.factExtra = 0;
       }

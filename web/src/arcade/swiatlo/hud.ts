@@ -2,10 +2,11 @@
  * Światło ciała's words on the canvas (screen space, never zoomed): the "what to do now" line, the element's card
  * (its place in the way, the name in the serif with the Latin small under it, the guidance, the fill), Równowaga's
  * loop (the everyday push, the value on its gauge, the healthy range, what the body does), the fact card with its
- * source, the breath in rest, the three round buttons, the narrator's bubble, the picker, the story cards and, on a
+ * source, the breath in rest (the kit's guide at the card's top, round 15), the three round buttons, the narrator's bubble, the picker, the story cards and, on a
  * desk, the list of the way.  Text the player reads is 13 px and more; sources and the Latin 12; never under 11.
  */
 import { fmtNum } from '../../i18n';
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { fitText } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage } from '../kit/scripture';
 import {
@@ -104,12 +105,74 @@ const lineH = (l: Line): number => Math.round(l.px * 1.3) + (l.gap ?? 0);
 const linesH = (ls: readonly Line[]): number => ls.reduce((s, l) => s + lineH(l), 0);
 
 /**
+ * The rest's breath guide inside a card of `c` (kit/breathguide, round 15): a row (ring and word side by side) where
+ * the card is wide enough, else stacked; the ring as large as the screen asks, shrunk (not under 26 px) to fit the
+ * card's width and at most ~45 % of its height.  `cx`/`cy` place it with its box's top-left at (c.x + pad, 0).
+ */
+export function cardGuide(ctx: CanvasRenderingContext2D, L: Layout, c: Rect, pad: number, sim: SwiatloSim): { o: BreathGuideOpts; box: Rect } {
+  const inner = c.w - 2 * pad;
+  const sub = breathOf(Math.min(sim.breathCycles, sim.breath.n + 1), sim.breathCycles);
+  let r = breathGuideRadius(L.w, L.h);
+  for (;;) {
+    for (const layout of ['row', 'stack'] as const) {
+      const o: BreathGuideOpts = { cx: 0, cy: 0, r, sub, layout, maxW: layout === 'row' ? inner - 2 * r - 40 : inner - 8, scrim: 0.3 };
+      const b = breathGuideBox(ctx, o);
+      if (b.w <= inner + 0.5 && (b.h <= c.h * 0.45 || r <= 26)) {
+        // centred in the card, its box's top at 0
+        const cx = c.x + c.w / 2;
+        return { o: { ...o, cx, cy: -b.y }, box: { x: cx - b.w / 2, y: 0, w: b.w, h: b.h } };
+      }
+    }
+    if (r <= 26) {
+      const o: BreathGuideOpts = { cx: c.x + c.w / 2, cy: 0, r: 26, sub, layout: 'stack', maxW: inner - 8, scrim: 0.3 };
+      const b = breathGuideBox(ctx, o);
+      return { o: { ...o, cy: -b.y }, box: { x: b.x, y: 0, w: b.w, h: b.h } };
+    }
+    r = Math.max(26, r - 2);
+  }
+}
+
+/** Where the rest's guide stands: at the card's top, or under the picture in the stage (`strip`: the stage's foot it takes). */
+export type GuideSpot = { inCard: true; o: BreathGuideOpts; box: Rect } | { inCard: false; o: BreathGuideOpts; box: Rect; strip: number };
+
+/**
+ * Where the rest's breath guide goes (round 15).  In the card, over the facts, wherever the card keeps room for a long
+ * fact (150 characters at the reading size, its name and source) under it — a desk, a tablet, a tall phone; else (a
+ * small phone, a phone on its side, the brain over a short card) under the picture: the rest's camera then frames the
+ * whole figure (or brain) in the stage less that strip, so nothing of the picture is covered.
+ */
+export function guideSpot(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloSim): GuideSpot {
+  const pad = Math.round(10 * Math.min(1.6, L.u));
+  const g = cardGuide(ctx, L, L.card, pad, sim);
+  const inner = L.card.w - 2 * pad;
+  const need = 110 + 17 * Math.ceil(1080 / Math.max(60, inner));
+  if (L.shape === 'desk' || L.card.h - (g.box.h + 8) >= need) return { inCard: true, ...g };
+  const S = L.stage;
+  const sub = breathOf(Math.min(sim.breathCycles, sim.breath.n + 1), sim.breathCycles);
+  let o: BreathGuideOpts | null = null, b: Rect | null = null;
+  for (let r = breathGuideRadius(L.w, L.h); !o; r = Math.max(26, r - 2)) {
+    for (const layout of ['row', 'stack'] as const) {
+      const t: BreathGuideOpts = { cx: S.x + S.w / 2, cy: 0, r, sub, layout, maxW: layout === 'row' ? S.w - 2 * r - 50 : S.w - 16 };
+      const bb = breathGuideBox(ctx, t);
+      if ((bb.w <= S.w - 8 && bb.h <= S.h * 0.36) || r <= 26) {
+        o = t;
+        b = bb;
+        if (bb.w <= S.w - 8) break;
+      }
+    }
+  }
+  const box = b!;
+  const top = S.y + S.h - box.h - 4;
+  return { inCard: false, o: { ...o!, cy: top - box.y }, box: { x: box.x, y: top, w: box.w, h: box.h }, strip: box.h + 8 };
+}
+
+/**
  * The element's card (or its fact, or the breath in rest), inside L.card, pinned to its top; returns the rect drawn.
  * Its parts: a fixed head (the place in the way, the name, the Latin; Równowaga's push and gauge), one flexible
  * paragraph (the guidance, what the body does, the fact) that takes the height left, a fixed foot (the source, the
  * fill bar).  The paragraph shrinks to 13 px before anything is cut.
  */
-export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloSim, pulse: number | null): Rect {
+export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloSim, pulse: number | null, reduced = false): Rect {
   // under the brain on an upright phone the card is short: what it must say may grow it up over the picture's foot
   const grow = L.brain && L.shape === 'tall' ? Math.round(L.stage.h * 0.42) : 0;
   const c = grow ? { x: L.card.x, y: L.card.y - grow, w: L.card.w, h: L.card.h + grow } : L.card;
@@ -139,8 +202,9 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloS
     edge = rgba(REST, 0.55);
     const b = sim.breath;
     const ringR = Math.round(Math.max(26, Math.min(c.w * 0.22, c.h * 0.16)));
-    ringH = 2 * ringR + 12;
-    ring = (y: number) => {
+    // the finale's quiet ring (a rest's breath is the kit's guide, below)
+    ringH = sim.restBlock ? 0 : 2 * ringR + 12;
+    ring = sim.restBlock ? null : (y: number) => {
       const cx = c.x + c.w / 2, cy = y + ringR + 4;
       const k = sim.restBlock ? b.k : 0.5;
       ctx.strokeStyle = 'rgba(169,184,255,.25)';
@@ -163,7 +227,6 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloS
         ctx.fillText(String(Math.max(1, Math.ceil(b.left - 1e-6))), cx, cy + 10);
       }
     };
-    if (sim.restBlock) head.push({ text: t('hud.breath', { n: Math.min(sim.breathCycles, b.n + 1), of: sim.breathCycles }), px: L.font.small, weight: 700, color: 'rgba(220,226,255,.8)', gap: 2 });
     flexText = t('hud.restLit');
     flexWeight = 600;
     if (pulse !== null) foot.push({ text: t('hud.pulse', { n: Math.round(pulse) }), px: L.font.small, weight: 700, color: '#ffc2cf' });
@@ -223,6 +286,13 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SwiatloS
       flexColor = '#e6eefc';
     } else flexText = sim.guide;
     if (pulse !== null && (e.id === 'o.heart' || e.id === 'r.heart')) foot.push({ text: t('hud.pulse', { n: Math.round(pulse) }), px: L.font.small, weight: 700, color: '#ffc2cf' });
+  }
+  // a rest: the breath guide stands at the card's top, over the fact too (round 15: readable at a glance, all rest long)
+  const spot = sim.restBlock && sim.phase === 'play' ? guideSpot(ctx, L, sim) : null;
+  if (spot?.inCard) {
+    const g = cardGuide(ctx, L, c, pad, sim);
+    ringH = g.box.h + 8;
+    ring = (y: number) => drawBreathGuide(ctx, sim.breath, { ...g.o, cy: y + g.o.cy, reducedMotion: reduced, time: sim.t });
   }
   const barH = bar ? Math.round(L.font.small * 1.35) + 16 : 0;
   const fixedH = pad + linesH(head) + gaugeH + ringH + linesH(foot) + barH + pad;

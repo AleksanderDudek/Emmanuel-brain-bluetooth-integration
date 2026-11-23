@@ -7,7 +7,7 @@ import { CATALOGS, t, unit } from '../src/arcade/swiatlo/i18n';
 import { WORDS } from '../src/arcade/swiatlo/words';
 import { bestOf, choose, freshProgress, litIn, migrate, restart, startAt, type SwiatloProgress } from '../src/arcade/swiatlo/meta';
 import { RULES, readSec } from '../src/arcade/swiatlo/rules';
-import { ROOT, SwiatloSim, VERSE, fillMult, restFor, warmFor, type SimEvent } from '../src/arcade/swiatlo/sim';
+import { ROOT, SwiatloSim, VERSE, fillMult, maxPushFor, perPushOf, restFor, warmFor, type SimEvent } from '../src/arcade/swiatlo/sim';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
@@ -15,7 +15,9 @@ import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import { CHECK_SIZES, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { songProblems } from '../src/arcade/kit/song';
-import { coachText, howto } from '../src/arcade/swiatlo/index';
+import mod, { coachText, howto, rhythm } from '../src/arcade/swiatlo/index';
+import { cardGuide, guideSpot } from '../src/arcade/swiatlo/hud';
+import { rhythmOf } from '../src/arcade/kit/rhythm';
 import { CTRLS, elementCam, figCam, hitTest, layout, pickerRect, storyRect, tapTargets } from '../src/arcade/swiatlo/layout';
 import { geoBox } from '../src/arcade/swiatlo/figure';
 import { buildSong } from '../src/arcade/swiatlo/lullaby';
@@ -32,11 +34,11 @@ const NONE = frame({ reliable: false, activity: null, level: 0, focused: false, 
 
 const ALL_SEEN = ['s.open', 's.news', 'c.fill', 'c.rest', 'c.nav', 'c.blind', 'c.stay'];
 
-type SimOpts = { progress?: Partial<SwiatloProgress>; planned?: number; seed?: number; mouse?: boolean };
+type SimOpts = { progress?: Partial<SwiatloProgress>; planned?: number; seed?: number; mouse?: boolean; rhythm?: { focus: number; rest: number } | null };
 
 function makeSim(o: SimOpts = {}): SwiatloSim {
   const p = { ...freshProgress(), ...o.progress };
-  const sim = new SwiatloSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: false, tuning: TUNING, mouse: o.mouse });
+  const sim = new SwiatloSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: false, tuning: TUNING, mouse: o.mouse, rhythm: o.rhythm });
   sim.start();
   return sim;
 }
@@ -232,7 +234,7 @@ describe('only real focus fills (the round’s rule)', () => {
   });
 });
 
-describe('the blocks: a push fills one element, a rest of whole breaths follows', () => {
+describe('the blocks: a push fills its elements (2 by design), a rest of whole breaths follows', () => {
   it('ends a push when its element is full, then rests in whole breaths (4 in · 6 out), then pushes the next element', () => {
     const sim = later();
     const clock = { t: 0 };
@@ -243,7 +245,7 @@ describe('the blocks: a push fills one element, a rest of whole breaths follows'
     for (const b of done.filter(x => x.kind === 'rest')) expect(Math.round(b.dur) % 10).toBe(0);
     expect(restFor(600)).toBe(20);
     // each push ended on a lit element (an ideal player never needs the valve)
-    expect(done.filter(b => b.kind === 'push').every(b => b.dur < RULES.maxPush)).toBe(true);
+    expect(done.filter(b => b.kind === 'push').every(b => b.dur < maxPushFor(RULES.perPush))).toBe(true);
     expect(sim.litNow.length).toBeGreaterThanOrEqual(done.filter(b => b.kind === 'push').length);
     expect(sim.litNow[0]).toBe('o.brain');
     expect(sim.litNow[1]).toBe('o.eyes');
@@ -256,10 +258,10 @@ describe('the blocks: a push fills one element, a rest of whole breaths follows'
     const kept = sim.fill;
     expect(kept).toBeGreaterThan(0);
     expect(kept).toBeLessThan(1);
-    drive(sim, RULES.maxPush - 10 + 0.2, LOW, clock);
+    drive(sim, maxPushFor(RULES.perPush) - 10 + 0.2, LOW, clock);
     expect(sim.restBlock).toBe(true);
     expect(sim.fill).toBeCloseTo(kept, 6);
-    expect(sim.blocks[0].dur).toBeCloseTo(RULES.maxPush, 0);
+    expect(sim.blocks[0].dur).toBeCloseTo(maxPushFor(RULES.perPush), 0);
   });
 
   it('judges each block once at its end, not a push under judgeMin, and pays a block judged well', () => {
@@ -668,9 +670,121 @@ describe('long sessions (15–30 minutes)', () => {
     expect(sim.phase).toBe('done');
     expect(sim.fill).toBe(0);
     starts.forEach((s, i) => { if (i) expect(s.kind).not.toBe(starts[i - 1].kind); });
-    for (let i = 1; i < starts.length; i++) expect(starts[i].t - starts[i - 1].t).toBeLessThanOrEqual(RULES.maxPush + 0.5);
+    const valve = maxPushFor(RULES.perPush);
+    for (let i = 1; i < starts.length; i++) expect(starts[i].t - starts[i - 1].t).toBeLessThanOrEqual(valve + 0.5);
     // the last block ends within its own length of the finale: no dead tail
-    expect(1800 - RULES.finale.long - starts.at(-1)!.t).toBeLessThanOrEqual(RULES.maxPush + 0.5);
-    expect(starts.length).toBeGreaterThan(2 * Math.floor(1800 / (RULES.maxPush + RULES.restTarget + 4)) - 2);
+    expect(1800 - RULES.finale.long - starts.at(-1)!.t).toBeLessThanOrEqual(valve + 0.5);
+    expect(starts.length).toBeGreaterThan(2 * Math.floor(1800 / (valve + restFor(600) + 4)) - 2);
   });
 });
+
+describe('the rest’s rhythm and the breath guide (round 15)', () => {
+  it('offers two dials in the game’s words: rest after 1–4 places (2), 1–6 breaths of 4 in, 6 out (2: 20 s)', () => {
+    const spec = rhythm();
+    expect(mod.ownBreath).toBe(true);
+    expect(mod.rhythm).toBeDefined();
+    expect([spec.focus.def, spec.focus.min, spec.focus.max]).toEqual([2, 1, 4]);
+    expect([spec.rest.def, spec.rest.min, spec.rest.max]).toEqual([2, 1, 6]);
+    expect(spec.focus.name).toBe(t('rhythm.after'));
+    expect(spec.focus.format(2)).toBe('2\u00a0miejscach');
+    expect(spec.focus.format(1)).toBe('1\u00a0miejscu');
+    expect(spec.restSec!(2)).toBe(20);
+    expect(spec.restSec!(5)).toBe(50);
+    expect(spec.focusSec!(2)).toBe(31);
+    expect(rhythmOf(spec, { focus: 9, rest: 0 })).toEqual({ focus: 4, rest: 1, custom: true });
+    expect(perPushOf(undefined)).toBe(2);
+    expect(maxPushFor(1)).toBe(RULES.maxPush);
+    expect(maxPushFor(4)).toBe(RULES.maxPush + 3 * RULES.maxPushPer);
+    // the short test keeps its one-breath rest whatever the dial
+    expect(restFor(40, 6)).toBe(10);
+  });
+
+  it('fills the player’s count of places before each rest, and rests for their whole breaths', () => {
+    for (const [focus, rest] of [[1, 1], [2, 2], [3, 4], [4, 6]] as const) {
+      const sim = later({ rhythm: { focus, rest } });
+      const clock = { t: 0 };
+      drive(sim, 400, ideal(sim), clock);
+      const pushes = sim.blocks.filter(b => b.kind === 'push' && b.end !== undefined);
+      const rests = sim.blocks.filter(b => b.kind === 'rest' && b.end !== undefined);
+      expect(pushes.length, `${focus}`).toBeGreaterThan(1);
+      for (const r of rests) expect(r.dur, `${focus}/${rest}`).toBe(rest * 10);
+      // a strong player lights about `focus` places a sighted push (an early fill may flow on into one more; a blind
+      // push gathers one place unseen)
+      const blind = pushes.filter(b => b.blind).length;
+      const per = (sim.litNow.length - blind) / (pushes.length - blind);
+      expect(per, `${focus}`).toBeGreaterThanOrEqual(focus - 0.5);
+      expect(per, `${focus}`).toBeLessThanOrEqual(focus + 1.2);
+    }
+  });
+
+  it('reads the facts of the push’s places one after another in its rest', () => {
+    const sim = later({ rhythm: { focus: 2, rest: 4 } });
+    const clock = { t: 0 };
+    while (!sim.restBlock && clock.t < 200) drive(sim, 0.1, ideal(sim), clock);
+    expect(sim.restBlock).toBe(true);
+    const lit = [...sim.litNow];
+    expect(lit.length).toBeGreaterThanOrEqual(2);
+    const seen: string[] = [];
+    while (sim.restBlock) {
+      drive(sim, 0.2, ideal(sim), clock);
+      const f = sim.factShown ? sim.fact : null;
+      if (f && seen.at(-1) !== f.id) seen.push(f.id);
+    }
+    expect(seen).toEqual(lit.slice(-seen.length));
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('completes 3, 10 and 30 minutes on time with the design and the dials’ extremes, focus or none', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const r of [null, { focus: 1, rest: 1 }, { focus: 4, rest: 6 }, { focus: 1, rest: 6 }, { focus: 4, rest: 1 }]) {
+        for (const feed of ['ideal', 'low'] as const) {
+          const sim = later({ planned, rhythm: r });
+          const clock = { t: 0 };
+          const f = feed === 'ideal' ? ideal(sim) : () => LOW;
+          while (sim.phase !== 'done' && clock.t < planned + 10) drive(sim, 1, f, clock);
+          const id = `${planned} · ${JSON.stringify(r)} · ${feed}`;
+          expect(sim.phase, id).toBe('done');
+          expect(clock.t, id).toBeLessThanOrEqual(planned + 1.5);
+          const valve = maxPushFor(r?.focus ?? RULES.perPush);
+          for (const b of sim.blocks.filter(x => x.kind === 'push' && x.end !== undefined)) expect(b.dur, id).toBeLessThanOrEqual(valve + 0.1);
+        }
+      }
+    }
+  }, 180_000);
+
+  it('draws the rest’s guide in the card at every checked size: inside the card, its word at least 20 px', () => {
+    const ctx = measuring();
+    for (const touch of [true, false]) {
+      for (const brain of [false, true]) {
+        for (const c of CHECK_SIZES) {
+          const L = layout(c.w, c.h, c.insets, touch, brain);
+          const sim = later();
+          const g = cardGuide(ctx, L, L.card, 10, sim);
+          const id = `${c.name} · ${touch ? 'touch' : 'mouse'} · ${brain ? 'brain' : 'figure'}`;
+          expect(g.box.w, id).toBeLessThanOrEqual(L.card.w - 20 + 0.5);
+          expect(g.o.r, id).toBeGreaterThanOrEqual(26);
+          expect(g.box.h, id).toBeLessThanOrEqual(Math.max(L.card.h * 0.45, 140));
+          // where it goes: the card on a desk and wherever a long fact still fits under it, else under the picture
+          const spot = guideSpot(ctx, L, sim);
+          if (L.shape === 'desk') expect(spot.inCard, id).toBe(true);
+          if (!spot.inCard) {
+            const S = L.stage;
+            expect(spot.box.x, id).toBeGreaterThanOrEqual(S.x - 0.5);
+            expect(spot.box.x + spot.box.w, id).toBeLessThanOrEqual(S.x + S.w + 0.5);
+            expect(spot.box.y + spot.box.h, id).toBeLessThanOrEqual(S.y + S.h + 0.5);
+            expect(spot.box.y, id).toBeGreaterThanOrEqual(L.top);
+            // the picture keeps most of its stage
+            expect(spot.strip, id).toBeLessThanOrEqual(S.h * 0.45);
+          }
+        }
+      }
+    }
+  });
+});
+
+/** A canvas context that measures text as 0.6 em per character and draws nothing. */
+function measuring(): CanvasRenderingContext2D {
+  const px = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10);
+  const ctx = { font: '10px sans-serif', measureText(text: string) { return { width: [...text].length * px(this.font) * 0.6 } as TextMetrics; } };
+  return ctx as unknown as CanvasRenderingContext2D;
+}

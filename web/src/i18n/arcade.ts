@@ -449,7 +449,7 @@ const pl = {
   // ── Światło ciała (v4, §13) ───────────────────────────────────────────────
   'swiatlo.title': 'Światło ciała',
   'swiatlo.tagline': 'Pięć medytacji: narządy, mięśnie, mózg, kończyny, równowaga.',
-  'swiatlo.text': 'Światło zatrzymuje się w kolejnych miejscach ciała — narządach od głowy do stóp, największych mięśniach, częściach mózgu, kończynach po kolei albo dziewięciu narządach, które same wracają do równowagi. Tylko Twoje skupienie wypełnia dane miejsce światłem; pełne zaświeci i pokaże sprawdzoną ciekawostkę ze źródłem. Potem odpoczynek z oddechem i następne miejsce.',
+  'swiatlo.text': 'Światło zatrzymuje się w kolejnych miejscach ciała — narządach od głowy do stóp, największych mięśniach, częściach mózgu, kończynach po kolei albo dziewięciu narządach, które same wracają do równowagi. Tylko Twoje skupienie wypełnia dane miejsce światłem; pełne zaświeci i pokaże sprawdzoną ciekawostkę ze źródłem. Po kilku miejscach przychodzi odpoczynek z oddechem.',
   'swiatlo.how1': 'Wybierz medytację: narządy, mięśnie, mózg, kończyny albo równowagę (≡ w grze).',
   'swiatlo.how2': 'Skup się na świecącym miejscu i rób to, co mówi zdanie pod jego nazwą — tylko skupienie wypełnia je światłem.',
   'swiatlo.how3': 'Gdy się wypełni, przeczytaj ciekawostkę i odpocznij z kołem oddechu; stuknij ◀ ▶, by wrócić albo pójść dalej.',
@@ -1202,7 +1202,7 @@ const en: Catalog<Key> = {
   // ── Światło ciała (v4, §13) ───────────────────────────────────────────────
   'swiatlo.title': 'The Light of the Body',
   'swiatlo.tagline': 'Five meditations: organs, muscles, brain, limbs, balance.',
-  'swiatlo.text': 'The light stops at one place of the body after another — the organs from head to toe, the largest muscles, the parts of the brain, the limbs one by one, or nine organs that return to balance on their own. Only your focus fills each place with light; full, it shines and shows a checked fact with its source. Then a rest with the breath, and the next place.',
+  'swiatlo.text': 'The light stops at one place of the body after another — the organs from head to toe, the largest muscles, the parts of the brain, the limbs one by one, or nine organs that return to balance on their own. Only your focus fills each place with light; full, it shines and shows a checked fact with its source. After a few places comes a rest with the breath.',
   'swiatlo.how1': 'Choose a meditation: organs, muscles, the brain, the limbs or balance (≡ in the game).',
   'swiatlo.how2': 'Focus on the glowing place and do what the line under its name says — only focus fills it with light.',
   'swiatlo.how3': 'When it is full, read the fact and rest with the breathing ring; tap ◀ ▶ to go back or on.',
@@ -1952,7 +1952,7 @@ const de: Catalog<Key> = {
   // ── Światło ciała (v4, §13) ───────────────────────────────────────────────
   'swiatlo.title': 'Licht des Leibes',
   'swiatlo.tagline': 'Fünf Meditationen: Organe, Muskeln, Gehirn, Arme und Beine, Gleichgewicht.',
-  'swiatlo.text': 'Das Licht hält an einer Stelle des Körpers nach der anderen — an den Organen vom Kopf bis zu den Füßen, den größten Muskeln, den Teilen des Gehirns, an Armen und Beinen der Reihe nach oder an neun Organen, die von selbst ins Gleichgewicht zurückfinden. Nur dein Fokus füllt jede Stelle mit Licht; voll leuchtet sie und zeigt eine geprüfte Wissenskarte mit Quelle. Dann Erholung mit dem Atem, und die nächste Stelle.',
+  'swiatlo.text': 'Das Licht hält an einer Stelle des Körpers nach der anderen — an den Organen vom Kopf bis zu den Füßen, den größten Muskeln, den Teilen des Gehirns, an Armen und Beinen der Reihe nach oder an neun Organen, die von selbst ins Gleichgewicht zurückfinden. Nur dein Fokus füllt jede Stelle mit Licht; voll leuchtet sie und zeigt eine geprüfte Wissenskarte mit Quelle. Nach ein paar Stellen folgt eine Erholung mit dem Atem.',
   'swiatlo.how1': 'Wähle eine Meditation: Organe, Muskeln, Gehirn, Arme und Beine oder Gleichgewicht (≡ im Spiel).',
   'swiatlo.how2': 'Konzentrier dich auf die leuchtende Stelle und tu, was der Satz unter ihrem Namen sagt — nur Fokus füllt sie mit Licht.',
   'swiatlo.how3': 'Ist sie voll, lies die Wissenskarte und ruh dich mit dem Atemring aus; tippe auf ◀ ▶, um zurück oder weiter zu gehen.',
@@ -2702,7 +2702,7 @@ const sv: Catalog<Key> = {
   // ── Światło ciała (v4, §13) ───────────────────────────────────────────────
   'swiatlo.title': 'Kroppens ljus',
   'swiatlo.tagline': 'Fem meditationer: organ, muskler, hjärna, armar och ben, balans.',
-  'swiatlo.text': 'Ljuset stannar på den ena platsen i kroppen efter den andra — organen från huvud till fot, de största musklerna, hjärnans delar, armar och ben i tur och ordning eller nio organ som själva hittar tillbaka till balans. Bara ditt fokus fyller varje plats med ljus; full lyser den och visar ett kontrollerat faktum med källa. Sedan vila med andningen, och nästa plats.',
+  'swiatlo.text': 'Ljuset stannar på den ena platsen i kroppen efter den andra — organen från huvud till fot, de största musklerna, hjärnans delar, armar och ben i tur och ordning eller nio organ som själva hittar tillbaka till balans. Bara ditt fokus fyller varje plats med ljus; full lyser den och visar ett kontrollerat faktum med källa. Efter några platser kommer vila med andningen.',
   'swiatlo.how1': 'Välj en meditation: organ, muskler, hjärnan, armar och ben eller balans (≡ i spelet).',
   'swiatlo.how2': 'Fokusera på den lysande platsen och gör det som raden under namnet säger — bara fokus fyller den med ljus.',
   'swiatlo.how3': 'När den är full, läs faktumet och vila med andningsringen; tryck på ◀ ▶ för att gå tillbaka eller vidare.',

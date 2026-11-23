@@ -30,19 +30,30 @@ export const RULES = {
   restLight: 0.3,
   gold: 0.5,
 
-  // ── the blocks: a push fills one element, then a rest of whole breaths ──
+  // ── the blocks: a push fills its elements (2 by design), then a rest of whole breaths ──
+  /**
+   * the elements ("miejsca") a push fills before its rest (round 15, DESIGN §19): 2 by design — a rest after every
+   * single element (round 11) came every ~20 s and took half the session — the player sets 1–4 in the lobby
+   * ("Odpoczynek po"); the facts of the push's places are read one after another in its rest
+   */
+  perPush: 2,
+  perPushDial: { min: 1, max: 4 },
   /** the lead-in before the brain acts in a push (s): Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
   /** a push ends when its element is full, but not before this (s): an early fill flows into the next element */
   minPush: 12,
-  /** a push that cannot fill ends anyway after this long (s), telegraphed `telegraph` before; the element keeps its fill */
+  /**
+   * a push that cannot fill ends anyway after this long (s) — `maxPush` for one element, `maxPushPer` more for each
+   * further one it asks — telegraphed `telegraph` before; the element keeps its fill
+   */
   maxPush: 60,
+  maxPushPer: 25,
   /** the rest is announced when the element is this full (and the push has run at least minPush − telegraph) */
   announceAt: 0.85,
   telegraph: 4,
-  /** a rest of whole breaths: about this long (s), at least `restMin` (kit/breath `breathRest`) */
-  restTarget: 20,
-  restMin: 12,
+  /** a rest of whole breaths of 4 in, 6 out: 2 by design (20 s), the player sets 1–6 in the lobby ("Odpoczynek") */
+  restBreaths: 2,
+  restBreathsDial: { min: 1, max: 6 },
   /** a short session (≤ 60 s): rests of one breath */
   shortRestBreaths: 1,
   /** a push shorter than this is not judged */

@@ -3,17 +3,20 @@
  * in Matthew 6:22 ("your whole body will be full of light").  Round 11: five meditations to choose — the organs head
  * to toe, the largest muscles, the brain, the limbs one segment after another, and the nine homeostatic loops — in
  * each, the light comes to one element after another and only real focus fills it; full, it glows and shows a true
- * fact with its source, and a rest of whole breaths follows.  The hands walk (◀ ▶), choose (≡) and stay (a tap on
- * the picture); they never fill anything.
+ * fact with its source; after two places (the player sets 1–4, round 15) a rest of whole breaths follows, drawn as
+ * the kit's breath guide in the card (hud.ts).  The hands walk (◀ ▶), choose (≡) and stay (a tap on the picture);
+ * they never fill anything.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in rules.ts, the
  * data in content.ts and words-*.ts, the meta in meta.ts, Zofia's bubble in talk.ts), the pictures (render.ts with
  * layout.ts, picture.ts, figure.ts, brain.ts, paint.ts and hud.ts; intro.ts for calibration, preview.ts for the
  * lobby), the sound (audio.ts) and the lullaby (lullaby.ts on kit/song.ts), the lobby's card (panel.ts).
  */
+import { BREATH_DEFAULT, breathCycle } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { SwiatloSound } from './audio';
@@ -26,7 +29,7 @@ import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { SwiatloView } from './render';
 import { RULES } from './rules';
-import { SwiatloSim, type Coach, type CoachAt, type SimEvent } from './sim';
+import { SwiatloSim, perPushOf, restFor, type Coach, type CoachAt, type SimEvent } from './sim';
 
 class SwiatloGame implements ArcadeGame {
   private readonly sim: SwiatloSim;
@@ -47,7 +50,7 @@ class SwiatloGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<SwiatloProgress>) {
     migrate(env.progress);
-    this.sim = new SwiatloSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch });
+    this.sim = new SwiatloSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch, rhythm: env.rhythm });
     this.view = new SwiatloView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new SwiatloSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -277,5 +280,26 @@ const mod: ArcadeModule<SwiatloProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: () => rhythm(),
+  // the rest's breath is drawn in the card (hud.ts drawCard): the runner adds no pacer of its own
+  ownBreath: true,
 };
 export default mod;
+
+/**
+ * The rest's rhythm in the lobby (kit/rhythm, round 15): how many places the light fills before a rest (1–4, 2 by
+ * design) and how many whole breaths of 4 in, 6 out the rest lasts (1–6, 2 by design: 20 s).  A place takes about
+ * 13 s of focus (its fill and the light's move on), past the band's 5 s lead-in.
+ */
+export function rhythm(): RhythmSpec {
+  return {
+    focus: {
+      def: RULES.perPush, min: RULES.perPushDial.min, max: RULES.perPushDial.max, step: 1,
+      name: t('rhythm.after'), format: n => t('rhythm.places', { n }),
+    },
+    rest: breathDial(RULES.restBreaths, undefined, breathCycle(BREATH_DEFAULT), RULES.restBreathsDial),
+    note: t('rhythm.note'),
+    focusSec: n => RULES.leadIn.fnirs + 13 * perPushOf(n),
+    restSec: n => restFor(600, n),
+  };
+}
