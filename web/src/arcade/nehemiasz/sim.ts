@@ -13,6 +13,7 @@
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
@@ -139,11 +140,12 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 /**
  * The session's blocks.  It opens with a day: the warm-up in a first-ever session (30 s in 5 and 10
  * min, 20 s in 3, 6 s in a 40 s test), a rest block (a working day) later; then nights and days
- * alternate (26 ± 4 s and 24 ± 3 s, scaled to end on time, jittered only when there is room) and end
- * on a night, leaving the last stretch for the next dawn.  No block under 12 s.
+ * alternate (45 ± 7 s and 20 ± 3 s, or the player's rhythm with the jitter scaled to it; scaled to end
+ * on time, jittered only when there is room) and end on a night, leaving the last stretch for the next
+ * dawn.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -199,6 +201,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of night watch, s of working day); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class NehSim {
@@ -342,7 +346,7 @@ export class NehSim {
     this.bankBefore = p.starBank;
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
     this.talk = new Talk(LINES, init.rng);
     for (const id of FIRE_IDS) { this.fireR[id] = fireReach(p.stretch[id] ?? 0, 0); this.fireDim[id] = 0; }
   }
@@ -988,7 +992,7 @@ export class NehSim {
   /** Tonight's raiders: how many, of which kinds, by which road and when (three waves). */
   private planNight(dur: number): void {
     const p = this.p, R = RULES;
-    const durK = clamp(dur / 24, 0.5, 1.3);
+    const durK = clamp(dur / 24, 0.5, R.nightTop);
     const level = p.gate + p.year * GATES.length;
     const gentle = this.session === 1 && this.nightsAll === 0 && p.gate === 0 && p.year === 0;
     let n = gentle ? R.firstNight
@@ -1026,7 +1030,7 @@ export class NehSim {
   /** The waves' seconds for a night of `dur` s (the last wave still reaches the wall before dawn). */
   private fitNight(dur: number): void {
     const R = RULES;
-    const k = clamp(dur / 24, 0.45, 1.3);
+    const k = clamp(dur / 24, 0.45, R.nightTop);
     const latest = Math.max(R.waves[0], dur - 7);
     const n = [0, 0, 0];
     for (const s of this.spawns) {

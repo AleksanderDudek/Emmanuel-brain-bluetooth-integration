@@ -426,7 +426,9 @@ export class NehView {
     this.cityGround(sim);
     this.groundMarks(sim);
     this.scene(sim);
-    this.avoid = [];
+    // by day (a rest) the runner's breath pacer stands at the top centre: Tirza's bubble keeps clear of it
+    const pacer = this.pacerRect(sim);
+    this.avoid = pacer ? [pacer, pacer, pacer] : [];
     this.buildBadges(sim);
     this.night(sim);
     this.ridge(sim);
@@ -806,12 +808,24 @@ export class NehView {
     if (!card) card = list.find(b => b.id === near?.id && b.free) ?? (this.L.phone ? null : list.find(b => b.id === sim.guideId && b.free)) ?? null;
     if (card && card.mv.cost && card.mv.next !== null) {
       const others = pressedCard ? null : list.filter(b => b.free && b.id !== card!.id).map(b => b.box);
-      this.costCard(card, tierName(card.kind, card.mv.next), card.mv.cost, sim.p.stone, sim.p.timber, others);
+      // a card that would sit under the breath pacer goes below its badge
+      this.costCard(card, tierName(card.kind, card.mv.next), card.mv.cost, sim.p.stone, sim.p.timber, others, this.pacerRect(sim));
     }
   }
 
-  /** A badge's cost card: above it, or below where the HUD leaves no room; with `clear`, only where it covers none of those. */
-  private costCard(b: Badge, name: string, cost: { stone: number; timber: number }, stone: number, timber: number, clear: Rect[] | null): void {
+  /**
+   * By day (a rest block) the runner's breath pacer (src/arcade/pacer.ts) stands at the top centre under the HUD: a
+   * pill 66–76 px tall, 10 px down, some ±115 px wide in the widest language.  What it covers, or null by night.
+   */
+  private pacerRect(sim: NehSim): Rect | null {
+    return sim.block.kind === 'rest' ? { x: this.w / 2 - 115, y: this.L.top, w: 230, h: 86 } : null;
+  }
+
+  /**
+   * A badge's cost card: above it, or below where the HUD (or the breath pacer, `under`) leaves no room; with `clear`,
+   * only where it covers none of those.
+   */
+  private costCard(b: Badge, name: string, cost: { stone: number; timber: number }, stone: number, timber: number, clear: Rect[] | null, under: Rect | null = null): void {
     const ctx = this.ctx, L = this.L, u = L.u;
     ctx.save();
     ctx.font = font(13 * u, 750);
@@ -824,7 +838,7 @@ export class NehView {
     const w = Math.min(L.right - L.left, Math.max(nameW, costW) + 18 * u), h = 42 * u;
     const bx = clamp(b.x - w / 2, L.left, L.right - w);
     let by = b.y - b.r - 12 - h;
-    if (by < L.top + 4) by = b.y + b.r + 8;
+    if (by < L.top + 4 || (under && overlaps(under, { x: bx, y: by, w, h }))) by = b.y + b.r + 8;
     const rect = { x: bx, y: by, w, h };
     if (clear?.some(r => overlaps(r, rect))) {
       ctx.restore();

@@ -87,8 +87,48 @@ describe('the block plan', () => {
       expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
       for (const b of rest) {
         expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
+        const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+        expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
       }
+    }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer nights, shorter days, the jitter scaled; long nights bring their raiders', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the days under a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm: a 2-minute night has more raiders, its last wave still before dawn; the wall still grows
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new NehSim({
+        progress: migrate(mergeSaved(freshProgress(), { ...freshProgress(), sessions: 5, pushes: 1, gateDay: 1, day: 1, seen: SEEN, cards: ['horn', 'ono'] })),
+        rng: mulberry32(7), day: DAY, daySeed: 4242, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const nights = sim.plan.filter(b => b.kind === 'push');
+      const night = nights.reduce((s, b) => s + b.dur, 0) / nights.length;
+      expect(night).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(night).toBeLessThan(rhythm.focus * 1.25);
+      let most = 0;
+      drive(sim, 600 + RULES.settle, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, tt => {
+        through(sim)();
+        if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+        most = Math.max(most, sim.raiders.length);
+      });
+      expect(sim.phase).toBe('done');
+      expect(sim.headlineValue).toBeGreaterThan(100);
+      if (rhythm.focus > 60) expect(most).toBeGreaterThan(8);
+      expect(most).toBeLessThan(60);
     }
   });
 
@@ -1131,12 +1171,13 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.at(-1)!.kind).toBe('push');
         expect(finaleFor(planned)).toBe(RULES.finale.long);
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
-        // about one night and one day every 50 s: 18 nights in 15 minutes, 36 in 30
+        // about one night and one day every 65 s: 14 nights in 15 minutes, 27 in 30
         const nights = body.filter(b => b.kind === 'push').length;
         expect(Math.abs(nights - (planned - finaleFor(planned)) / (RULES.push[0] + RULES.rest[0]))).toBeLessThan(1);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
         }
       }
     }

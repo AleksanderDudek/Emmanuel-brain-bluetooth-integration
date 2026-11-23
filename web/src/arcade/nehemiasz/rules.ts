@@ -63,8 +63,9 @@ export const RULES = {
   /** the rhythm = 1 + calm × rhythmExtra past the rest lead-in, 1 otherwise (never below the base) */
   rhythmExtra: 1.2,
   restLead: { fnirs: 4, eeg: 2 },
-  /** a builder lays this many cubits a second at rhythm 1 and full strength */
-  lay: 0.32,
+  /** a builder lays this many cubits a second at rhythm 1 and full strength (0.32 until round 15: a 20 s day lays
+   *  what a 24 s day laid — a day's work stays a day's work) */
+  lay: 0.38,
   /** a cubit of a builder's work mends this much hp */
   mendK: 2.2,
   /** strength's share in the work: × (sBase + (1 − sBase) × strength) */
@@ -179,17 +180,20 @@ export const RULES = {
   grab: 1.4,
   /** at most this share of a store is lost in a night */
   lootCap: 0.25,
-  /** the night's raiders: (base + perDay × day of the gate + perGate2 × gate) × (1 + yearUp × year), × night length / 24 s */
+  /** the night's raiders: (base + perDay × day of the gate + perGate2 × gate) × (1 + yearUp × year), × night length / 24 s
+   *  (so many per 24 s of night, a long night has more: up to nightTop × as many) */
   nightBase: 5,
   nightPerDay: 1.5,
   nightPerGate: 0.7,
   yearUp: 0.25,
-  /** the years' climb (raiders per night, their courage) stops at this year: a 30-minute session builds ~36
-   *  days, so years now pass in one or two sessions — year 5 and on are as hard as year 5 */
+  /** the years' climb (raiders per night, their courage) stops at this year: a 30-minute session builds ~27
+   *  days, so years pass in two sessions — year 5 and on are as hard as year 5 */
   yearTop: 4,
   /** the waves come at these seconds of the night; the raiders of a wave this far apart (s) */
   waves: [1.2, 7.5, 13.5],
   waveGap: 0.55,
+  /** a night's raiders and its waves' seconds scale with its length / 24 s up to this (a 120 s night) */
+  nightTop: 5,
   /** the first night ever is gentle */
   firstNight: 3,
 
@@ -200,9 +204,15 @@ export const RULES = {
   decreeEvery: 3,
 
   // ── the session ──────────────────────────────────────────────
-  /** night (push) and day (rest): nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [24, 3],
+  /**
+   * night (push) and day (rest): nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): a 45 s night watch — three waves down the roads and the fight at the wall — then a 20 s working
+   * day (time to walk, order and build; `lay` keeps a day's work what it was); rest under a third of the session,
+   * where 26 / 24 s made it nearly half.  The player sets both in the lobby (kit/rhythm.ts: the dials step by 5 s, so
+   * the defaults sit on them); the jitter scales with them.
+   */
+  push: [45, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: Tirza waits it out */
