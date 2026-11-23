@@ -18,9 +18,10 @@
  * The headline is the ATP made.  No DOM: the view and the sound read the state and the event queue (`take()`).
  */
 import { fmtNum } from '../../i18n';
-import { BREATH_DEFAULT, breathAt, breathRest, type BreathPattern, type BreathState } from '../kit/breath';
+import { BREATH_DEFAULT, breathAt, breathCycle, breathRestOf, type BreathPattern, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, passage, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
@@ -141,12 +142,16 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 /**
  * The session's blocks: a first-ever session opens with a warm-up that shows the turbine (30 s in 5 and 10 min,
  * 20 s in 3, 6 s in a 40 s test), then pushes and rests ending with a rest, then the last stretch.  A rest is a
- * whole number of breaths (kit/breath: 4 in, 6 out — two breaths, 20 s, or three, 30 s; the founder's rule for
- * the meditations); the pushes take the rest of the time, 26 ± 4 s jittered, never under 12 s.  Sessions of a
- * minute and less (a test) keep plain halves.
+ * whole number of breaths (kit/breath: 4 in, 6 out — two breaths, 20 s, by design; the founder's rule for the
+ * meditations); the pushes take the rest of the time, 40 ± 6 s jittered, never under 12 s.  Round 15: the player's
+ * rhythm (the lobby, kit/rhythm) sets the pushes' mean (s; the jitter scales with it) and the rests' breaths.
+ * Sessions of a minute and less (a test) keep plain halves.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, breath: BreathPattern = BREATH_DEFAULT): Block[] {
-  const R = RULES;
+export function planBlocks(
+  plannedSec: number, firstEver: boolean, rnd: () => number, breath: BreathPattern = BREATH_DEFAULT,
+  rhythm?: { focus: number; rest: number } | null,
+): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
@@ -165,28 +170,34 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
     plan.push(b('warmup', warm));
     left -= warm;
   }
-  const restMean = breathRest(breath, R.rest[0], R.minBlock).sec;
-  const pairs = Math.max(1, Math.round(left / (R.push[0] + restMean)));
+  const restMean = breathRestOf(breath, restBreathsOf(rhythm?.rest)).sec;
+  // as many pairs as bring the pushes' mean nearest the design (never under the shortest block)
+  const meanOf = (n: number): number => (left - n * restMean) / n;
+  let pairs = Math.max(1, Math.floor(left / (R.push[0] + restMean)));
+  if (meanOf(pairs + 1) >= R.minBlock && Math.abs(meanOf(pairs + 1) - R.push[0]) < Math.abs(meanOf(pairs) - R.push[0])) pairs++;
   const jitter = pairs >= 2 ? 1 : 0;
-  const rests: number[] = [];
-  for (let i = 0; i < pairs; i++) rests.push(breathRest(breath, R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1], R.minBlock).sec);
-  // the pushes fill what the rests leave (a long rest gives back a breath when the pushes would be too short)
+  const rests: number[] = new Array<number>(pairs).fill(restMean);
+  // the pushes fill what the rests leave (a rest gives back its breaths, down to one, when the pushes would be too short)
+  const one = breathCycle(breath);
   for (let i = rests.length - 1; i >= 0 && left - rests.reduce((s, d) => s + d, 0) < pairs * R.minBlock; i--) {
-    const one = breathRest(breath, 0, R.minBlock).sec;
-    rests[i] = Math.max(one, rests[i] - (rests[i] - one));
+    rests[i] = Math.min(rests[i], one);
   }
   const pushLeft = Math.max(pairs * R.minBlock, left - rests.reduce((s, d) => s + d, 0));
   const pushes: number[] = [];
   for (let i = 0; i < pairs; i++) pushes.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1]);
   const scale = pushLeft / pushes.reduce((s, d) => s + d, 0);
   for (let i = 0; i < pushes.length; i++) pushes[i] *= scale;
-  // the jitter never takes a push past 30 s while their mean allows it (a block of 20–30 s, §2)
+  // the jitter never takes a push past its mean + jitter while their mean allows it
   const mean = pushLeft / pairs, top = R.push[0] + R.push[1], over = Math.max(...pushes) - mean;
   if (mean <= top && over > top - mean) for (let i = 0; i < pushes.length; i++) pushes[i] = mean + (pushes[i] - mean) * ((top - mean) / over);
   liftShort(pushes, R.minBlock);
   for (let i = 0; i < pairs; i++) plan.push(b('push', pushes[i]), b('rest', rests[i]));
   return plan;
 }
+
+/** The rest's whole breaths: the player's (the lobby's dial), kept whole and inside its range, or the design's 2. */
+export const restBreathsOf = (n?: number | null): number =>
+  Math.round(clamp(typeof n === 'number' && Number.isFinite(n) ? n : RULES.restBreaths, RULES.restBreathsDial.min, RULES.restBreathsDial.max));
 
 /** A division's three needs at a stage: ATP made, DNA repairs, building material. */
 export function needs(stage: number): { atp: number; dna: number; mat: number } {
@@ -240,6 +251,8 @@ export interface SimInit {
   niche?: NicheId;
   /** the player has a mouse, not a finger: Mito says "click" where he speaks of the hands */
   mouse?: boolean;
+  /** the rest's rhythm the player set (kit/rhythm): the pushes' mean (s), the rests' whole breaths; absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class OdnowaSim {
@@ -369,7 +382,7 @@ export class OdnowaSim {
     this.pushesBase = p.pushes;
     this.bestBefore = bestFor(p, init.plannedSec);
     this.niche = init.niche ?? sessionNiche(p);
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, this.breath);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, this.breath, init.rhythm);
     this.talk = new Talk(lines(init.mouse === true), init.rng);
     this.lv = { mito: mitoLevel(p), enzyme: enzymeLevel(p), lyso: lysoLevel(p) };
     this.slow = !p.seen.includes('reveal');

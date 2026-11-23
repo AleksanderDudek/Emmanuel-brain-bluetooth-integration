@@ -8,6 +8,8 @@
  * It reads the sim and its events; it never changes the rules.  Light comes from baked glow sprites, static
  * layers are cached on resize, particles are pooled (DESIGN §12: no shadowBlur, no filter, ≤ 4 ms a frame).
  */
+import { breathCycle } from '../kit/breath';
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
 import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, wrapLines, type PassageLayout } from '../kit/scripture';
@@ -514,6 +516,26 @@ export class OdnowaView {
     }
   }
 
+  /**
+   * The rest's breath guide in the lens (kit/breathguide, round 15): stacked on the lens's centre, its ring as large as
+   * the screen asks but its whole box inside the lens (never under 26 px), the sub line "oddech n z m".
+   */
+  lensGuide(ctx: CanvasRenderingContext2D, sim: OdnowaSim): BreathGuideOpts | null {
+    const c = this.L.lens;
+    const R = c.r * this.lensK;
+    const b = sim.breathNow;
+    if (!b) return null;
+    const cyc = breathCycle(sim.breath);
+    const of = Math.max(1, Math.round(sim.block.dur / cyc));
+    const sub = breathOf(Math.min(of, b.n + 1), of);
+    let o: BreathGuideOpts = { cx: c.x, cy: c.y, r: breathGuideRadius(this.L.w, this.L.h), sub, maxW: R * 1.5, scrim: 0.72 };
+    for (;;) {
+      const box = breathGuideBox(ctx, o);
+      if ((box.h <= R * 1.7 && box.w <= R * 1.7) || o.r <= 26) return { ...o, cy: c.y - (box.y + box.h / 2 - c.y) };
+      o = { ...o, r: Math.max(26, o.r - 2) };
+    }
+  }
+
   private drawLens(ctx: CanvasRenderingContext2D, sim: OdnowaSim): void {
     const L = this.L, c = L.lens;
     const r = c.r * this.lensK;
@@ -568,20 +590,19 @@ export class OdnowaView {
     // words on the lens: what it does now (plain), never more than one line
     const fs = Math.max(MIN_READ, Math.round(13 * L.u));
     const low = c.y + r * 0.66;
-    if (m) {
+    const breath = sim.restBlock ? sim.breathNow : null;
+    if (breath) {
+      // the rest's breath: the kit's guide in the lens (round 15) — the idle turbine, or a division, under its scrim
+      const o = this.lensGuide(ctx, sim);
+      if (o) drawBreathGuide(ctx, breath, { ...o, alpha: Math.min(1, sim.blockT / 0.6, Math.max(0, sim.block.dur - sim.blockT) / 0.6), reducedMotion: this.o.reducedMotion, time: this.now });
+    } else if (m) {
       const ph = Math.min(4, m.phase);
       const title = t('mit.title');
       label(ctx, title, c.x, c.y - r * 0.8, fitFont(ctx, title, r * 1.4, fs + 2, MIN_READ, 800), C.cream);
       const sub = t(`mit.${ph}` as Key);
       label(ctx, sub, c.x, low, fitFont(ctx, sub, r * 1.6, fs, MIN_TEXT + 1, 700), C.mint, 'center', 700);
     } else if (veiled) label(ctx, t('lens.blind'), c.x, c.y, fs + 1, '#e6deff');
-    else if (sim.restBlock) {
-      const b = sim.breathNow;
-      if (b) {
-        const word = t(b.phase === 'in' ? 'breath.in' : b.phase === 'out' ? 'breath.out' : 'breath.hold');
-        label(ctx, `${word} · ${Math.ceil(b.left)}`, c.x, low, fs + 1, '#d8eeff', 'center', 700);
-      }
-    } else if (sim.energyOn && this.pres.energy > 0.5) {
+    else if (sim.energyOn && this.pres.energy > 0.5) {
       const idle = sim.spin < 0.05;
       const txt = t(idle ? 'lens.idle' : sim.gold > 0.6 ? 'lens.gold' : 'lens.per');
       const px = fitFont(ctx, txt, r * 1.7, fs, MIN_READ, 700);

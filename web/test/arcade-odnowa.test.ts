@@ -24,7 +24,9 @@ import { CHORUS_BEATS, lineAt, seriesChorus, songProblems } from '../src/arcade/
 import { buildSong, verseBeats } from '../src/arcade/odnowa/song';
 import { laneU, laneX, layout, onLane, onLens, tapTargets } from '../src/arcade/odnowa/layout';
 import { font, fontPx } from '../src/arcade/odnowa/paint';
-import mod, { coachText, howto } from '../src/arcade/odnowa/index';
+import mod, { coachText, howto, rhythm } from '../src/arcade/odnowa/index';
+import { breathGuideBox } from '../src/arcade/kit/breathguide';
+import { rhythmOf } from '../src/arcade/kit/rhythm';
 
 const STEP = 1 / 60;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, targetRate: 0.55, adapt: 0.08 };
@@ -42,11 +44,14 @@ const FOCUS0 = frame({ level: 0.9, activity: 5, focused: true, hold: 5, calm: 0 
 
 const ALL_SEEN = [SEEN_V, 'reveal', ...COACHES];
 
-type SimOpts = { progress?: Partial<OdnowaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; niche?: 'gut' | 'skin' | 'blood' };
+type SimOpts = {
+  progress?: Partial<OdnowaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; niche?: 'gut' | 'skin' | 'blood';
+  rhythm?: { focus: number; rest: number } | null;
+};
 
 function makeSim(o: SimOpts = {}): OdnowaSim {
   const p = migrate({ ...freshProgress(), ...o.progress } as OdnowaProgress);
-  const sim = new OdnowaSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, niche: o.niche });
+  const sim = new OdnowaSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, niche: o.niche, rhythm: o.rhythm });
   sim.start();
   return sim;
 }
@@ -99,7 +104,8 @@ describe('the block plan', () => {
       const total = plan.reduce((s, b) => s + b.dur, 0);
       expect(total, String(sec)).toBeCloseTo(sec - finaleFor(sec), 5);
       for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-      for (const b of plan.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(32);
+      // round 15: pushes of about 40 s (40 ± 6, or longer where a short session has no room for another pair)
+      for (const b of plan.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(56);
     }
   });
 
@@ -1331,13 +1337,13 @@ describe('long sessions (15–30 minutes)', () => {
         expect(body.at(-1)!.kind).toBe('rest');
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 5);
         for (const b of body) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        for (const b of body.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(32);
+        for (const b of body.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 1e-6);
         for (const b of body.filter(x => x.kind === 'rest')) {
           expect(b.dur % cyc, `${sec} s`).toBeCloseTo(0, 6);
-          expect(b.dur).toBeLessThanOrEqual(30 + 1e-9);
+          expect(b.dur).toBe(RULES.restBreaths * cyc);
         }
-        // a pair about every 46–48 s: 30 minutes is some 38 pairs
-        expect(body.length / 2).toBeGreaterThanOrEqual(Math.floor((sec - 60) / 50));
+        // round 15: a pair about every minute (40 s of Energia, a 20 s clean-up): 30 minutes is some 29 pairs
+        expect(body.length / 2).toBeGreaterThanOrEqual(Math.floor((sec - 60) / 62));
       }
     }
   });
@@ -1386,5 +1392,83 @@ describe('long sessions (15–30 minutes)', () => {
     for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
     for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
     expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});
+
+describe('the rest’s rhythm and the breath guide (round 15)', () => {
+  const cyc = breathCycle(BREATH_DEFAULT);
+
+  it('offers seconds of Energia (40: 20–120) and whole breaths of Sprzątanie (2: 1–4) in the lobby', () => {
+    const spec = rhythm();
+    expect(mod.ownBreath).toBe(true);
+    expect(mod.rhythm).toBeDefined();
+    expect([spec.focus.def, spec.focus.min, spec.focus.max, spec.focus.step]).toEqual([40, 20, 120, 5]);
+    expect([spec.rest.def, spec.rest.min, spec.rest.max]).toEqual([2, 1, 4]);
+    expect(spec.focus.name).toBe(t('rhythm.focus'));
+    expect(spec.rest.name).toBe(t('rhythm.rest'));
+    expect(spec.restSec!(3)).toBe(30);
+    expect(spec.focusSec!(60)).toBe(60);
+    expect(rhythmOf(spec, { focus: 7, rest: 9 })).toEqual({ focus: 20, rest: 4, custom: true });
+  });
+
+  it('plans the player’s pushes and rests: the mean near the dial, the rests exactly its breaths', () => {
+    for (const [focus, rest] of [[20, 1], [40, 2], [75, 3], [120, 4]] as const) {
+      for (const sec of [300, 600, 1800]) {
+        const plan = planBlocks(sec, false, mulberry32(sec), BREATH_DEFAULT, { focus, rest });
+        const pushes = plan.filter(b => b.kind === 'push'), rests = plan.filter(b => b.kind === 'rest');
+        const id = `${focus}/${rest} · ${sec}`;
+        const mean = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+        expect(Math.abs(mean - focus), id).toBeLessThanOrEqual(Math.max(8, focus * 0.35));
+        for (const b of rests) expect(b.dur, id).toBe(rest * cyc);
+        for (const b of plan) expect(b.dur, id).toBeGreaterThanOrEqual(Math.min(RULES.minBlock, cyc) - 1e-9);
+        expect(plan.reduce((s, b) => s + b.dur, 0), id).toBeCloseTo(sec - finaleFor(sec), 5);
+      }
+    }
+    // 30 minutes with the design: about one pair a minute; with 20 s and one breath, about two
+    const design = planBlocks(1800, false, mulberry32(1)).filter(b => b.kind === 'rest').length;
+    const often = planBlocks(1800, false, mulberry32(1), BREATH_DEFAULT, { focus: 20, rest: 1 }).filter(b => b.kind === 'rest').length;
+    expect(design).toBeGreaterThanOrEqual(27);
+    expect(design).toBeLessThanOrEqual(31);
+    expect(often).toBeGreaterThan(design * 1.8);
+  });
+
+  it('completes 3, 10 and 30 minutes on time with the dials’ extremes', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const r of [null, { focus: 20, rest: 1 }, { focus: 120, rest: 4 }, { focus: 20, rest: 4 }, { focus: 120, rest: 1 }]) {
+        const sim = later({ planned, rhythm: r });
+        const clock = { t: 0 };
+        let guard = 0;
+        while (sim.phase !== 'done' && guard++ < 1000) drive(sim, 5, () => (sim.restBlock ? CALM : MID), clock, tapAll(sim));
+        const id = `${planned} · ${JSON.stringify(r)}`;
+        expect(sim.phase, id).toBe('done');
+        expect(clock.t, id).toBeLessThanOrEqual(planned + RULES.settle + 5.1);
+        expect(sim.plan.filter(b => b.kind === 'rest').every(b => Math.abs(b.dur % cyc) < 1e-6 || planned <= 60), id).toBe(true);
+      }
+    }
+  }, 180_000);
+
+  it('draws the rest’s breath guide inside the idle lens at every checked size, its ring at least 26 px', () => {
+    const sim = later();
+    until(sim, 'rest', MID);
+    expect(sim.restBlock).toBe(true);
+    const canvas = { getContext: () => null } as unknown as HTMLCanvasElement;
+    const ctx = { font: '10px sans-serif', measureText(this: { font: string }, text: string) { return { width: [...text].length * Number(this.font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10) * 0.6 } as TextMetrics; } } as unknown as CanvasRenderingContext2D;
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        const view = new OdnowaView(canvas, { reducedMotion: false, touch });
+        view.resize(c.w, c.h, 1, c.insets);
+        view.update(2, sim);
+        const o = view.lensGuide(ctx, sim)!;
+        const id = `${c.name} · ${touch ? 'touch' : 'mouse'}`;
+        expect(o, id).not.toBeNull();
+        expect(o.r, id).toBeGreaterThanOrEqual(26);
+        expect(o.sub, id).toContain('1');
+        const box = breathGuideBox(ctx, o), L = view.L;
+        // centred on the lens, under the HUD
+        expect(Math.abs(box.x + box.w / 2 - L.lens.x), id).toBeLessThan(1);
+        expect(Math.abs(box.y + box.h / 2 - L.lens.y), id).toBeLessThan(1);
+        expect(box.y, id).toBeGreaterThanOrEqual(L.top - 0.5);
+      }
+    }
   });
 });

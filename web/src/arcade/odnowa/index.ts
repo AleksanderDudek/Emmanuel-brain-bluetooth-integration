@@ -5,7 +5,8 @@
  * is the headline), **Naprawa DNA** from their taps (damage glows on the double helix, a tap sends the real repair
  * crew), **Budulec** from rest (calm wraps worn parts, the lysosomes digest them into building material).  All
  * three full → the cell divides; one daughter stays a stem cell, the other joins the player's tissue — gut lining,
- * skin or blood — which grows from session to session.
+ * skin or blood — which grows from session to session.  Round 15: the player sets the rhythm in the lobby (seconds
+ * of Energia, whole breaths of Sprzątanie), and the rest's breath is the kit's guide in the idle lens (render.ts).
  *
  * Round 11 (the founder: "nie rozumiem kompletnie co robię"): the goal and its three bars always on screen, a
  * persistent "what to do now" line, the systems shown one at a time with coach marks that stay until the thing
@@ -16,9 +17,11 @@
  * meta.ts, talk.ts), the pictures (render.ts with layout.ts and paint.ts, intro.ts for calibration, preview.ts
  * for the lobby), the sound (audio.ts, song.ts), the lobby's card (panel.ts); the words in i18n.ts.
  */
+import { BREATH_DEFAULT, breathCycle } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { OdnowaSound } from './audio';
 import { NICHES, type NicheId } from './content';
@@ -70,7 +73,7 @@ class OdnowaGame implements ArcadeGame {
       const atp = location.search.match(/[?&]odnowaAtp=(\d+)/)?.[1];
       if (atp) env.progress.atpTotal = Number(atp);
     }
-    this.sim = new OdnowaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, niche, mouse: !env.touch });
+    this.sim = new OdnowaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, niche, mouse: !env.touch, rhythm: env.rhythm });
     this.view = new OdnowaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new OdnowaSound(env.audio, env.progress.song);
     this.ctx = env.canvas.getContext('2d');
@@ -310,5 +313,23 @@ const mod: ArcadeModule<OdnowaProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: () => rhythm(),
+  // the rest's breath is drawn in the lens (render.ts): the runner adds no pacer of its own
+  ownBreath: true,
 };
 export default mod;
+
+/**
+ * The rest's rhythm in the lobby (kit/rhythm, round 15): seconds of Energia (the turbine turns with focus) before a
+ * rest — 40 by design, 20–120 — and whole breaths of Sprzątanie (the clean-up, with calm) — 2 by design (20 s), 1–4.
+ */
+export function rhythm(): RhythmSpec {
+  const cyc = breathCycle(BREATH_DEFAULT);
+  return {
+    focus: secDial(RULES.push[0], t('rhythm.focus')),
+    rest: breathDial(RULES.restBreaths, t('rhythm.rest'), cyc, RULES.restBreathsDial),
+    note: t('rhythm.note'),
+    focusSec: n => n,
+    restSec: n => n * cyc,
+  };
+}

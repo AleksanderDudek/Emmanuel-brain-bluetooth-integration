@@ -14,11 +14,19 @@
  * a repair only from a tap.  Without a signal nothing moves and nothing is lost.
  */
 export const RULES = {
-  // ── the blocks (the brief's §2 rules: 20–30 s with jitter, a 3–4 s telegraph) ──────
-  /** push blocks: mean and jitter (s) */
-  push: [26, 4] as const,
-  /** a rest's target length (s) and its jitter: rounded to whole breaths of the breath pattern (kit/breath) */
-  rest: [22, 3] as const,
+  // ── the blocks (the brief's §2 rules with a 3–4 s telegraph; round 15's rhythm, DESIGN §19) ──────
+  /**
+   * push blocks ("Energia": the turbine turns): mean and jitter (s) — 40 ± 6 by design since round 15 (26 ± 4 made the
+   * rests nearly half the session, one every ~45 s); the player sets the mean 20–120 s in the lobby, the jitter scales
+   */
+  push: [40, 6] as const,
+  /**
+   * a rest ("Sprzątanie": the cell clears out old parts, only with calm): whole breaths of the breath pattern
+   * (kit/breath, 4 in, 6 out) — 2 by design (20 s), the player sets 1–4 in the lobby; a session too short for its
+   * pushes gives back breaths, down to one
+   */
+  restBreaths: 2,
+  restBreathsDial: { min: 1, max: 4 },
   /** no block shorter than this (s) */
   minBlock: 12,
   /** the first-ever session's warm-up (s): 5 and 10 min / 3 min / a 40 s test */
