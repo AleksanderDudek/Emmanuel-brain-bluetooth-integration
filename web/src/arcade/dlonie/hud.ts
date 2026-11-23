@@ -4,7 +4,13 @@
  * strategy or the narrator's line, the prayer's words while offering, the passage in rest), the next one's name in a
  * rest; the three round buttons; on a desk the narrator's own place, the walk of names and the keys; the picker; the
  * opening card.  Text the player reads is 13 px and more; a passage's reference 11 (the kit's); never under 11.
+ *
+ * In every rest (the hands' breath, the name, the rest after the offering, the valve's) the kit's breath guide takes
+ * the pill's place at the top of the words (kit/breathguide.ts, round 15): the lungs' disc, the phase in a word ≥ 20 px
+ * with its seconds, and what the hands do or which breath this is under it.
  */
+import type { BreathPhase } from '../kit/breath';
+import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { fitText } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import { ROOT } from './content';
@@ -57,6 +63,31 @@ export function bodyOf(sim: DlonieSim, desk: boolean, roomy = true): { text: str
   return { text: sim.tip, passage: false, prayer: null, next: null };
 }
 
+/** The guide's phase words: the game's own ("Wdech", "Zatrzymaj", "Wydech"). */
+const guideWords = (): Record<BreathPhase, string> => {
+  const cap = (k: 'br.in' | 'br.holdIn' | 'br.out' | 'br.holdOut') => { const w = t(k); return w.charAt(0).toLocaleUpperCase() + w.slice(1); };
+  return { in: cap('br.in'), holdIn: cap('br.holdIn'), out: cap('br.out'), holdOut: cap('br.holdOut') };
+};
+
+/**
+ * The breath guide where the pill stands in a rest (a row: the ring, the phase beside it, and under it what the hands
+ * do while they breathe, or which breath of the rest this is), its height returned.  Centred on a phone held upright,
+ * flush left with the words elsewhere.
+ */
+function drawGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: DlonieSim, y: number, still: boolean, time: number): number {
+  const W = L.words;
+  const r = Math.max(26, Math.min(breathGuideRadius(L.w, L.h), Math.round(W.w * 0.16)));
+  const pad = Math.max(10, Math.round(r * 0.3));
+  const o: BreathGuideOpts = {
+    cx: 0, cy: 0, r, layout: 'row', words: guideWords(), sub: sim.guideSub() || undefined,
+    maxW: Math.max(80, W.w - (2 * r + 2.9 * pad)), reducedMotion: still, time, scrim: 0.6,
+  };
+  const box = breathGuideBox(ctx, o);
+  const cx = L.shape === 'tall' ? W.x + W.w / 2 : W.x + box.w / 2;
+  drawBreathGuide(ctx, sim.breath, { ...o, cx, cy: y + box.h / 2 });
+  return box.h;
+}
+
 /** The "what to do now" pill: an icon and a few words, in the moment's colour. */
 function drawNow(ctx: CanvasRenderingContext2D, r: Rect, px: number, now: { icon: string; text: string }, tone: string): void {
   ctx.font = font(px, 700);
@@ -77,24 +108,31 @@ function drawNow(ctx: CanvasRenderingContext2D, r: Rect, px: number, now: { icon
 let passageCache: { key: string; l: PassageLayout } | null = null;
 
 /** The words: the pill, the caption, the name, the paragraph (or the passage in rest). */
-export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: DlonieSim, glowName: number, limit?: number): void {
+export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: DlonieSim, glowName: number, limit?: number, still = false, time = 0): void {
   const W = L.words;
   const f = L.font;
   const desk = L.shape === 'desk';
   const tone = toneOf(sim);
   let y = W.y;
+  // a rest: the breath guide in the pill's place; else the pill
+  const guide = sim.restBlock && sim.phase === 'play' && !sim.picker;
   const now = sim.doNow();
   const nowH = Math.round(f.now * 1.8);
-  if (now) drawNow(ctx, { x: W.x, y, w: W.w, h: nowH }, f.now, now, tone);
-  y += nowH + 6;
-  // the caption
+  if (guide) y += drawGuide(ctx, L, sim, y, still, time) + 6;
+  else {
+    if (now) drawNow(ctx, { x: W.x, y, w: W.w, h: nowH }, f.now, now, tone);
+    y += nowH + 6;
+  }
+  // the caption (on a phone held upright a rest leaves it to the guide: the room goes to the words under it)
   ctx.textAlign = desk || L.shape !== 'tall' ? 'left' : 'center';
   const cx = ctx.textAlign === 'center' ? W.x + W.w / 2 : W.x;
   ctx.textBaseline = 'top';
-  const cap = fitText(ctx, captionOf(sim).toLocaleUpperCase(), W.w, f.cap, 700, SANS, 13);
-  ctx.fillStyle = rgba('#e8cfae', 0.78);
-  ctx.fillText(cap, cx, y);
-  y += Math.round(f.cap * 1.35);
+  if (!(guide && L.shape === 'tall')) {
+    const cap = fitText(ctx, captionOf(sim).toLocaleUpperCase(), W.w, f.cap, 700, SANS, 13);
+    ctx.fillStyle = rgba('#e8cfae', 0.78);
+    ctx.fillText(cap, cx, y);
+    y += Math.round(f.cap * 1.35);
+  }
   // the name, glowing when the ball takes it
   const name = sim.whoText;
   const nm = fitText(ctx, name, W.w, f.name, 600, '"Fraunces Variable", Fraunces, Georgia, serif', 16);

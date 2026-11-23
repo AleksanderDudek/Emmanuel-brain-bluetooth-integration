@@ -12,17 +12,19 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { breathCycle } from '../kit/breath';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DlonieSound } from './audio';
 import type { Coach } from './content';
 import { flameText, t, unit } from './i18n';
 import { DlonieIntro } from './intro';
-import { bestOf, freshProgress, migrate, type DlonieProgress } from './meta';
+import { bestOf, breathOf, freshProgress, migrate, type DlonieProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { DlonieView } from './render';
-import { RULES } from './rules';
+import { RULES, breathsOf } from './rules';
 import { DlonieSim, type SimEvent } from './sim';
 
 class DlonieGame implements ArcadeGame {
@@ -42,7 +44,9 @@ class DlonieGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<DlonieProgress>) {
     migrate(env.progress);
-    this.sim = new DlonieSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch });
+    this.sim = new DlonieSim({
+      progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch, rhythm: env.rhythm,
+    });
     this.view = new DlonieView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new DlonieSound(env.audio);
     this.ctx = env.canvas.getContext?.('2d') ?? null;
@@ -239,6 +243,26 @@ export function howto(touch = coarsePointer()): HowTo {
   };
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): how long one stretch of focus lasts — the ball growing,
+ * the prayer rising — for an average player (30 s by design), and the breaths of the rest after the offering (3; the
+ * hands' breath before the ball about half of it, the name one breath).  The lobby's count: each prayer two stretches
+ * of focus, each followed by a rest — the name's breath, then the rest, the rub and the hands' breath.
+ */
+export function dlonieRhythm(p?: DlonieProgress): RhythmSpec {
+  const cyc = breathCycle(breathOf(p ? migrate(p).breath : freshProgress().breath));
+  return {
+    focus: secDial(RULES.focusDef, t('rhythm.focus'), { min: RULES.focusMin, max: RULES.focusMax, step: 5 }),
+    rest: breathDial(RULES.restDef, t('rhythm.rest'), cyc, { min: 1, max: RULES.restMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n,
+    restSec: n => {
+      const b = breathsOf(n);
+      return ((b.name + b.rest + b.breathe) * cyc + RULES.rubLater) / 2;
+    },
+  };
+}
+
 const mod: ArcadeModule<DlonieProgress> = {
   freshProgress,
   create: env => new DlonieGame(env),
@@ -250,5 +274,8 @@ const mod: ArcadeModule<DlonieProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => dlonieRhythm(p),
+  // the breath guide is the game's own (hud.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

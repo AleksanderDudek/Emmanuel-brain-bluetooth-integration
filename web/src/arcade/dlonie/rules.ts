@@ -14,6 +14,19 @@ export const RULES = {
   /** focused seconds a push needs at a multiplier of 1: set per prayer from the time left, within these bounds */
   needMin: 8,
   needMax: 30,
+  /**
+   * The rest's rhythm in the lobby (round 15, kit/rhythm.ts): how long one stretch of focus (the ball growing, the
+   * prayer rising) lasts for an average player, `focusDef` s by design (what the plan gives a 5–10 minute session),
+   * `focusMin`…`focusMax`; and the breaths of the rest after the offering (`restDef`, 1…`restMax`), the hands' breath
+   * before the ball about half of it, the name one breath.  With the player's rhythm the session holds as many prayers
+   * as fit, each push's need up to `needMaxRhythm`.
+   */
+  focusDef: 30,
+  focusMin: 20,
+  focusMax: 90,
+  restDef: 3,
+  restMax: 6,
+  needMaxRhythm: 56,
   /** an average player's focused share × mean multiplier (the plan's estimate of growth per push second) */
   expect: 0.62,
   /** the shown growth follows the real one through a moving average of its rate over this long (s): one breath at 6/min */
@@ -94,6 +107,21 @@ export const readSec = (text: string): number => Math.max(RULES.readMin, RULES.r
 export function prayersFor(plannedSec: number): number {
   if (plannedSec <= 75) return 1;
   return Math.max(1, Math.round(1 + plannedSec / 180));
+}
+
+/**
+ * Whole breaths each kind of rest takes: the player's Rytm (the rest after the offering; the hands' breath before the
+ * ball about half of it; the name one breath), or by design for the session's length — long sessions breathe deeper.
+ */
+export function breathsOf(rest: number): { breathe: number; name: number; rest: number } {
+  const r = Math.max(1, Math.min(RULES.restMax, Math.round(rest)));
+  return { breathe: Math.max(1, Math.round(r / 2)), name: 1, rest: r };
+}
+
+/** How many prayers fit a session with the player's stretch of focus: each prayer its fixed part and two pushes. */
+export function prayersWith(plannedSec: number, focusSec: number, fixedSec: number): number {
+  const avail = Math.max(0, plannedSec - finaleFor(plannedSec));
+  return Math.max(1, Math.round(avail / (fixedSec + 2 * Math.max(RULES.minPush, focusSec))));
 }
 
 /** Whole breaths each kind of rest takes in a session of `plannedSec`: long sessions breathe deeper. */

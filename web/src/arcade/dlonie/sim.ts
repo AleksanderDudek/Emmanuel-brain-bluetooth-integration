@@ -31,7 +31,7 @@ import {
 } from './content';
 import { flameText, linesOf, placeName, t, unit, whoName } from './i18n';
 import { bestOf, breathOf, lenKey, markSeen, placeOf, walkOf, type DlonieProgress } from './meta';
-import { RULES, breathsFor, finaleFor, prayersFor } from './rules';
+import { RULES, breathsFor, breathsOf, finaleFor, prayersFor, prayersWith } from './rules';
 import { Talk } from './talk';
 
 export type BlockKind = 'free' | 'push' | 'rest';
@@ -130,6 +130,12 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the player has a mouse, not a finger */
   mouse?: boolean;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `dlonieRhythm`): seconds of one stretch of focus,
+   * whole breaths of the rest after the offering — taken when the player moved a dial (`custom`); absent or as
+   * designed: the session's own plan (prayersFor, breathsFor).
+   */
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 }
 
 export class DlonieSim {
@@ -143,6 +149,10 @@ export class DlonieSim {
   readonly contrast = new BlockContrast(4);
   readonly planned: number;
   readonly breaths: { breathe: number; name: number; rest: number };
+  /** one stretch of focus as the player set it (s; null: the session's own plan) */
+  readonly focusSec: number | null;
+  /** a push that cannot finish ends after this long (s): RULES.maxPush, longer for the player's long stretches */
+  readonly maxPush: number;
   readonly pattern: BreathPattern;
   readonly cycle: number;
   private readonly judge: RoundJudge;
@@ -233,10 +243,13 @@ export class DlonieSim {
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.planned = prayersFor(this.plannedSec);
-    this.breaths = breathsFor(this.plannedSec);
+    const rh = init.rhythm && init.rhythm.custom !== false ? init.rhythm : null;
+    this.focusSec = rh ? Math.max(RULES.focusMin, Math.min(RULES.focusMax, rh.focus)) : null;
+    this.breaths = rh ? breathsOf(rh.rest) : breathsFor(this.plannedSec);
     this.pattern = breathOf(this.p.breath);
     this.cycle = breathCycle(this.pattern);
+    this.planned = this.focusSec !== null ? prayersWith(this.plannedSec, this.focusSec, this.fixedSec(false)) : prayersFor(this.plannedSec);
+    this.maxPush = Math.max(RULES.maxPush, Math.round((this.focusSec ?? 0) * 1.5));
     this.talk = new Talk(m => linesOf(m, init.mouse === true), init.rng);
     const walk = walkOf(this.p);
     this.whoAt = Math.min(walk.length - 1, Math.max(0, this.p.walk));
@@ -391,7 +404,7 @@ export class DlonieSim {
     const prayersLeft = Math.max(1, this.planned - (this.n - 1));
     const per = left / prayersLeft;
     const pushSec = Math.max(RULES.minPush, (per - this.fixedSec(this.n === 1)) / 2);
-    return clamp((pushSec - this.lead) * RULES.expect, RULES.needMin, RULES.needMax);
+    return clamp((pushSec - this.lead) * RULES.expect, RULES.needMin, this.focusSec !== null ? RULES.needMaxRhythm : RULES.needMax);
   }
 
   /** Whether another whole prayer still fits before the finale (a strong player's extra one, or the plan's next). */
@@ -544,7 +557,7 @@ export class DlonieSim {
     const done = b.blind ? this.grow + this.hidden >= 1 - 1e-9 : whole && this.growS.shown >= 1;
     if (!this.telegraphed) {
       const soon = (b.blind ? this.grow + this.hidden : this.grow) >= RULES.announceAt && this.stepT >= RULES.minPush - RULES.telegraph;
-      if (soon || this.stepT >= RULES.maxPush - RULES.telegraph) this.telegraph('rest');
+      if (soon || this.stepT >= this.maxPush - RULES.telegraph) this.telegraph('rest');
     }
     if (done && this.stepT >= RULES.minPush) {
       if (b.blind) this.revealBlind();
@@ -554,7 +567,7 @@ export class DlonieSim {
       }
       this.setGrowing(false);
       this.beginStep('name', this.restOf(this.breaths.name));
-    } else if (this.stepT >= RULES.maxPush) {
+    } else if (this.stepT >= this.maxPush) {
       if (b.blind) this.revealBlind();
       this.setGrowing(false);
       this.after = 'ball';
@@ -612,12 +625,12 @@ export class DlonieSim {
     this.ticks(this.riseS.shown, 'rise');
     if (!this.telegraphed) {
       const soon = this.rise >= RULES.announceAt && this.stepT >= RULES.minPush - RULES.telegraph;
-      if (soon || this.stepT >= RULES.maxPush - RULES.telegraph) this.telegraph('rest');
+      if (soon || this.stepT >= this.maxPush - RULES.telegraph) this.telegraph('rest');
     }
     if (whole && this.riseS.shown >= 1 && this.stepT >= RULES.minPush) {
       this.setGrowing(false);
       this.complete();
-    } else if (this.stepT >= RULES.maxPush) {
+    } else if (this.stepT >= this.maxPush) {
       this.setGrowing(false);
       this.after = 'offer';
       this.beginStep('wait', this.restOf(RULES.waitBreaths));
@@ -957,6 +970,20 @@ export class DlonieSim {
       case 'rest': return { icon: '☾', text: `${t('now.rest')} · ${this.breathWord()}${this.breathCount()}` };
       case 'wait': return { icon: '☾', text: t('now.wait') };
     }
+  }
+
+  /**
+   * The breath guide's small line in a rest (hud.ts): while the hands breathe, what they do ("rozsuń dłonie"); in a
+   * rest of several whole breaths, which breath this is ("oddech 2 z 3"); the valve's rest, that the ball waits.
+   */
+  guideSub(): string {
+    if (this.step === 'breathe') {
+      const ph = this.breath.phase;
+      return t(ph === 'in' ? 'guide.apart' : ph === 'out' ? 'guide.closer' : 'guide.still');
+    }
+    if (this.step === 'wait') return t('guide.wait');
+    if (this.step === 'name') return t('now.name');
+    return this.breathCount().replace(/^ · /, '');
   }
 
   /** The breath's phase in a word ("wdech"). */

@@ -304,7 +304,7 @@ export class DlonieView {
     else { ctx.fillStyle = '#0c0705'; ctx.fillRect(0, 0, L.w, L.h); }
     this.drawScene(ctx, sim);
     veilWords(ctx, L, sim.step === 'rest' || sim.phase !== 'play' ? L.wordsMax : 0);
-    drawWords(ctx, L, sim, this.nameGlow, this.sc.above && this.figK > 0.01 ? this.figBox().y - 8 : undefined);
+    drawWords(ctx, L, sim, this.nameGlow, this.sc.above && this.figK > 0.01 ? this.figBox().y - 8 : undefined, this.opts.reducedMotion, this.time);
     if (sim.lay && this.layK > 0.3 && sim.step !== 'rest' && !sim.offeredNow) this.drawPlaceHint(ctx, sim);
     drawControls(ctx, L, sim, this.down, this.hoverCtrl());
     drawBubble(ctx, L, sim);

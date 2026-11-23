@@ -14,7 +14,8 @@ import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import { CHECK_SIZES, MIN_TAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { CTRLS, hitTest, layout, pickerRect, scene, storyRect, tapTargets } from '../src/arcade/dlonie/layout';
-import { coachText, howto } from '../src/arcade/dlonie/index';
+import { coachText, dlonieRhythm, howto } from '../src/arcade/dlonie/index';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 import { CATALOGS as ARCADE_CATALOGS } from '../src/i18n/arcade';
 import { MOUSE_CATALOGS } from '../src/i18n/arcade-mouse';
 
@@ -30,11 +31,14 @@ const CALM = frame({ level: 0.15, activity: -2, focused: false, calm: 0.8 });
 
 const ALL_SEEN = ['s.open', 'c.rub', 'c.breathe', 'c.ball', 'c.who', 'c.offer', 'c.lay', 'c.blind'];
 
-type SimOpts = { progress?: Partial<DlonieProgress>; planned?: number; seed?: number; mouse?: boolean; eeg?: boolean };
+type SimOpts = {
+  progress?: Partial<DlonieProgress>; planned?: number; seed?: number; mouse?: boolean; eeg?: boolean;
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
+};
 
 function makeSim(o: SimOpts = {}): DlonieSim {
   const p = { ...freshProgress(), ...o.progress };
-  const sim = new DlonieSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: o.eeg ?? false, tuning: TUNING, mouse: o.mouse });
+  const sim = new DlonieSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: o.eeg ?? false, tuning: TUNING, mouse: o.mouse, rhythm: o.rhythm });
   sim.start();
   return sim;
 }
@@ -565,4 +569,66 @@ describe('mobile first and the desk (DESIGN §12, §14)', () => {
     expect(hMouse.hands.some(x => x.gesture === 'keys')).toBe(true);
     expect(hTouch.tips?.length).toBe(2);
   });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers a stretch of focus of 20–90 s (30 by design) and the rest after the offering in whole breaths (3)', () => {
+    const spec = dlonieRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: RULES.focusDef, min: RULES.focusMin, max: RULES.focusMax, step: 5, name: 'Skupienie' });
+    expect(spec.focus.format(45)).toBe('45\u00a0s');
+    expect(spec.rest).toMatchObject({ def: RULES.restDef, min: 1, max: RULES.restMax, name: 'Spoczynek' });
+    expect(spec.rest.format(3)).toBe('3\u00a0oddechy · 30\u00a0s');
+    expect(rhythmOf(spec, undefined)).toEqual({ focus: 30, rest: 3, custom: false });
+    // 10 minutes: two stretches of focus a prayer, each followed by a rest — about 4 prayers, 8 rests
+    const n = restsIn(spec, rhythmOf(spec, undefined)!, 600)!;
+    expect(n.rests).toBeGreaterThanOrEqual(7);
+    expect(n.rests).toBeLessThanOrEqual(10);
+  });
+
+  it('plays the session’s own plan as designed, the player’s stretches and rests when a dial moved', () => {
+    const design = later({ planned: 600, rhythm: { focus: 30, rest: 3, custom: false } });
+    expect([design.planned, design.breaths]).toEqual([prayersFor(600), breathsFor(600)]);
+    // longer stretches: fewer prayers, fewer rests; a longer rest after the offering
+    const long = later({ planned: 600, rhythm: { focus: 75, rest: 5, custom: true } });
+    expect(long.planned).toBeLessThan(prayersFor(600));
+    expect(long.breaths).toEqual({ breathe: 3, name: 1, rest: 5 });
+    expect(long.maxPush).toBeGreaterThan(RULES.maxPush);
+    const short = later({ planned: 600, rhythm: { focus: 20, rest: 1, custom: true } });
+    expect(short.planned).toBeGreaterThan(prayersFor(600));
+    expect(short.breaths).toEqual({ breathe: 1, name: 1, rest: 1 });
+  });
+
+  it('gives the breath guide its small line: what the hands do while they breathe, which breath of a longer rest', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    const at = (step: string) => (sim.step as string) === step;
+    while (!at('breathe')) drive(sim, 0.1, CALM, clock);
+    expect(sim.restBlock).toBe(true);
+    expect(sim.guideSub()).toBe(sim.breath.phase === 'in' ? 'rozsuń dłonie' : 'zbliż dłonie');
+    while (!at('name')) drive(sim, 0.1, ideal(sim)(), clock);
+    expect(sim.guideSub()).toBe(t('now.name'));
+    while (!at('rest')) drive(sim, 0.1, ideal(sim)(), clock);
+    expect(sim.guideSub()).toMatch(/^oddech 1 z 3$/);
+  });
+
+  for (const planned of [180, 600, 1800]) {
+    it(`walks an average player through ${planned / 60} minutes with the dials at their extremes: the arc ends near the end`, () => {
+      for (const rhythm of [{ focus: RULES.focusMin, rest: 1 }, { focus: RULES.focusMax, rest: RULES.restMax }, { focus: 60, rest: 2 }]) {
+        const sim = later({ planned, seed: 3, rhythm: { ...rhythm, custom: true } });
+        const { offered } = session(sim, average);
+        const tag = `${planned} s ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(offered.length, tag).toBeGreaterThanOrEqual(Math.max(1, sim.planned - 1));
+        const last = offered[offered.length - 1];
+        expect(last / planned, tag).toBeGreaterThan(planned <= 180 && rhythm.focus === RULES.focusMax ? 0.5 : 0.65);
+        // pushes about as long as asked (an average player), never past the valve
+        const pushes = sim.blocks.filter(b => b.kind === 'push' && b.end !== undefined).map(b => b.end! - b.t0);
+        for (const d of pushes) expect(d, tag).toBeLessThanOrEqual(sim.maxPush + 0.1);
+        const mean = pushes.reduce((a, b) => a + b, 0) / Math.max(1, pushes.length);
+        if (planned >= 600) expect(mean, tag).toBeGreaterThan(rhythm.focus * 0.5);
+        // every rest whole breaths of the pattern (the last one runs to the finale)
+        for (const b of sim.blocks.filter(x => x.kind === 'rest').slice(0, -1)) expect(b.dur % sim.cycle, tag).toBeCloseTo(0, 6);
+      }
+    });
+  }
 });
