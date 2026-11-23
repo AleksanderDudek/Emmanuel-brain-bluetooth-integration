@@ -23,6 +23,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { TracePhase } from '../kit/trace';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
@@ -323,6 +324,9 @@ export class GeodaGame implements ArcadeGame {
   headline(): Headline { return { value: this.sim.score, sub: this.sim.headlineSub() }; }
 
   /** The tray's pieces (a story card instead while one is up), as the pointer tests them (kit/mobile's audit checks them). */
+  /** The breath pacer's spot in a Szlif: the dial's place, off the geode, the goal and the tray (layout.ts `pacerAt`). */
+  pacerAt(): Pt | null { return this.view.pacer; }
+
   targets(): TapTarget[] {
     if (!this.sim.started) return [];
     return tapTargets(this.view.layout, { tray: this.sim.tray, story: !!this.sim.story });

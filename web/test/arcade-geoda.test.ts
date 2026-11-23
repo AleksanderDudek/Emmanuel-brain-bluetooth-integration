@@ -10,7 +10,8 @@ import { GeodaView } from '../src/arcade/geoda/render';
 import { Board, bestSpot, chamberBoard, deal, EMPTY, idx, N, placeable, ROCK, tapSpot } from '../src/arcade/geoda/board';
 import { LINES, MINERALS, MOMENTS, orientations, PIECES, pieceById, TIPS } from '../src/arcade/geoda/content';
 import { CATALOGS, t } from '../src/arcade/geoda/i18n';
-import { boardAt, computeLayout, slotAt, tapTargets } from '../src/arcade/geoda/layout';
+import { boardAt, computeLayout, pacerAt, pacerOverDial, restBowl, slotAt, tapTargets } from '../src/arcade/geoda/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { bestOf, chamber, freshProgress, migrate, nextMineral, shelve, starsFor, type GeodaProgress } from '../src/arcade/geoda/meta';
 import { comboFactor, linePoints, multOf, RULES } from '../src/arcade/geoda/rules';
 import { GeodaSim, planBlocks, type GeodaEvent } from '../src/arcade/geoda/sim';
@@ -1167,5 +1168,45 @@ describe('Geoda at 15–30 minutes', () => {
     } finally {
       proto.getContext = original;
     }
+  });
+});
+
+describe('Geoda: the breath pacer in a Szlif stands in the dial\'s place (pacerAt)', () => {
+  const cover = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+    Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  it('keeps the pill whole under the HUD band, clear of the tray, the goal and the bowl, off the board beside it', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = computeLayout(c.w, c.h, c.insets, touch);
+        const at = pacerAt(L);
+        const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.mode})`;
+        expect(at, name).not.toBeNull();
+        const size = pacerSize(L.kind === 'big');
+        const box = pacerBox(at!, size);
+        const tray = tapTargets(L, { tray: [1, 2, 3], story: false });
+        // a strip's pill covers the dial and the bowl's picture (its words and the HUD's gauge keep the polish), the
+        // smallest phone's may cover the foot of the bowl's margin; elsewhere the bowl as a rest draws it and the goal stay whole
+        const keep = L.mode === 'strip' ? tray : L.mode === 'columns' ? [...tray, { label: 'goal', ...L.goal }] : [...tray, { label: 'goal', ...L.goal }, { label: 'bowl', ...restBowl(L) }];
+        // the board too, beside it on a desktop, a big screen, a wide phone on its side and under a strip
+        const room = L.mode === 'desk' || L.mode === 'strip' || (L.mode === 'wide' && c.w - c.insets.left - c.insets.right >= 700);
+        expect(pacerProblems(at, c.w, c.h, c.insets, room ? [...keep, { label: 'board', ...L.board }] : keep, size), name).toEqual([]);
+        // a narrow phone on its side: a corner of the board; the smallest phones (no strip): the least of it there is
+        expect(cover(box, L.board), name).toBeLessThanOrEqual(size.w * size.h * (L.mode === 'columns' ? 0.6 : 0.2));
+      }
+    }
+  });
+
+  it('gives a short desktop column\'s bowl the room under the pill in a rest, and leaves the dial out where the pill stands on it', () => {
+    const desk = CHECK_SIZES.find(x => x.name === 'desktop')!;
+    const L = computeLayout(desk.w, desk.h, desk.insets, false);
+    expect(L.bowl.y).toBeLessThanOrEqual(L.dial.y);
+    const at = pacerAt(L)!;
+    const b = restBowl(L);
+    expect(b.y).toBeGreaterThanOrEqual(at.y + pacerSize(false).h);
+    expect(b.y + b.h).toBe(L.bowl.y + L.bowl.h);
+    const side = CHECK_SIZES.find(x => x.name.startsWith('phone on its side (installed'))!;
+    const S = computeLayout(side.w, side.h, side.insets, true);
+    expect(pacerOverDial(S, pacerAt(S))).toBe(true);
+    expect(restBowl(S)).toEqual(S.bowl);
   });
 });

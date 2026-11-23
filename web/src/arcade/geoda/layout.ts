@@ -25,6 +25,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
+import { overlaps, pacerBox, pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { GEODE_REACH } from './art';
 import { N } from './board';
@@ -268,6 +269,58 @@ function phoneLayout(W: number, H: number, ins: Insets, top: number, u: number, 
     card: { x: (x0 + x1) / 2 - cw / 2, y: top + 6, w: cw, h: Math.max(160, H - ins.bottom - 6 - (top + 6)) },
     lift: touch ? Math.max(56, cell * 1.3) : cell * 1.15,
   };
+}
+
+/**
+ * The Szlif's bowl in a rest.  A short desktop column (a desktop or a laptop under the HUD) gives the bowl the dial's
+ * place in a rest; the runner's breath pacer stands at that column's top then (`pacerAt`), so the bowl sits under it,
+ * a little smaller.  Everywhere else the bowl keeps its own box.
+ */
+export function restBowl(l: Layout): Box {
+  if (l.mode !== 'desk' || l.bowl.y > l.dial.y) return l.bowl;
+  const ph = pacerSize(l.kind === 'big').h + Math.round(12 * l.u);
+  if (l.bowl.w < pacerSize(l.kind === 'big').w + 8 || l.bowl.h - ph < 110) return l.bowl;
+  return { x: l.bowl.x, y: l.bowl.y + ph, w: l.bowl.w, h: l.bowl.h - ph };
+}
+
+/**
+ * Where the runner's breath pacer stands in a Szlif (ArcadeGame.pacerAt; kit/pacerspot.ts): off the geode (the board
+ * stays the play in a rest), the goal, the tray, the bowl that calm polishes, Bazyl and his bubble — in the dial's place
+ * (the shine waits for the next Blask in a rest: the view leaves the dial out under the pill), at the top of the left
+ * column on a desktop, a big screen and a phone on its side.  An upright phone has no room beside its board: with a
+ * strip, the pill stands on the strip's left end over the dial and the bowl's picture (the polish stays in its words
+ * and in the HUD's gauge); without one (a small phone, whose band the board and the tray fill), it takes the spot
+ * clear of the tray and the goal that covers the least of the board (its cells count thrice; the bowl's margin and
+ * Bazyl once).
+ */
+export function pacerAt(l: Layout): Pt | null {
+  const size = pacerSize(l.kind === 'big');
+  const band = safeBand(l.w, l.h, l.ins);
+  const reach = l.rim * GEODE_REACH;
+  const b = l.board;
+  const geode = { x: b.x - reach, y: b.y - reach, w: b.w + 2 * reach, h: b.h + reach + BELOW * l.rim };
+  const m = l.mole;
+  const mole = { x: m.x - m.s * 0.55, y: m.y - m.s * 1.1, w: m.s * 1.1, h: m.s * 1.1 };
+  // Bazyl's bubble: three lines over its lower edge (in a column), or under the strip
+  const lh = Math.max(14, Math.min(16 * l.tk, m.s * 0.14)) * 1.3;
+  const bb = l.bubble;
+  const talk = bb.below ? { x: bb.x, y: bb.y, w: bb.w, h: 3 * lh + 16 } : { x: bb.x, y: bb.y - 3 * lh - 16, w: bb.w, h: 3 * lh + 16 };
+  if (l.mode === 'strip') {
+    // the strip's left end, over the dial (idle in a rest) and the bowl's picture, clear of the board's cells
+    return pacerSpot([{ x: band.x, y: band.y, w: band.w, h: b.y - band.y }], [b, ...l.slots], { size, align: 'left', pad: 2, edge: 2 })
+      ?? pacerLeast([band], l.slots, [b, b, b, geode, l.bowl, mole], { size, align: 'left' });
+  }
+  if (l.mode === 'columns') return pacerLeast([band], [l.goal, ...l.slots], [b, b, b, geode, l.column, mole], { size });
+  const keep = [l.goal, restBowl(l), ...l.slots];
+  return pacerSpot([band], [...keep, geode, mole, talk], { size })
+    ?? pacerLeast([band], keep, [b, b, b, geode, mole, talk], { size });
+}
+
+/** Whether the pacer in a rest (`pacerAt`) stands over the shine dial: the view leaves the dial out then. */
+export function pacerOverDial(l: Layout, at: Pt | null): boolean {
+  if (!at) return false;
+  const d = l.dial;
+  return overlaps(pacerBox(at, pacerSize(l.kind === 'big')), { x: d.x - d.r, y: d.y - d.r, w: 2 * d.r, h: 2 * d.r }, 2);
 }
 
 /** The board cell under a point (a little margin around the board counts), or null. */

@@ -12,6 +12,7 @@
  * margins on a small phone, every word is 13 px or more, and nothing blurs per frame (offset shapes instead).
  */
 import { MIN_READ, NO_INSETS, fitText } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { passage } from '../kit/scripture';
 import { layoutPassage, REF_FONT, VERSE_FONT, type Passage, type PassageLayout } from '../kit/scripture';
 import { traceBars } from '../kit/trace';
@@ -21,7 +22,7 @@ import { drawGeode, drawSpecimen, fitFont, fitLines, GEODE_REACH, rrect, sparkle
 import { EMPTY, idx, N, ROCK, tapSpot, type TrayItem } from './board';
 import { chamberName, chamberStory, GEMS, JEWELS, MINERALS, TIERS, type Piece } from './content';
 import { fmt, pct, t } from './i18n';
-import { boardAt, computeLayout, slotAt, trayCellFor, type Box, type Layout } from './layout';
+import { boardAt, computeLayout, pacerAt, pacerOverDial, restBowl, slotAt, trayCellFor, type Box, type Layout } from './layout';
 import { C, paintBowl, paintBubble, paintCave, paintDial, paintDruse, paintJewel, paintMole, paintShineColumn, paintSkyline, SANS, SERIF, type MolePose } from './paint';
 import type { GeodaEvent, GeodaSim } from './sim';
 
@@ -47,6 +48,8 @@ const POP = 0.28;
 
 export class GeodaView {
   layout: Layout;
+  /** where the runner's breath pacer stands in a rest (layout.ts `pacerAt`), for this layout */
+  pacer: Pt | null = null;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly tiles = new TileCache();
   private readonly fx = new Particles(500);
@@ -97,6 +100,7 @@ export class GeodaView {
     this.dpr = dpr;
     this.top = insets.top;
     this.layout = computeLayout(w, h, insets, this.touch);
+    this.pacer = pacerAt(this.layout);
     this.tiles.setDpr(dpr);
     this.bg = null;
     this.verse = null;
@@ -185,7 +189,7 @@ export class GeodaView {
         const text = e.outcome === 'new' ? t('v.gemNew', { mineral: m.title }) : e.outcome === 'up' ? t('v.gemUp', { mineral: m.title, tier: TIERS[e.tier] }) : t('v.gemSame', { mineral: m.title, tier: TIERS[e.tier] });
         this.gemShow = { text, m: e.mineral, tier: e.tier, t: 0 };
         if (L.mode === 'columns') this.words.add(text, L.board.x + L.board.w / 2, L.board.y + L.board.h * 0.3, { color: C.gold, size: 16, dur: 2.4 });
-        const b = L.bowl;
+        const b = sim.restBlock ? restBowl(L) : L.bowl;
         this.fx.burst(b.x + b.w / 2, b.y + b.h * 0.4, 24, { color: e.polished ? C.gold : '#e8e0ff', size: 2.5, speed: 160, life: 1, shape: 'spark', g: 60 });
         if (e.points > 0) this.words.add(`+${fmt(e.points)}`, b.x + b.w / 2, b.y + b.h * 0.2, { color: C.gold, size: 24 * tk });
         if (e.polished) this.cheer();
@@ -352,16 +356,18 @@ export class GeodaView {
     this.drawTray(sim, hand);
     // the shine (a dial, or a column in a small phone's margin), the goal, the Szlif's bowl in a rest
     const rest = sim.restBlock || !!this.gemShow;
+    // the runner's breath pacer stands in the dial's place in a rest (layout.ts `pacerAt`): the dial waits under it
+    const dial = !(sim.restBlock && pacerOverDial(L, this.pacer));
     if (L.mode === 'wide' || (L.mode === 'desk' && L.bowl.y > L.dial.y)) {
-      this.drawDial(sim);
+      if (dial) this.drawDial(sim);
       this.drawBowl(sim);
       this.drawGoal(sim);
     } else if (L.mode === 'desk') {
-      // a short desktop column: the bowl takes the dial's place in a rest (the shine waits for the next Blask)
+      // a short desktop column: the bowl takes the dial's place in a rest (the shine waits for the next Blask), under the pacer
       if (rest) this.drawBowl(sim); else this.drawDial(sim);
       this.drawGoal(sim);
     } else if (L.mode === 'strip') {
-      this.drawDial(sim);
+      if (dial) this.drawDial(sim);
       if (rest) this.drawBowl(sim); else this.drawGoal(sim);
     } else {
       if (rest) this.drawBowlColumn(sim); else this.drawDial(sim);
@@ -775,7 +781,7 @@ export class GeodaView {
   }
 
   private drawBowl(sim: GeodaSim): void {
-    const ctx = this.ctx, L = this.layout, b = L.bowl;
+    const ctx = this.ctx, L = this.layout, b = sim.restBlock ? restBowl(L) : L.bowl;
     const bw = sim.bowl;
     const active = sim.restBlock && !!bw;
     const s = Math.min(b.w * 0.62, b.h * (L.portrait ? 1.6 : 0.62), 170 * L.tk);
