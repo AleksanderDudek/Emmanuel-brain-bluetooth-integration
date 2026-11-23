@@ -39,16 +39,28 @@ const hasCaches = (): boolean => typeof caches !== 'undefined';
 export async function loadManifest(): Promise<OfflineManifest | null> {
   if (!hasCaches()) return null;
   const req = abs(MANIFEST);
+  // a dev server answers a missing file with the app's page: only a real manifest counts
+  const read = async (res: Response): Promise<OfflineManifest | null> => {
+    try {
+      const m = (await res.json()) as OfflineManifest;
+      return Array.isArray(m?.packs) ? m : null;
+    } catch {
+      return null;
+    }
+  };
   try {
     const res = await fetch(req, { cache: 'no-cache' });
     if (res.ok) {
       const copy = res.clone();
-      void caches.open(GAMES_CACHE).then(c => c.put(req, copy)).catch(() => undefined);
-      return (await res.json()) as OfflineManifest;
+      const m = await read(res);
+      if (m) {
+        void caches.open(GAMES_CACHE).then(c => c.put(req, copy)).catch(() => undefined);
+        return m;
+      }
     }
   } catch { /* offline: the kept copy below */ }
-  const kept = await caches.match(req);
-  return kept ? ((await kept.json()) as OfflineManifest) : null;
+  const kept = await caches.match(req).catch(() => undefined);
+  return kept ? read(kept) : null;
 }
 
 /** How many of a pack's files are on the device. */
