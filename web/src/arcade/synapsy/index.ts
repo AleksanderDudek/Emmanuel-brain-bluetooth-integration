@@ -20,6 +20,7 @@ import type { BreathState } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { SynapsySound } from './audio';
@@ -307,6 +308,9 @@ class SynapsyGame implements ArcadeGame {
   }
 
   result(): ArcadeOutcome { return this.sim.result(); }
+
+  /** The breath pacer's spot in a rest: beside the brain, off the lens and Oli (layout.ts `pacerAt`), kept per layout. */
+  pacerAt(): Pt | null { return this.view.pacerFor(this.sim); }
 
   targets(): TapTarget[] {
     if (!this.sim.started || this.sim.phase === 'done') return [];

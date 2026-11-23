@@ -20,7 +20,8 @@ import mod from '../src/arcade/synapsy/index';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import type { GameEnv } from '../src/arcade/kit/types';
 import { SynapsyView } from '../src/arcade/synapsy/render';
-import { SPAN_X, SPAN_Y, layout, onOli, tapTargets, toBrain, toScreen, typeK } from '../src/arcade/synapsy/layout';
+import { SPAN_X, SPAN_Y, layout, onOli, pacerAt, stripShift, tapTargets, toBrain, toScreen, typeK } from '../src/arcade/synapsy/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { fitFont, fitLines, font, fontPx } from '../src/arcade/synapsy/paint';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TEXT, THUMB, auditTargets, uiScale } from '../src/arcade/kit/mobile';
 import { SynapsySim, finaleFor, planBlocks, type SimEvent } from '../src/arcade/synapsy/sim';
@@ -1463,5 +1464,42 @@ describe('long sessions (15–30 minutes)', () => {
     expect(passage(r.verse!).text.length).toBeGreaterThan(10);
     // what is kept for the next session stays bounded
     expect(sim.p.links.length).toBeLessThanOrEqual(RULES.keepLinks);
+  });
+});
+
+describe('Synapsy: the breath pacer in a rest stands beside the brain (pacerAt)', () => {
+  it('keeps the pill whole under the HUD band, clear of the lens, Oli, the song and the plate; off every neuron where the band leaves room', () => {
+    for (const seed of [1, 7, 42]) {
+      const b = makeBrain(seed);
+      for (const c of CHECK_SIZES) {
+        for (const touch of [true, false]) {
+          const L = layout(c.w, c.h, c.insets, b.spacing, touch);
+          const at = pacerAt(L, b.neurons);
+          const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.mode}), brain ${seed}`;
+          expect(at, name).not.toBeNull();
+          const size = pacerSize(L.desk && L.u > 1.3);
+          const keep = [
+            { label: 'lens', x: L.lens.x - L.lens.r, y: L.lens.y - L.lens.r, w: 2 * L.lens.r, h: 2 * L.lens.r },
+            { label: 'song', ...L.song }, { label: 'plate', ...L.plate },
+            ...tapTargets(L, { story: false }),
+          ];
+          expect(pacerProblems(at, c.w, c.h, c.insets, keep, size), name).toEqual([]);
+          // the neurons: none under the pill on a desktop, a big screen, a tablet and an installed phone; elsewhere (the
+          // brain fills a small phone's band) fewer than in the standard place, the top centre under the HUD
+          const pad = L.soma + 2;
+          const under = (box: { x: number; y: number; w: number; h: number }) => b.neurons.filter(n => {
+            const p = toScreen(L, n.x, n.y);
+            return p.x > box.x - pad && p.x < box.x + box.w + pad && p.y > box.y - pad && p.y < box.y + box.h + pad;
+          }).length;
+          const n = under(pacerBox(at!, size)), standard = under(pacerBox({ x: c.w / 2, y: c.insets.top + 10 }, size));
+          const roomy = L.desk || c.name.startsWith('tablet') || c.name.startsWith('iPhone (installed') || c.name.startsWith('desktop') || c.name.startsWith('laptop') || /monitor/.test(c.name);
+          if (roomy) expect(n, name).toBe(0);
+          else expect(n, name).toBeLessThanOrEqual(Math.max(2, standard - 1));
+          // a phone's lesson card steps down under the pill where it took the strip's place
+          const dy = stripShift(L, at);
+          if (dy > 0) expect(L.strip.y + dy, name).toBeGreaterThanOrEqual(at!.y + size.h);
+        }
+      }
+    }
   });
 });

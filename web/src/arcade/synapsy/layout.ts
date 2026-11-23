@@ -22,8 +22,9 @@
  * (1.15–1.2) everywhere but a desk, where it is u.
  */
 import { MIN_TAP, screenKind, target, uiScale, type Rect } from '../kit/mobile';
+import { overlaps, pacerBox, pacerLeast, pacerSize, pacerSpot, type Pt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
-import { OUTLINE } from './brain';
+import { OUTLINE, halfWidth } from './brain';
 
 export type Mode = 'tall' | 'side' | 'desk';
 
@@ -205,4 +206,46 @@ export function onOli(L: Layout, x: number, y: number): boolean {
 export function tapTargets(L: Layout, o: { story: boolean }): TapTarget[] {
   if (o.story) return [target('story card', L.card)];
   return [target('Oli (myelin)', L.oli)];
+}
+
+/** The brain's outline as 16 horizontal slabs that cover it (brain.ts `halfWidth`, at its widest within each). */
+function brainSlabs(L: Layout): Rect[] {
+  const n = 16, ry = OUTLINE.ry, out: Rect[] = [];
+  for (let k = 0; k < n; k++) {
+    const y0 = -ry + (2 * ry * k) / n, y1 = -ry + (2 * ry * (k + 1)) / n;
+    const half = Math.max(halfWidth(y0), halfWidth(y1), y0 <= 0 && y1 >= 0 ? halfWidth(0) : 0) + 0.04;
+    out.push({ x: L.cx - half * L.s, y: L.cy + y0 * L.s, w: 2 * half * L.s, h: (y1 - y0) * L.s });
+  }
+  return out;
+}
+
+/**
+ * Where the runner's breath pacer stands in a rest (ArcadeGame.pacerAt; kit/pacerspot.ts): off the brain (its
+ * neurons and paths stay in sight), the lens (the rest's consolidation fills it), Oli with her name and key, the
+ * halves' plate and the sing-along line — in a column beside the brain (a desktop: under the lens where the cards
+ * come, or over Oli where her words do), else in a corner the brain's round outline leaves (a phone: the band's top
+ * corners), covering as few of its `neurons` (brain units) as there are — each counts ten times its outline's room,
+ * a card's and Oli's words' room once.  A lesson's or a Wiedza card that comes meanwhile steps down under the pill
+ * (`stripShift`).
+ */
+export function pacerAt(L: Layout, neurons: readonly { x: number; y: number }[] = []): Pt | null {
+  const size = pacerSize(L.desk && L.u > 1.3);
+  const band = L.band, u = L.u;
+  const lens = { x: L.lens.x - L.lens.r - 6, y: L.lens.y - L.lens.r - 6, w: 2 * L.lens.r + 12, h: 2 * L.lens.r + 30 * u };
+  const oli = { x: L.oli.x - 8, y: L.oli.y - 26 * u, w: L.oli.w + 16, h: L.oli.h + 26 * u + (L.oliKey ? L.oliKey.h + 6 : 0) };
+  const hard = [lens, oli, L.song, L.plate];
+  const brain = brainSlabs(L);
+  const r = L.soma + 6;
+  const cells = neurons.map(n => ({ x: L.cx + n.x * L.s - r, y: L.cy + n.y * L.s - r, w: 2 * r, h: 2 * r }));
+  const weighted = cells.flatMap(c => [c, c, c, c, c, c, c, c, c, c]);
+  return pacerSpot([band], [...hard, ...brain, L.strip, L.bubble], { size })
+    ?? pacerSpot([band], [...hard, ...brain], { size })
+    ?? pacerLeast([band], hard, [...weighted, ...brain, L.strip, L.bubble], { size });
+}
+
+/** How far a phone's message strip (a lesson's card, a Wiedza card) steps down in a rest, to show under the pacer where it took the strip's place (px). */
+export function stripShift(L: Layout, at: Pt | null): number {
+  if (!at || L.desk) return 0;
+  const b = pacerBox(at, pacerSize(false));
+  return overlaps(b, L.strip) ? Math.max(0, b.y + b.h + 6 - L.strip.y) : 0;
 }

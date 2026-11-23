@@ -20,12 +20,13 @@
  */
 import { fmtNum } from '../../i18n';
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
+import type { Pt } from '../kit/pacerspot';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { Insets } from '../kit/types';
 import { HEMI, canPair, dist, edgeMs, halfWidth as halfWidthAt, insideHemi, keyOf, type Brain, type IoKind } from './brain';
 import { cardSrc, cardText, cardTitle, ioName, lessonLine, lessonTitle, mpsText, msText, regionName, type CardId } from './content';
 import { t } from './i18n';
-import { layout, onOli, toBrain, toScreen, typeK, type Layout } from './layout';
+import { layout, onOli, pacerAt, stripShift, toBrain, toScreen, typeK, type Layout } from './layout';
 import {
   C, SANS, ctx2d, fitFont, fitLines, font, glow, gyri, hash, hemiPath, ioIcon, makeCanvas, mix, neuronBody, paintLens, paintOli, plate, rr, somaCore, withAlpha, wrap,
 } from './paint';
@@ -410,7 +411,7 @@ export class SynapsyView {
     ctx.globalCompositeOperation = 'source-over';
     this.floats.draw(ctx, `800 ${SANS}`);
     this.drawSong(ctx, sim);
-    if (!sim.bannerUp) this.drawStrip(ctx);
+    if (!sim.bannerUp) this.drawStrip(ctx, sim.restBlock ? stripShift(this.L, this.pacerFor(sim)) : 0);
     this.drawBubble(ctx, sim);
     if (sim.story) this.drawStory(ctx, sim);
   }
@@ -982,7 +983,16 @@ export class SynapsyView {
     ctx.fillRect(cx - tw / 2, cy + size * 0.72, tw * clamp(line.p), 1.5);
   }
 
-  private drawStrip(ctx: CanvasRenderingContext2D): void {
+  /** Where the runner's breath pacer stands in a rest (layout.ts `pacerAt`), per layout. */
+  pacerFor(sim: SynapsySim): Pt | null {
+    if (this.pacer?.L !== this.L) this.pacer = { L: this.L, at: pacerAt(this.L, sim.brain.neurons) };
+    return this.pacer.at;
+  }
+
+  private pacer: { L: Layout; at: Pt | null } | null = null;
+
+  /** The message strip (`dy`: in a rest a phone's steps down under the breath pacer, layout.ts `stripShift`). */
+  private drawStrip(ctx: CanvasRenderingContext2D, dy = 0): void {
     const m = this.msg;
     if (!m) return;
     if (this.L.desk) {
@@ -998,7 +1008,7 @@ export class SynapsyView {
     const lh = Math.round(body.size * 1.28);
     const srcH = m.src ? 14 : 0;
     const h = 10 + titleSize + 4 + body.lines.length * lh + srcH + 8;
-    const y = S.y;
+    const y = S.y + dy;
     plate(ctx, S.x, y, S.w, h, 12, m.kind === 'card' ? withAlpha(C.gold, 0.6) : withAlpha(C.oliEdge, 0.6), 'rgba(16,11,44,0.9)');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
