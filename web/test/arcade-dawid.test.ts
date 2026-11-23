@@ -32,12 +32,12 @@ const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<DawidProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<DawidProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): DawidSim {
   const sim = new DawidSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -87,6 +87,28 @@ describe('the block plan', () => {
       expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
       for (const b of rest) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
     }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Proca, shorter Harfa, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const planned of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(planned, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s harp is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan.at(-1)!.kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the harp a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.34);
   });
 
   it('fits a 40 s test session and any planned length from 10 s', () => {
@@ -304,6 +326,9 @@ describe('beasts, the bag and the camp', () => {
 
   it('a tap near David sends him hunting; far away, he walks there; dragging steers', () => {
     const sim = later();
+    // one dozing beast out of the sling's reach (the land's own may already stand in it): David walks to it
+    quiet(sim);
+    place(sim, 'szakal', 8, 0).state = 'idle';
     const x0 = sim.david.x;
     expect(sim.tap(sim.david.x, sim.david.y)).toBe(true);
     expect(sim.mode).toBe('hunt');
@@ -728,6 +753,35 @@ describe('long sessions (15–30 min)', () => {
     };
   }
 
+  it('plays any rhythm the player sets to its finale: 3 and 10 minutes, long days or long evenings; the XP still grows, David stays on his feet', () => {
+    // (30 minutes of each, run once by hand in round 15: all to the finale, David never down, the score 52 k–900 k)
+    const runs: [number, { focus: number; rest: number } | undefined][] = [
+      [180, undefined], [180, { focus: 120, rest: 10 }], [180, { focus: 20, rest: 40 }],
+      [600, undefined], [600, { focus: 120, rest: 10 }], [600, { focus: 20, rest: 40 }],
+    ];
+    for (const [planned, rhythm] of runs) {
+      const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+      const sim = later({ planned, seed: 3, rhythm });
+      const step = 1 / 20, bot = typical(sim, step);
+      let at = -1, downs = 0;
+      for (let tt = step; tt < planned + RULES.settle + 1 && !sim.canStop(); tt += step) {
+        const b = sim.block;
+        const f = sim.phase !== 'play' || !b ? frame({ level: 0.4 })
+          : b.kind === 'push' ? frame({ level: 0.68, focused: true, hold: sim.blockT > 8 ? sim.blockT - 8 : 0, activity: 3 })
+            : b.kind === 'rest' ? frame({ level: 0.2, calm: 0.75, activity: -1 }) : frame({ level: 0.4 });
+        sim.update(step, f, tt);
+        bot();
+        sim.take();
+        if (sim.david.down > 0) downs++;
+        if (at < 0 && tt >= planned * 2 / 3) at = sim.score;
+      }
+      expect(sim.phase, name).toBe('done');
+      expect(sim.score, name).toBeGreaterThan(at);
+      expect(downs, name).toBe(0);
+      expect(JSON.stringify(sim.result()), name).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
   it('a first 30-minute session plays to its finale and keeps giving: levels, quests and guardians to the end, the numbers finite, nothing piling up', () => {
     const sim = makeSim({ planned: 1800, seed: 3 });
     const p = sim.p, step = 1 / 30, bot = typical(sim, step);
@@ -844,8 +898,11 @@ describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
 // ── phone first (src/arcade/DESIGN.md §12) ──────────────────────────
 
 const PX = /(\d+(?:\.\d+)?)px/;
-/** Every font size the game set on a canvas since the last clear (CSS px). */
-const FONT_LOG: number[] = [];
+/**
+ * Every string the game drew on a canvas since the last clear, at its largest size (CSS px) — as the mobile audit
+ * reads it (scripts/arcade-mobile.mjs): a floater's pop-in (kit/juice.ts) passes through small sizes on its way up.
+ */
+const FONT_LOG = new Map<string, number>();
 
 /** A canvas context that draws nothing, keeps what is set and measures text at 0.56 em a character. */
 function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
@@ -855,13 +912,18 @@ function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
     get(target, prop) {
       if (prop in target) return target[prop];
       if (prop === 'measureText') return (s: string) => ({ width: String(s).length * Number(String(target.font).match(PX)?.[1] ?? 10) * 0.56 });
+      if (prop === 'fillText' || prop === 'strokeText') {
+        return (s: string) => {
+          const px = Number(String(target.font).match(PX)?.[1] ?? 10), k = String(s);
+          if (k.trim()) FONT_LOG.set(k, Math.max(FONT_LOG.get(k) ?? 0, px));
+        };
+      }
       if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
       if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
       return () => undefined;
     },
     set(target, prop, value) {
       target[prop] = value;
-      if (prop === 'font') FONT_LOG.push(Number(String(value).match(PX)?.[1] ?? 10));
       return true;
     },
   }) as unknown as CanvasRenderingContext2D;
@@ -1225,7 +1287,7 @@ describe('phone first (DESIGN.md §12)', () => {
   it('a big screen keeps the font floor and grows the type with the screen (playing, a tooltip, the camp, a story card)', () => {
     const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
     const sizesOf = (s: Size, touch: boolean): number[] => {
-      FONT_LOG.length = 0;
+      FONT_LOG.clear();
       const p = play(s, RETURNING, touch);
       p.game.pointer!({ type: 'move', ...mid(p.view.L.bag.hit), id: 1 });
       frames(p, 40);
@@ -1235,7 +1297,7 @@ describe('phone first (DESIGN.md §12)', () => {
         frames(p, 2);
       }
       play(s, {}, touch);
-      return [...FONT_LOG];
+      return [...FONT_LOG.values()];
     };
     const phone = sizesOf(CHECK_SIZES[0], true);
     expect(Math.min(...phone)).toBeGreaterThanOrEqual(MIN_TEXT);

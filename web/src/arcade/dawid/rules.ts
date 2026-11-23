@@ -189,9 +189,14 @@ export const RULES = {
   floorPause: 2,
 
   // ── the session ──────────────────────────────────────────────
-  /** Proca and Harfa: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * Proca and Harfa: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): a 45 s day with the sling — a hunt through a camp, the whirl spun up and kept — then a 20 s evening at the
+   * harp by the fire (it was 26 / 22 s, nearly half the session, every 24 s); the player sets both in the lobby
+   * (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [45, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: the lamb waits it out */

@@ -23,6 +23,7 @@ import { fmtNum } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DawidSound } from './audio';
 import { landName } from './content';
@@ -68,7 +69,7 @@ class DawidGame implements ArcadeGame {
     migrate(env.progress);
     this.sim = new DawidSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
-      touch: env.touch,
+      touch: env.touch, rhythm: env.rhythm,
     });
     this.view = new DawidView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.touch = env.touch;
@@ -444,6 +445,9 @@ class DawidGame implements ArcadeGame {
         break;
       }
       case 'level': at = { x: L.xp.x + L.xp.w / 2, y: L.xp.y - 4 }; band = true; break;
+      // the harp heals and fills rested XP: the bubble points at the health bar over the XP bar — and keeps the top
+      // of the field to the runner's breath pacer
+      case 'harp': at = { x: L.hp.x + L.hp.w / 2, y: L.hp.y - 4 }; band = true; break;
       case 'camp': {
         if (!sim.inCamp) { this.hints.shift(); return; }
         const g = hud.sheetShown;
@@ -580,5 +584,7 @@ const mod: ArcadeModule<DawidProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto,
+  // the rest's rhythm in the lobby: seconds of Proca before the Harfa by the fire, and of the harp
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;
