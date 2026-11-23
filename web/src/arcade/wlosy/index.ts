@@ -14,6 +14,7 @@
  * words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
 import { SongPlayer } from '../kit/song';
@@ -25,7 +26,7 @@ import { bestOf, freshProgress, migrate, type WlosyProgress } from './meta';
 import { progressPanel } from './panel';
 import { WlosyIntro, drawPreview } from './preview';
 import { WlosyView } from './render';
-import { RULES } from './rules';
+import { BREATH, RULES } from './rules';
 import { WlosySim, type Coach, type CoachAt, type SimEvent } from './sim';
 import { buildTune } from './tune';
 import { toScreen, camFor } from './world';
@@ -48,7 +49,7 @@ class WlosyGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<WlosyProgress>) {
     migrate(env.progress);
-    this.sim = new WlosySim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new WlosySim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new WlosyView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new WlosySound(env.audio);
     this.ctx = env.canvas.getContext('2d');
@@ -269,6 +270,23 @@ const mod: ArcadeModule<WlosyProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: () => rhythm(),
+  // the rest's breath is the kit's guide in the words band (hud.ts drawWords): the runner adds no pacer of its own
+  ownBreath: true,
 };
 export default mod;
+
+/**
+ * The rest's rhythm in the lobby (kit/rhythm, round 15): seconds of Wzrost (the picture grows with focus) before a
+ * rest — 40 by design, 20–120 — and whole breaths of Głębia (the picture deepens with calm) — 3 by design (30 s), 1–6.
+ */
+export function rhythm(): RhythmSpec {
+  return {
+    focus: secDial(RULES.push[0], t('rhythm.focus')),
+    rest: breathDial(RULES.restBreaths, t('rhythm.rest'), BREATH, RULES.restBreathsDial),
+    note: t('rhythm.note'),
+    focusSec: n => n,
+    restSec: n => n * BREATH,
+  };
+}
 

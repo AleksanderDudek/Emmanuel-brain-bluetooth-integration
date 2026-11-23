@@ -60,9 +60,19 @@ export const RULES = {
   // ── the session ──────────────────────────────────────────────
   /** the lead-in before the brain acts in a push block (s): Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
-  /** push and rest: nominal length ± jitter (s) — rest a little longer: a meditation, led by rest */
-  push: [24, 3] as readonly [number, number],
-  rest: [26, 3] as readonly [number, number],
+  /**
+   * push (Wzrost: the picture grows with focus): nominal length ± jitter (s) — 40 ± 5 by design since round 15 (24 ± 3
+   * with 26 s rests made rest more than half the session, one every ~50 s); the player sets the mean 20–120 s in the
+   * lobby, the jitter scales with it
+   */
+  push: [40, 5] as readonly [number, number],
+  /**
+   * a rest (Głębia: the picture deepens with calm and the breath): whole breaths of the guide — 3 by design (30 s: still
+   * a meditation led by rest, the longest rest of the series), the player sets 1–6 in the lobby; a session too short
+   * for its pushes gives back breaths, down to one
+   */
+  restBreaths: 3,
+  restBreathsDial: { min: 1, max: 6 },
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: the narrator waits it out */

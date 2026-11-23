@@ -8,10 +8,12 @@ import {
 } from '../src/arcade/wlosy/geo';
 import { CATALOGS, hairsText, t, unit } from '../src/arcade/wlosy/i18n';
 import { bestOf, choose, cleanPos, freshProgress, markSeen, medsDone, migrate, scenesGrown, setColour, setMode, type WlosyProgress } from '../src/arcade/wlosy/meta';
-import { HAIRS_PER_SEC, RULES } from '../src/arcade/wlosy/rules';
+import { BREATH, HAIRS_PER_SEC, RULES } from '../src/arcade/wlosy/rules';
 import { WlosySim, finaleFor, growMult, planBlocks, resumeFrom, secText, type SimEvent } from '../src/arcade/wlosy/sim';
 import { CONTROLS, hitAt, layout, pickerLayout, storyRect, tapTargets } from '../src/arcade/wlosy/layout';
-import { coachText, howto } from '../src/arcade/wlosy/index';
+import mod, { coachText, howto, rhythm } from '../src/arcade/wlosy/index';
+import { wordsGuide } from '../src/arcade/wlosy/hud';
+import { rhythmOf } from '../src/arcade/kit/rhythm';
 import { font, fontPx } from '../src/arcade/wlosy/paint';
 import { buildTune } from '../src/arcade/wlosy/tune';
 import { hairlineY, profileStrands } from '../src/arcade/wlosy/world-head';
@@ -42,12 +44,12 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0, focused
 
 const ALL_SEEN = ['s.open', 'c.grow', 'c.nav', 'c.pick', 'c.breath', 'c.blind'];
 
-type SimOpts = { progress?: Partial<WlosyProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<WlosyProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } | null };
 
 function makeSim(o: SimOpts = {}): WlosySim {
   const sim = new WlosySim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
-    tuning: o.tuning ?? TUNING,
+    tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -244,9 +246,11 @@ describe('the block plan', () => {
       rest.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
       expect(rest.at(-1)!.kind).toBe('rest');
       expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      // round 15: pushes of about 40 s (± 5, scaled to end on time), rests of three whole breaths
       for (const b of rest) {
         expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
+        expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.2);
+        if (b.kind === 'rest') expect(b.dur).toBe(RULES.restBreaths * BREATH);
       }
     }
   });
@@ -828,7 +832,7 @@ void _ids;
 void _scenes;
 
 describe('long sessions (15–30 minutes)', () => {
-  it('plans 15, 20, 25 and 30 minutes to the quiet end: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+  it('plans 15, 20, 25 and 30 minutes to the quiet end: push and rest alternating, ending on a rest, pushes about 40 s, rests 30 s', () => {
     for (const planned of [900, 1200, 1500, 1800]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
@@ -839,10 +843,11 @@ describe('long sessions (15–30 minutes)', () => {
         expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
         for (const b of body) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-          expect(b.dur).toBeLessThanOrEqual(31);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.2);
         }
-        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
-        expect(body.length).toBe(2 * pairs);
+        // about a pair every 70 s (40 s of growth, three breaths of depth)
+        const pairs = (planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.restBreaths * BREATH);
+        expect(Math.abs(body.length / 2 - pairs)).toBeLessThanOrEqual(1);
       }
     }
   });
@@ -902,6 +907,70 @@ describe('long sessions (15–30 minutes)', () => {
           expect(h.length).toBeLessThan(160);
         }
         expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      }
+    }
+  });
+});
+
+describe('the rest’s rhythm and the breath guide (round 15)', () => {
+  it('offers seconds of Wzrost (40: 20–120) and whole breaths of Głębia (3: 1–6) in the lobby', () => {
+    const spec = rhythm();
+    expect(mod.ownBreath).toBe(true);
+    expect(mod.rhythm).toBeDefined();
+    expect([spec.focus.def, spec.focus.min, spec.focus.max, spec.focus.step]).toEqual([40, 20, 120, 5]);
+    expect([spec.rest.def, spec.rest.min, spec.rest.max]).toEqual([3, 1, 6]);
+    expect(spec.focus.name).toBe(t('rhythm.focus'));
+    expect(spec.rest.name).toBe(t('rhythm.rest'));
+    expect(spec.restSec!(3)).toBe(30);
+    expect(rhythmOf(spec, { focus: 1, rest: 99 })).toEqual({ focus: 20, rest: 6, custom: true });
+  });
+
+  it('plans the player’s pushes and whole-breath rests, and completes 3, 10 and 30 minutes on time', () => {
+    for (const [focus, rest] of [[20, 1], [40, 3], [90, 4], [120, 6]] as const) {
+      for (const sec of [180, 600, 1800]) {
+        const plan = planBlocks(sec, false, mulberry32(sec), { focus, rest });
+        const pushes = plan.filter(b => b.kind === 'push');
+        const id = `${focus}/${rest} · ${sec}`;
+        const mean = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+        expect(Math.abs(mean - focus), id).toBeLessThanOrEqual(Math.max(12, focus * 0.45));
+        for (const b of plan.filter(x => x.kind === 'rest')) expect(b.dur % BREATH, id).toBeCloseTo(0, 6);
+        expect(plan.reduce((s, b) => s + b.dur, 0), id).toBeCloseTo(sec - finaleFor(sec), 5);
+      }
+    }
+    for (const planned of [180, 600, 1800]) {
+      for (const r of [null, { focus: 20, rest: 1 }, { focus: 120, rest: 6 }]) {
+        const sim = later({ planned, rhythm: r });
+        const clock = { t: 0 };
+        let guard = 0;
+        while (sim.phase !== 'done' && guard++ < 1000) drive(sim, 5, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim));
+        expect(sim.phase, `${planned} · ${JSON.stringify(r)}`).toBe('done');
+        expect(clock.t).toBeLessThanOrEqual(planned + RULES.settle + 5.1);
+      }
+    }
+  }, 180_000);
+
+  it('guides the rest from its start with the kit’s guide in the words band, at every checked size', () => {
+    const sim = later({ rhythm: { focus: 40, rest: 2 } });
+    const clock = { t: 0 };
+    let guard = 0;
+    while (!sim.restBlock && guard++ < 400) drive(sim, 0.5, MID, clock, reader(sim));
+    expect(sim.restBlock).toBe(true);
+    expect(sim.breaths).toBe(2);
+    expect(sim.breathNow!.phase).toBe('in');
+    const ctx = { font: '10px sans-serif', measureText(this: { font: string }, text: string) { return { width: [...text].length * Number(this.font.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10) * 0.6 } as TextMetrics; } } as unknown as CanvasRenderingContext2D;
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const g = wordsGuide(ctx, L, sim)!;
+        const id = `${c.name} · ${touch ? 'touch' : 'mouse'}`;
+        expect(g, id).not.toBeNull();
+        expect(g.o.r, id).toBeGreaterThanOrEqual(26);
+        expect(g.box.y, id).toBeCloseTo(L.words.y, 3);
+        expect(g.box.x, id).toBeGreaterThanOrEqual(L.words.x - 0.5);
+        expect(g.box.x + g.box.w, id).toBeLessThanOrEqual(L.words.x + L.words.w + 0.5);
+        // the guide stays in the words band, over the controls never
+        expect(g.box.y + g.box.h, id).toBeLessThanOrEqual(L.words.y + L.words.h + 0.5);
+        expect(g.o.sub, id).toContain('2');
       }
     }
   });

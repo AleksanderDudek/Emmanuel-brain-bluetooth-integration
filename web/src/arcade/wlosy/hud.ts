@@ -6,6 +6,7 @@
  * picture, the cycle's dial, the mosaic's legend, the counter of a square centimetre.  Every text has a floor: never
  * under 11 px; what the player reads, 13 px and more.
  */
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout } from '../kit/scripture';
@@ -90,6 +91,32 @@ export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySi
   const capH = Math.round(cpx * 1.35) * Math.max(1, clines.length);
   const rowH = rowH0 + (Math.max(rowH0, capH) - rowH0) * ease.inOutSine(clamp(rowEase));
   const rest = sim.restBlock && sim.stage !== 'whole';
+  // a rest: the kit's breath guide at the band's top (round 15), the narrator's line or the verse under it
+  const guide = rest ? wordsGuide(ctx, L, sim) : null;
+  if (guide && sim.breathNow) {
+    const a = Math.min(1, sim.blockT / 0.6, Math.max(0, sim.block.dur - sim.blockT) / 0.6);
+    drawBreathGuide(ctx, sim.breathNow, { ...guide.o, alpha: a, time: sim.t });
+    const gy = guide.box.y + guide.box.h + 5;
+    const under = { x: r.x, y: gy + 6, w: r.w, h: r.y + r.h - (gy + 6) };
+    pageClock += dt;
+    if (clines.length && caption.k > 0.01) {
+      ctx.globalAlpha = clamp(caption.k);
+      ctx.font = font(cpx, 600);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const lh = Math.round(cpx * 1.35);
+      clines.forEach((line, i) => {
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = INK;
+        ctx.strokeText(line, cx, under.y + i * lh);
+        ctx.fillStyle = 'rgba(244,238,255,.96)';
+        ctx.fillText(line, cx, under.y + i * lh);
+      });
+      ctx.globalAlpha = 1;
+    } else if (under.h >= 18) drawVerse(ctx, L, MED[sim.med].verse, under);
+    return;
+  }
   const rowMid = r.y + rowH / 2;
   ctx.textBaseline = 'middle';
   if (rowEase < 0.5) {
@@ -205,7 +232,28 @@ function drawTeach(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, box:
   }
 }
 
-/** Rest's row: the breath's turn and count, a ring beside them that swells in and settles out. */
+/**
+ * The rest's breath guide at the words band's top (kit/breathguide, round 15): a row (ring and word side by side)
+ * where the band is wide, else stacked; the ring as large as the screen asks, shrunk (never under 26 px) so the guide
+ * takes at most ~62 % of the band and the verse keeps a few lines under it.
+ */
+export function wordsGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim): { o: BreathGuideOpts; box: Rect } | null {
+  const b = sim.breathNow;
+  if (!b) return null;
+  const r = L.words, of = sim.breaths;
+  const sub = breathOf(Math.min(of, b.n + 1), of);
+  for (let rad = breathGuideRadius(L.w, L.h); ; rad = Math.max(26, rad - 2)) {
+    for (const layout of ['row', 'stack'] as const) {
+      const o: BreathGuideOpts = { cx: r.x + r.w / 2, cy: 0, r: rad, sub, layout, maxW: layout === 'row' ? r.w - 2 * rad - 40 : r.w - 16 };
+      const bx = breathGuideBox(ctx, o);
+      if ((bx.w <= r.w && bx.h <= r.h * 0.62) || (rad <= 26 && (bx.w <= r.w || layout === 'stack'))) {
+        return { o: { ...o, cy: r.y - bx.y }, box: { x: bx.x, y: r.y, w: bx.w, h: bx.h } };
+      }
+    }
+  }
+}
+
+/** Rest's row (round 11; a rest now draws the kit's guide instead): the breath's turn and count, a ring beside them. */
 function breathRow(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, cx: number, y: number): void {
   const b = sim.breath;
   const left = Math.max(1, Math.ceil((b.inhale ? RULES.inhale : RULES.exhale) * (1 - b.p)));
