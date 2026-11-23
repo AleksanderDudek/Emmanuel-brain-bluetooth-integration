@@ -29,6 +29,8 @@ const focus = arg('focus', 'toggle');
 const lang = arg('lang', 'pl');
 // the band: Mendi (fnirs) or HALO (eeg), each on its own simulator
 const tool = arg('tool', 'fnirs');
+// --viewport 390x844: play the whole session at that size (a phone held upright), not only the mid-game phone shots
+const [vw, vh] = (arg('viewport', '1280x800').match(/^(\d+)x(\d+)$/) ?? [0, '1280', '800']).slice(1).map(Number);
 if (!game || !['fnirs', 'eeg'].includes(tool)) {
   console.error('usage: node scripts/arcade-shot.mjs --port <dev server port> --game <id> --out <dir> [--tool fnirs|eeg]');
   process.exit(2);
@@ -44,7 +46,7 @@ const log = m => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)} s] ${m}`
 const browser = await puppeteer.launch({
   executablePath: chrome, headless: true,
   args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
-  defaultViewport: { width: 1280, height: 800 },
+  defaultViewport: { width: vw, height: vh },
   protocolTimeout: 180_000,
 });
 const errors = [];
@@ -80,7 +82,7 @@ try {
   await page.screenshot({ path: join(out, `${game}-1b-lobby-phone.png`), fullPage: true });
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   if (sideways > 1) errors.push(`the phone lobby scrolls sideways by ${sideways} px`);
-  await page.setViewport({ width: 1280, height: 800 });
+  await page.setViewport({ width: vw, height: vh });
   await sleep(400);
   await page.click('#btnArcadePlay');
   await page.waitForSelector('#arcadeLayer:not([hidden]) .arcade canvas');
@@ -129,7 +131,7 @@ try {
       await page.setViewport({ width: 844, height: 390 });
       await sleep(700);
       await shot('5-play-phone-landscape');
-      await page.setViewport({ width: 1280, height: 800 });
+      await page.setViewport({ width: vw, height: vh });
       await sleep(300);
     }
     n++;
