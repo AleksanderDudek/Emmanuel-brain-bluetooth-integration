@@ -199,7 +199,11 @@ export class ArcadeLobby {
   renderProgress(): void {
     if (!this.mod || !this.progress) return;
     const id = this.entry!.id, progress = this.progress;
-    const save = () => { void saveProgress(this.d.db, id, progress).catch(e => console.error(e)); };
+    const save = () => {
+      void saveProgress(this.d.db, id, progress).catch(e => console.error(e));
+      // a choice in the card may change the rhythm's dials (a breath pattern sets how long a breath is)
+      this.renderRhythm();
+    };
     $('arcadeProgressBody').replaceChildren(this.mod.progressPanel(progress, save));
   }
 
