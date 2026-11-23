@@ -23,6 +23,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZastepySound } from './audio';
 import { DEMON_NAME, HINTS, HOST_NAME } from './content';
@@ -32,7 +33,7 @@ import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { cursorFor } from './layout';
 import { ZastepyView } from './render';
-import { ZastepySim, type SimEvent } from './sim';
+import { RULES, ZastepySim, type SimEvent } from './sim';
 
 class ZastepyGame implements ArcadeGame {
   private readonly sim: ZastepySim;
@@ -42,6 +43,7 @@ class ZastepyGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<ZastepyProgress>) {
     this.sim = new ZastepySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new ZastepyView(env.canvas, {
       reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch,
@@ -241,5 +243,7 @@ const mod: ArcadeModule<ZastepyProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, tt, p) => drawPreview(ctx, w, h, tt, p),
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Natarcie before the Cisza, and of the Cisza
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

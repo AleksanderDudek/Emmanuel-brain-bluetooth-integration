@@ -76,6 +76,14 @@ export class Hud {
   private moteAcc = 0;
   /** where the walls' fill ends in the gates' bar (the Cisza's motes fly there) */
   private wallsAt = { x: 0, y: 0 };
+  /**
+   * How far (px) the gates' bar, Tymek and the coming wave step down in a Cisza: the runner's breath pacer takes the
+   * top-centre slot under the HUD there (src/arcade/pacer.ts), and the walls' mending is what a Cisza shows.  0 where
+   * the band has no room for it (a phone on its side): the pacer then covers the bar's middle.
+   */
+  drop = 0;
+  /** reduced motion: the group moves at once */
+  still = false;
   /** the lantern's shown value (eased) */
   private lamp = 0;
   /** Tymek's line */
@@ -214,6 +222,8 @@ export class Hud {
 
   update(dt: number, sim: ZastepySim): void {
     this.clock += dt;
+    const sink = sim.restBlock && sim.phase === 'play' && !this.story ? this.restDrop() : 0;
+    this.drop = this.still ? sink : sink > this.drop ? Math.min(sink, this.drop + dt * 260) : Math.max(sink, this.drop - dt * 260);
     let n = 0;
     for (const f of this.floats) if ((f.t += dt) < f.dur) this.floats[n++] = f;
     this.floats.length = n;
@@ -276,16 +286,32 @@ export class Hud {
     return sim.restBlock ? sim.calm : sim.level;
   }
 
+  /** The pacer's slot (its pill, 66–76 px, and 10 px over it) when the band has room for the group under it, else 0. */
+  private restDrop(): number {
+    const L = this.L, want = 88;
+    const free = L.roadBack - 1.6 * L.S - (L.bar.y + L.bar.h + 2 * L.tymek.r + 16);
+    return L.short || free < want ? 0 : want;
+  }
+
   /** Over the world: the gates' bar, the light's row, the cards, the words, the bubble, the coming wave, the cards of the story. */
   draw(sim: ZastepySim): void {
+    const ctx = this.ctx, dy = Math.round(this.drop);
+    ctx.save();
+    ctx.translate(0, dy);
     this.gatesBar(sim);
+    ctx.restore();
+    // the Cisza's motes fly to the walls where the bar is now
+    this.wallsAt.y += dy;
     this.row(sim);
     this.cardsRow(sim);
     this.drawFloats();
     this.drawStars();
     this.drawToast();
+    ctx.save();
+    ctx.translate(0, dy);
     const bubble = this.drawBubble();
     this.drawSoon(sim, bubble);
+    ctx.restore();
     this.upgrade(sim);
     this.finale();
     this.drawStory();
@@ -1405,7 +1431,8 @@ export class Hud {
     paintTymek(ctx, T.x, T.y, T.r, this.clock, b ? clamp(1 - b.t / Math.max(0.1, b.dur - 0.4)) * talk : 0);
     ctx.restore();
     if (!b) return null;
-    const inK = ease.outBack(clamp(b.t / 0.25)), outK = clamp((b.dur - b.t) / 0.3);
+    // the pop grows from 0.8 (never words under 11 px, even when a card cuts a line short in its first frames)
+    const inK = 0.8 + 0.2 * ease.outBack(clamp(b.t / 0.25)), outK = clamp((b.dur - b.t) / 0.3);
     const lines = this.lines(b.text, T.maxW - 20 * u, this.F.say, 4);
     ctx.font = this.F.say;
     const tw = Math.max(...lines.map(l => ctx.measureText(l).width));

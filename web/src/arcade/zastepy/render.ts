@@ -81,6 +81,7 @@ export class ZastepyView {
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; insets: () => Insets; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.hud = new Hud(this.ctx, opts.eeg);
+    this.hud.still = opts.reducedMotion;
     this.hud.resize(this.L);
     this.shake = new Shake(opts.reducedMotion);
   }
@@ -170,7 +171,7 @@ export class ZastepyView {
         return { x: this.sx(b.pillarSpot()), y: L.roadY - 1.2 * this.S };
       }
       case 'upgrade': return this.hud.offerAt();
-      case 'rest': return { x: L.bar.x + L.bar.w * 0.25, y: L.bar.y + L.bar.h };
+      case 'rest': return { x: L.bar.x + L.bar.w * 0.25, y: L.bar.y + L.bar.h + this.hud.drop };
       case 'boss': {
         const sp = sim.battle.special;
         return sp ? { x: this.sx((sp.x0 + sp.x1) / 2), y: L.roadY - 0.4 * this.S } : null;
@@ -362,7 +363,7 @@ export class ZastepyView {
         this.hud.showStory(e.kind, e.age);
         break;
       case 'restPass':
-        this.hud.float(t('fx.restPass', { gold: goldText(e.gold) }), L.bar.x + L.bar.w * 0.3, L.bar.y + L.bar.h + 22 * u, C.blueDeep, 14, 1.8, -12);
+        this.hud.float(t('fx.restPass', { gold: goldText(e.gold) }), L.bar.x + L.bar.w * 0.3, L.bar.y + L.bar.h + this.hud.drop + 22 * u, C.blueDeep, 14, 1.8, -12);
         break;
       case 'nope': {
         this.hud.shakeCard(e.id);

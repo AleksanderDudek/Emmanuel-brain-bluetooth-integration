@@ -27,6 +27,7 @@ import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -87,12 +88,13 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with the warm-up "Pierwszy zastęp" (30 s in 5 and
- * 10 min, 20 s in 3, 6 s in a 40 s test); then Natarcie / Cisza pairs (24 ± 4 s and 23 ± 3 s, scaled
- * to end on time, jittered only when there is room) ending with a Cisza, leaving the last 6 s to the
- * finale.  No block under 12 s (a session under 30 s gets what fits).
+ * 10 min, 20 s in 3, 6 s in a 40 s test); then Natarcie / Cisza pairs (40 ± 7 s and 20 ± 3 s, or the
+ * player's rhythm with the jitter scaled to it; scaled to end on time, jittered only when there is room)
+ * ending with a Cisza, leaving the last 6 s to the finale.  No block under 12 s (a session under 30 s
+ * gets what fits).
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
     const left = Math.max(4, plannedSec - R.finale);
@@ -135,6 +137,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Natarcie, s of Cisza); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class ZastepySim {
@@ -239,7 +243,7 @@ export class ZastepySim {
     this.session = p.sessions + 1;
     this.callsBase = p.calls;
     this.seedBase = Math.floor(init.rng() * 2 ** 32) >>> 0;
-    this.plan = planBlocks(init.plannedSec, this.session === 1, mulberry32((init.daySeed ^ BATTLE_SALT) >>> 0));
+    this.plan = planBlocks(init.plannedSec, this.session === 1, mulberry32((init.daySeed ^ BATTLE_SALT) >>> 0), init.rhythm);
     this.battle = this.newBattle();
   }
 

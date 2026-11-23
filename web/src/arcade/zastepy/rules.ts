@@ -56,11 +56,19 @@ export const RULES = {
   trumpetPush: 3,
 
   // ── Cisza (rest) ─────────────────────────────────────────────
-  /** the demons' waves come this much slower, and walk at this speed (×) */
-  restGap: 1.7,
+  /**
+   * the demons' waves come this much slower, and walk at this speed (×).  Round 15: 1.7 → 2.2 — with the Cisza a third
+   * of the session (it was half), a deeper lull keeps a minute's waves about as many as before (a host at the top
+   * deep in the campaign won ~7 of 8 battles in 30 minutes again, not 5 of 10)
+   */
+  restGap: 2.2,
   restWalk: 0.7,
-  /** calm mends the walls (share of the walls per second at calm 1) and lays shields (hp/s at calm 1) */
-  mend: 0.012,
+  /**
+   * calm mends the walls (share of the walls per second at calm 1) and lays shields (hp/s at calm 1).  Round 15: the
+   * Cisza is a third of the session where it was half, so it mends a third faster (0.012 → 0.016, a passed one
+   * 0.12 → 0.16): a minute of battle mends about what it did, and a host at the top still holds the plateau.
+   */
+  mend: 0.016,
   shieldGain: 14,
   /** the shield of light: at most this share of a unit's hp; on this many units at the front */
   shieldMax: 0.5,
@@ -68,7 +76,7 @@ export const RULES = {
   /** the brain's lead-in before calm mends (s), Mendi / HALO */
   calmLead: { fnirs: 4, eeg: 2 },
   /** a passed Cisza: the walls mend by this share at once, and gold */
-  restWalls: 0.12,
+  restWalls: 0.16,
   restGold: 10,
 
   // ── the waves ────────────────────────────────────────────────
@@ -171,9 +179,14 @@ export const RULES = {
   upgradeSec: 5.5,
 
   // ── the session ──────────────────────────────────────────────
-  /** Natarcie and Cisza: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
-  rest: [23, 3],
+  /**
+   * Natarcie and Cisza: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15, DESIGN
+   * §19.2): a 40 s Natarcie — the light's stream long enough to send out a host and press a wave back — then a 20 s
+   * Cisza, the lull in which the demons slow and calm mends the walls; rest a third of the session, where 24 / 23 s
+   * made it nearly half.  The player sets both in the lobby (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [40, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   finale: 6,

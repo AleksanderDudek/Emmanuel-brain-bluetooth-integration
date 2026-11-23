@@ -750,6 +750,49 @@ describe('the block plan', () => {
     }
   });
 
+  it('follows the rhythm the player set in the lobby: a longer Natarcie, a shorter Cisza, the jitter scaled; the day\'s plan stays the day\'s', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - RULES.finale, 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the Cisza a third of the session
+    const plan = planBlocks(600, false, mulberry32(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm (two players on the same day and rhythm get the same blocks); battles go on and are won
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const mk = (seed: number) => new ZastepySim({
+        progress: { ...freshProgress(), sessions: 5, giftDay: DAY, calls: 1, seen: 31, taught: 127 }, rng: mulberry32(seed), day: DAY,
+        daySeed: 4242, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      const sim = mk(1);
+      expect(sim.plan).toEqual(mk(2).plan);
+      const push = sim.plan.filter(b => b.kind === 'push');
+      const mean = push.reduce((s, b) => s + b.dur, 0) / push.length;
+      expect(mean).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(mean).toBeLessThan(rhythm.focus * 1.25);
+      sim.start();
+      let hand = 0;
+      const evs = drive(sim, 606, () => (sim.signal().want === 'rest' ? frame({ level: 0.2, calm: 0.75, activity: -1 }) : frame({ level: 0.8, focused: true, activity: 3 })), { t: 0 }, () => {
+        if ((hand += STEP) >= 1.5) {
+          hand = 0;
+          if (sim.stage === 'upgrade') sim.buy(0);
+          sim.quick();
+        }
+        sim.raise();
+      });
+      expect(sim.phase).toBe('done');
+      expect(ofType(evs, 'won').length).toBeGreaterThanOrEqual(3);
+      expect(sim.score).toBeGreaterThan(100);
+    }
+  });
+
   it('a very short test session (10 s) still has a push and a rest', () => {
     for (const first of [false, true]) {
       const plan = planBlocks(10, first, mulberry32(1));
@@ -1525,7 +1568,7 @@ describe('long sessions (15–30 minutes)', () => {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
           expect(b.dur).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 3);
         }
-        // about one pair every 47 s: 19 pairs in 15 minutes, 38 in 30
+        // about one pair a minute: 15 pairs in 15 minutes, 30 in 30
         expect(work.length / 2).toBeCloseTo((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]), -0.5);
       }
     }
