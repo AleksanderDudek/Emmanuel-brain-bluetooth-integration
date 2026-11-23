@@ -47,12 +47,12 @@ function seedFor(want: DayKind): number {
 }
 const PLAIN = seedFor('zwykly');
 
-type SimOpts = { progress?: Partial<ChlebyProgress>; planned?: number; seed?: number; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<ChlebyProgress>; planned?: number; seed?: number; eeg?: boolean; daySeed?: number; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } };
 
 function makeSim(o: SimOpts = {}): ChlebySim {
   const sim = new ChlebySim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
-    daySeed: o.daySeed ?? PLAIN, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    daySeed: o.daySeed ?? PLAIN, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -833,6 +833,31 @@ describe('the blocks', () => {
     expect(planBlocks(10, false, mulberry32(1)).length).toBeGreaterThan(0);
   });
 
+  it('follow the rhythm the player set in the lobby: longer Rozdawanie, shorter rest on the grass, the jitter scaled', () => {
+    const mean = (bs: { dur: number }[]) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+    for (const sec of [300, 1800]) {
+      for (const r of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }, { focus: 90, rest: 15 }]) {
+        const plan = planBlocks(sec, false, mulberry32(5), r);
+        const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+        // the shares the player asked for (a 10 s rest is lifted to the 12 s floor)
+        const k = mean(push) / mean(rest) / (r.focus / r.rest);
+        expect(k).toBeGreaterThan(0.75);
+        expect(k).toBeLessThan(1.25);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 5);
+        for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+      }
+    }
+    // no rhythm: the designed one, the grass a third of the session or less
+    const plan = planBlocks(600, false, mulberry32(5));
+    const share = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.34);
+    // the sim plans with the player's rhythm (the day's seed keeps the jitter the same for everyone)
+    const sim = later({ planned: 600, rhythm: { focus: 90, rest: 15 } });
+    expect(sim.plan.filter(b => b.kind === 'push').length).toBe(planBlocks(600, false, mulberry32(1), { focus: 90, rest: 15 }).filter(b => b.kind === 'push').length);
+  });
+
   it('a blind Rozdawanie every 4th from the 3rd session', () => {
     const sim = later({ progress: { sessions: 4, calls: 2 } });
     const blinds = sim.plan.filter(b => b.kind === 'push');
@@ -1522,6 +1547,29 @@ describe('long sessions (15–30 min)', () => {
           expect(b.dur).toBeLessThanOrEqual((nom + jit) * 1.05);
         }
         expect(body.length / 2).toBe(Math.round((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  });
+
+  it('plays any rhythm the player sets to its evening: 3, 10 and 30 minutes, long handing-outs or long rests, the people fed still grow', () => {
+    for (const planned of [180, 600, 1800]) {
+      for (const rhythm of [undefined, { focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'}`;
+        const sim = later({ planned, rhythm, progress: { bank: 20 } });
+        const bank0 = sim.p.bank;
+        const clock = { t: 0 };
+        let tap = 0, at = 0;
+        drive(sim, planned + 12, () => (sim.block?.kind === 'rest' ? LOW : HIGH), clock, tt => {
+          if (tt >= tap) { sim.press(RULES.laneW / 2 + Math.sin(tt) * 3); tap += 0.65; }
+          if (tt >= tap - 0.3) sim.release();
+          if (!at && tt >= planned * 2 / 3) at = sim.score;
+        });
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(sim.levelsNow, name).toBeGreaterThanOrEqual(Math.floor(planned / 120));
+        // the village's crumbs keep coming whatever the rhythm (levels, stars and the grass)
+        expect(sim.p.bank - bank0, name).toBeGreaterThan(planned / 30);
+        for (const v of [sim.score, sim.p.bank, sim.charge]) expect(Number.isFinite(v), name).toBe(true);
       }
     }
   });

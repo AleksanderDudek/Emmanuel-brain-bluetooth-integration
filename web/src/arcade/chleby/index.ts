@@ -22,6 +22,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ChlebySound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -30,6 +31,7 @@ import { bestOf, freshProgress, migrate, type ChlebyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { ChlebyView } from './render';
+import { RULES } from './rules';
 import { ChlebySim, type SimEvent } from './sim';
 
 class ChlebyGame implements ArcadeGame {
@@ -40,6 +42,7 @@ class ChlebyGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<ChlebyProgress>) {
     this.sim = new ChlebySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new ChlebyView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', insets: () => env.insets(), touch: env.touch });
     this.sound = new ChlebySound(env.audio);
@@ -216,5 +219,7 @@ const mod: ArcadeModule<ChlebyProgress> = {
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   // taps and drags for everyone; the keys as a fourth row, which the runner leaves out on a touch screen
   howto: () => howto(),
+  // the rest's rhythm in the lobby: seconds of Rozdawanie before the crowd sits on the grass, and of the rest
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('rhythm.focus'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 export default mod;

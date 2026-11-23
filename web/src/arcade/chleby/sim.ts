@@ -30,6 +30,7 @@ import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -103,12 +104,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks.  A first-ever session opens with a warm-up (30 s in 5 and 10 min, 20 s in
- * 3, 6 s in a 40 s test); then Rozdawanie / Na trawie pairs (24 ± 4 s and 23 ± 3 s, scaled to end
- * on time, jittered only when there is room) ending with a rest, leaving the last 6 s to the
- * finale.  No block under 12 s.
+ * 3, 6 s in a 40 s test); then Rozdawanie / Na trawie pairs (45 ± 7.5 s and 20 ± 3 s, or the
+ * player's rhythm with the jitter scaled to it; scaled to end on time, jittered only when there is
+ * room) ending with a rest, leaving the last 6 s to the finale.  No block under 12 s.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   if (plannedSec <= 60) {
     const left = Math.max(2 * R.minBlock, plannedSec - R.finale);
@@ -160,6 +161,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Rozdawanie, s on the grass); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 export class ChlebySim {
@@ -321,7 +324,7 @@ export class ChlebySim {
     this.rnd = mulberry32((this.seedBase ^ 0x1f83d9ab) >>> 0);
     this.packRnd = mulberry32((this.seedBase ^ PACK_SALT) >>> 0);
     this.day = dayOf(init.daySeed);
-    this.plan = planBlocks(init.plannedSec, this.firstEver, mulberry32((init.daySeed ^ PLAN_SALT) >>> 0));
+    this.plan = planBlocks(init.plannedSec, this.firstEver, mulberry32((init.daySeed ^ PLAN_SALT) >>> 0), init.rhythm);
     this.level = p.level;
     this.terraces = terracesOf(this.level);
     this.field = this.newField();

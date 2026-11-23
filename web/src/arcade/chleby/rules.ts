@@ -267,9 +267,14 @@ export const RULES = {
   missions: 3,
 
   // ── the session ──────────────────────────────────────────────
-  /** Rozdawanie and Na trawie: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
-  rest: [23, 3],
+  /**
+   * Rozdawanie and Na trawie: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): 45 s of Rozdawanie — about one hillside's feeding, its waves and its golden gate — then 20 s on
+   * the grass while the crowd sits and the crumbs gather (it was 24 / 23 s, nearly half the session, every 24 s);
+   * the player sets both in the lobby (kit/rhythm.ts), the jitter scales with them.
+   */
+  push: [45, 7.5],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   finale: 6,
