@@ -53,6 +53,9 @@ export class ArcadeAudio {
 
   get on(): boolean { return this.ctx !== null; }
 
+  /** The player's game volume, 0..1 (0 with the sound off): for music played outside Web Audio (kit/youtube.ts). */
+  get level(): number { return this.enabled ? this.volume : 0; }
+
   /** The master bus (volume and the fade-out on stop): kit/song.ts plays its songs into it. */
   get out(): AudioNode | null { return this.master; }
 
