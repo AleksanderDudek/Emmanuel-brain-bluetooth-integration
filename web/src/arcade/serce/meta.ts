@@ -86,11 +86,13 @@ export function migrate(p: SerceProgress): SerceProgress {
   p.lights = int(raw.lights);
   p.ways = int(raw.ways);
   p.reach = Math.min(5, int(raw.reach, -1, -1));
-  // round 16: where the way goes on is a stage; a version-1 save's ring (`pos`) is that ring's stage
+  // round 16: where the way goes on is a stage; a version-1 save's ring (`pos`) is that ring's stage. `pos` wins:
+  // the kit merges a save over freshProgress() (next: 0) before this runs, so a round-15 save always arrives with a
+  // `next`, and only a version-1 save still carries `pos` (this deletes it)
   const pos = raw.pos;
   const next = typeof raw.next === 'number' && Number.isFinite(raw.next) ? Math.floor(raw.next) : null;
-  p.next = next !== null && next >= 0 && next < WAY_LEN ? next
-    : isObj(pos) && (RINGS as readonly unknown[]).includes(pos.ring) ? ringIndex(pos.ring as Ring) : 0;
+  p.next = isObj(pos) && (RINGS as readonly unknown[]).includes(pos.ring) ? ringIndex(pos.ring as Ring)
+    : next !== null && next >= 0 && next < WAY_LEN ? next : 0;
   delete (raw as { [k: string]: unknown }).pos;
   p.stageSec = cleanStageSec(raw.stageSec);
   p.stages = int(raw.stages);

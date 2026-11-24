@@ -681,6 +681,11 @@ describe('the summary and the progress', () => {
     expect(r15.breath).toEqual(BREATH_PRESETS.calm);
     expect(migrate({ ...r15 })).toEqual(r15);
     expect(migrate({ ...freshProgress(), pos: null } as unknown as SerceProgress).next).toBe(0);
+    // the real load path: the kit merges the round-15 save over a fresh progress (next: 0) before migrating
+    const loaded = migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 4, pos: { ring: 3 } }));
+    expect(loaded.next).toBe(5);
+    expect(stageTitle(loaded.next)).toBe('Krąg 3 — Ludzie, których spotykam');
+    expect(migrate(mergeSaved(freshProgress(), JSON.parse(JSON.stringify(loaded)))).next).toBe(5);
     const old = mergeSaved(freshProgress(), { best: null });
     migrate(old);
     expect(old.ver).toBe(2);
