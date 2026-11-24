@@ -6681,6 +6681,8 @@ pillar of fire are Ogień's own symbols, §13.4). Candidates for later: the Name
 
 ### 18.5 Z głowy do serca — from head to heart, and out to the whole world (the founder's own meditation)
 
+> **Round 16:** the way is now walked in nine calm stages of 2–4 minutes (§20.4) — what follows on its timing ("The way", "Numbers", "After the way", "Where it goes on") is superseded there; the contents, pictures, words and care still hold.
+
 *The flagship of the series, rooted in 1 John 4:16 ("God is love; and whoever abides in love abides in God, and God
 in him").* Code: `src/arcade/serce/` — `plan.ts` (the way over the session, pure), `sim.ts` (the session), `rules.ts`
 (every number), `content.ts` (stages, rings, words of the heart, verses), `meta.ts` (progress), `talk.ts` (the
@@ -7155,6 +7157,8 @@ laptop, Full HD, QHD — all ✓: no string under 11 px (only a verse's referenc
 with the CPU slowed 2–4× on the phones, the game 0.5–2.2 ms a frame (2.2 on the small phone at 4×).
 
 ### 18.8 Brzemiona — burdens carried to the Cross (tonglen recast as intercession)
+
+> **Round 16:** a second way, *Moje brzemiona* — my own burdens given to the Cross — and my own list of topics with everyday and warownie suggestions (§20.6). The intercession below is unchanged and becomes the way *Za innych*.
 
 **The request.** The founder asked for "shifting energy" among the energy practices he wanted recast (§18.1). The
 research's pick (research-13 §7, "Recommended trainings" D) was tonglen, the Tibetan lojong practice of "taking and
@@ -7687,7 +7691,7 @@ under it; radius from `breathGuideRadius`, ≥ 26 px, kept under ~45 % of a shor
   push; a way's last station and a blind push always rest; the valve's 150 s count per station.  The card's own
   "breaths in a rest" stepper is gone: the Rytm row is the one place (an old saved count is read only without a
   runner rhythm).
-* **Z głowy do serca** — *Błogosławieństwo po 1–3 kręgach* · *Odpoczynek 1–6 oddechów*.  Design: each circle its own
+* **Z głowy do serca** — *Błogosławieństwo po 1–3 kręgach* · *Odpoczynek 1–6 oddechów* (round 16: the focus dial is now a stage's push length, 50–90 s — §20.4).  Design: each circle its own
   blessing; with 2–3 the circles are blessed together (a line each, ≥ a breath each) and the descent's stops, the
   sun's rest and the long halves drop.  The breaths are the player's only when a dial moved (else the plan's budget,
   a third of the session), never more than 55 % of it.  **5-minute sessions now walk the compact way** (`shortBelow`
@@ -7755,6 +7759,8 @@ own breathing stays (the oculus ring, the lit body, the lysosomes' rings, the fi
 Światło's story, panel and registry texts say "after a few places comes a rest" (it was "then a rest").
 
 ### 19.8 Każda myśl — every thought given to the light (Every Thought · Jeder Gedanke · Varje tanke)
+
+> **Round 16:** every lie is now answered by its truth, gilded by held focus; the 24 warownie as themed sets; my own warownie (§20.5).
 
 **The request** (the founder, 2026-11-23): *„Chcę nową grę, która generalnie polega na medytacji nad punktem i spalaniu
 negatywnych myśli. Chcę żeby tam występowały różne konteksty lęków, smutków, złości i odmian/mieszanek tych emocji.
@@ -7947,3 +7953,499 @@ Where the pacer stands now (phone upright / phone on its side / desktop & big sc
 Gaps: on the smallest canvases (a 360 × 500 phone, a 601 × 360 phone on its side) some games have no free 210 × 70
 anywhere — the pill then covers the least it can (bounded in the tests), never a control or the rest's own gauge.
 The runner's banner (first ~5 s of a rest) and coach hints are not avoided: they are the runner's and transient.
+
+## 20. Round 16: calm stages, the truth after the lie, my own burdens — and the warownie (2026-11-24)
+
+### 20.1 The founder's request
+
+> **From Head to Heart** — tu trzeba wydłużyć sesje per okrąg. Po prostu jeśli sesja trwa zbyt krotko, to pewnych
+> zadań/okręgów nie zrobimy. Tutaj trzeba przejść pewne etapy i przejść je spokojnie. Etapami. Każdy etap powinien
+> trwać od 2 do 4 minut.
+>
+> **Every Thought** — tu chciałbym zrobić cos w rodzaju -> własne negatywne myśli ustawić + pozytywne odpowiedniki,
+> które pojawiają się po spaleniu negatywu (tutaj fajnie by było, żeby na pozytywnym było skupienie). Można by
+> stworzyć tematyczne sety, żeby to było gotowe i żeby można było to pod dana potrzebę zrobić. (Może zrobić to jako
+> warownie?)
+>
+> **Burdens** — tutaj chce 2 rzeczy: chce mieć wersje, ze po prostu swoje ciężary oddaje na krzyż. Chce tez moc
+> zdefiniować listę takich tematów, które chce oddać, żeby spersonalizować ten proces. (Może znowu warownie?)
+
+With a free hand ("jeśli widzisz jak można to usprawnić… zrób to"), and, a little later: *„jeśli chodzi o warownie:
+…/teleo/src/content — tutaj są modlitwy, które powinny dać kontekst dla tego czym one są, ile ich jest i jak powinno
+to wyglądać."*
+
+### 20.2 The warownie (`kit/warownie.ts`)
+
+"Warownie" are the founder's own frame: a Polish teaching series on strongholds (2 Cor 10:4-5 — "the pulling down of
+strongholds … bringing into captivity every thought"), which the founder's prayer app Teleo carries as 24 full prayers (parts 2
+and 5–27), one per stronghold, each walking the series' method: name the fruit and the root, confess, forgive, receive
+the truth in place of each lie, confess it daily, do not give up when the old thought knocks, ask for help. The two
+games that asked "maybe as warownie?" take from it exactly what fits them:
+
+* **Każda myśl** — a warownia is a set of the stronghold's **lies**, each burned and answered by its **truth**, which
+  the player then holds in focus; the stronghold itself stands in the dark behind the candle and falls stone by stone.
+* **Brzemiona** — a warownia is a set of the **wounds** it leaves and the **people to forgive**, given to the Cross
+  (the method's own "noszę w tych dziedzinach rany; przynoszę je teraz Tobie" and "przebaczam… oddaję ich Tobie").
+
+`kit/warownie.ts` holds only what both share: the 24 in the series' order (the ids are Teleo's keys), the part, the
+name in four languages, the part's opening verse, one of five groups a chooser shows them under (Lęk i niepokój · Rany
+i wstyd · Ja i inni · Pragnienia · Wiara i prawda) and the series' cautions as flags (`crisis` — instability and
+humiliation, the parts with crisis numbers; `ocd` — compulsions: pray once, never a ritual; `medical` — fears,
+suspicion; `addiction` — dead pleasures, addiction). Each game writes its own lies, truths and burdens from that
+stronghold's prayer.
+
+**What stays in Teleo.** The series' deliverance language — evil spirits, binding, "przeklinam" (which the series uses
+for stopping a pattern's growth) — does not enter the games: a game that burns thoughts must never look like a ritual
+against spirits (and §18.3's reverence rules forbid power words). No teacher or series is named (the founder's own rule
+in Teleo, its DECISIONS §134). **Names are gentle and never clinical:** the series' "paranoja", "warownia
+antyspołeczna", "humanizm", "ateizm", "rasizm", "warownia seksualna" become *Podejrzliwość*, *Lekceważenie innych*,
+*Człowiek zamiast Boga*, *Niewiara*, *Uprzedzenia*, *Pożądliwość* — a game should not hand its player a diagnosis.
+
+### 20.3 Scripture
+
+45 new passages (038b259): the opening verse of each stronghold's part (John 8:32 for the method; Isa 53:3, Jas 1:8,
+Ezek 28:17, Lam 3:62, Prov 18:11, Ps 36:2, 2 Sam 13:6, Prov 18:1, Luke 1:52, 2 Cor 2:11, 1 Cor 14:20, Heb 2:15, Jer 2:21,
+Ps 38:5, Mark 7:8, Num 23:19, Ps 10:4, Gal 3:28, Col 3:5, Isa 28:17, 1 Cor 6:12, 2 Tim 2:26), the truths that take a
+stronghold's place (Isa 43:1, Ps 18:2, Ps 27:1, Rom 8:28, 2 Cor 12:9, Heb 13:5, 1 Cor 10:13, Rom 8:15, Eph 2:10, Zeph
+3:17, Prov 3:5-6, Ps 32:8, 1 John 3:1, Eph 4:32, Col 3:13, Gal 2:20, Rom 5:8, Isa 54:10, Ps 46:1, Rom 8:38-39, Eph 1:6)
+and Ps 62:8, Isa 46:4, Heb 4:16 for burdens given to the Cross. 2 Samuel and Zephaniah joined the pipeline's books.
+Left out: **Jer 17:5** (dependence's opening verse — getbible and the 1881 copy differ by a space; its v. 7, "Blessed is
+the man who trusts in the LORD", stands instead) and **1 John 4:18** (Wikisource's 1917 text carries an editor's note
+inside the verse). Ps 27:1 and Ps 46:1 lose their titles in all editions; Luther 1912's Ps 36,3 misprint
+"verunglimpfem" is corrected. Ps 36:2 reads differently in Luther (36,3: "Sie schmücken sich untereinander selbst…") —
+kept, as the edition prints it.
+
+### 20.4 Z głowy do serca — the way in calm stages of 2–4 minutes (round 16)
+
+**The founder's request** (2026-11-24, verbatim): *"From Head to Heart — tu trzeba wydłużyć sesje per okrąg. Po prostu
+jeśli sesja trwa zbyt krotko, to pewnych zadań/okręgów nie zrobimy. Tutaj trzeba przejść pewne etapy i przejść je
+spokojnie. Etapami. Każdy etap powinien trwać od 2 do 4 minut."*
+
+**What was wrong.** Round 13's `plan.ts` squeezed the whole way into any session: at 3–5 minutes rings 1–3 shared one
+push and the closing steps rode ring 5's; at 10 minutes a ring got well under a minute. The way was always "done", and
+never walked calmly.
+
+**The way is nine stages** (content.ts `WAY`): 1 Zejście (brow → heart), 2 Serce (the flame, gratitude), 3 Krąg 0 — Ja
+(the field fills the person and closes round), 4–8 Kręgi 1–5 (Rodzina, Przyjaciele, Ludzie, których spotykam, Ci,
+którzy mnie zranili, Cały świat), 9 Jedno słońce i cała szerokość (the sun, then the four dimensions). Every session
+ends with **the close** — not a stage: the return into the heart (a short focus-gated push) and the closing rest,
+"Panie, zbierz to wszystko w moim sercu" and the heart word, or after a session that finished stage 9 the Aaronic
+blessing (Num 6:24-26); then the runner's finale (the closing words stay on the card). The stage contents, pictures,
+words and care of §18.5 are unchanged; only the timing changed, plus what timing needs on screen.
+
+**A stage** (plan.ts `stagePlan`) has a least length M — the player's stage length S (2:00–4:00 by 0:30, 3:00 by
+design), or what is left before the close when that is between 2:00 and S. Its light (pushes and the rests between)
+gets max(M − its closing rest, 80 % of M); its closing rest follows (its blessing one line a whole breath, then its
+verse, then the heart word). The light is n pushes of equal least length, n chosen so a push is nearest the player's
+push length (the Rytm dial, 50 s by design; the descent keeps both stops — the mouth with the heart word, the throat
+with one quiet breath — while its pushes stay ≥ 30 s), with the heart word between (the sun's stage: the sun's own
+rest). Each push needs the average player's light for its time (0.5 × 0.95 held units a second past the lead-in) and
+ends when that light is met **and** its least length has passed: a player who meets it early **abides** — no light
+moves, held focus deepens the stage's glow (the field, the flame, the current circle's line) and the names by its lamps
+brighten; never more lamps, never ahead to the next stage. A weaker player's push runs longer (the valve still rests a
+stuck one: 60 s without light, or twice its least length, at least 90 s) and the later stages shift. Light only from
+real focus (§18 rule 1) is unchanged; the re-entry and the close's return are pushes like any other.
+
+**The session** (`forecast` and the sim follow the same `stageLen` / `stageCap`): a stage starts only with ≥ 2:00 left
+before the close (3 s of slack for whole frames); the session's first always starts. A long blessing (circle 4's, or a
+2-minute stage's) may carry a stage past M — never so far that a following stage no longer fits, never past the close.
+Less than 2:00 left: the close, its spare time a quiet abiding (an abiding push with the last stage, the heart word), a
+calmer return and more breaths of the heart word. A weak player's stage still running when the close must begin is
+cut — a push at once, a rest at its breath's end — and saved. After the whole way with time left, **"more" stages**
+(≥ 2:00) light the world for one group of people at a time (cierpiący, samotni, chorzy, umierający, dzieci, które się
+rodzą): their pushes kindle six lights on the Earth, their blessing "Panie, błogosław samotnym." (chosen over a quiet
+abiding stage: light still only from focus, and the long sessions keep a purpose).
+
+**Where it goes on.** Progress v2 keeps `next` (the stage, 0–8; 0 = from the start) and `stageSec`. A session that ends
+mid-way saves the stage after the last one walked today (a stage counts walked when its light is all walked), or the
+stage it began at when none was; a whole way clears it. A resumed session opens with **Wejście do serca**: one push
+walking quickly what comes before the saved stage among the first three (the descent; and the heart; and the field)
+— 0.45 / 0.2 / 0.35 of its light — then "Panie, oto jestem — w sercu, przed Tobą." (and the heart word from a
+minute). Its length: 25 s at 3 minutes (a 15-s push and one breath) … 40 s to 7.5 min, 60 s to 15, 75 s beyond; shrunk
+toward its least (from 10 minutes never under 45 s) when that lets one more stage fit — so a resumed 3-minute session
+still reaches one stage of 2:00. Circle 4 left out today: the way goes from circle 3 to circle 5; saved at circle 4
+while it is out, today it goes on from circle 5, tomorrow from circle 4.
+
+**Numbers** (rules.ts; 5 · 5 breath, Mendi):
+
+| | |
+|---|---|
+| stage length | 2:00 · 2:30 · 3:00 · 3:30 · 4:00 (default 3:00); a stage starts with ≥ 1:57 left |
+| a 3:00 stage | e.g. circle 1: two pushes of ~62 s, the heart word (2 breaths), the blessing (2 lines + verse + word = 4 breaths) — 184 s; circle 0 (3 lines): 194 s; circle 4 (3 lines, a long verse): 204 s; the descent: three pushes of 35 s with its two stops: 184 s; the sun's stage: 180 s |
+| 2:00 / 4:00 stages | two pushes of 38 s (126–156 s) / three of ~52 s (240–252 s) |
+| push dial | 50–90 s by 5, 50 by design (its minimum — see the migration) |
+| rest dial | 1–6 whole breaths between pushes, 2 by design; a closing rest at least what it prays |
+| light share | ≥ 80 % of M; a closing rest ≤ 50 % of M |
+| re-entry | 25 / 40 / 60 / 75 s (under 4, 7.5, 15 min, beyond), least 25 s (45 from 10 min) |
+| the close | ≥ 23 s: the return (lead-in + 8 s, 2 held units) and one breath; quiet abiding from 45 s spare |
+| lamps | by S: at 3:00 the old 10-minute counts 8 / 10 / 16 / 8 / 24, × (0.4 + 0.6·S/180) (2:00: 6/8/13/6/19; 4:00: 10/12/19/10/29); ring 5's named arcs from 3:00 |
+
+**Measured** (the tests' simulated players): an average player (focused 6 s of every 10, just over the threshold) walks
+each stage in its length (2:00 stages: 126–156 s with their blessings; 3:00: 180–204 s; 4:00: 240–252 s), reaching its
+goal at **76–81 % of S at 3:00, 77–85 % at 4:00, 76–77 % at 2:00** (63–68 % only in a stage fitted to exactly what is
+left). A strong player's stages last exactly as long (it abides); a weak one's 1.5–1.7 × (the valve rests it), so it
+walks fewer. Sessions at 3:00 for an average player: **3 min** one stage (fresh: Zejście; resumed: the re-entry and
+one stage of 2:00); **5 min** one stage and a calm close of 1:44 (at 2:00: two stages, resumed too); **10 min** Zejście
+· Serce · Ja (next: re-entry, Rodzina, Przyjaciele, Ludzie… at 2:17); **15 min** five; **20 min** six; **25 min**
+eight; **30 min** the whole way and a close of 1:46. At 4:00 the
+whole way takes two sessions even at 30 minutes (seven stages, then the re-entry and the rest) — the founder's rule,
+said honestly in the forecast.
+
+**On screen.** Each stage opens with its **title card** for ~4.5–6 s in the words card's main area — the heart word
+fades back after it ("Etap 4 z 9" small in gold, "Krąg 1 — Rodzina" in the serif; the re-entry: "Na początek ·
+Wejście do serca · potem: Etap 5 z 9 · Krąg 2 — Przyjaciele"; "Po całej drodze · Światła dla świata · samotni"; "Na
+koniec · Powrót do serca"); the narrator waits while it shows. (First drawn over the picture's upper part, it ran
+under the runner's block banner, which opens every push at the top: the card is never under it, on phone or desk.) A **thin line along the top of the words card** fills with the stage's time (no seconds; full while a
+stage runs longer), on phone and desk. The desk's way list shows the nine stages (✓ walked, ◉ now — between stages and
+in the close the next one —, ○ waiting, – circle 4 left out today), where the card keeps ≥ 110 px for the words beside
+it (≥ 150 in a rest: at 1280 × 800 a rest's verse and breath guide come first and the list steps aside). The HUD's sub-line names the stage ("Etap 4 z 9 ·
+Krąg 1", "Wejście do serca", "Dla świata", "Powrót do serca"). Abiding: the "now" line "Zostań tu — skupienie pogłębia
+blask", the narrator "Zostań tu. Nie spiesz się — ten krąg ma swój czas." (three lines a circle, three a stage), and
+"Na dziś wystarczy etapów. Teraz powrót do serca." when the close comes before the way is whole. **The summary**:
+Etapy dziś "3 × 3:04" (how many, and how long they were on average), Droga "3 z 9", the rests, the light in motion, calm, the contrast; "Dziś: Zejście ·
+Serce · Ja.", "Następnym razem: Krąg 1 — Rodzina."
+
+**The lobby's card** (panel.ts): **Długość etapu** 2:00 · 2:30 · 3:00 · 3:30 · 4:00 — "Każdy etap trwa co najmniej
+tyle — dłużej, jeśli światło potrzebuje więcej czasu" (the one place it is set); **Twoja droga** — this session's
+forecast for the lobby's session length ("W 10 min: Zejście · Serce · Ja — dalej następnym razem."; "W 10 min: wejście
+do serca, potem Serce · Ja · Rodzina — …"; "W 30 min: cała droga — dziewięć etapów."), redrawn when another length is
+chosen (the card reads #arcadeLen), and the nine stages as a list of 44-px choices (✓ ◉ ○ –); a tap makes one the next
+session's start (stage 1 = from the start; this replaces "Od pierwszego kręgu"). The stats: the most lights, sessions,
+whole ways, stages walked.
+
+**The Rytm row** (kit/rhythm.ts, `serceRhythm`): "Skupienie 50–90 s" (a stage's push length) and "Odpoczynek 1–6
+oddechów"; note "Etap to kilka odcinków skupienia, każdy z odpoczynkiem; na końcu etapu — błogosławieństwo". **The
+migration of a round-15 save**: the settings keep `{focus: 1–3}` (a blessing after 1–3 circles); the dial's default is
+its minimum, so `clampDial` reads any old value as 50 = the design — `custom` false, "jak zaprojektowano", no kit change
+(a 30–90 dial with default 45 would have turned every old save into "30 s · Twój rytm"). The progress: version 1's
+`pos: {ring}` becomes `next` = that ring's stage (Krąg 2 → stage 5), `stageSec` 3:00, `stages` 0.
+
+**Care, words.** Unchanged from §18.3/§18.5: light, not energy; every prayer addressed; circle 4 starts with a small
+hurt, can be left out today. New prayer lines: "Panie, oto jestem — w sercu, przed Tobą." (the descent's arrival and
+the re-entry; Theophan's "stand before God with the mind in the heart") and "Panie, Twoja miłość nie ma brzegu." (the
+four dimensions' closing, before Eph 3:18); four languages each.
+
+**Tests** (`test/arcade-serce.test.ts`, 52): the nine stages and their titles; every stage at every S walks its light
+whole and ends with its blessing (lines, verse, word), lasts ≥ M and ≤ S + 60, its light ≥ 80 %; the descent's stops,
+the sun before the dimensions, circle 4's longer blessing; lamps by S; a rest's sequence and how it shortens; the
+forecast at every session length × S × start × first-ever (no stage started with < 2:00 left, each ≥ 2:00 but the
+first, the close always fits); the founder's examples (3 / 5 / 10 / 30 min, 4:00 two sessions, resumed 3 and 5 min);
+the re-entry's length; average, weak and strong players at 3, 5, 10, 30 min (the forecast's stages, each ≥ its least,
+the average ≤ S + 60, the strong never ahead, the weak fewer); goals at 75–85 % at 3:00 and 4:00; the whole way and the
+"more" stages; resume at 3, 10, 30 min; what the re-entry walks; where it goes on (incl. a weak player's cut stage and
+a whole way); circle 4 left out today; abiding; light only from focus (kept); blocks, the valve, telegraphs, the
+warm-up and the opening card, the smoke's crude input, HALO and 4 · 7 · 8; the summary; the migration of a round-15
+save and garbage; the words, catalogues, forbidden words, quotation marks, passages; the HUD sub-line, the title card,
+the stage line, the way's states; the layout, framings, Earth, how-to; the lobby card (stage length, way, forecast,
+tap to start, names, circle 4, words, breath); the rhythm dials and the round-15 rhythm migration.
+
+**Measured on screen** (scripts/arcade-mobile.mjs, six devices, final run): ✓ — 0 strings under 11 px; under 13 only
+the opening card's verse references (11–12 px, as in round 13) and the card's head "Błogosławieństwo na…" at 12 px on
+a phone held sideways; the targets valid; 60 fps at 1–4 × CPU (the game 0.6–2.4 ms a frame); the play 60–81 % of the
+screen's height. arcade-shot pl (400 s, a first session: Zejście, then Serce) and de (240 s) ✓, no page errors.
+
+### 20.5 Każda myśl, round 16 — every lie answered by its truth, held in focus; the warownie; my own warownie
+
+**The request** (the founder, round 16): *„Every Thought — tu chciałbym zrobić cos w rodzaju -> własne negatywne myśli
+ustawić + pozytywne odpowiedniki, które pojawiają się po spaleniu negatywu (tutaj fajnie by było, żeby na pozytywnym
+było skupienie). Można by stworzyć tematyczne sety, żeby to było gotowe i żeby można było to pod dana potrzebę zrobić.
+(Może zrobić to jako warownie?)”* — and on the warownie: *„jeśli chodzi o warownie: /Users/pl2mac0030/Projects/teleo/src/content
+— tutaj są modlitwy, które powinny dać kontekst dla tego czym one są, ile ich jest i jak powinno to wyglądać.”*
+
+Code: `src/arcade/mysli/` — new `sets.ts` (own sets, a set's place, limits, the order of a set's pairs, the stones'
+slots), `war-data.ts` (each warownia's six pairs: emotion mix and the passage its truth rests on; the generic truths'
+passages) and `i18n-sets.ts` (the words: `tr.<id>`, `gt.<feeling>.<k>`, `w.<id>.line`, `w.<id>.<k>.lie|truth`, four
+languages); sim.ts, meta.ts, rules.ts, render.ts, paint.ts, layout.ts, hud.ts, panel.ts, preview.ts, audio.ts, index.ts,
+i18n.ts changed. Test `test/arcade-mysli.test.ts` (now in happy-dom, for the card).
+
+#### 1. Every thought is a pair: the lie and its truth
+
+Each of the 56 library thoughts got a **truth** (`tr.<id>`): first person, present tense, ≤ 64 characters in every
+language, believable and kind, rooted in Scripture where it is natural, plain where Scripture would feel forced ("Nie
+dam rady." → „Nie muszę dźwigać tego w pojedynkę — Bóg jest ze mną”; "A jeśli to coś poważnego?" → „Jeszcze nie wiem —
+ale w tym czekaniu Bóg jest ze mną”). Polish stays gender-neutral (no -łem/-łam, no sam/sama, no "jestem +
+przymiotnik": „Bóg mnie kocha”, not „jestem kochany”). The round-15 true word (the reframe at rest, `tw.`) and the
+passage stay: the truth is what is held in focus, the true word what answers at rest.
+
+#### 2. The truth, after the burn, held in focus
+
+When a lie has burned (unchanged: the ember front, the crumbling ash), its slip does not fly off: **a golden slip
+unfolds in the same place** (1.2 s, not gated; it opens from its middle like a folded leaf; reduced motion: a fade) with
+the truth in an upright serif — the lie was italic, the truth stands. It is a leaf of burnished bronze with a fine gold
+edge, the words in dim gold: readable while it waits, never fading. **Held focus gilds it**: light fills the letters left
+to right, line by line, with a spark at the front and a few golden motes rising — gated exactly like the burning
+(sighted push, past the lead-in, a reliable signal, `focused`, at `focusRate`). Without focus it waits; nothing goes
+back. Gilded, it folds into the golden light that flies to the crown round the flame (the old ending of a thought). The
+band: label „Prawda” (a warownia: „Prawda · Odrzucenie”), the line of what to do now **„Przyjmij prawdę — patrz na
+nią”**, the prayer **„Jezu, przyjmuję Twoją prawdę.”** (en "Jesus, I receive your truth.", de „Jesus, ich nehme deine
+Wahrheit an.", sv "Jesus, jag tar emot din sanning."). A first-time coach mark explains the gilding (coach marks now
+wait until what they explain is on screen). The line of what to do now wraps to two lines in a narrow column (a phone on
+its side beside the signal dock, German) instead of running past it. „Nie moja” is offered only for a lie, never for a truth.
+
+**A pair counts once both are done** — the headline (thoughts given) counts gilded truths; the summary shows „Myśli
+oddane” (lies burned) and „Prawdy przyjęte” (truths gilded); the blind push makes whatever is at the ring (lie or truth)
+progress unseen and shows it at its end.
+
+**The numbers** (rules.ts). A pair needs `need` focus-seconds; the truth takes **45 %** of it, at least **6
+focus-s** (an average player at 0.75 focus-s/s holds it ~8 s — a 64-character truth read slowly twice), the lie at
+least 3 (`splitNeed`). A truth alone after a set's fall (the daily truths) takes the whole `need`. The plan's table went
+from thoughts to pairs, a little fewer and each longer: **5 (3 min), 7 (5), 14 (10), 19 (15), 24 (20), 29 (25), 34 (30)**;
+`needMin` 9 (was 6); the fixed time counts the unfolding (1.2 s a pair) and, when the set can fall in the session, its
+moment (5 s). Resulting needs (lie / truth focus-s): 3 min 3.6 / 6.0, 5 min 8.3 / 6.8, 10 min 9.2 / 7.5, 15 min 11.0 /
+9.0, 20 min 12.3 / 10.1, 25 min 13.0 / 10.6, 30 min 13.4 / 11.0. Test: an average player completes ≥ 85 % of the
+planned pairs between 55 % and 97 % of the session at 3, 5, 10, 15, 20, 25 and 30 minutes, rest under a third.
+(3 minutes keeps 5 pairs: with 4, the 85 % pair would land at 44 % of the session.)
+
+#### 3. The warownie — the founder's series, as themed sets
+
+The 24 strongholds of `kit/warownie.ts` (its order, names, five groups, opening verses, care), each with **six pairs**
+written from its prayer in the founder's prayer app (`pl.stronghold-<id>`, `en.stronghold-<id>`): the lies from what the
+prayer names as the fruit ("Nazywam owoc…"), each as the thought a person actually thinks (≤ 60 characters, first
+person: odrzucenie — „Nikt mnie nie chce”, „Zawsze stoję z boku”, „Zaraz mnie zostawią”, „Muszę zasłużyć, żeby mnie
+przyjęli”, „Odepchnę ich, zanim mnie odrzucą”, „Coś jest ze mną nie tak”); the truths from the truths the prayer
+confesses, shortened (≤ 64: „Bóg mnie chce — przyjął mnie w Umiłowanym”, „Należę do Bożej rodziny — mam w niej swoje
+miejsce”); an emotion mix per pair (for strongholds that are not mainly an emotion — pride, greed, lust, unbelief,
+prejudice — the nearest honest mix: pride as fear of being small with anger, greed as fear of lack); a passage per pair
+that grounds its truth (the prayer's own verses where they are in scripture.ts: Isa 40:31 and Rom 8:28 for pessimism,
+Heb 2:15 for fear, Jas 1:5 for foolishness, Num 23:19 and Jer 17:7 for "man in God's place"…; 1 Jn 1:9 for the
+compulsions' "I must confess it once more, just in case" → „Bóg przebacza za pierwszym razem — nie muszę powtarzać”).
+Each has a line for the card („Kłamstwa, że nikt mnie nie chce — i prawda o tym, czyj jestem”, gender-neutral). The
+writing took the lie and the truth and left the deliverance language: no spirits, no binding, no casting out, no
+„przeklinam”, no teacher or series named (a test lists the words in four languages, "Heiliger Geist"/„Duch Święty”
+allowed). Religion and prejudice were written so they can't read as a jab at any church or group; lust in decent words,
+never treating unwanted thoughts as guilt; addiction's truths never "prayer instead of help" („Mogę powiedzieć komuś
+zaufanemu — to nie słabość”); fear's bodily lie is answered with the doctor („Mogę to sprawdzić u lekarza…”).
+
+**How a warownia session looks.** An opening card: „WAROWNIA · 2 KOR 10,4” (the frame, as a reference), the name
+from the kit („Odrzucenie” — the kit's names are nominative, so the card does not decline them), the line (and, when it
+goes on, „Zburzone kamienie: 3 z 6 — idziesz dalej.”), the opening verse (Isa 53:3 for rejection). Behind the candle a
+**stronghold** stands in the dark: a tower of large hewn stones, one per pair, baked once per size (courses 2-2-2 for six,
+up to 4-3-3 for ten, a little narrower at the top, joints that never line up, chisel marks; a candle-lit face; no
+battlements — never a game castle). Behind it a soft light the stones hide: it shows as a thin rim, through the joints
+and through each gap. **Each lie burned**: its stone loosens and crumbles — six pieces fall and turn as they fade, gold
+sparks rise from the gap, a low soft thud — and the light shines through the gap (reduced motion: the stone fades).
+**Each truth gilded**: the light behind warms (pale gold → warm gold). **All lies burned: the warownia falls** — a moment
+of 5 s before the last truth unfolds: a deep chord, the light breaking through (a widening glow and twelve slow rays;
+still with reduced motion), the band „Warownia zburzona” with J 8,32 or 2 Kor 10,4 in turn (whole, as in the rest);
+counted per warownia (`place.falls`) and said gently in the card („zburzona 2×”) and the summary („Odrzucenie: zburzona
+już 2×. Warownie burzy się nieraz — dobrze, że wracasz.”), never as a score. After the fall it stands again, whole, for
+the next session. **Prawda na co dzień**: the time left gives the warownia's truths again, truth only (each gilded by
+focus with the whole pair's need), a shuffled round, never the same one twice in a row. A session that ends early keeps
+the set's place — which lies burned, which truths were gilded — live in the progress; the next one starts with the
+truths still waiting, then the unburned lies. „Nie moja” on a warownia's lie sets it aside for this session only.
+
+**Care.** `ocd` (perfectionism and compulsions): the card carries the series' note — „Jeśli masz natręctwa (OCD) albo
+niechciane myśli, nie zamieniaj tego w rytuał — powtarzanie może karmić kompulsję. Raz wystarczy: zostaw to Bogu i
+trzymaj się leczenia.” — and the set **never offers daily repetition**: after its fall the session goes on with everyday
+library thoughts, the band says „Zostawione Bogu. Nie musisz tego powtarzać ani sprawdzać.”, the card „Gdy upadnie,
+sesja idzie dalej zwykłymi myślami — bez powtarzania.”, and no word of it says "codziennie / again tomorrow" (a test).
+`crisis` (instability, humiliation): the help line in the card before playing (116 123, 116 111, 112; TelefonSeelsorge;
+Självmordslinjen); their lies stay at everyday hopelessness and shame, never at the edge. `medical` (suspicion, fear): see
+a doctor or a psychologist — prayer goes with help, never instead of it. `addiction` (dead pleasures, addiction): a
+group, a therapist, a doctor — asking for help is not weakness. A set's session closes with the series' method's own
+sentence, kept to the Father, through Jesus, in the Spirit: „Ojcze, przez Jezusa Chrystusa, w Duchu Świętym: w miejsce
+każdego kłamstwa przyjmuję Twoją prawdę.” (`close.war`; today's mode keeps round 15's close).
+
+#### 4. My own warownie
+
+Up to **6 own sets**, a name ≤ 32 characters, **≤ 10 pairs**: the lie (≤ 80), its truth (≤ 80, optional) and its
+feeling (lęk / smutek / złość / mieszane). An empty truth is answered by a **generic truth** of its feeling (3 each,
+≤ 64, with passages: fear Isa 41:10, Ps 56:3, 1 Pt 5:7; sadness Ps 34:18, Mt 11:28, Rom 8:38-39; anger Eph 4:26, Jas
+1:19, Ps 62:8; mixed Phil 4:7, Ps 46:1, Isa 43:1). An own set is played exactly like a warownia (its stones are its
+pairs, it falls, its truths again after). The round-15 own thoughts (≤ 8) **migrate** (progress version 2) into one own
+set shown as „Moje myśli” with empty truths, chosen to come first in today's mode, so nothing the player wrote is lost
+and their sessions feel the same. Everything own stays only in the game's progress on this device — never in
+`result()`, stats or highlights (a test plays an own set with distinctive words and a name and checks the result);
+self-harm words in an own lie, truth or name bring the help line forward in the card (as before). „Zapomnij tę
+warownię” and „Zapomnij wszystkie moje warownie”. The round-15 "forget my thought once it has burned" was dropped: a set is
+a deliberate thing now, and it has its own "forget".
+
+#### 5. The card: one clear first choice
+
+„Co dziś?” — three choices: **„To, co mnie trapi”** (what weighs today and the areas of life, as before; „Najpierw moje
+myśli z: …” when an own set exists), **„Warownia”** (the chooser opens only when chosen: the kit's five groups as tabs,
+the strongholds of the open group as chips that say „3/6” or „zburzona 2×”; once chosen, a box with its group, its name,
+its line, its place, what happens after its fall, its care note and „Zmień warownię”), **„Moje warownie”** (the sets as
+chips, „+ Nowa warownia”, the chosen one's lies → truths with „Edytuj”, and the editor — a phone manages it: one pair a
+block — its number and ✕, the lie, its truth under it, its feeling; typing saves on change and never redraws under the
+fingers). Before/after 0–10, the breath, the set-aside list (today's mode) and the care stay. A thought left at the ring
+waits out of sight during the quiet (the point alone).
+
+#### Tests (71 in test/arcade-mysli.test.ts, + the shared i18n test)
+
+The library's truths (four languages, ≤ 64, gender-neutral Polish, no risk phrasing, no forbidden word — the list now
+holds duch/demon/przeklin…, spirit/demon/curse…, böse Geist/Dämon/Fluch…, ond ande/demon/förbann…); the truth phase
+(unfolds ungated, gilds only from focus, waits without — LOW, no signal, calm for 45 s — never fades, no „Nie moja” on a
+truth, a pair counts once both are done; the band's words); the split at every length; the plan with pairs at 3–30 min;
+the 24 warownie (the kit's order, 6 pairs, mixes, passages exist, four languages, lengths, care notes, the OCD set never
+offers daily repetition); the opening card; one stone per burned lie, the fall once, its count, the daily truths (all six,
+never twice in a row); "zburzona 2×" in the summary; the compulsions set going on with the library; resume mid-set
+(pending truth first, then the next lie; the place survives JSON); a warownia's „Nie moja” for this session only; the
+wall's stones (as many as pairs, inside their box, slots a permutation) and the stronghold's box at every checked size;
+own sets (limits, editing, removing a pair moves the place, forgetting a set moves the chosen indices, migration v1 → v2,
+"Moje myśli 2", generic truths, nothing own in result(), the help line); the card (Co dziś?, the chooser's tabs and chips
+with their place, the crisis and OCD notes, making an own set in the card).
+
+#### Measured
+
+`npx vitest run test/arcade-mysli.test.ts test/i18n-arcade.test.ts` — 78 passed; `npx tsc --noEmit -p .` clean for
+mysli; arcade-shot pl and de (a library session and a warownia session, the warownia seeded through the card and a
+`?debug` hook `__mysliProgress`); the mobile audit; the card at 360 px and 1440 px in its states.
+
+### 20.6 Brzemiona — "Moje brzemiona": my own burdens given to the Cross, my own list (round 16)
+
+**The founder's request** (2026-11-24): *"Burdens — tutaj chce 2 rzeczy: chce mieć wersje, ze po prostu swoje ciężary
+oddaje na krzyż. Chce tez moc zdefiniować listę takich tematów, które chce oddać, żeby spersonalizować ten proces.
+(Może znowu warownie?)"* — and on the warownie: *"jeśli chodzi o warownie: /Users/pl2mac0030/Projects/teleo/src/content
+— tutaj są modlitwy, które powinny dać kontekst dla tego czym one są, ile ich jest i jak powinno to wyglądać."*
+
+Round 13's Brzemiona was intercession only: the player's own burden came in only as "Ja" on the list, then drawn on the
+far ridge as if it were someone else's — awkward. Round 16 adds a second way beside it and keeps the intercession whole
+(§18.8 stands for "Za innych" word for word: its list, circles, numbers, words, picture and tests).
+
+#### Two ways, chosen first
+
+The lobby card opens with **"Moje brzemiona"** (I give my own) and **"Za innych"** (the intercession), two finger-sized
+choices and a line each; everything under them is the chosen way's. A fresh progress starts on "Moje brzemiona" (the
+founder's wish). Progress is version 2 (`way`, `own { list, next, pos }`, `given`); a version-1 save is round 15's and
+keeps "Za innych" when it played or kept a list — the way it played — else it starts on "Moje brzemiona". (Loading merges
+a save over fresh defaults, so the version, not a missing field, tells a round-15 save.) The way is fixed for a session
+(switching happens in the card); in play ≡ shows the current way's list. The first-ever session's opening card says
+both ways in a line each (page 1) and then the care of the way being played (page 2); a returning player's first own
+session opens with the own way's two pages under a warm-up, once (`s.own`). The own way's coach marks are seen once in
+their own right (`c.own.*`: they speak of the bundle and of "you").
+
+#### The picture (layout.ts `ownStage`, `ownLanes`, `footLights`; paint.ts `bakeBundle`; scene.ts `drawOwn`)
+
+No one on the far ridge — the ridge stays as landscape. The Cross of light on its hill; near, **the player** (the
+series' figure of light) and beside them, on the Cross's side, **the burden as a closed bundle**: a cloth sack with a
+soft belly, gathered and tied at the neck with a cord, the cloth's ends above the knot, a thin warm rim of the horizon's
+light on its shoulder — baked once per size twice (`dark`: slate violet; `pale`: grey-lilac with a gold rim) and
+cross-faded, a soft grey smoke about it. Its topic is written under it, in one line that never runs over the player
+("praca", "zdrowie mamy"); "Ty" under the player. *Across* (a phone's and a desk's picture): the Cross at 40 % of the
+width, the bundle and the player to the right on level ground; *down* (an installed iPhone): the Cross above on a higher
+hill, the bundle and the player near, side by side, with a line of room under them for the words.
+
+**The exchange** has its own two lanes: the **smoke lane** from the bundle's tied neck up and away to the Cross (across:
+up and left; down: up the left side) — the smoke lifts *from the bundle*, never from the player's body, never toward or
+into them (a test walks it at every check size: it starts at the bundle, ends at the Cross, its distance from the
+player never shrinks, no point of it inside the player's figure); the **light lane** from the Cross to the player's
+heart (across: a gentle arc above the bundle; down: the right side). On the in-breath grey smoke lifts from the bundle
+along the smoke lane and waits at the Cross (one puff at most, never back); while focus is held it turns gold there
+(gated exactly as §18.8); on the out-breath the light returns along the light lane to the player, and a warm glow at
+their heart grows with each burden given (`heart`). **The bundle shrinks (to 40 % of its size) and grows pale as
+"Oddaję" turns** (`ownTargets`: size 1 − x, paleness x) and is gone once that circle is turned; **a small golden light
+then rests at the foot of the Cross**, one per burden given this session, alternately left and right of the foot along
+the crest (`footLights`, up to 12 a row) — the headline's picture. In "Przyjmuję" the next light forms there as the circle
+turns. Reduced motion: no streams, the lights do not twinkle. The lobby's hero shows the own way when the card is on it
+(three bundles given in turn, the lights settling); the calibration intro brings the bundle in at its end.
+
+#### Words and depth
+
+* **The address**: „Panie Jezu, oddaję Ci: praca.” — the topic in the nominative after a colon, never declined (en
+  "Lord Jesus, I give You: work.", de „Herr Jesus, ich gebe dir: …“, sv ”Herre Jesus, jag lämnar åt dig: …”).
+* **On the breath** ("Oddaję"): in „Panie Jezu, weź to ode mnie.”, out „Daj mi swój pokój.”, holds „Przy Twoim
+  krzyżu…” / „Twój pokój.”; what flows: "dym z tobołka płynie do krzyża" / "światło wraca do Ciebie".
+* **"Przyjmuję"** (from 10 minutes): the address „Panie Jezu, w zamian przyjmuję Twój pokój.”, light only — in „Panie
+  Jezu, Twoje światło przy krzyżu.”, out „W zamian przyjmuję Twój pokój.” — the great exchange.
+* **Rests**: „Dziękuję, Panie, za Twój pokój.” after a circle; after the burden's last: „Zostawiam to przy Twoim krzyżu,
+  Panie.” then a verse in turn: Mt 11:28, 1 Pet 5:7, Ps 62:8, Heb 4:16, 2 Cor 12:9, Isa 53:4, Mt 11:29-30
+  (`OWN_LEAVE_VERSES`, by session and burden). Exchange verses: give Mt 11:28 / 1 Pet 5:7 / Ps 62:8, receive Jn 14:27 /
+  Isa 54:10 / Zeph 3:17.
+* **The finale**: „Ojcze, przez Jezusa Chrystusa, w Duchu Świętym: zostawiam to wszystko przy krzyżu. Amen.” and
+  Isa 46:4 ("I have made, and I will bear… I will carry").
+* **Depth by length**: under 10 minutes one circle a burden ("Oddaję"); from 10 minutes two ("Oddaję", "Przyjmuję") —
+  `circlesOf(topic, depthFor(T) ≥ 3)`. The list walks in order, the next session goes on where this one stopped (a
+  burden in progress resumes with its circle and light), and when it runs out it starts again from the first ("oddaje
+  się wiele razy" — 1 Pet 5:7). The light-only version applies to the own way too (no smoke from the bundle; light
+  gathers at the Cross and flows to the player; the bundle still shrinks as the light turns).
+* **The hands**: ≡ "Moja lista" (a chooser "Co oddajesz?"), ◎ "Przyjmij pokój" (to "Przyjmuję" now, the light turned
+  stays — the widening's mechanics), ▶ the next burden; a tap stays with it (a ring round the bundle, or at the foot of
+  the Cross once it is given). Keys as before.
+* **The narrator** keeps the shared lines that fit and has its own where the intercession's speak of "them" (8 moments ×
+  3 lines × 4 languages, ≤ 90 characters): "Twoje brzemiona leżą obok Ciebie, nie w Tobie.", "Nazwij to raz. Nie musisz
+  tego rozpamiętywać.", "Patrz na krzyż, nie na tobołek.", "Brzemię oddane. U stóp krzyża zostało małe światło.",
+  "Wielka wymiana: Ty oddajesz ciężar, On daje pokój." Strategies: name it in one word and see the bundle beside you,
+  not inside you; watch the smoke leave the bundle for the Cross; „Jezu, Twój pokój”. A test keeps "them" out of the
+  own way's words in every language.
+
+#### My list and its suggestions (panel.ts, topics.ts)
+
+**Moja lista**: up to 12 topics of up to 32 characters (typed, plain text, cleaned like names, none twice whatever the
+case), each with "start here" (▶ marks the next), ↑, ↓ (the next follows its topic), ✕; "Następne: praca" or "W drodze
+do krzyża: praca · Oddaję"; empty, it gives four gentle defaults in the player's language ("to, co dziś noszę", "moje
+troski", "moje zmęczenie", "moje jutro"). Topics are kept as written, in the language they were added in. **Suggestions**
+on two shelves, closed until opened (a phone's card stays short; chips wrap; every control ≥ 44 px):
+
+* **Codzienne** — ten themes, a tap shows its topics as "+" chips ("✓" when on the list) and "Dodaj (n)": Praca (praca,
+  szef, termin, który mnie goni, brak pracy), Pieniądze, Zdrowie (… zdrowie mamy, badania, które mnie czekają…), Rodzina,
+  Relacje (… rozmowa, która mnie czeka…), Przeszłość, Lęk o jutro, Zmęczenie, Decyzje, Strata — 3–4 each.
+* **Warownie** — the 24 of `kit/warownie.ts` under the kit's five groups. Yes, the warownie again: the series' own
+  method (Teleo `pl.stronghold-method`) says "noszę w tych dziedzinach rany; przynoszę je teraz Tobie" and "przebaczam
+  każdemu… oddaję ich Tobie" — that is this way of the game. Each stronghold's set (3–5) is taken from its Teleo prayer
+  (`pl./en.stronghold-<id>`, read only): **the wounds it asks to be healed** ("Ojcze, ulecz…") and **the people it
+  forgives** ("Przebaczam tym, którzy…"), as nominative phrases ≤ 32 characters — rejection: rana odrzucenia, miłość,
+  której mi nie okazano, krytyka zamiast pochwały, ci, którzy mnie odrzucili, ci, którzy mnie zdradzili; fears: chwile,
+  które mnie przeraziły, lęk o jutro, lęk przed chorobą, lęk przed ludźmi, ci, którzy mnie straszyli; addictions: rany
+  pod moim nałogiem, ból, który próbuję znieczulić, ci, którzy mnie wciągnęli, ci, których zranił mój nałóg… A tap on a
+  stronghold shows "Odrzucenie: 5 brzemion", its care note when flagged, its burdens as chips, "Dodaj (n)" and — when
+  the list is not empty — "Zastąp listę", which asks a second tap ("Tak, zastąp listę (5)"; no dialog). Never the
+  deliverance language (no spirits, no cursing, no binding or casting out, no lists of demons), never the teacher or the
+  series; gentle names, no Polish first-person forms that need a gender. **Care notes** where the kit flags them:
+  crisis (instability, humiliation) — „Jeśli przychodzą myśli o skrzywdzeniu siebie, zanim zaczniesz, zadzwoń: 116 123
+  (całą dobę) albo 112.”; ocd (compulsions) — „Raz, spokojnie, nie jako rytuał: nazwij, oddaj i zostaw to Bogu. Trzymaj
+  się leczenia.”; medical (suspicion, fear) — see a doctor or a specialist too; addiction (dead pleasures, addiction) —
+  „Modlitwa idzie razem z pomocą — grupą wsparcia, terapeutą — nigdy zamiast niej.” (each in four languages).
+
+The own card's numbers: burdens given, sessions, the most in one session, "Na liście n/12". Topics stay only in the
+game's progress on this device: **never in `result()`, its stats or its highlights** — the summary says only counts
+("3 brzemiona oddane przy krzyżu", "Następnym razem: 2. brzemię z 4 na Twojej liście").
+
+#### Care
+
+The own way says once, gently, on its second opening page and in the card's care: „Nie musisz niczego przeżywać od
+nowa. Wystarczy nazwać i oddać.” (the card adds: the bundle stays tied — you describe nothing). The bundle is never
+opened and nothing is described; the smoke never comes from or toward the player. The help line stays where it was
+(care card, opening page, tip 5) and is on the own way's care page too.
+
+#### The registry
+
+`brzemiona.tagline/text/how1–3/tip1–4/brainRest` (four languages, and the mouse twin of how3) speak of the two ways, the
+own way first: how1 "Moje brzemiona: …", how2 "Za innych: …", how3 the hands of both; the origin note (tonglen) stays.
+
+#### Measured (the sim with the kit's FocusInput, noise and Mayer waves; an average player whose activity rises 2 % / 4 % in a push; 2 seeds)
+
+| length | "Moje brzemiona" | (the intercession, unchanged) |
+|---|---|---|
+| 3 min | 3 burdens, the last at 147–161 s | 3 |
+| 5 min | 4, the last at 226–249 s | 2 |
+| 10 min | 4–5 (two circles each), the last at 480–561 s | 3 |
+| 15 min | 7, the last at 792–857 s | 4–5 |
+| 30 min | 12–13, the last at 1 713–1 725 s | 9 |
+
+~29–34 s of focus a circle; no valve for an average player; no rise → nothing turns (as §18.8).
+
+**Measured on devices** (scripts/arcade-mobile.mjs, the own way from a fresh progress): all six ✓ — small Android
+phone, iPhone in Safari, large Android phone, phone on its side, tablet, desktop: 0 strings under 11 px, only the
+kit's verse references (12 px) under 13, 9–10 targets seen (the story card, the three controls, the chooser's close and
+four entries) all valid, 60 fps with the CPU slowed 2–4× on the phones (game 1.1–2.8 ms a frame; 0.5 ms on the
+desktop); the play takes 61–81 % of the screen's height. The card (screenshots at 360 × 740 and 1440 × 900, pl and de):
+no sideways scroll, every control ≥ 44 px, the shelves closed until opened.
+
+#### Tests
+
+`test/arcade-brzemiona.test.ts` — 74 tests (with `i18n-arcade`, `arcade-rhythm`, `arcade-mouse`, `arcade-runner`,
+`arcade-side`, `games-tab`: 7 files, 111 tests green; whole-tree tsc clean) (52 of round 13/15 kept: the intercession's tests now ask for "Za innych"
+explicitly, the version is 2; 22 new): a fresh progress starts own, the queue of topics, the four defaults; the address
+without declension and the words on the breath; depth at 3 / 10 / 30 min (one circle / two); smoke only in "Oddaję",
+light only from focus, "Przyjmuję" lifts no smoke, nothing from taps; the bundle follows the circle and is gone when
+given, the golden lights count the burdens and rest at the foot; the list repeats when exhausted and the next session
+goes on; resume mid-burden (in "Oddaję" and in "Przyjmuję"); ◎ to "Przyjmuję" keeping the light; the opening pages
+(both ways, the care line, a returning player's own pages once); privacy (topics never in result/stats/highlights);
+3 / 10 / 30 minutes to the end; the list's limits, reorder, remove, start; suggestions add / replace / count; the
+shelves' content (10 themes × 3–4, 24 warownie × 3–5, four languages, ≤ 32 characters, no forbidden words — duch,
+demon, przeklin, spirit, curse, Dämon, böse Geist, onda ande and more); care notes where flagged (clicked in the card);
+the card at a phone's measure (the way first, 44 px controls, shelves closed until opened, the replace's second tap,
+switching to the intercession's card); migration (round 15 keeps "Za innych", unplayed starts own, a version-2 save
+repaired); "them" kept out of the own way's words; the own picture at every check size (apart, inside, room for the
+words) and its lanes (smoke from the bundle never toward the player, light to the heart). `test/i18n-arcade.test.ts` 7/7.
