@@ -8536,7 +8536,9 @@ player pauses it by hand — so the director follows what the player reports, no
 when the one before has ended and its bridge is over, and only if it can still end 20 s before the session does
 (`CLOSE_MIN`); otherwise the next one that can, or the ambient to the end. Tracks fade in over 3 s while the ambient
 fades out over 5 s; after a track the ambient returns over 4 s. A track that errors (removed, embedding refused) or
-does not start in 25 s, or stalls for 45 s, is skipped without a word on screen. When the browser refuses to start
+does not start in 25 s, or stalls for 45 s, is skipped without a word on screen. The start wait counts from the
+player's handshake (a slow network is not a blocked browser), and for 2 s after a session resume the player's
+momentary "paused" is not read as a pause by hand (the review's two findings, held by tests). When the browser refuses to start
 sound without a tap on the player itself (iOS Safari), the player card asks once — and if no tap comes in 40 s, the
 ambient plays alone for the rest of the session: no nagging. A session pause pauses the track; a track paused by
 hand brings the ambient back softly. If the session's end comes while a track still plays (a long advert), the
@@ -8559,3 +8561,202 @@ track fades out over its last 5 s before the summary. `test/arcade-music.test.ts
   its player is visible, at least 200 × 200 CSS px, nothing drawn over it, its controls kept, the sound never separated
   from the picture. So the meditation's layout keeps a place for the player card, and the card shows only while a track
   loads, plays or waits for a tap; between tracks it fades away and only the ambient plays.
+* **Measured in Chrome** (desktop, the real embed, 2026-11-24): the handshake, play, pause, resume, `loadVideoById` to
+  the next track, the reported lengths and `setVolume` all work over postMessage with the app's CSP and no console
+  error — after a click and 25 s later (the session's first track comes after the intro). **iOS** lets no script set
+  a video's volume: there a track plays at the device's volume and its fade-in does not apply (the ambient's
+  fades do); the "tap once" path is held by the director's tests, not yet by a real iPhone.
+
+### 21.6 Złote serce — a broken heart gathered, washed, laid together and mended with gold (Golden Heart · Goldenes Herz · Det gyllene hjärtat)
+
+Registry `kind: 'heart'` (after Każda myśl), id `kintsugi`, root **Psalm 147:3**. Headline: golden seams (`złota spoina /
+złote spoiny / złotych spoin`, golden seams, goldene Fugen, gyllene fogar) — seams *fully* gilded this session. Code:
+`src/arcade/kintsugi/` (content.ts the stages, the word sets, the passages; rules.ts the numbers and the plan; heart.ts the
+geometry; sim.ts the session; meta.ts the progress; talk.ts the narrator; layout.ts, paint.ts, hands.ts, render.ts the
+picture; preview.ts the lobby and the cards; panel.ts the lobby card; i18n.ts the words; `music/` the music, §21.4–21.5);
+test `test/arcade-kintsugi.test.ts` (30).
+
+**One line:** in the dark the heart lies broken on a velvet cloth, its porcelain pieces blackened with soot and ink-like
+stains of pain; piece by piece hands of light lift one out of the dark while focus holds, light like clear water washes it
+in rest — the soot dissolves from its edges inward into motes that rise and turn to light, the word of pain fades with
+it — and held focus carries it home; what the session's time does not allow the Lord gathers Himself; then focus pours
+molten gold along the cracks, the heart begins to beat, turns to gold as far as the gold poured, and shines.
+
+#### The way (rules.ts `planFor`: fixed stage ends over the session, 3–30 min or a ≤ 60 s test)
+
+| Stage | Share | What happens | Block |
+|---|---|---|---|
+| **Przyjście** | ~6 % (20–60 s, whole breaths) | the night, the dotted outline of the heart, the pieces on the cloth; Ps 34:18 (or 147:3) | rest |
+| **Zbieranie** | ~48 % | a focus block lays the piece washed last and lifts the next (the hands rise under it, it comes up into the light before the heart, turning slowly); a rest washes it (whole breaths). Isa 42:3 on the first wash, Ps 51:7 / Ezek 36:25 / Isa 61:3 in turn, Jer 18:4 / 2 Cor 4:7 when half the heart is home | push · rest |
+| — grace | at the gathering's end | the pieces not yet home rise together, are washed and laid in a gentle sweep (5–10 s): „Resztę kawałków Pan zbiera sam. Nic nie ginie.” | free |
+| **Złote spoiny** | ~20 % | the cloth fades, the heart moves to the middle and grows; molten gold flows from the top notch through the crack network (a bright molten front, glints along the gilded lines); rests between (Rom 5:5, 1 Pet 1:7) | push · rest |
+| **Bicie serca** | ~10 % (≤ 2 min) | lub-dub (a 4 % swell + a ring of light; reduced motion: a glow) at the band's pulse when it is plausible (45–110), else a calm 60; the heart turns from porcelain to gold over 70 % of the stage, as far as the gold poured (20 % + 80 % × gold); Ezek 36:26 | rest |
+| **Blask** | ~12 % (≤ 3 min) | a layered aura — white-gold centre, warm gold, a wide rose glow — slow rays, rising sparks; Czystość (Mt 5:8), Radość (Jn 15:11 / Rom 15:13), Miłość (1 Jn 4:16 / Col 3:14) open in turn | rest |
+| **Błogosławieństwo** | ~5 % (16–30 s) | „Ojcze, przez Jezusa Chrystusa, w Duchu Świętym: dziękuję, że zbierasz to, co rozbite. Niech Twój pokój strzeże mojego serca. Amen.”, then the closing verse (Rev 21:5, Isa 61:1, 2 Cor 4:7, 1 Pet 1:7 in turn — `result().verse`); „Jak bardzo boli teraz?” 0–10 (waits ≤ 6 s past the end) | free |
+
+All gathered sooner: the gold begins sooner; all gilded sooner: the beat and the radiance share the time left in their
+planned proportion. The way always reaches its close (a test holds it at 40 s … 30 min, with no focus, average and strong).
+
+**Light only from real focus** (§18.3–18.4): a piece rises, settles and the gold flows only in a sighted push past its
+lead-in (5 s Mendi, 2 s HALO), reliable, `focused`, at `focusRate` (the level averaged over one whole breath, 0.7–1.3 ×
+the hold factor). Without focus the hands wait ("Nic na siłę. Dłonie światła poczekają na Twoją uwagę." after 12 s);
+40 s without progress brings a rest (the progress stays). Washing, the beat and the radiance are receptive. Gold not
+poured stays a fine dark seam — the vessel is whole, the gold shows the attention given; the summary says it kindly
+(„Złoto, którego dziś nie wlano, zostaje cienką ciemną linią. Naczynie jest całe — złoto pokazuje uwagę z tej sesji.”).
+
+#### Pieces and the rhythm
+
+The heart breaks into 4 pieces at 3 min, 5 at 5, 7 at 10, 9 at 15, 11 at 20, 12 at 25, 13 at 30 (3 in a test). The
+plan fits to the player's rhythm how many of them the average player (0.75 focus-s a second past the lead-in, done at
+88 % of the time) lifts and lays: 2 of 4 at 3 min, 3 of 4 at 4, 4 of 5 at 5, 6 of 7 at 10, all from 15 min; a stronger
+player gathers more, grace gathers the rest. **Rhythm** (kit/rhythm.ts): focus „Podnieś i ułóż” — a lift-and-lay block's
+seconds, lead-in included (20 by design, 15–45; longer blocks fit fewer pieces); rest „Obmycie” — a wash's whole breaths
+(2 by design, 1–4; by design a session under 10 minutes washes in one breath so more pieces fit — the player's own dial
+is kept). The gold pours in pushes of the same length (≥ 25 s) with the same rests.
+
+#### Co boli? — generalisation and personalisation
+
+Five gentle sets of twelve words, written for this game in four languages (≤ 28 characters, non-clinical): złamane serce,
+strata, zdrada, odrzucenie, zawód sobą — or **own words** (≤ 14, ≤ 24 characters, comma-separated, kept only in this
+game's progress, „Zapomnij moje słowa”), or **no words**. A set is shuffled per session; the word shows on a dark pill
+under the held piece and fades as it is washed. Own words never reach `result()` (a test holds it). **Before / after**:
+„Jak bardzo boli teraz?” 0–10 in the lobby card (cleared after the session) and in the close; history ≤ 30; the summary
+says "7 → 4"; the player's own sense, not a measurement.
+
+#### The picture (canvas 2D, no files)
+
+* **The heart**: the classic curve x = 16 sin³t, y = 13 cos t − 5 cos 2t − 2 cos 3t − cos 4t. Porcelain from a height
+  field (a chamfer distance to the outline, each lobe a soft dome, blurred) lit as a warm ivory glaze — a broad gradient
+  for the form, one small crisp highlight per lobe, a faint warm light along the rim, a little shadow gathering toward
+  the tip, a soft shoulder instead of a hard clip (no flat white blobs), a faint rose blush; the same normals lit as
+  polished gold (a metallic ramp on the reflected sky). Baked once per size (≤ 400 px a unit); each piece is clipped from the one texture, so laid together they
+  make one glazed volume.
+* **The pieces**: Voronoi tiles (kit/mosaic.ts) of seeds inside the heart, Lloyd-relaxed over its area; two fixed seeds
+  either side of the midline (no other seed near the top of it) so the first crack always runs down from the notch.
+  Every crack is a jittered ceramic fracture (midpoint displacement, angular kinks) seeded by its own ends, so both pieces
+  share it exactly. On the cloth: left to right as they belong, turned, foreshortened (they lie), a shard's thickness
+  (its broken side) and a soft shadow on the cloth; the broken edges a lighter bevel where the clay body shows.
+* **Soot**: uneven stains from value noise (thick patches, a thinner film where the glaze shows), thicker at the edges,
+  26 ink-like blots with dried rims, streaks — the glaze's highlight still shows through. **Washing** is per pixel on the piece's own box: a threshold of (edge distance)^½ and
+  noise, so the black recedes from the edges inward in a blotchy front; motes are born on the front and rise from grey to
+  gold-white light; a beam of clear light with falling streaks and sparkles pours over the piece.
+* **The hands** (hands.ts): two open hands, palms up, the heels together, fingers close and slightly curled — the series'
+  rim of light round their union and a warm fill fading to the wrists; brighter with focus.
+* **Gold**: the seam graph (Dijkstra from the notch), a front advanced by the poured share; each seam stroked with the
+  gold texture as its pattern (so it carries the heart's own lighting), its width varying like lacquer (0.72–1.32 ×), a
+  dark edge, a hairline of shadow beside it (the crack's depth) and a highlight; a molten bead at each front; now and
+  then a slow glint along a gilded line (at most two at once); on the golden heart the seams are added once more so they
+  stay its brightest part.
+* **The scene**: night blue warming through plum to a dawn gold at the horizon as the way goes, a warm glow behind the
+  heart, soft bokeh (cool at night, warm at dawn, a little brighter as it warms), a gentle vignette; the dark velvet
+  cloth (a soft oval, a sheen on its far edge).
+* Layers cached (the pieces home, the gilded seams) and re-baked only when a piece settles, a seam fills, or the heart
+  grows (from the gold on it moves to the scene's middle and grows up to 1.3 ×).
+
+#### Layout (layout.ts; the music's place)
+
+Phone upright: the heart, the cloth under it, the band, the guide (its word beside the ring) at the bottom; with the
+tracks the player card (200 × 228) at the bottom left and the guide beside it. Phone on its side: the scene on the left,
+the band (and the card) on the right, the guide under them. Desk: the heart in the middle, the band at the bottom centre,
+the guide left of it, the card (264 × 236 from 1100 px) in the lower right corner. The card's place is kept free only
+when the music's plan has a track (`music.plan`), never over the heart (a test checks every size of kit/mobile
+`CHECK_SIZES`). One exception, for the heart's sake: on a short phone held upright (a 360 × 500 or 390 × 564 browser
+window, where the reserved card would leave the heart ~60 px wide) the scene uses the whole height while no track plays
+and eases over ~1.5 s — never jumps — into the card's layout while one does (the card's own place never moves); a
+phone on its side too short for the words above the card puts them, with the guide, in a strip under the scene the
+same way. The words' band and the guide never lie under the card (a test); a passage that would be cut is never shown
+(the summary carries a whole one). Coach
+marks wait while a track's card is up, and one still showing when a card appears is hidden: nothing lies over YouTube's
+player. The 0–10 row takes one row of 11, two (6 + 5) or three (4 + 4 + 3) at 44 px. Reduced motion: pieces fade from
+place to place, no swell, no drifting, still rays.
+
+#### Sound
+
+All of it is the music module's (§21.4–21.5; the summary's music line is its `stat()`): `update(t, dt, { stage, light, rest })` every frame, cues `lift` (a
+piece leaves the cloth), `clean` (a wash ends), `place` (a piece settles, by grace too), `seam` (a seam fully gilded),
+`beat` (each lub), `bloom` (each quality); the meditation holds the runner's pad (`padLevel` null).
+
+#### Care and reverence (§18.3)
+
+God gathers, washes, binds up and gilds; the player brings the heart and keeps attention on Him. The screens never
+promise healing (the series' forbidden-words test in four languages, the registry's texts included: no energy,
+vibration, heal…, activate, magic). Kintsugi is named once, in the lobby text, as the picture's source. Not therapy: tip 5
+and the card's care note carry the help lines (pl 116 123 / 116 111 / 112; de TelefonSeelsorge 0800 111 0 111, 112; sv
+Mind Självmordslinjen 90101, 112; en a local emergency number or a crisis line).
+
+#### Numbers worth knowing
+
+Lead-in 5 / 2 s; a focus block ends no sooner than 8 s; the stall valve 40 s (the narrator after 12 s); grace 5–10 s
+(0.9 s a piece left); gold pushes ≥ 25 s; the beat's dub at 0.3 of a beat; the tint over 70 % of the beat; the
+qualities at 4 %, 34 %, 64 % of the radiance; the close waits 6 s for the 0–10.
+
+### 21.7 Złote serce's music (`src/arcade/kintsugi/music/`)
+
+Code: `index.ts` (the contract with the meditation: prefs, `musicPanel`, `SessionMusic`), `tracks.ts` (the founder's
+eleven), `prefs.ts` (the player's choices, repaired field by field), `score.ts` (the heart music, pure), `ambient.ts`
+(plays it with Web Audio), `card.ts` (the player card in the session), `panel.ts` (the lobby's "Muzyka" section),
+`i18n.ts`, `types.ts`; test `test/arcade-kintsugi-music.test.ts` (29 tests, happy-dom, a recording AudioContext).
+
+**The music for the heart** (the founder: "w tle również chcę piękną muzykę dla serca"). Written as a small piece, not
+a sound effect, and played live (no files, offline, into `env.audio.out` — the app's volume and the runner's fade;
+never louder than the app). The key is **E-flat major**: warm and low. Slow chords (8–18 s each) on soft pads — per
+note a sine, a quiet triangle a few cents apart and a soft octave, a shared 4-cent drift, a 3.2 s rise and a long crossfade into the
+next chord — voiced for close voice leading with added ninths and major sevenths (E♭add9 = G B♭ E♭ F over E♭; Cm9 =
+E♭ B♭ D G over C; A♭maj7; Fm9; B♭7sus4), a soft root under them (a sine and a little of its octave, low-passed), and a
+sparse melody on the major pentatonic: a random walk that prefers steps to leaps and chord tones on a phrase's last
+note, never a minor-ninth rub against the chord, plucked on a harp (four partials, a brightness that fades fast) or
+struck on a celesta. Everything sits in a long, dark room: a 5.2 s reverb made from shaped stereo noise whose highs
+die faster than its lows. Each stage of the meditation has its own harmony and character:
+
+| Stage | Progression | Chord | Character |
+|---|---|---|---|
+| arrive | vi9 – IVmaj7 – I(add9) – V7sus | 14–16 s | dark (low-pass 420 Hz), low, a note now and then |
+| gather | I – vi – IV – V7sus – I/3 – IV – ii9 – V7sus | 10–12 s | warm, moving; the harp walks gently |
+| gold | IV – I/3 – ii9 – V – vi – IV – Imaj7 – V7sus | 9–11 s | brighter (1.7 kHz), a celesta, a high shimmer over the pads |
+| beat | I – IV/I – I – V7sus/I (a pedal on E♭) | 12–14 s | the heart: 60 a minute, sparse |
+| radiance | I – V – vi – iii – IV – I/3 – ii9 – V7sus (the canon's walk) | 8–10 s | the fullest and brightest (2.6 kHz), glints above |
+| close | IV – iv (A♭m6, the minor plagal) – I, then I held | 14–18 s | a long resolution, the melody walks down |
+
+The light the player's focus shows opens the pads' filter a little (× 0.75–1.35); a rest block darkens it and halves
+the melody. The meditation's moments are marked by small sounds in the key, never a game "ding": a bell as a piece
+settles (`place`), a bell that climbs the chord as seams fill with gold (`seam`), a breath of air with two drops as a
+piece is washed (`clean`), a rising pair of harp notes as a piece is lifted (`lift`), the chord blooming upward
+(`bloom`), and the heartbeat (`beat`: lub-dub, 55 → 41 Hz with a little of its octave so a phone's speaker hints at
+it — felt more than heard). Every envelope rises from silence and falls back to it (an offline render of a 4-minute
+session through every stage: RMS −23 to −27 dBFS, peaks ≤ −9 dBFS, the largest sample-to-sample step 0.017 — no
+clicks). Under a YouTube track the music is lowered fully (`mix`, the director's), the cues stay at 60 %.
+
+**The tracks.** The founder's eleven in the founder's order (§21.4) and up to twelve of the player's own (a YouTube link, a
+length the player types — nothing is asked of YouTube — and a name, kept only on this device). A row shows the title as
+YouTube has it, the performer (not the uploading channel) and a note where it is certain: "łacina · chorał
+gregoriański" (5, 6), "łacina · modlitwa św. Benedykta" (7, 8), "chór prawosławny" (4: the title is Serbian, the
+uploader an Orthodox channel; the sung language could not be verified, so the note does not name it), "mantra w
+gurmukhi · sikhizm, kundalini joga" (9–11, with one plain line under the list); 1–3 need none. Any track — the own ones
+too — can be switched off.
+
+**The lobby section** ("Muzyka", in the meditation's Postępy card): three ways — "Utwory i muzyka tła" (default),
+"Tylko muzyka tła", "Cisza" (no music, only the small cues; the app's Sound switch silences everything) — each with a
+line saying what it means. With tracks chosen and no consent yet, a box says exactly what happens: the player is on
+screen while a track plays, when one starts YouTube receives the device's IP address and may show an advert, nothing
+connects to YouTube before the player agrees, offline the ambient plays alone — "Włącz utwory z YouTube" / "Tylko
+muzyka tła"; a link withdraws the consent later. **What fits** follows the lobby's length (#arcadeLen): "Na 10 min
+zmieszczą się 1–2 utwory (w całości), resztę czasu gra muzyka tła" (the least and the most over 24 seeded plans of the
+session's own planner), "Na 3 min żaden utwór się nie zmieści — gra muzyka tła. Utwory mieszczą się od 5 min", or why
+none ever does; rows that cannot fit are dimmed with "nie zmieści się w 5 min" (an own track longer than 27:30: "za
+długi na sesję do 30 min") — never hidden. Each row: a switch (`role="switch"`, 48 × 44), the title, performer · note,
+the length, "▶ YouTube" (opens the video on YouTube in a new tab, to listen first). "Wszystkie" / "Żaden"; on a phone
+the first six rows and "Pokaż wszystkie (n)", on a wide screen all. The lobby never loads anything from YouTube (no
+thumbnails, no embeds). Every change saves at once. The saved choices are repaired in place (`cleanMusic` returns the
+object it was given), so the section keeps editing the progress's own object however often the game migrates it.
+
+**The session.** Tracks play only when the player chose them, agreed once, the device is online, the app's sound is on
+and at least one track fits the session whole; otherwise the ambient plays alone. The plan (`planMusic`) takes the
+rotation's memory from before the session; `recentAfter()` ages that snapshot with the tracks heard (≥ 30 s or to the
+end), so it is idempotent however often the meditation's `result()` reads it. The card sits in the place the layout
+keeps for it (`place(rect)`; else a lower corner inside the insets): "♪ title — performer" over the player, the player
+at least 200 × 200 CSS px (16:9 when the place is wide), nothing over it — the card stands above the runner's coach
+marks and under only its pause and summary overlay — its controls kept; it fades in while a track loads, plays or
+waits for a tap, and away between tracks. When the browser wants a tap on the player itself (iOS), a
+line under the card (over it when there is no room) asks once — "Stuknij ▶ w odtwarzaczu, aby włączyć muzykę" — with
+"Tylko muzyka tła", which ends the tracks for this session. Never an error on screen: a track that cannot play is
+skipped. The summary's line: "Muzyka: 2 utwory i muzyka tła" / "muzyka tła" / "cisza" (`music.stat()`).
