@@ -79,6 +79,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "JOS": ("Joshua", "Joz", "Josua", "josua", "Josua", "Jos"),
     "RUT": ("Ruth", "Rt", "Ruth", "rut", "Rut", "Rut"),
     "1SA": ("1 Samuel", "1 Sm", "1. Samuel", "1_samuel", "Första Samuelsboken", "1 Sam"),
+    "2SA": ("2 Samuel", "2 Sm", "2. Samuel", "2_samuel", "Andra Samuelsboken", "2 Sam"),
     "1KI": ("1 Kings", "1 Krl", "1. Könige", "1_koenige", "Första Konungaboken", "1 Kung"),
     "2KI": ("2 Kings", "2 Krl", "2. Könige", "2_koenige", "Andra Konungaboken", "2 Kung"),
     "NEH": ("Nehemiah", "Ne", "Nehemia", "nehemia", "Nehemja", "Neh"),
@@ -94,6 +95,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "DAN": ("Daniel", "Dn", "Daniel", "daniel", "Daniel", "Dan"),
     "HAB": ("Habakkuk", "Ha", "Habakuk", "habakuk", "Habackuk", "Hab"),
     "MIC": ("Micah", "Mi", "Micha", "micha", "Mika", "Mika"),
+    "ZEP": ("Zephaniah", "So", "Zephanja", "zephanja", "Sefanja", "Sef"),
     "MAL": ("Malachi", "Ml", "Maleachi", "maleachi", "Malaki", "Mal"),
     "MAT": ("Matthew", "Mt", "Matthäus", "matthaeus", "Matteusevangeliet", "Matt"),
     "MRK": ("Mark", "Mk", "Markus", "markus", "Markusevangeliet", "Mark"),
@@ -272,6 +274,22 @@ PASSAGES: list[tuple[str, str]] = [
     # Każda myśl — one point of light, the anxious, sad and angry thoughts given to the fire
     ("2co10.5", "2 Corinthians 10:5"), ("php4.6", "Philippians 4:6"), ("psa94.19", "Psalm 94:19"), ("psa56.3", "Psalm 56:3"),
     ("eph4.26", "Ephesians 4:26"), ("psa34.18", "Psalm 34:18"), ("rom8.1", "Romans 8:1"), ("jhn16.33", "John 16:33"),
+    # round 16 — the warownie (the series on strongholds): each stronghold's opening verse, the method's John 8:32
+    ("jhn8.32", "John 8:32"), ("isa53.3", "Isaiah 53:3"), ("jas1.8", "James 1:8"), ("ezk28.17", "Ezekiel 28:17"),
+    ("lam3.62", "Lamentations 3:62"), ("pro18.11", "Proverbs 18:11"), ("psa36.2", "Psalm 36:2"),
+    ("2sa13.6", "2 Samuel 13:6"), ("pro18.1", "Proverbs 18:1"), ("luk1.52", "Luke 1:52"), ("2co2.11", "2 Corinthians 2:11"),
+    ("1co14.20", "1 Corinthians 14:20"), ("heb2.15", "Hebrews 2:15"), ("jer2.21", "Jeremiah 2:21"), ("psa38.5", "Psalm 38:5"),
+    ("mrk7.8", "Mark 7:8"), ("num23.19", "Numbers 23:19"), ("psa10.4", "Psalm 10:4"), ("gal3.28", "Galatians 3:28"),
+    ("col3.5", "Colossians 3:5"), ("isa28.17", "Isaiah 28:17"), ("1co6.12", "1 Corinthians 6:12"), ("2ti2.26", "2 Timothy 2:26"),
+    # round 16 — the truths that take a stronghold's place
+    ("isa43.1", "Isaiah 43:1"), ("psa18.2", "Psalm 18:2"), ("psa27.1", "Psalm 27:1"),
+    ("rom8.28", "Romans 8:28"), ("2co12.9", "2 Corinthians 12:9"), ("heb13.5", "Hebrews 13:5"), ("1co10.13", "1 Corinthians 10:13"),
+    ("rom8.15", "Romans 8:15"), ("eph2.10", "Ephesians 2:10"), ("zep3.17", "Zephaniah 3:17"), ("pro3.5-6", "Proverbs 3:5-6"),
+    ("psa32.8", "Psalm 32:8"), ("1jn3.1", "1 John 3:1"), ("eph4.32", "Ephesians 4:32"), ("col3.13", "Colossians 3:13"),
+    ("gal2.20", "Galatians 2:20"), ("rom5.8", "Romans 5:8"), ("isa54.10", "Isaiah 54:10"), ("psa46.1", "Psalm 46:1"),
+    ("rom8.38-39", "Romans 8:38-39"), ("eph1.6", "Ephesians 1:6"),
+    # round 16 — Brzemiona: my own burdens given to the Cross
+    ("psa62.8", "Psalm 62:8"), ("isa46.4", "Isaiah 46:4"), ("heb4.16", "Hebrews 4:16"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -283,6 +301,8 @@ DROP: dict[str, dict[str, str]] = {
     "psa121.1-2": {"en": "A song of ascents.", "pl": "Pieśń stopni.", "de": "Ein Lied im höhern Chor.", "sv": "En vallfartssång."},
     "psa127.1": {"en": "A song of ascents. Of Solomon.", "pl": "Pieśń stopni dla Salomona.",
                  "de": "Ein Lied Salomos im Höhern Chor.", "sv": "En vallfartssång; av Salomo."},
+    "psa27.1": {"en": "Of David.", "pl": "Psalm Dawidowy.", "de": "Ein Psalm Davids.", "sv": "Av David."},
+    "psa46.1": {"en": "For the choirmaster. Of the sons of Korah. According to Alamoth. A song."},
 }
 
 # Musical directions printed at the end of a verse (Habakkuk 3:19's subscript, "for the choirmaster"), cut like DROP.
@@ -301,6 +321,7 @@ FIX: dict[str, dict[str, tuple[str, str]]] = {
     "psa40.2": {"pl": ("wyciągnął miecz z dołu", "wyciągnął mię z dołu")},   # getbible's slip: the 1840 scan reads „mię“
     "psa141.2": {"de": ("vor dir Taugen", "vor dir taugen")},   # a capital mid-sentence in eBible's Luther 1912
     "act2.17": {"sv": ("'Och det skall", "Och det skall")},
+    "psa36.2": {"de": ("andere verunglimpfem", "andere verunglimpfen")},   # a slipped letter in eBible's Luther 1912 (Ps 36,3)
     "psa1.3": {"pl": ("wód w sadzone", "wód wsadzone")},   # getbible split the word; the 1840 scan reads „wsadzone”   # a stray opening quote: the quoted prophecy's close is outside the verse
 }
 

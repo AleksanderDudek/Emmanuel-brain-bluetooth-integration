@@ -363,6 +363,53 @@ export type PassageId =
   | 'psa34.18'
   | 'rom8.1'
   | 'jhn16.33'
+  | 'jhn8.32'
+  | 'isa53.3'
+  | 'jas1.8'
+  | 'ezk28.17'
+  | 'lam3.62'
+  | 'pro18.11'
+  | 'psa36.2'
+  | '2sa13.6'
+  | 'pro18.1'
+  | 'luk1.52'
+  | '2co2.11'
+  | '1co14.20'
+  | 'heb2.15'
+  | 'jer2.21'
+  | 'psa38.5'
+  | 'mrk7.8'
+  | 'num23.19'
+  | 'psa10.4'
+  | 'gal3.28'
+  | 'col3.5'
+  | 'isa28.17'
+  | '1co6.12'
+  | '2ti2.26'
+  | 'isa43.1'
+  | 'psa18.2'
+  | 'psa27.1'
+  | 'rom8.28'
+  | '2co12.9'
+  | 'heb13.5'
+  | '1co10.13'
+  | 'rom8.15'
+  | 'eph2.10'
+  | 'zep3.17'
+  | 'pro3.5-6'
+  | 'psa32.8'
+  | '1jn3.1'
+  | 'eph4.32'
+  | 'col3.13'
+  | 'gal2.20'
+  | 'rom5.8'
+  | 'isa54.10'
+  | 'psa46.1'
+  | 'rom8.38-39'
+  | 'eph1.6'
+  | 'psa62.8'
+  | 'isa46.4'
+  | 'heb4.16'
   ;
 
 export interface Passage {
@@ -2482,6 +2529,288 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['I have told you these things so that in Me you may have peace. In the world you will have tribulation. But take courage; I have overcome the world!', 'John 16:33'],
     de: ['Solches habe ich mit euch geredet, daß ihr in mir Frieden habet. In der Welt habt ihr Angst; aber seid getrost, ich habe die Welt überwunden.', 'Johannes 16,33'],
     sv: ['Detta har jag talat till eder, för att I skolen hava frid i mig. I världen liden i betryck; men varen vid gott mod, jag har övervunnit världen.', 'Joh 16:33'],
+  },
+  'jhn8.32': {
+    pl: ['Poznacie prawdę, a prawda was wyswobodzi.', 'J 8,32'],
+    en: ['Then you will know the truth, and the truth will set you free.', 'John 8:32'],
+    de: ['…und werdet die Wahrheit erkennen, und die Wahrheit wird euch frei machen.', 'Johannes 8,32'],
+    sv: ['Och I skolen då förstå sanningen, och sanningen skall göra eder fria.', 'Joh 8:32'],
+  },
+  'isa53.3': {
+    pl: ['Najwzgardzeńszy był, i najpodlejszy z ludzi, mąż boleści, a świadomy niemocy, i jako zakrywający twarz swoję; najwzgardzeńszy mówię, skądeśmy go za nic nie mieli.', 'Iz 53,3'],
+    en: ['He was despised and rejected by men, a man of sorrows, acquainted with grief. Like one from whom men hide their faces, He was despised, and we esteemed Him not.', 'Isaiah 53:3'],
+    de: ['Er war der Allerverachtetste und Unwerteste, voller Schmerzen und Krankheit. Er war so verachtet, daß man das Angesicht vor ihm verbarg; darum haben wir ihn für nichts geachtet.', 'Jesaja 53,3'],
+    sv: ['Föraktad var han och övergiven av människor, en smärtornas man och förtrogen med krankhet; han var såsom en, för vilken man skyler sitt ansikte, så föraktad, att vi höllo honom för intet.', 'Jes 53:3'],
+  },
+  'jas1.8': {
+    pl: ['Mąż umysłu dwoistego jest niestateczny we wszystkich drogach swoich.', 'Jk 1,8'],
+    en: ['He is a double-minded man, unstable in all his ways.', 'James 1:8'],
+    de: ['Ein Zweifler ist unbeständig in allen seinen Wegen.', 'Jakobus 1,8'],
+    sv: ['…en människa med delad håg, en som går ostadigt fram på alla sina vägar.', 'Jak 1:8'],
+  },
+  'ezk28.17': {
+    pl: ['Podniosło cię serce twoje dla piękności twojej, na złeś używał mądrości swojej dla jasności twojej; przetoż cię uderzę o ziemię, a przed obliczem królów położę cię, abyć się dziwowali.', 'Ez 28,17'],
+    en: ['Your heart grew proud of your beauty; you corrupted your wisdom because of your splendor; so I cast you to the earth; I made you a spectacle before kings.', 'Ezekiel 28:17'],
+    de: ['Und weil sich dein Herz erhebt, daß du so schön bist, und hast dich deine Klugheit lassen betrügen in deiner Pracht, darum will ich dich zu Boden stürzen und ein Schauspiel aus dir machen vor den Königen.', 'Hesekiel 28,17'],
+    sv: ['Eftersom ditt hjärta högmodades över din skönhet och du förspillde din vishet för ditt pråls skull, därför slog jag dig ned till jorden och gav dig till pris åt konungarna, så att de fingo se sin lust på dig.', 'Hes 28:17'],
+  },
+  'lam3.62': {
+    pl: ['Słyszysz wargi powstawających przeciwko mnie, i przemyśliwanie ich przeciwko mnie przez cały dzień.', 'Lm 3,62'],
+    en: ['…the slander and murmuring of my assailants against me all day long.', 'Lamentations 3:62'],
+    de: ['…die Lippen meiner Widersacher und ihr dichten wider mich täglich.', 'Klagelieder 3,62'],
+    sv: ['Vad mina motståndare tala och tänka ut är beständigt riktat mot mig.', 'Klag 3:62'],
+  },
+  'pro18.11': {
+    pl: ['Majętność bogatego jest miastem jego mocnem, a jako mur wysoki w myśli jego.', 'Prz 18,11'],
+    en: ['A rich man’s wealth is his fortified city; it is like a high wall in his imagination.', 'Proverbs 18:11'],
+    de: ['Das Gut des Reichen ist ihm eine feste Stadt und wie hohe Mauern in seinem Dünkel.', 'Sprüche 18,11'],
+    sv: ['Den rikes skatter äro honom en fast stad, höga murar likna de, i hans inbillning.', 'Ords 18:11'],
+  },
+  'psa36.2': {
+    pl: ['Bo sobie pobłaża w oczach swoich, aby wykonał nieprawość swoję aż do obmierzenia.', 'Ps 36,3'],
+    en: ['For his eyes are too full of conceit to detect or hate his own sin.', 'Psalm 36:2'],
+    de: ['Sie schmücken sich untereinander selbst, daß sie ihre böse Sache fördern und andere verunglimpfen.', 'Psalm 36,3'],
+    sv: ['Den intalar ju honom vad som är behagligt i hans ögon: att man icke skall finna hans missgärning och hata den.', 'Ps 36:3'],
+  },
+  '2sa13.6': {
+    pl: ['Tedy się układł Amnon, zmyślając sobie chorobę. A gdy przyszedł król nawiedzać go, rzekł Amnon do króla: Niech przyjdzie proszę Tamar, siostra moja, aby zgotowała przed oczyma memi dwa placki, abym jadł z ręki jej.', '2 Sm 13,6'],
+    en: ['So Amnon lay down and feigned illness. When the king came to see him, Amnon said, “Please let my sister Tamar come and make a couple of cakes in my sight, so that I may eat from her hand.”', '2 Samuel 13:6'],
+    de: ['Also legte sich Amnon und stellte sich krank. Da nun der König kam, ihn zu besuchen, sprach Amnon zum König: Laß doch meine Schwester Thamar kommen, daß sie vor mir einen Kuchen oder zwei mache und ich von ihrer Hand esse.', '2. Samuel 13,6'],
+    sv: ['Då lade Amnon sig och gjorde sig sjuk. När nu konungen kom för att besöka honom, sade Amnon till konungen: »Låt min syster Tamar komma hit och tillaga två kakor inför mina ögon, så att jag kan få dem ur hennes hand att äta.»', '2 Sam 13:6'],
+  },
+  'pro18.1': {
+    pl: ['Człowiek swej myśli, szuka tego, co mu się podoba, a w każdą rzecz wtrąca się.', 'Prz 18,1'],
+    en: ['He who isolates himself pursues selfish desires; he rebels against all sound judgment.', 'Proverbs 18:1'],
+    de: ['Wer sich absondert, der sucht, was ihn gelüstet, und setzt sich wider alles, was gut ist.', 'Sprüche 18,1'],
+    sv: ['Den egensinnige följer sin egen lystnad, med all makt söker han strid.', 'Ords 18:1'],
+  },
+  'luk1.52': {
+    pl: ['Ściągnął mocarze z stolic ich, a wywyższył uniżone.', 'Łk 1,52'],
+    en: ['He has brought down rulers from their thrones, but has exalted the humble.', 'Luke 1:52'],
+    de: ['Er stößt die Gewaltigen vom Stuhl und erhebt die Niedrigen.', 'Lukas 1,52'],
+    sv: ['Härskare har han störtat från deras troner, och ringa män har han upphöjt…', 'Luk 1:52'],
+  },
+  '2co2.11': {
+    pl: ['Albowiem zamysły jego nie są nam tajne.', '2 Kor 2,11'],
+    en: ['…in order that Satan should not outwit us. For we are not unaware of his schemes.', '2 Corinthians 2:11'],
+    de: ['…auf daß wir nicht übervorteilt werden vom Satan; denn uns ist nicht unbewußt, was er im Sinn hat.', '2. Korinther 2,11'],
+    sv: ['Jag vill nämligen icke att vi skola lida förfång av Satan; ty vad han har i sinnet, därom äro vi icke i okunnighet.', '2 Kor 2:11'],
+  },
+  '1co14.20': {
+    pl: ['Bracia! nie bądźcie dziećmi wyrozumieniem, ale bądźcie dziećmi złością, a wyrozumieniem dorosłymi bądźcie.', '1 Kor 14,20'],
+    en: ['Brothers, stop thinking like children. In regard to evil be infants, but in your thinking be mature.', '1 Corinthians 14:20'],
+    de: ['Liebe Brüder, werdet nicht Kinder an dem Verständnis; sondern an der Bosheit seid Kinder, an dem Verständnis aber seid vollkommen.', '1. Korinther 14,20'],
+    sv: ['Mina bröder, varen icke barn till förståndet; nej varen barn i ondskan, men varen fullmogna till förståndet.', '1 Kor 14:20'],
+  },
+  'heb2.15': {
+    pl: ['A iżby wyswobodził tych, którzy dla bojaźni śmierci po wszystek czas żywota podlegli byli niewoli.', 'Hbr 2,15'],
+    en: ['…and free those who all their lives were held in slavery by their fear of death.', 'Hebrews 2:15'],
+    de: ['…und erlöste die, so durch Furcht des Todes im ganzen Leben Knechte sein mußten.', 'Hebräer 2,15'],
+    sv: ['…och göra alla dem fria, som av fruktan för döden hela sitt liv igenom hade varit hemfallna till träldom.', 'Hebr 2:15'],
+  },
+  'jer2.21': {
+    pl: ['A Jam cię był nasadził winną macicą wyborną, którejby wszystko nasienie było prawdziwe; jakożeś mi się tedy odmieniła w płonne gałęzie obcej macicy?', 'Jr 2,21'],
+    en: ['I had planted you like a choice vine from the very best seed. How could you turn yourself before Me into a rotten, wild vine?', 'Jeremiah 2:21'],
+    de: ['Ich aber hatte dich gepflanzt zu einem süßen Weinstock, einen ganz rechtschaffenen Samen. Wie bist du mir denn geraten zu einem bitteren, wilden Weinstock?', 'Jeremia 2,21'],
+    sv: ['Jag hade ju planterat dig såsom ett ädelt vinträd av alltigenom äkta art; huru har du då kunnat förvandlas för mig till vilda rankor av ett främmande vinträd?', 'Jer 2:21'],
+  },
+  'psa38.5': {
+    pl: ['Zjątrzyły się, i pogniły rany moje, dla głupstwa mojego.', 'Ps 38,6'],
+    en: ['My wounds are foul and festering because of my sinful folly.', 'Psalm 38:5'],
+    de: ['Meine Wunden stinken und eitern vor meiner Torheit.', 'Psalm 38,6'],
+    sv: ['Mina sår stinka och flyta för min dårskaps skull.', 'Ps 38:6'],
+  },
+  'mrk7.8': {
+    pl: ['Albowiem wy opuściwszy przykazania Boże, trzymacie ustawy ludzkie, umywanie konewek i kubków, i wiele innych takich tym podobnych rzeczy czynicie.', 'Mk 7,8'],
+    en: ['You have disregarded the commandment of God to keep the tradition of men.', 'Mark 7:8'],
+    de: ['Ihr verlasset Gottes Gebot, und haltet der Menschen Aufsätze von Krügen und Trinkgefäßen zu waschen; und desgleichen tut ihr viel.', 'Markus 7,8'],
+    sv: ['I sätten Guds bud å sido och hållen människors stadgar.', 'Mark 7:8'],
+  },
+  'num23.19': {
+    pl: ['Nie jestci Bóg jako człowiek, aby kłamał, ani jako syn człowieczy, ażeby żałował; azaż on rzecze, a nie uczyni? wymówi, a nie wypełni?', 'Lb 23,19'],
+    en: ['God is not a man, that He should lie, or a son of man, that He should change His mind. Does He speak and not act? Does He promise and not fulfill?', 'Numbers 23:19'],
+    de: ['Gott ist nicht ein Mensch, daß er lüge, noch ein Menschenkind, daß ihn etwas gereue. Sollte er etwas sagen und nicht tun? Sollte er etwas reden und nicht halten?', '4. Mose 23,19'],
+    sv: ['Gud är icke en människa, så att han kan ljuga, icke en människoson, så att han kan ångra något. Skulle han säga något och icke göra det, tala något och icke fullborda det?', '4 Mos 23:19'],
+  },
+  'psa10.4': {
+    pl: ['Niepobożny dla pychy, którą po sobie pokazuje, nie pyta się o Boga; wszystka myśl jego, że niemasz Boga.', 'Ps 10,4'],
+    en: ['In his pride the wicked man does not seek Him; in all his schemes there is no God.', 'Psalm 10:4'],
+    de: ['Der Gottlose meint in seinem Stolz, er frage nicht darnach; in allen seinen Tücken hält er Gott für nichts.', 'Psalm 10,4'],
+    sv: ['Den ogudaktige säger i sitt högmod: »Han frågar icke därefter.» »Det finnes ingen Gud», så äro alla hans tankar.', 'Ps 10:4'],
+  },
+  'gal3.28': {
+    pl: ['Nie masz Żyda, ani Greka; nie masz niewolnika ani wolnego; nie masz mężczyzny i niewiasty; albowiem wszyscy wy jednym jesteście w Chrystusie Jezusie.', 'Ga 3,28'],
+    en: ['There is neither Jew nor Greek, slave nor free, male nor female, for you are all one in Christ Jesus.', 'Galatians 3:28'],
+    de: ['Hier ist kein Jude noch Grieche, hier ist kein Knecht noch Freier, hier ist kein Mann noch Weib; denn ihr seid allzumal einer in Christo Jesu.', 'Galater 3,28'],
+    sv: ['Här är icke jude eller grek, här är icke träl eller fri, här är icke man och kvinna: alla ären I ett i Kristus Jesus.', 'Gal 3:28'],
+  },
+  'col3.5': {
+    pl: ['Umartwiajcież tedy członki wasze, które są na ziemi; wszeteczeństwo, nieczystość, namiętność, złą pożądliwość i łakomstwo, które jest bałwochwalstwem…', 'Kol 3,5'],
+    en: ['Put to death, therefore, the components of your earthly nature: sexual immorality, impurity, lust, evil desires, and greed, which is idolatry.', 'Colossians 3:5'],
+    de: ['So tötet nun eure Glieder, die auf Erden sind, Hurerei, Unreinigkeit, schändliche Brunst, böse Lust und den Geiz, welcher ist Abgötterei…', 'Kolosser 3,5'],
+    sv: ['Så döden nu edra lemmar, som höra jorden till: otukt, orenhet, lusta, ond begärelse, så ock girigheten, som ju är avgudadyrkan…', 'Kol 3:5'],
+  },
+  'isa28.17': {
+    pl: ['A wykonam sąd według sznuru, a sprawiedliwość według wagi; i potłucze grad nadzieję omylną, a ucieczkę wody zatopią.', 'Iz 28,17'],
+    en: ['I will make justice the measuring line and righteousness the level. Hail will sweep away your refuge of lies, and water will flood your hiding place.', 'Isaiah 28:17'],
+    de: ['Und ich will das Recht zur Richtschnur und die Gerechtigkeit zum Gericht machen; so wird der Hagel die falsche Zuflucht wegtreiben, und Wasser sollen den Schirm wegschwemmen…', 'Jesaja 28,17'],
+    sv: ['Och jag skall låta rätten vara mätsnöret och rättfärdigheten sänklodet. Och hagel skall slå ned eder lögntillflykt, och vatten skall skölja bort edert beskärm.', 'Jes 28:17'],
+  },
+  '1co6.12': {
+    pl: ['Wszystko mi wolno, ale nie wszystko pożyteczno; wszystko mi wolno, ale ja się nie dam zniewolić żadnej rzeczy.', '1 Kor 6,12'],
+    en: ['“Everything is permissible for me,” but not everything is beneficial. “Everything is permissible for me,” but I will not be mastered by anything.', '1 Corinthians 6:12'],
+    de: ['Ich habe alles Macht; es frommt aber nicht alles. Ich habe alles Macht; es soll mich aber nichts gefangen nehmen.', '1. Korinther 6,12'],
+    sv: ['»Allt är mig lovligt»; ja, men icke allt är nyttigt. »Allt är mig lovligt»; ja, men jag bör icke låta något få makt över mig.', '1 Kor 6:12'],
+  },
+  '2ti2.26': {
+    pl: ['Aby obaczywszy się, wywikłali się z sidła dyjabelskiego, od którego pojmani są ku czynieniu woli jego.', '2 Tm 2,26'],
+    en: ['Then they will come to their senses and escape the snare of the devil, who has taken them captive to his will.', '2 Timothy 2:26'],
+    de: ['…und sie wieder nüchtern würden aus des Teufels Strick, von dem sie gefangen sind zu seinem Willen.', '2. Timotheus 2,26'],
+    sv: ['…och i hopp att de så skola bliva nyktra och därigenom befrias ur djävulens snara; ty av honom äro de fångade, så att de göra hans vilja…', '2 Tim 2:26'],
+  },
+  'isa43.1': {
+    pl: ['Ale teraz tak mówi Pan, który cię stworzył, o Jakóbie; i który cię uczynił, o Izraelu! Nie bój się, bom cię odkupił, a wezwałem cię imieniem twojem; mójeś ty.', 'Iz 43,1'],
+    en: ['But now, this is what the LORD says—He who created you, O Jacob, and He who formed you, O Israel: Do not fear, for I have redeemed you; I have called you by your name; you are Mine!', 'Isaiah 43:1'],
+    de: ['Und nun spricht der HERR, der dich geschaffen hat, Jakob, und dich gemacht hat, Israel: Fürchte dich nicht, denn ich habe dich erlöst; ich habe dich bei deinem Namen gerufen; du bist mein!', 'Jesaja 43,1'],
+    sv: ['Men nu säger HERREN så, han som har skapat dig, Jakob, han som har danat dig, Israel: Frukta icke, ty jag har förlossat dig, jag har kallat dig vid ditt namn, du är min.', 'Jes 43:1'],
+  },
+  'psa18.2': {
+    pl: ['Pan opoką moją, twierdzą moją, i wybawicielem moim; Bóg mój skała moja, w nim będę ufał; tarcza moja, i róg zbawienia mego, ucieczka moja.', 'Ps 18,3'],
+    en: ['The LORD is my rock, my fortress, and my deliverer. My God is my rock, in whom I take refuge, my shield, and the horn of my salvation, my stronghold.', 'Psalm 18:2'],
+    de: ['HERR, mein Fels, meine Burg, mein Erretter, mein Gott, mein Hort, auf den ich traue, mein Schild und Horn meines Heils und mein Schutz!', 'Psalm 18,3'],
+    sv: ['HERRE, mitt bergfäste, min borg och min räddare, min Gud, min klippa, till vilken jag tager min tillflykt, min sköld och min frälsnings horn, mitt värn.', 'Ps 18:3'],
+  },
+  'psa27.1': {
+    pl: ['Pan jest światłością moją, i zbawieniem mojem, kogóż się bać będę? Pan jest mocą żywota mego, kogóż się mam lękać?', 'Ps 27,1'],
+    en: ['The LORD is my light and my salvation—whom shall I fear? The LORD is the stronghold of my life—whom shall I dread?', 'Psalm 27:1'],
+    de: ['Der HERR ist mein Licht und mein Heil; vor wem sollte ich mich fürchten! Der HERR ist meines Lebens Kraft; vor wem sollte mir grauen!', 'Psalm 27,1'],
+    sv: ['HERREN är mitt ljus och min frälsning; för vem skulle jag frukta? HERREN är mitt livs värn; för vem skulle jag rädas?', 'Ps 27:1'],
+  },
+  'rom8.28': {
+    pl: ['A wiemy, iż tym, którzy miłują Boga, wszystkie rzeczy dopomagają ku dobremu, to jest tym, którzy według postanowienia Bożego powołani są.', 'Rz 8,28'],
+    en: ['And we know that God works all things together for the good of those who love Him, who are called according to His purpose.', 'Romans 8:28'],
+    de: ['Wir wissen aber, daß denen, die Gott lieben, alle Dinge zum Besten dienen, denen, die nach dem Vorsatz berufen sind.', 'Römer 8,28'],
+    sv: ['Men vi veta att för dem som älska Gud samverkar allt till det bästa, för dem som äro kallade efter hans rådslut.', 'Rom 8:28'],
+  },
+  '2co12.9': {
+    pl: ['Ale mi rzekł: Dosyć masz na łasce mojej; albowiem moc moja wykonywa się w słabości. Raczej się tedy więcej chlubić będę z krewkości moich, aby we mnie mieszkała moc Chrystusowa.', '2 Kor 12,9'],
+    en: ['But He said to me, “My grace is sufficient for you, for My power is perfected in weakness.” Therefore I will boast all the more gladly in my weaknesses, so that the power of Christ may rest on me.', '2 Corinthians 12:9'],
+    de: ['Und er hat zu mir gesagt: Laß dir an meiner Gnade genügen; denn meine Kraft ist in den Schwachen mächtig. Darum will ich mich am allerliebsten rühmen meiner Schwachheit, auf daß die Kraft Christi bei mir wohne.', '2. Korinther 12,9'],
+    sv: ['Men Herren har sagt till mig; »Min nåd är dig nog, ty kraften fullkomnas i svaghet.» Därför vill jag hellre med glädje berömma mig av min svaghet, på det att Kristi kraft må komma och vila över mig.', '2 Kor 12:9'],
+  },
+  'heb13.5': {
+    pl: ['Obcowanie wasze niech będzie bez łakomstwa, przestwając na tem, co macie; boć sam powiedział: Nie zaniecham cię, ani cię opuszczę…', 'Hbr 13,5'],
+    en: ['Keep your lives free from the love of money and be content with what you have, for God has said: “Never will I leave you, never will I forsake you.”', 'Hebrews 13:5'],
+    de: ['Der Wandel sei ohne Geiz; und laßt euch genügen an dem, was da ist. Denn er hat gesagt: “Ich will dich nicht verlassen noch versäumen”…', 'Hebräer 13,5'],
+    sv: ['Varen i eder handel och vandel fria ifrån penningbegär; låten eder nöja med vad I haven. Ty han har själv sagt: »Jag skall icke lämna dig eller övergiva dig.»', 'Hebr 13:5'],
+  },
+  '1co10.13': {
+    pl: ['Pokuszenie się was nie jęło, tylko ludzkie; ale wiernyć jest Bóg, który nie dopuści, abyście byli kuszeni nad możność waszę, ale uczyni z pokuszeniem i wyjście, abyście znosić mogli.', '1 Kor 10,13'],
+    en: ['No temptation has seized you except what is common to man. And God is faithful; He will not let you be tempted beyond what you can bear. But when you are tempted, He will also provide an escape, so that you can stand up under it.', '1 Corinthians 10:13'],
+    de: ['Es hat euch noch keine denn menschliche Versuchung betreten; aber Gott ist getreu, der euch nicht läßt versuchen über euer Vermögen, sondern macht, daß die Versuchung so ein Ende gewinne, daß ihr\'s könnet ertragen.', '1. Korinther 10,13'],
+    sv: ['Inga andra frestelser hava mött eder än sådana som vanligen möta människor. Och Gud är trofast; han skall icke tillstädja att I bliven frestade över eder förmåga, utan när han låter frestelsen komma, skall han ock bereda en utväg därur, så att I kunnen härda ut i den.', '1 Kor 10:13'],
+  },
+  'rom8.15': {
+    pl: ['Gdyżeście nie wzięli ducha niewoli znowu ku bojaźni, aleście wzięli Ducha przysposobienia synowskiego, przez którego wołamy: Abba, to jest Ojcze!', 'Rz 8,15'],
+    en: ['For you did not receive a spirit of slavery that returns you to fear, but you received the Spirit of adoption to sonship, by whom we cry, “Abba! Father!”', 'Romans 8:15'],
+    de: ['Denn ihr habt nicht einen knechtischen Geist empfangen, daß ihr euch abermals fürchten müßtet; sondern ihr habt einen kindlichen Geist empfangen, durch welchen wir rufen: Abba, lieber Vater!', 'Römer 8,15'],
+    sv: ['I haven ju icke fått en träldomens ande, så att I åter skullen känna fruktan; I haven fått en barnaskapets ande, i vilken vi ropa: »Abba! Fader!»', 'Rom 8:15'],
+  },
+  'eph2.10': {
+    pl: ['Albowiem czynem jego jesteśmy stworzeni w Chrystusie Jezusie ku uczynkom dobrym, które przedtem Bóg zgotował, abyśmy w nich chodzili.', 'Ef 2,10'],
+    en: ['For we are God’s workmanship, created in Christ Jesus to do good works, which God prepared in advance as our way of life.', 'Ephesians 2:10'],
+    de: ['Denn wir sind sein Werk, geschaffen in Christo Jesu zu guten Werken, zu welchen Gott uns zuvor bereitet hat, daß wir darin wandeln sollen.', 'Epheser 2,10'],
+    sv: ['Ty hans verk äro vi, skapade i Kristus Jesus till goda gärningar, vilka Gud förut har berett, för att vi skola vandra i dem.', 'Ef 2:10'],
+  },
+  'zep3.17': {
+    pl: ['Pan, Bóg twój, w pośrodku ciebie mocny zachowa cię, rozweseli się wielce nad tobą, przestanie na miłości swej przeciwko tobie, i rozweseli się nad tobą z śpiewaniem, mówiąc…', 'So 3,17'],
+    en: ['The LORD your God is among you; He is mighty to save. He will rejoice over you with gladness; He will quiet you with His love; He will rejoice over you with singing.', 'Zephaniah 3:17'],
+    de: ['…denn der HERR, dein Gott, ist bei dir, ein starker Heiland; er wird sich über dich freuen und dir freundlich sein und vergeben und wird über dir mit Schall fröhlich sein.', 'Zephanja 3,17'],
+    sv: ['HERREN, din Gud, bor i dig en hjälte som kan frälsa. Han gläder sig över dig med lust, han tiger stilla i sin kärlek, han fröjdas över dig med jubel.', 'Sef 3:17'],
+  },
+  'pro3.5-6': {
+    pl: ['Ufaj w Panu ze wszystkiego serca twego, a na rozumie twoim nie spolegaj. We wszystkich drogach twoich znaj go, a on prostować będzie ścieszki twoje.', 'Prz 3,5–6'],
+    en: ['Trust in the LORD with all your heart, and lean not on your own understanding; in all your ways acknowledge Him, and He will make your paths straight.', 'Proverbs 3:5–6'],
+    de: ['Verlaß dich auf den HERRN von ganzem Herzen und verlaß dich nicht auf deinen Verstand; sondern gedenke an ihn in allen deinen Wegen, so wird er dich recht führen.', 'Sprüche 3,5–6'],
+    sv: ['Förtrösta på HERREN av allt ditt hjärta, och förlita dig icke på ditt förstånd. På alla dina vägar må du akta på honom, så skall han göra dina stigar jämna.', 'Ords 3:5–6'],
+  },
+  'psa32.8': {
+    pl: ['Dam ci rozum, i nauczę cię drogi, po której masz chodzić; dam ci radę, obróciwszy na cię oko moje.', 'Ps 32,8'],
+    en: ['I will instruct you and teach you the way you should go; I will give you counsel and watch over you.', 'Psalm 32:8'],
+    de: ['“Ich will dich unterweisen und dir den Weg zeigen, den du wandeln sollst; ich will dich mit meinen Augen leiten.”', 'Psalm 32,8'],
+    sv: ['Jag vill lära dig och undervisa dig om den väg du skall vandra; jag vill giva dig råd och låta mitt öga vaka över dig.', 'Ps 32:8'],
+  },
+  '1jn3.1': {
+    pl: ['Patrzcie, jaką miłość dał nam Ojciec, abyśmy dziatkami Bożemi nazwani byli. Dlategoć świat nie zna nas, iż onego nie zna.', '1 J 3,1'],
+    en: ['Behold what manner of love the Father has given to us, that we should be called children of God. And that is what we are! The reason the world does not know us is that it did not know Him.', '1 John 3:1'],
+    de: ['Sehet, welch eine Liebe hat uns der Vater erzeigt, daß wir Gottes Kinder sollen heißen! Darum kennt euch die Welt nicht; denn sie kennt ihn nicht.', '1. Johannes 3,1'],
+    sv: ['Se vilken kärlek Fadern har bevisat oss därmed att vi få kallas Guds barn, vilket vi ock äro. Därför känner världen oss icke, eftersom den icke har lärt känna honom.', '1 Joh 3:1'],
+  },
+  'eph4.32': {
+    pl: ['A bądźcie jedni przeciwko drugim dobrotliwi, miłosierni, odpuszczając sobie, jako wam Bóg w Chrystusie odpuścił.', 'Ef 4,32'],
+    en: ['Be kind and tenderhearted to one another, forgiving each other just as in Christ God forgave you.', 'Ephesians 4:32'],
+    de: ['Seid aber untereinander freundlich, herzlich und vergebet einer dem andern, gleichwie Gott euch auch vergeben hat in Christo.', 'Epheser 4,32'],
+    sv: ['Varen i stället goda och barmhärtiga mot varandra, och förlåten varandra, såsom Gud i Kristus har förlåtit eder.', 'Ef 4:32'],
+  },
+  'col3.13': {
+    pl: ['Znaszając jedni drugich i odpuszczając sobie wzajemnie, jeźli ma kto przeciw komu skargę: jako i Chrystus odpuścił wam, tak i wy.', 'Kol 3,13'],
+    en: ['Bear with one another and forgive any complaint you may have against someone else. Forgive as the Lord forgave you.', 'Colossians 3:13'],
+    de: ['…und vertrage einer den andern und vergebet euch untereinander, so jemand Klage hat wider den andern; gleichwie Christus euch vergeben hat, also auch ihr.', 'Kolosser 3,13'],
+    sv: ['Och haven fördrag med varandra och förlåten varandra, om någon har något att förebrå en annan. Såsom Herren har förlåtit eder, så skolen ock I förlåta.', 'Kol 3:13'],
+  },
+  'gal2.20': {
+    pl: ['Z Chrystusem jestem ukrzyżowany, a żyję już nie ja, lecz żyje we mnie Chrystus; a to że teraz w ciele żyję, w wierze Syna Bożego żyję, który mię umiłował i wydał samego siebie za mię.', 'Ga 2,20'],
+    en: ['I have been crucified with Christ, and I no longer live, but Christ lives in me. The life I live in the body, I live by faith in the Son of God, who loved me and gave Himself up for me.', 'Galatians 2:20'],
+    de: ['Ich lebe aber; doch nun nicht ich, sondern Christus lebt in mir. Denn was ich jetzt lebe im Fleisch, das lebe ich in dem Glauben des Sohnes Gottes, der mich geliebt hat und sich selbst für mich dargegeben.', 'Galater 2,20'],
+    sv: ['…och nu lever icke mer jag, utan Kristus lever i mig; och det liv som jag nu lever i köttet, det lever jag i tron på Guds Son, som har älskat mig och utgivit sig själv för mig.', 'Gal 2:20'],
+  },
+  'rom5.8': {
+    pl: ['Lecz zaleca Bóg miłość swoję ku nam, że gdy jeszcze byliśmy grzesznymi, Chrystus za nas umarł.', 'Rz 5,8'],
+    en: ['But God proves His love for us in this: While we were still sinners, Christ died for us.', 'Romans 5:8'],
+    de: ['Darum preiset Gott seine Liebe gegen uns, daß Christus für uns gestorben ist, da wir noch Sünder waren.', 'Römer 5,8'],
+    sv: ['…men Gud bevisar sin kärlek till oss däri att Kristus dog för oss, medan vi ännu voro syndare.', 'Rom 5:8'],
+  },
+  'isa54.10': {
+    pl: ['A choćby się i góry poruszyły, i pagórki się zachwiały: jednak miłosierdzie moje od ciebie nie odstąpi, a przymierze pokoju mego nie wzruszy się, mówi twój miłościwy Pan.', 'Iz 54,10'],
+    en: ['Though the mountains may be removed and the hills may be shaken, My loving devotion will not depart from you, and My covenant of peace will not be broken, says the LORD, who has compassion on you.', 'Isaiah 54:10'],
+    de: ['Denn es sollen wohl Berge weichen und Hügel hinfallen; aber meine Gnade soll nicht von dir weichen, und der Bund meines Friedens soll nicht hinfallen, spricht der HERR, dein Erbarmer.', 'Jesaja 54,10'],
+    sv: ['Ja, om än bergen vika bort och höjderna vackla, så skall min nåd icke vika ifrån dig och mitt fridsförbund icke vackla, säger HERREN; din förbarmare.', 'Jes 54:10'],
+  },
+  'psa46.1': {
+    pl: ['Bóg jest ucieczką i siłą naszą, ratunkiem we wszelkim ucisku najpewniejszym.', 'Ps 46,2'],
+    en: ['God is our refuge and strength, an ever-present help in times of trouble.', 'Psalm 46:1'],
+    de: ['Gott ist unsre Zuversicht und Stärke. Eine Hilfe in den großen Nöten, die uns getroffen haben.', 'Psalm 46,2'],
+    sv: ['Gud är vår tillflykt och vår starkhet, en hjälp i nöden, väl beprövad.', 'Ps 46:2'],
+  },
+  'rom8.38-39': {
+    pl: ['Albowiem pewienem tego, iż ani śmierć, ani żywot, ani Aniołowie, ani księstwa, ani mocarstwa, ani teraźniejsze ani przyszłe rzeczy, ani wysokość, ani głębokość, ani żadne insze stworzenie nie będzie nas mogło odłączyć od miłości Bożej, która jest w Jezusie Chrystusie, Panu naszym.', 'Rz 8,38–39'],
+    en: ['For I am convinced that neither death nor life, neither angels nor principalities, neither the present nor the future, nor any powers, neither height nor depth, nor anything else in all creation, will be able to separate us from the love of God that is in Christ Jesus our Lord.', 'Romans 8:38–39'],
+    de: ['Denn ich bin gewiß, daß weder Tod noch Leben, weder Engel noch Fürstentümer noch Gewalten, weder Gegenwärtiges noch Zukünftiges, weder Hohes noch Tiefes noch keine andere Kreatur mag uns scheiden von der Liebe Gottes, die in Christo Jesu ist, unserm HERRN.', 'Römer 8,38–39'],
+    sv: ['Ty jag är viss om att varken död eller liv, varken änglar eller andefurstar, varken något som nu är eller något som skall komma, varken någon makt i höjden eller någon makt i djupet, ej heller något annat skapat skall kunna skilja oss från Guds kärlek i Kristus Jesus, vår Herre.', 'Rom 8:38–39'],
+  },
+  'eph1.6': {
+    pl: ['Ku chwale sławnej łaski swojej, którą nas udarował w onym umiłowanym…', 'Ef 1,6'],
+    en: ['…to the praise of His glorious grace, which He has freely given us in the Beloved One.', 'Ephesians 1:6'],
+    de: ['…zu Lob seiner herrlichen Gnade, durch welche er uns hat angenehm gemacht in dem Geliebten…', 'Epheser 1,6'],
+    sv: ['…den nådeshärlighet till pris, varmed han har benådat oss i den älskade.', 'Ef 1:6'],
+  },
+  'psa62.8': {
+    pl: ['Ufajcież w nim na każdy czas, o narody! Wylewajcie przed obliczem jego serca wasze: Bóg jest ucieczką naszą. Sela.', 'Ps 62,9'],
+    en: ['Trust in Him at all times, O people; pour out your hearts before Him. God is our refuge. Selah…', 'Psalm 62:8'],
+    de: ['Hoffet auf ihn allezeit, liebe Leute, schüttet euer Herz vor ihm aus; Gott ist unsre Zuversicht. (Sela.)', 'Psalm 62,9'],
+    sv: ['Förtrösta på honom alltid, du folk; utgjuten för honom edra hjärtan. Gud är vår tillflykt. Sela.', 'Ps 62:9'],
+  },
+  'isa46.4': {
+    pl: ['Ja sam aż do starości, i owszem aż do sędziwości was nosić będę. Jam was uczynił, Ja też nosić będę; Ja mówię nosić was będę, i wybawię.', 'Iz 46,4'],
+    en: ['Even to your old age, I will be the same, and I will bear you up when you turn gray. I have made you, and I will carry you; I will sustain you and deliver you.', 'Isaiah 46:4'],
+    de: ['Ja, ich will euch tragen bis ins Alter und bis ihr grau werdet. Ich will es tun, ich will heben und tragen und erretten.', 'Jesaja 46,4'],
+    sv: ['Ända till eder ålderdom är jag densamme, och intill dess I varden grå, skall jag bära eder; så har jag hittills gjort, och jag skall också framgent hålla eder uppe, jag skall bära och rädda eder.', 'Jes 46:4'],
+  },
+  'heb4.16': {
+    pl: ['Przystąpmyż tedy z ufnością do tronu łaski, abyśmy dostąpili miłosierdzia i łaskę znaleźli ku pomocy czasu przygodnego.', 'Hbr 4,16'],
+    en: ['Let us then approach the throne of grace with confidence, so that we may receive mercy and find grace to help us in our time of need.', 'Hebrews 4:16'],
+    de: ['Darum laßt uns hinzutreten mit Freudigkeit zu dem Gnadenstuhl, auf daß wir Barmherzigkeit empfangen und Gnade finden auf die Zeit, wenn uns Hilfe not sein wird.', 'Hebräer 4,16'],
+    sv: ['Låtom oss därför med frimodighet gå fram till nådens tron, för att vi må undfå barmhärtighet och finna nåd, till hjälp i rätt tid.', 'Hebr 4:16'],
   },
 };
 
