@@ -8449,3 +8449,113 @@ the card at a phone's measure (the way first, 44 px controls, shelves closed unt
 switching to the intercession's card); migration (round 15 keeps "Za innych", unplayed starts own, a version-2 save
 repaired); "them" kept out of the own way's words; the own picture at every check size (apart, inside, room for the
 words) and its lanes (smoke from the bundle never toward the player, light to the heart). `test/i18n-arcade.test.ts` 7/7.
+
+## 21. Round 17: Złote serce — a broken heart mended with gold, and music that fits the session (2026-11-24)
+
+### 21.1 The founder's request
+
+> Chciałbym taką piękną medytację z wizualizacją, która naprawia złamane serce. Chciałbym, żeby ta medytacja miała
+> w sobie coś pięknego. Coś takiego, co z szacunkiem, miłością i troską bierze każdy kawałek tego serca, oczyszcza je
+> z brudu, czerni i bólu i składa w całość. W trakcie medytacji szczeliny serca są wypełniane złotem tak jak w sztuce
+> kintsugi. Serce zaczyna bić i zmienia kolor na złoto. Potem to złote, bijące serce emanuje czystością, radością,
+> miłością — taka piękna aura.
+>
+> Chciałbym, żeby to był piękny proces. W tle również chcę piękną muzykę dla serca. Chcę też, żeby tam rotowały
+> piękne utwory muzyczne, np. [eleven YouTube links, §21.4]. Chcę móc zarządzać, które utwory z listy będą grane
+> w trakcie medytacji. Chcę też, żeby ciągle w tle była jakaś muzyczka pomiędzy końcem jednego a drugiego utworu,
+> no i na początku i na końcu. Chcę, żeby utwory były tak losowo dobierane, żeby pasowały do długości medytacji.
+
+With the usual free hand ("jeśli widzisz, jak można to usprawnić… zrób to… pick recommended").
+
+### 21.2 What the round decided
+
+* **A new meditation of the series "Serce i światło"** (§18), id `kintsugi`, „Złote serce", rooted in Psalm 147:3 ("He
+  heals the brokenhearted and binds up their wounds"). The founder's words "naprawia złamane serce" become, on screen,
+  what Scripture says God does — gathers, washes, binds up, makes new — never a promise that the exercise heals (§18.3).
+  Kintsugi, the Japanese craft of mending broken pottery with lacquer and gold so that the cracks become the most
+  beautiful part of the bowl, is named once in the lobby as the picture's source; Christian writers use it the same
+  way (the treasure in jars of clay, 2 Cor 4:7; the potter who makes the vessel again, Jer 18:4).
+* **Music in two layers.** The game's own ambient music, synthesised (no files, works offline), plays from the first
+  second to the last and carries every moment between two tracks; the founder's tracks play from YouTube, whole, chosen
+  at random to fit the session and rotating between sessions. The player decides which tracks may play and can add
+  their own. Three new kit modules (§21.4) keep this reusable by any later meditation.
+* **The first third-party content in the app** — so it comes with the app's privacy rules (§21.5): nothing is loaded
+  from Google until the player agrees once in the lobby; offline, with the sound off, or without that consent, the
+  ambient plays alone.
+
+### 21.3 Scripture
+
+Three new passages (four editions verified, report read): Matthew 5:8 (the pure in heart — the aura's purity), Isaiah
+61:1 ("to bind up the brokenhearted" — a closing word) and 1 Peter 1:7 (faith more precious than gold, refined by
+fire). Everything else the meditation quotes was already in `scripture.ts`.
+
+### 21.4 Music that fits the session (`kit/playlist.ts`, `kit/music.ts`)
+
+**The founder's eleven** (lengths and embeddability read from YouTube on 2026-11-24; all may be embedded):
+
+| # | Track | Channel | Length |
+|---|---|---|---|
+| 1 | Cuatro Vientos | Danit | 7:19 |
+| 2 | Ábrete Corazón (online healing concert #2) | Laboratorium Pieśni | 9:46 |
+| 3 | Lord Have Mercy | Lilly Victoria | 3:57 |
+| 4 | The Jesus Prayer (Исусова молитва) | Axios choir | 3:59 |
+| 5 | Pater Noster — Gregorian chant | Custodi Nos | 3:10 |
+| 6 | Psalm 23 in Latin — Gregorian chant | Custodi Nos | 3:27 |
+| 7 | Crux sacra sit mihi lux (33×) | Harpa Dei | 11:58 |
+| 8 | Crux Sacra Sit Mihi Lux | Ultra Aeternum | 3:44 |
+| 9 | Sat Gur Prasad | Mirabai Ceiba | 7:16 |
+| 10 | Ra Ma Da Sa | Snatam Kaur | 9:48 |
+| 11 | Ong Namo | Snatam Kaur | 13:01 |
+
+Tracks 9–11 are Sikh / Kundalini-yoga mantras sung in Gurmukhi. The founder chose them; the list says plainly what
+they are (as §18.3 asks every lobby to be honest about a source), and any track can be switched off.
+
+**The plan** (`planMusic`, pure and seeded). A song is never cut to fit — the founder asked for tracks that *fit*, and
+a song faded out in its middle is not one. Around the tracks the ambient has a least frame, by session length T:
+the intro 7 % of T (20–60 s), a bridge between two tracks 2.5 % (15–25 s), the close 10 % (30–90 s). In the room left,
+240 random orders are packed greedily (a track recently heard is drawn later: weight ¼ last session, ½ two ago, ¾
+three ago); each distinct set then gets a chance ∝ (its fill ÷ the best fill)⁶ · e^(−recently heard seconds ÷ 120).
+A pure "fullest set" was tried first and rejected: it always left the same short chant out of 5-minute sessions and
+the 9:46 concert out of 15-minute ones. Whatever room is left goes to the ambient — the bridges grow (≤ 45 s), the
+intro takes 40 % and the close 60 % of the rest. Measured over 60 daily sessions with the rotation (the eleven):
+
+| Session | Music share (avg / least) | Tracks (avg) |
+|---|---|---|
+| 3 min | — (no track fits: the shortest is 3:10) | 0 |
+| 5 min | 76 % / 63 % | 1.0 |
+| 10 min | 73 % / 66 % | 1.7 |
+| 15 min | 73 % / 65 % | 2.1 |
+| 20 min | 80 % / 68 % | 2.4 |
+| 30 min | 82 % / 72 % | 3.7 |
+
+With the rotation every track that fits a length plays within 30 daily sessions (a test holds it for 5–30 min).
+`ageRecent` keeps three sessions of memory.
+
+**Live** (`MusicDirector`). Real playback never keeps to a plan — a track buffers, YouTube shows an advert first, the
+player pauses it by hand — so the director follows what the player reports, not the planned clock: a track starts
+when the one before has ended and its bridge is over, and only if it can still end 20 s before the session does
+(`CLOSE_MIN`); otherwise the next one that can, or the ambient to the end. Tracks fade in over 3 s while the ambient
+fades out over 5 s; after a track the ambient returns over 4 s. A track that errors (removed, embedding refused) or
+does not start in 25 s, or stalls for 45 s, is skipped without a word on screen. When the browser refuses to start
+sound without a tap on the player itself (iOS Safari), the player card asks once — and if no tap comes in 40 s, the
+ambient plays alone for the rest of the session: no nagging. A session pause pauses the track; a track paused by
+hand brings the ambient back softly. If the session's end comes while a track still plays (a long advert), the
+track fades out over its last 5 s before the summary. `test/arcade-music.test.ts` holds all of this with a fake player.
+
+### 21.5 YouTube: privacy, the CSP and the embed's terms (`kit/youtube.ts`)
+
+* **No Google script in our origin.** The official IFrame API is a script from youtube.com; loading it would put
+  third-party code next to the band's data. Instead the app drives the embed over the same postMessage protocol that
+  script speaks (`listening` → `onReady`/`infoDelivery`, `command: playVideo | pauseVideo | loadVideoById | setVolume`,
+  events `onStateChange`, `onError`, `onAutoplayBlocked`), accepting messages only from the frame's window and the
+  embed's origin. The CSP changes in one place: `frame-src 'self' https://www.youtube-nocookie.com`.
+* **Privacy-enhanced mode** (youtube-nocookie.com), one iframe for the whole session (the next track loads into it —
+  which also keeps iOS's "tap once" satisfied), `referrerpolicy="strict-origin-when-cross-origin"` (the embed refuses
+  to play with no referrer: error 153).
+* **Two clicks.** The lobby asks once before any request goes to Google, and says what happens: the tracks play from
+  YouTube; when one starts, YouTube receives the device's IP address and may show an advert; offline only the ambient
+  plays. No thumbnails or previews in the lobby — a "▶ YouTube" link opens a track on YouTube itself to listen first.
+* **The embed's terms** (YouTube API Services Developer Policies, required minimum functionality): while a track plays
+  its player is visible, at least 200 × 200 CSS px, nothing drawn over it, its controls kept, the sound never separated
+  from the picture. So the meditation's layout keeps a place for the player card, and the card shows only while a track
+  loads, plays or waits for a tap; between tracks it fades away and only the ambient plays.
