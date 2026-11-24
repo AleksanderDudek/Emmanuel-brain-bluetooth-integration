@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { BREATH_DEFAULT, BREATH_PRESETS, breathCycle } from '../src/arcade/kit/breath';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
@@ -6,15 +7,24 @@ import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import {
-  AREAS, CHOICES, CLOSE_VERSES, EMO, EMOS, LIBRARY, MOMENTS, OWN_CHARS, OWN_MAX, OWN_VERSES, PATTERNS, QUIET_VERSES, THOUGHT_CHARS, VALVE_VERSES,
+  AREAS, CHOICES, CLOSE_VERSES, EMO, EMOS, LIBRARY, MOMENTS, OWN_CHARS, OWN_VERSES, PATTERNS, QUIET_VERSES, THOUGHT_CHARS, VALVE_VERSES,
   blend, cleanText, dominant, fits, flameTones, isMixed, needsCare, normMix, ownMix,
 } from '../src/arcade/mysli/content';
 import { CATALOGS, LIBRARY_KEYS, emoList, emoNames, t, unit } from '../src/arcade/mysli/i18n';
 import {
-  addOwn, bestOf, forgetOwn, freshProgress, migrate, removeOwn, restoreSkipped, setBefore, setEmotion, skipThought, toggleArea, type MysliProgress,
+  addPair, addSet, bestOf, chooseSet, chooseWar, editPair, forgetSets, freshProgress, migrate, removePair, removeSet, restoreSkipped, setBefore,
+  setEmotion, setFirst, skipThought, toggleArea, type MysliProgress,
 } from '../src/arcade/mysli/meta';
-import { RULES, cleanRhythm, focusRate, planFor, readTime } from '../src/arcade/mysli/rules';
-import { MysliSim, libraryOrder, pageOf, pageTime, type SimEvent } from '../src/arcade/mysli/sim';
+import {
+  GT_VERSES, PAIRS_MAX, PAIR_CHARS, SETS_MAX, SET_NAME_CHARS, TRUTH_CHARS, WAR_PAIRS, WAR_SIZE, cleanPlace, freshPlace, isOcd, setOrder, stoneSlots,
+  type OwnSet,
+} from '../src/arcade/mysli/sets';
+import { WAROWNIE, WAROWNIA_GROUPS } from '../src/arcade/kit/warownie';
+import { coursesFor, wallStones } from '../src/arcade/mysli/paint';
+import { progressPanel } from '../src/arcade/mysli/panel';
+import { setNameOf } from '../src/arcade/mysli/i18n';
+import { RULES, cleanRhythm, focusRate, planFor, readTime, splitNeed } from '../src/arcade/mysli/rules';
+import { MysliSim, fallVerseFor, libraryOrder, pageOf, pageTime, type SimEvent } from '../src/arcade/mysli/sim';
 import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { guideH, layout, previewLayout, scaleParts, tapTargets } from '../src/arcade/mysli/layout';
 import mod, { howto, rhythm } from '../src/arcade/mysli/index';
@@ -30,7 +40,7 @@ const LOW = frame({ level: 0.3, activity: 1, focused: false, calm: 0.5 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-const ALL_SEEN = ['s.open', 'c.burn', 'c.skip', 'c.breath', 'c.blind'];
+const ALL_SEEN = ['s.open', 'c.burn', 'c.skip', 'c.breath', 'c.blind', 'c.truth'];
 
 type SimOpts = { progress?: Partial<MysliProgress>; planned?: number; seed?: number; eeg?: boolean; rhythm?: { focus?: number; rest?: number } };
 
@@ -78,6 +88,13 @@ function average(_: number, sim: MysliSim): FocusFrame {
 
 const LANGS = ['pl', 'en', 'de', 'sv'] as const;
 
+/** Polish first person that would give the player a gender: -łem/-łam, -łbym, sam/sama, "jestem / czuję się + adjective". */
+const GENDERED = /\p{L}+(łem|łam|łabym|łbym)(?!\p{L})|(?<!\p{L})(sam|sama|samotny|samotna|głupi|głupia|beznadziejny|beznadziejna)(?!\p{L})|(?<!\p{L})(jestem|czuję się|zostaję|zostanę|być)\s+(\p{L}{2,}(ny|na|ty|ta|wy|wa|ły|ła|ry|ra|by|ba))(?!\p{L})/iu;
+const pairsOf = (l: (typeof LANGS)[number], id: string): [string, string][] => Array.from({ length: WAR_SIZE }, (_, k) => {
+  const cat = CATALOGS[l] as Record<string, string>;
+  return [cat[`w.${id}.${k + 1}.lie`], cat[`w.${id}.${k + 1}.truth`]];
+});
+
 describe('the library (content.ts)', () => {
   it('holds eight areas of seven thoughts, each with a whole mix, a pattern and a passage that exists', () => {
     expect(AREAS).toHaveLength(8);
@@ -100,24 +117,28 @@ describe('the library (content.ts)', () => {
     for (const l of LANGS) {
       const cat = CATALOGS[l] as Record<string, string>;
       for (const d of LIBRARY) {
-        const th = cat[`th.${d.id}`], tw = cat[`tw.${d.id}`];
+        const th = cat[`th.${d.id}`], tw = cat[`tw.${d.id}`], tr = cat[`tr.${d.id}`];
         expect(th?.trim(), `${l} th.${d.id}`).toBeTruthy();
         expect(tw?.trim(), `${l} tw.${d.id}`).toBeTruthy();
+        expect(tr?.trim(), `${l} tr.${d.id}`).toBeTruthy();
         expect([...th].length, `${l} th.${d.id}`).toBeLessThanOrEqual(THOUGHT_CHARS);
         expect([...tw].length, `${l} tw.${d.id}`).toBeLessThanOrEqual(140);
+        expect([...tr].length, `${l} tr.${d.id}`).toBeLessThanOrEqual(TRUTH_CHARS);
       }
     }
-    expect(LIBRARY_KEYS).toHaveLength(112);
+    expect(LIBRARY_KEYS).toHaveLength(168);
   });
 
-  it('writes the Polish thoughts without gendered forms, and holds no thought of self-harm', () => {
+  it('writes the Polish thoughts and truths without gendered forms, and holds no thought of self-harm', () => {
     for (const d of LIBRARY) {
-      const s = CATALOGS.pl[`th.${d.id}` as keyof typeof CATALOGS.pl] as string;
-      expect(s, d.id).not.toMatch(/\p{L}+(łem|łam|łabym|łbym)(?!\p{L})|(?<!\p{L})(sam|sama|samotny|samotna|głupi|głupia|beznadziejny|beznadziejna)(?!\p{L})/u);
+      for (const k of ['th', 'tr']) {
+        const s = CATALOGS.pl[`${k}.${d.id}` as keyof typeof CATALOGS.pl] as string;
+        expect(s, `${k}.${d.id}`).not.toMatch(GENDERED);
+      }
     }
     for (const l of LANGS) {
       for (const d of LIBRARY) {
-        for (const k of ['th', 'tw']) {
+        for (const k of ['th', 'tw', 'tr']) {
           const s = (CATALOGS[l] as Record<string, string>)[`${k}.${d.id}`];
           expect(needsCare(s), `${l} ${k}.${d.id}`).toBe(false);
           expect(s, `${l} ${k}.${d.id}`).not.toMatch(/ciężarem|a burden|eine Last für|en börda för|zauważy, że mnie nie ma|notice if I/i);
@@ -165,18 +186,23 @@ describe('the library (content.ts)', () => {
 });
 
 describe('the queue: own thoughts first, then the library by what weighs today', () => {
-  it('brings the player’s own thoughts first, in their order', () => {
-    const sim = later({ planned: 600, progress: { own: [{ text: 'Jutro egzamin', emo: 'fear' }, { text: 'Kłótnia z bratem', emo: 'anger' }] } });
+  it('brings the own set chosen first in today’s mode, in its order, with its truths (or generic ones)', () => {
+    const sets: OwnSet[] = [{ name: 'Szkoła', pairs: [{ lie: 'Jutro egzamin', truth: 'Zrobię, co mogę — reszta w Bożych rękach', emo: 'fear' }, { lie: 'Kłótnia z bratem', truth: '', emo: 'anger' }], place: freshPlace() }];
+    const sim = later({ planned: 600, progress: { sets, first: 0 } });
     const clock = { t: 0 };
     const seen: string[] = [];
-    const evs = drive(sim, 200, HIGH, clock);
+    const evs = drive(sim, 240, HIGH, clock);
     for (const e of ofType(evs, 'arrive')) seen.push(e.thought.text);
     expect(seen.slice(0, 2)).toEqual(['Jutro egzamin', 'Kłótnia z bratem']);
-    expect(ofType(evs, 'arrive')[2].thought.own).toBe(-1);
-    // their true words are the generic ones of their emotion, and the result never carries their text
-    expect(ofType(evs, 'burned')[0].thought.word).toMatch(/\S/);
+    expect(ofType(evs, 'arrive')[2].thought.src).toBe('lib');
+    const given = ofType(evs, 'gilded').map(e => e.thought);
+    expect(given[0].truth).toBe('Zrobię, co mogę — reszta w Bożych rękach');
+    expect(given[1].truth).toBe(t('gt.anger.2'));
+    // the result never carries their words, nor the set's name
     const r = sim.result();
-    expect(JSON.stringify(r)).not.toMatch(/Jutro egzamin|Kłótnia z bratem/);
+    expect(JSON.stringify(r)).not.toMatch(/Jutro egzamin|Kłótnia z bratem|Zrobię, co mogę|Szkoła/);
+    // today's mode: no stronghold
+    expect(sim.set).toBeNull();
   });
 
   it('orders the library: today’s emotion and areas first, single emotions before mixtures, last time’s thoughts last, never one set aside', () => {
@@ -205,6 +231,7 @@ describe('the queue: own thoughts first, then the library by what weighs today',
     expect(sim.skip()).toBe(true);
     drive(sim, RULES.leaveSec + 0.2, LOW, clock);
     expect(sim.cur?.seq).toBe(1);
+    expect(sim.canSkip).toBe(true);
     expect(sim.burnedNow).toBe(0);
     expect(sim.p.skipped).toContain(first.id);
     expect(libraryOrder(sim.p, mulberry32(9)).map(d => d.id)).not.toContain(first.id);
@@ -278,8 +305,8 @@ describe('the plan fits the whole arc into any length (DESIGN §17)', () => {
       playAll(sim, average);
       const T = min * 60;
       expect(sim.phase).toBe('done');
-      expect(sim.burnedNow).toBeGreaterThanOrEqual(Math.round(sim.plan.thoughts * 0.85));
-      const lastPlanned = sim.burnAt[Math.round(sim.plan.thoughts * 0.85) - 1];
+      expect(sim.doneNow).toBeGreaterThanOrEqual(Math.round(sim.plan.thoughts * 0.85));
+      const lastPlanned = sim.doneAt[Math.round(sim.plan.thoughts * 0.85) - 1];
       expect(lastPlanned / T).toBeGreaterThan(0.55);
       expect(lastPlanned / T).toBeLessThan(0.97);
       // the last rest, the quiet (10 minutes and more) and the close come at the end
@@ -302,8 +329,7 @@ describe('the plan fits the whole arc into any length (DESIGN §17)', () => {
     expect(long.quietSec).toBeGreaterThanOrEqual(60);
     const sim = later({ planned: 1800 });
     playAll(sim, average);
-    const mixedBurned = sim.burnAt.length;
-    expect(mixedBurned).toBeGreaterThan(20);
+    expect(sim.doneAt.length).toBeGreaterThan(20);
     expect(sim.quietNow).toBeGreaterThan(20);
   });
 
@@ -313,9 +339,9 @@ describe('the plan fits the whole arc into any length (DESIGN §17)', () => {
     const pushes = one.blocks.filter(b => b.kind === 'push');
     expect(one.plan.perPush).toBe(1);
     expect(one.plan.restCycles).toBe(3);
-    // a push burns one thought (one burned before the push's least length takes the next along)
-    expect(one.burnedNow).toBeLessThanOrEqual(2 * pushes.length);
-    expect(one.burnedNow).toBeGreaterThanOrEqual(Math.round(one.plan.thoughts * 0.85));
+    // a push gives one pair (one given before the push's least length takes the next along)
+    expect(one.doneNow).toBeLessThanOrEqual(2 * pushes.length);
+    expect(one.doneNow).toBeGreaterThanOrEqual(Math.round(one.plan.thoughts * 0.85));
     for (const b of one.blocks.filter(x => x.kind === 'rest' && x.rest === 'thought')) expect(b.cycles).toBe(3);
     const six = later({ planned: 600, rhythm: { focus: 6, rest: 1 } });
     playAll(six, average);
@@ -346,7 +372,7 @@ describe('the blocks', () => {
     const clock = { t: 0 };
     while (!sim.restBlock) drive(sim, 0.5, HIGH, clock);
     expect(sim.restKind).toBe('thought');
-    expect(sim.burnedNow).toBeGreaterThanOrEqual(3);
+    expect(sim.doneNow).toBeGreaterThanOrEqual(3);
     expect(sim.restWord).toBe(sim.lastBurned!.word);
     expect(sim.restVerseId).toBe(sim.lastBurned!.verse);
     const pages = new Set<string>();
@@ -393,7 +419,7 @@ describe('the blocks', () => {
       drive(s2, 0.5, average, clock);
       nows.add(s2.now);
     }
-    for (const k of ['settle', 'arrive', 'burn', 'rest', 'last', 'quiet', 'end']) expect(nows, k).toContain(k);
+    for (const k of ['settle', 'arrive', 'burn', 'truth', 'rest', 'last', 'quiet', 'end']) expect(nows, k).toContain(k);
     for (const k of nows) expect(t(`now.${k}` as never)).toMatch(/\S/);
   });
 
@@ -462,13 +488,15 @@ describe('the session', () => {
     playAll(sim, HIGH);
     const a = sim.result(), b = sim.result();
     expect(a).toEqual(b);
-    expect(sim.p.best['300']).toBe(Math.max(2, sim.burnedNow));
-    expect(a.record).toBe(sim.burnedNow > 2);
+    expect(sim.p.best['300']).toBe(Math.max(2, sim.doneNow));
+    expect(a.record).toBe(sim.doneNow > 2);
+    expect(a.score).toBe(sim.doneNow);
     const burned = sim.p.burned;
     sim.finish();
     expect(sim.p.burned).toBe(burned);
     expect(sim.p.sessions).toBe(6);
     expect(sim.p.byEmo.fear + sim.p.byEmo.sadness + sim.p.byEmo.anger).toBe(sim.burnedNow);
+    expect(sim.p.truths).toBe(sim.doneNow);
   });
 
   it('closes with a passage that exists, and keeps the summary short even at 30 minutes', () => {
@@ -482,12 +510,13 @@ describe('the session', () => {
     expect(emoList(sim.byEmoNow)).toMatch(/\d/);
   });
 
-  it('remembers the library thoughts burned (they go last next time), and forgets burned own thoughts when asked', () => {
-    const sim = later({ planned: 300, progress: { own: [{ text: 'Moja myśl', emo: 'sadness' }], forgetBurned: true } });
+  it('remembers the library thoughts burned (they go last next time), and counts the own lies burned', () => {
+    const sets: OwnSet[] = [{ name: '', pairs: [{ lie: 'Moja myśl', truth: '', emo: 'sadness' }], place: freshPlace() }];
+    const sim = later({ planned: 300, progress: { sets, first: 0 } });
     playAll(sim, HIGH);
     expect(sim.p.recent.length).toBeGreaterThan(0);
     expect(sim.p.recent.length).toBeLessThanOrEqual(RULES.recentMax);
-    expect(sim.p.own).toEqual([]);
+    expect(sim.p.sets[0].pairs).toHaveLength(1);
     expect(sim.p.ownBurned).toBe(1);
   });
 
@@ -495,7 +524,7 @@ describe('the session', () => {
     const sim = later({ planned: 600, eeg: true });
     expect(sim.lead).toBe(2);
     playAll(sim, average);
-    expect(sim.burnedNow).toBeGreaterThanOrEqual(Math.round(sim.plan.thoughts * 0.85));
+    expect(sim.doneNow).toBeGreaterThanOrEqual(Math.round(sim.plan.thoughts * 0.85));
   });
 });
 
@@ -504,13 +533,17 @@ describe('the meta', () => {
     const fromPlaceholder = migrate(mergeSaved(freshProgress(), { best: null }) as MysliProgress);
     expect(fromPlaceholder).toEqual(freshProgress());
     const broken = migrate({
-      ver: 1, sessions: 'x', emotion: 'joy', areas: ['work', 'moon', 'work'], own: [{ text: '  a  ', emo: 'x' }, 'no', { text: '' }], recent: ['work.lose', 'nope'],
+      ver: 2, sessions: 'x', emotion: 'joy', areas: ['work', 'moon', 'work'], sets: [{ name: 7, pairs: [{ lie: '  a  ', emo: 'x' }, 'no', { lie: '' }], place: { burned: [0, 5, 'x'], gilded: [3] } }, 'no'],
+      first: 4, set: 0, mode: 'war', war: 'moon', places: { rejection: { burned: [1, 9], gilded: [1, 2], falls: 2.6 }, moon: {} }, recent: ['work.lose', 'nope'],
       skipped: 5, before: 14, history: [{ day: 3, after: 4 }, { after: 'x' }], best: { 300: 'a', 600: 4 }, seen: [1, 'a', 'a'], byEmo: { fear: -2 },
     } as unknown as MysliProgress);
     expect(broken.sessions).toBe(0);
     expect(broken.emotion).toBe('unknown');
     expect(broken.areas).toEqual(['work']);
-    expect(broken.own).toEqual([{ text: 'a', emo: 'mixed' }]);
+    expect(broken.sets).toEqual([{ name: '', pairs: [{ lie: 'a', truth: '', emo: 'mixed' }], place: { burned: [], gilded: [], falls: 0 } }]);
+    expect(broken.first).toBe(-1);
+    expect(broken.war).toBeNull();
+    expect(broken.places).toEqual({ rejection: { burned: [1], gilded: [1], falls: 2 } });
     expect(broken.recent).toEqual(['work.lose']);
     expect(broken.skipped).toEqual([]);
     expect(broken.before).toBe(10);
@@ -522,7 +555,7 @@ describe('the meta', () => {
     expect(migrate(migrate({ ...broken }))).toEqual(broken);
   });
 
-  it('chooses what weighs, the areas, own thoughts (at most 8, no doubles), and forgets them on request', () => {
+  it('chooses what weighs and the areas, and keeps the 0–10 and the set-aside list', () => {
     const p = freshProgress();
     expect(setEmotion(p, 'mixed')).toBe(true);
     expect(setEmotion(p, 'joy')).toBe(false);
@@ -532,15 +565,6 @@ describe('the meta', () => {
     expect(p.areas).toEqual([]);
     for (const a of AREAS) toggleArea(p, a);
     expect(p.areas).toEqual([]);
-    for (let i = 0; i < 12; i++) addOwn(p, `Myśl ${i}`, 'fear');
-    expect(p.own).toHaveLength(OWN_MAX);
-    expect(addOwn(p, 'Myśl 0')).toBe(false);
-    expect(addOwn(p, '   ')).toBe(false);
-    expect(removeOwn(p, 0)).toBe(true);
-    expect(addOwn(p, 'x'.repeat(200))).toBe(true);
-    expect([...p.own[p.own.length - 1].text].length).toBe(OWN_CHARS);
-    forgetOwn(p);
-    expect(p.own).toEqual([]);
     setBefore(p, 6.4);
     expect(p.before).toBe(6);
     setBefore(p, null);
@@ -553,10 +577,11 @@ describe('the meta', () => {
 
 /** The words the series never says (DESIGN §18.3), per language. */
 const FORBIDDEN: Readonly<Record<(typeof LANGS)[number], RegExp>> = {
-  pl: /energi|uzdrawia|\b(u|wy)?leczy|czakr|kundalini|\bw[ąę]ż|magi[aię]|zaklęci/i,
-  en: /energy|heal(s|ing)? power|\bcures?\b|\bheals\b|chakra|kundalini|serpent|\bmagic|\bspell\b/i,
-  de: /energie|heilt|chakra|kundalini|schlange|magie|zauber/i,
-  sv: /energi|\bhelar\b|chakra|kundalini|\borm(en|ar)?\b|magi|trollformel/i,
+  // round 16 (the warownie): never a spirit (but the Holy Spirit), a demon, a curse, binding, casting out
+  pl: /energi|uzdrawia|\b(u|wy)?leczy|czakr|kundalini|\bw[ąę]ż|magi[aię]|zaklęci|duch(?!\w*\s+Święt)|demon|przeklin|związuj|wyrzucam|egzorcy|opęta/i,
+  en: /energy|heal(s|ing)? power|\bcures?\b|\bheals\b|chakra|kundalini|serpent|\bmagic|\bspell\b|(?<!Holy )\bspirits?\b|demon|\bcurse|cast out|deliverance|possess(ed|ion)/i,
+  de: /energie|heilt|chakra|kundalini|schlange|magie|zauber|böse[nrs]? Geist|Dämon|verfluch|\bFluch|austreib|besessen/i,
+  sv: /energi|\bhelar\b|chakra|kundalini|\borm(en|ar)?\b|magi|trollformel|ond(a|e)? ande|demon|förbann|driva ut|besatt/i,
 };
 
 describe('the words', () => {
@@ -734,5 +759,408 @@ describe('mobile first (DESIGN §12) and the desk (§14)', () => {
     expect(mod.ownBreath).toBe(true);
     expect(mod.unit!(1)).toBe('myśl');
     expect(mod.unit!(7)).toBe('myśli');
+  });
+});
+
+// ── round 16: every thought answered by its truth, the warownie, the own warownie (DESIGN §20) ──
+
+const RISK = /ciężarem|a burden|eine Last für|en börda för|zauważy, że mnie nie ma|notice if I|lepiej beze mnie|better off without me|besser ohne mich|bättre utan mig/i;
+
+/** Play until a predicate holds (or the session ends); returns the events seen. */
+function until(sim: MysliSim, f: FocusFrame | ((t: number, sim: MysliSim) => FocusFrame), done: () => boolean, clock = { t: 0 }, max = 2000): SimEvent[] {
+  const out: SimEvent[] = [];
+  for (let i = 0; i < max && !done() && sim.phase !== 'done'; i++) out.push(...drive(sim, 0.25, f, clock));
+  return out;
+}
+
+const warSim = (id: string, o: SimOpts = {}) => later({ ...o, progress: { mode: 'war', war: id as never, ...o.progress } });
+
+describe('round 16: the truth after the lie, held in focus', () => {
+  it('unfolds the truth where the lie burned (not gated), gilds it only from focus, and it waits without — never fading', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    until(sim, HIGH, () => sim.curState === 'unfold', clock);
+    expect(sim.burnedNow).toBe(1);
+    expect(sim.doneNow).toBe(0);
+    const seq = sim.cur!.seq;
+    // the unfolding runs its time whatever the focus; nothing gilds meanwhile
+    drive(sim, RULES.unfoldSec * 0.5, HIGH, clock);
+    expect(sim.gild).toBe(0);
+    drive(sim, RULES.unfoldSec * 0.6, LOW, clock);
+    expect(sim.curState).toBe('truth');
+    expect(sim.truthUp).toBe(true);
+    expect(sim.cur!.truth).toBe(t(`tr.${sim.cur!.id}` as never));
+    // without focus it waits: no gilding, the same truth, still there
+    for (const f of [LOW, NONE, CALM]) {
+      drive(sim, 15, f, clock);
+      expect(sim.gild).toBe(0);
+      expect(sim.cur?.seq).toBe(seq);
+      expect(sim.curState).toBe('truth');
+    }
+    expect(sim.canSkip).toBe(false);
+    expect(sim.now).toBe(sim.restBlock ? sim.now : 'truth');
+    // with focus (in a push) light fills it; gilded, the pair counts
+    until(sim, MID, () => sim.doneNow > 0, clock);
+    expect(sim.doneNow).toBe(1);
+    expect(sim.doneAt).toHaveLength(1);
+    expect(sim.burnAt.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('says what to do now and prays the truth: “Przyjmij prawdę — patrz na nią”, “Jezu, przyjmuję Twoją prawdę.”', () => {
+    const sim = later({ planned: 600 });
+    until(sim, HIGH, () => sim.truthReady);
+    expect(sim.now).toBe('truth');
+    expect(t('now.truth')).toBe('Przyjmij prawdę — patrz na nią');
+    expect(sim.line).toBe('Jezu, przyjmuję Twoją prawdę.');
+    expect(sim.thoughtLabel).toBe(t('lab.truth'));
+  });
+
+  it('splits a pair’s focus: the truth ~45 % and at least 6 focus-s (read slowly twice), at every length', () => {
+    for (const min of [3, 5, 10, 15, 20, 25, 30]) {
+      const pl = planFor(min * 60, BREATH_DEFAULT, cleanRhythm(null));
+      expect(pl.needLie + pl.needTruth, `${min}`).toBeCloseTo(pl.need, 9);
+      expect(pl.needTruth, `${min}`).toBeGreaterThanOrEqual(RULES.truthMin);
+      expect(pl.needLie, `${min}`).toBeGreaterThanOrEqual(RULES.lieMin);
+      // an average player holds the truth long enough to read a 64-character truth twice
+      expect(pl.needTruth / RULES.avgRate, `${min}`).toBeGreaterThanOrEqual(readTime('x'.repeat(TRUTH_CHARS)));
+    }
+    expect(splitNeed(20).truth).toBeCloseTo(9, 9);
+    expect(splitNeed(9).truth).toBe(6);
+    expect(splitNeed(2, true).truth + splitNeed(2, true).lie).toBeCloseTo(2, 9);
+  });
+
+  it('in the dark gilds unseen and shows it at the push’s end', () => {
+    const sim = later({ planned: 900, progress: { sessions: 4, pushes: 2 } });
+    const { events } = playAll(sim, HIGH);
+    expect(ofType(events, 'blindEnd').some(e => e.gained > 0)).toBe(true);
+    expect(sim.doneNow).toBeGreaterThan(5);
+  });
+});
+
+describe('round 16: the warownie of the series as themed sets', () => {
+  it('holds the 24 of the kit in its order, six pairs each, mixes whole, passages that exist', () => {
+    expect(Object.keys(WAR_PAIRS)).toEqual(WAROWNIE.map(w => w.id));
+    expect(WAROWNIE).toHaveLength(24);
+    for (const w of WAROWNIE) {
+      expect(WAR_PAIRS[w.id], w.id).toHaveLength(WAR_SIZE);
+      for (const d of WAR_PAIRS[w.id]) {
+        expect(d.mix[0] + d.mix[1] + d.mix[2], w.id).toBeCloseTo(1, 1);
+        expect(passage(d.verse, 'pl').text.length, `${w.id} ${d.verse}`).toBeGreaterThan(10);
+      }
+      expect(passage(w.verse, 'pl').text.length).toBeGreaterThan(10);
+    }
+    for (const list of Object.values(GT_VERSES)) for (const id of list) expect(passage(id, 'pl').text.length).toBeGreaterThan(10);
+    expect(WAROWNIA_GROUPS).toHaveLength(5);
+  });
+
+  it('writes every lie (≤ 60), truth (≤ 64) and line in four languages: gender-neutral Polish, no risk phrasing, no forbidden word', () => {
+    for (const w of WAROWNIE) {
+      for (const l of LANGS) {
+        const cat = CATALOGS[l] as Record<string, string>;
+        const line = cat[`w.${w.id}.line`];
+        expect(line?.trim(), `${l} ${w.id}.line`).toBeTruthy();
+        expect([...line].length, `${l} ${w.id}.line`).toBeLessThanOrEqual(96);
+        const pairs = pairsOf(l, w.id);
+        expect(new Set(pairs.map(x => x[0])).size, `${l} ${w.id}`).toBe(WAR_SIZE);
+        for (const [k, [lie, truth]] of pairs.entries()) {
+          const at = `${l} ${w.id}.${k + 1}`;
+          expect(lie?.trim(), at).toBeTruthy();
+          expect(truth?.trim(), at).toBeTruthy();
+          expect([...lie].length, `${at} lie`).toBeLessThanOrEqual(THOUGHT_CHARS);
+          expect([...truth].length, `${at} truth`).toBeLessThanOrEqual(TRUTH_CHARS);
+          for (const x of [lie, truth]) {
+            expect(needsCare(x), at).toBe(false);
+            expect(x, at).not.toMatch(RISK);
+            expect(x, at).not.toMatch(FORBIDDEN[l]);
+            if (l === 'pl') expect(x, at).not.toMatch(GENDERED);
+          }
+        }
+        if (l === 'pl') expect(line, w.id).not.toMatch(GENDERED);
+        expect(line, `${l} ${w.id}`).not.toMatch(FORBIDDEN[l]);
+      }
+    }
+    for (const e of ['fear', 'sadness', 'anger', 'mixed']) for (let k = 1; k <= 3; k++) for (const l of LANGS) {
+      const s = (CATALOGS[l] as Record<string, string>)[`gt.${e}.${k}`];
+      expect([...s].length, `${l} gt.${e}.${k}`).toBeLessThanOrEqual(TRUTH_CHARS);
+      if (l === 'pl') expect(s).not.toMatch(GENDERED);
+    }
+  });
+
+  it('gives a care note where the kit asks for one, with the help line for a crisis; the compulsions set never offers daily repetition', () => {
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, string>;
+      for (const k of ['care.ocd', 'care.crisis', 'care.medical', 'care.addiction']) expect(cat[k]?.trim(), `${l} ${k}`).toBeTruthy();
+      expect(cat['care.ocd'], l).toMatch(/OCD/);
+      expect(cat['war.dailyOcd'], l).not.toMatch(/codzien|co dzień|every day|daily|\btäglich|jeden Tag|varje dag|dagligen/i);
+      expect(cat['fall.ocd'], l).not.toMatch(/codzien|co dzień|every day|daily|\btäglich|jeden Tag|varje dag|dagligen|jutro|tomorrow|morgen|i morgon/i);
+      for (const [, truth] of pairsOf(l, 'compulsions')) expect(truth).not.toMatch(/codzien|co dzień|every day|daily|\btäglich|jeden Tag|varje dag|dagligen/i);
+    }
+    expect(CATALOGS.pl['care.crisis']).toMatch(/116 123.*116 111.*112/);
+    expect(CATALOGS.de['care.crisis']).toMatch(/0800 111 0 111.*112/);
+    expect(CATALOGS.sv['care.crisis']).toMatch(/90101.*112/);
+    expect(isOcd('compulsions')).toBe(true);
+    expect(WAROWNIE.filter(w => isOcd(w.id)).map(w => w.id)).toEqual(['compulsions']);
+  });
+
+  it('opens a warownia’s session with its card: “Warownia · 2 Kor 10,4”, its name, its line, its opening verse', () => {
+    const sim = warSim('rejection');
+    expect(sim.set?.war?.id).toBe('rejection');
+    expect(sim.story?.pages).toBe(1);
+    const pg = sim.storyPage!;
+    expect(pg.kicker).toBe('Warownia · 2 Kor 10,4');
+    expect(pg.title).toBe('Odrzucenie');
+    expect(pg.text).toContain(t('w.rejection.line'));
+    expect(pg.verse).toBe('isa53.3');
+  });
+
+  it('loosens one stone per burned lie, falls once when all are burned (counted), then gives the truths again, truth only', () => {
+    const sim = warSim('rejection', { planned: 1200 });
+    const clock = { t: 0 };
+    const events: SimEvent[] = [];
+    const counts: number[] = [];
+    for (let i = 0; i < 6000 && sim.phase !== 'done'; i++) {
+      const evs = drive(sim, 0.25, HIGH, clock);
+      events.push(...evs);
+      for (const e of evs) if (e.type === 'burned') counts.push(sim.fellNow ? WAR_SIZE : sim.set!.place.burned.length);
+      if (ofType(events, 'fall').length && ofType(events, 'arrive').filter(e => e.thought.kind === 'daily').length >= 7) break;
+    }
+    // one stone per lie, in order of burning, and the fall exactly once, at the sixth
+    expect(counts.slice(0, WAR_SIZE)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(ofType(events, 'fall')).toHaveLength(1);
+    expect(sim.set!.place.falls).toBe(1);
+    expect(sim.set!.place.burned).toEqual([]);
+    expect(sim.fellNow).toBe(true);
+    // after the fall: the set's truths, truth only, every one of them, never the same twice in a row
+    const daily = ofType(events, 'arrive').map(e => e.thought).filter(x => x.kind === 'daily');
+    expect(daily.length).toBeGreaterThanOrEqual(7);
+    const truths = pairsOf('pl', 'rejection').map(x => x[1]);
+    for (const d of daily) {
+      expect(d.text).toBe('');
+      expect(truths).toContain(d.truth);
+    }
+    expect(new Set(daily.slice(0, 6).map(d => d.pair)).size).toBe(6);
+    for (let i = 1; i < daily.length; i++) expect(daily[i].pair).not.toBe(daily[i - 1].pair);
+  });
+
+  it('says the fall gently and counts it as “zburzona 2×”, never a score; the compulsions set goes on with the library instead', () => {
+    const sim = warSim('rejection', { planned: 900, progress: { places: { rejection: { burned: [0, 1, 2, 3, 4], gilded: [0, 1, 2, 3, 4], falls: 1 } } } });
+    const evs = until(sim, HIGH, () => sim.fellNow && sim.cur?.kind === 'daily');
+    expect(ofType(evs, 'fall')).toHaveLength(1);
+    expect(sim.set!.place.falls).toBe(2);
+    playAll(sim, HIGH);
+    expect(sim.result().highlights.join(' ')).toContain('zburzona już 2×');
+    // a set's session closes with the series' own sentence, to the Father, through Jesus, in the Holy Spirit
+    expect(sim.closeText).toMatch(/^Ojcze, przez Jezusa Chrystusa, w Duchu Świętym: w miejsce każdego kłamstwa przyjmuję Twoją prawdę\.$/);
+    expect(later().closeText).toBe(t('close.text'));
+    const ocd = warSim('compulsions', { planned: 900 });
+    const evs2 = until(ocd, HIGH, () => ocd.fellNow && ocd.cur !== null && ocd.curState === 'wait');
+    expect(ofType(evs2, 'fall')).toHaveLength(1);
+    expect(ocd.cur!.src).toBe('lib');
+    const after = until(ocd, HIGH, () => ocd.phase === 'done');
+    expect(ofType(after, 'arrive').some(e => e.thought.kind === 'daily')).toBe(false);
+    expect(ocd.line).not.toMatch(/codzien/);
+    expect(t('fall.ocd')).toMatch(/Nie musisz/);
+  });
+
+  it('keeps the set’s place when a session ends early, and the next one goes on (truths waiting first, then the unburned lies)', () => {
+    const first = warSim('fears', { planned: 600 });
+    drive(first, 50, HIGH);
+    // the player stops early: what burned stays burned
+    first.finish();
+    const pl = first.p.places.fears!;
+    expect(pl.burned.length).toBeGreaterThan(0);
+    expect(pl.burned.length).toBeLessThan(WAR_SIZE);
+    // the next session reads the same place (saved as JSON and loaded again)
+    const again = new MysliSim({ progress: migrate(JSON.parse(JSON.stringify(first.p))), rng: mulberry32(5), plannedSec: 600, eeg: false, tuning: TUNING, rhythm: null });
+    expect(again.set?.place.burned).toEqual(pl.burned);
+    // a place with a truth still waiting: it comes first, truth only; then the next lie
+    expect(setOrder(WAR_SIZE, { burned: [0, 1, 2], gilded: [0, 1], falls: 0 })).toEqual({ pending: [2], fresh: [3, 4, 5] });
+    const s2 = warSim('fears', { planned: 600, progress: { places: { fears: { burned: [0, 1, 2], gilded: [0, 1], falls: 0 } } } });
+    const arr = ofType(until(s2, HIGH, () => s2.burnedNow >= 1), 'arrive').map(e => e.thought);
+    expect(arr[0].kind).toBe('pending');
+    expect(arr[0].pair).toBe(2);
+    expect(arr[0].text).toBe('');
+    expect(arr[1].kind).toBe('pair');
+    expect(arr[1].pair).toBe(3);
+    expect(fallVerseFor(1)).toBe('jhn8.32');
+    expect(fallVerseFor(2)).toBe('2co10.4');
+  });
+
+  it('sets a warownia’s lie aside for this session only (“nie moja”), never for good', () => {
+    const sim = warSim('greed', { planned: 600 });
+    const clock = { t: 0 };
+    until(sim, LOW, () => sim.ready, clock);
+    const pair = sim.cur!.pair;
+    expect(sim.skip()).toBe(true);
+    expect(sim.p.skipped).toEqual([]);
+    const evs = until(sim, HIGH, () => sim.phase === 'done', clock);
+    expect(ofType(evs, 'arrive').some(e => e.thought.pair === pair && e.thought.src === 'war')).toBe(false);
+    expect(ofType(evs, 'fall')).toHaveLength(0);
+  });
+
+  it('builds the wall of as many stones as pairs, each with its slot', () => {
+    for (let n = 1; n <= PAIRS_MAX; n++) {
+      expect(coursesFor(n).reduce((a, b) => a + b, 0), `${n}`).toBe(n);
+      const st = wallStones(n, 200, 240, 7);
+      expect(st).toHaveLength(n);
+      for (const x of st) {
+        expect(x.x).toBeGreaterThanOrEqual(0);
+        expect(x.x + x.w).toBeLessThanOrEqual(200 + 1e-6);
+        expect(x.y).toBeGreaterThanOrEqual(0);
+        expect(x.y + x.h).toBeLessThanOrEqual(240 + 1e-6);
+      }
+      expect([...stoneSlots(n, 99)].sort((a, b) => a - b)).toEqual(Array.from({ length: n }, (_, i) => i));
+    }
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets, true);
+      expect(L.fort.w, c.name).toBeGreaterThan(30);
+      expect(L.fort.y, c.name).toBeGreaterThanOrEqual(L.top - 1);
+      expect(L.fort.y + L.fort.h, c.name).toBeLessThanOrEqual(L.stage.y + L.stage.h + 1);
+    }
+  });
+});
+
+describe('round 16: my own warownie', () => {
+  it('keeps the limits: 6 sets, a name of 32, 10 pairs, a lie and a truth of 80; no doubles; an empty lie is refused', () => {
+    const p = freshProgress();
+    for (let i = 0; i < 9; i++) addSet(p, `Zestaw ${i}`);
+    expect(p.sets).toHaveLength(SETS_MAX);
+    expect(addSet(p)).toBe(-1);
+    removeSet(p, 5);
+    expect(addSet(p, 'x'.repeat(100))).toBe(5);
+    expect([...p.sets[5].name].length).toBe(SET_NAME_CHARS);
+    for (let k = 0; k < 14; k++) addPair(p, 0, `Kłamstwo ${k}`, k % 2 ? '' : `Prawda ${k}`, 'fear');
+    expect(p.sets[0].pairs).toHaveLength(PAIRS_MAX);
+    expect(addPair(p, 1, 'Kłamstwo', '', 'anger')).toBe(true);
+    expect(addPair(p, 1, 'kłamstwo')).toBe(false);
+    expect(addPair(p, 1, '   ')).toBe(false);
+    expect(addPair(p, 1, 'y'.repeat(200), 'z'.repeat(200))).toBe(true);
+    expect([...p.sets[1].pairs[1].lie].length).toBe(PAIR_CHARS);
+    expect([...p.sets[1].pairs[1].truth].length).toBe(PAIR_CHARS);
+    expect(editPair(p, 1, 0, { lie: '' })).toBe(false);
+    expect(editPair(p, 1, 0, { truth: 'Bóg jest ze mną', emo: 'mixed' })).toBe(true);
+    expect(p.sets[1].pairs[0]).toEqual({ lie: 'Kłamstwo', truth: 'Bóg jest ze mną', emo: 'mixed' });
+    // removing a pair moves the place's indices with it
+    p.sets[0].place = { burned: [1, 3, 5], gilded: [1, 5], falls: 1 };
+    removePair(p, 0, 3);
+    expect(p.sets[0].place).toEqual({ burned: [1, 4], gilded: [1, 4], falls: 1 });
+    // forgetting a set moves the chosen ones with it
+    chooseSet(p, 4);
+    setFirst(p, 2);
+    removeSet(p, 2);
+    expect(p.set).toBe(3);
+    expect(p.first).toBe(-1);
+    forgetSets(p);
+    expect(p.sets).toEqual([]);
+    expect(p.mode).toBe('today');
+    expect(chooseWar(p, 'nope')).toBe(false);
+    expect(chooseWar(p, 'lies')).toBe(true);
+    expect(p.mode).toBe('war');
+    expect(cleanPlace({ burned: [0, 1, 2], gilded: [0, 1, 2] }, 3)).toEqual({ burned: [], gilded: [], falls: 0 });
+  });
+
+  it('migrates round 15’s own thoughts into one own set “Moje myśli” with empty truths, coming first in today’s mode', () => {
+    const v1 = mergeSaved(freshProgress(), {
+      ver: 1, sessions: 3, own: [{ text: 'Jutro egzamin', emo: 'fear' }, { text: 'Kłótnia z bratem', emo: 'anger' }, { text: 'jutro egzamin', emo: 'fear' }],
+      forgetBurned: true, burned: 12, best: { 300: 5 },
+    }) as MysliProgress;
+    const p = migrate(v1);
+    expect(p.ver).toBe(2);
+    expect(p.sessions).toBe(3);
+    expect(p.burned).toBe(12);
+    expect(p.sets).toEqual([{ name: '', pairs: [{ lie: 'Jutro egzamin', truth: '', emo: 'fear' }, { lie: 'Kłótnia z bratem', truth: '', emo: 'anger' }], place: freshPlace() }]);
+    expect(setNameOf(p.sets, 0)).toBe('Moje myśli');
+    expect(p.first).toBe(0);
+    expect(p.mode).toBe('today');
+    expect('own' in p).toBe(false);
+    expect('forgetBurned' in p).toBe(false);
+    expect(migrate(migrate({ ...p }))).toEqual(p);
+    // a second unnamed set: "Moje myśli 2"
+    addSet(p);
+    expect(setNameOf(p.sets, 1)).toBe('Moje myśli 2');
+  });
+
+  it('plays an own set as a stronghold: its lies burn, empty truths are answered by the feeling’s generic truth; nothing own reaches result()', () => {
+    const sets: OwnSet[] = [{
+      name: 'Tajna nazwa', place: freshPlace(),
+      pairs: [{ lie: 'Szef mnie zwolni', truth: 'Moja wartość nie zależy od posady', emo: 'fear' }, { lie: 'Nigdy nie zdążę', truth: '', emo: 'sadness' }, { lie: 'Brat mnie wkurza', truth: '', emo: 'anger' }],
+    }];
+    const sim = later({ planned: 900, progress: { sets, mode: 'own', set: 0 } });
+    expect(sim.set?.kind).toBe('own');
+    expect(sim.set?.size).toBe(3);
+    expect(sim.storyPage?.title).toBe('Tajna nazwa');
+    const { events } = playAll(sim, HIGH);
+    const truths = ofType(events, 'gilded').map(e => e.thought);
+    expect(truths[0].truth).toBe('Moja wartość nie zależy od posady');
+    expect(truths[1].truth).toBe(t('gt.sadness.2'));
+    expect(truths[2].truth).toBe(t('gt.anger.3'));
+    expect(ofType(events, 'fall')).toHaveLength(1);
+    expect(sim.p.sets[0].place.falls).toBe(1);
+    const r = sim.result();
+    expect(JSON.stringify(r)).not.toMatch(/Tajna nazwa|Szef mnie|Nigdy nie zdążę|Brat mnie|Moja wartość nie zależy/);
+    expect(r.highlights.join(' ')).toContain(t('hl.fallOwn'));
+  });
+
+  it('brings the help line forward when an own lie or truth sounds like a crisis', () => {
+    const p = freshProgress();
+    addSet(p, '');
+    addPair(p, 0, 'Nie chcę już żyć', '', 'sadness');
+    chooseSet(p, 0);
+    const el = progressPanel(p, () => {});
+    expect(el.textContent).toContain(t('panel.careOwn'));
+  });
+});
+
+describe('round 16: the card — one clear first choice', () => {
+  const click = (el: Element | null) => { (el as HTMLElement).click(); };
+
+  it('asks “Co dziś?”: today’s mode first; the warownie chooser opens when chosen — five groups, chips with their place', () => {
+    const p = freshProgress();
+    p.places = { rejection: { burned: [0, 1, 2], gilded: [0], falls: 0 }, humiliation: { burned: [], gilded: [], falls: 2 } };
+    let saves = 0;
+    const el = progressPanel(p, () => { saves++; });
+    expect(el.textContent).toContain(t('panel.what'));
+    expect(el.querySelectorAll('[data-mysli-mode]')).toHaveLength(3);
+    expect(el.querySelector('[data-mysli-war]')).toBeNull();
+    click(el.querySelector('[data-mysli-mode="war"]'));
+    expect(p.mode).toBe('war');
+    expect(el.querySelectorAll('[data-mysli-group]')).toHaveLength(5);
+    click(el.querySelector('[data-mysli-group="wounds"]'));
+    const chips = [...el.querySelectorAll('[data-mysli-war]')];
+    expect(chips.map(c => c.getAttribute('data-mysli-war'))).toEqual(['rejection', 'isolation', 'humiliation', 'pessimism']);
+    expect(chips[0].textContent).toContain('3/6');
+    expect(chips[2].textContent).toContain('zburzona 2×');
+    for (const c of chips) expect((c as HTMLElement).style.minHeight).toBe('44px');
+    click(el.querySelector('[data-mysli-war="humiliation"]'));
+    expect(p.war).toBe('humiliation');
+    expect(el.querySelector('[data-mysli="war-chosen"]')?.textContent).toContain(t('care.crisis'));
+    expect(el.querySelector('[data-mysli-war]')).toBeNull();
+    expect(saves).toBeGreaterThan(2);
+    // the compulsions set: its OCD note, and no daily repetition offered
+    click(el.querySelector('[data-mysli="war-change"]'));
+    click(el.querySelector('[data-mysli-group="unrest"]'));
+    click(el.querySelector('[data-mysli-war="compulsions"]'));
+    const box = el.querySelector('[data-mysli="war-chosen"]')!.textContent!;
+    expect(box).toContain(t('care.ocd'));
+    expect(box).toContain(t('war.dailyOcd'));
+    expect(box).not.toContain(t('war.daily'));
+  });
+
+  it('makes an own warownia in the card: “+ Nowa warownia”, a pair as a block (the lie, its truth under it), “Gotowe”', () => {
+    const p = freshProgress();
+    const el = progressPanel(p, () => {});
+    click(el.querySelector('[data-mysli-mode="own"]'));
+    click(el.querySelector('[data-mysli="own-new"]'));
+    expect(p.sets).toHaveLength(1);
+    expect(p.mode).toBe('own');
+    const lie = el.querySelector('[data-mysli="new-lie"]') as HTMLInputElement;
+    const truth = el.querySelector('[data-mysli="new-truth"]') as HTMLInputElement;
+    lie.value = 'Nie poradzę sobie z tym projektem';
+    truth.value = 'Krok po kroku — nie w pojedynkę';
+    click(el.querySelector('[data-mysli="own-add"]'));
+    expect(p.sets[0].pairs).toEqual([{ lie: 'Nie poradzę sobie z tym projektem', truth: 'Krok po kroku — nie w pojedynkę', emo: 'mixed' }]);
+    click(el.querySelector('[data-mysli="own-done"]'));
+    expect(el.querySelector('[data-mysli="own-editor"]')).toBeNull();
+    expect(el.querySelector('[data-mysli="own-chosen"]')?.textContent).toContain('Nie poradzę sobie z tym projektem');
   });
 });

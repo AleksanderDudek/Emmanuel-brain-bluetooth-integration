@@ -1,14 +1,16 @@
 /**
- * Every number of Każda myśl's rules in one place (DESIGN.md §19): what focus burns and how fast, the blocks, the
- * rests of whole breaths, the plan that fits the whole arc — the settling, the thoughts in pushes of the player's
- * rhythm, the last rest, the quiet with the point alone, the close — into any session from 3 to 30 minutes, the
- * voice and the cards.  Tuning moves a number here and nowhere else; the tests read the same object.
+ * Every number of Każda myśl's rules in one place (DESIGN.md §19, §20): what focus burns and gilds and how fast, the
+ * blocks, the rests of whole breaths, the plan that fits the whole arc — the settling, the pairs (a lie burned, its
+ * truth gilded) in pushes of the player's rhythm, the last rest, the quiet with the point alone, the close — into any
+ * session from 3 to 30 minutes, the voice and the cards.  Tuning moves a number here and nowhere else; the tests read
+ * the same object.
  *
- * Light only from real focus (the heart series' first rule, §18): a thought burns only in a sighted push, past its
- * lead-in, once it has drifted to the ring, with a reliable signal, while `frame.focused`, at `focusRate`
- * focus-seconds a second (1 at the threshold, up to 1.5 in a strong, held focus).  A thought needs `need`
- * focus-seconds.  Nothing burns in rest, the settling, the finale, without a signal, below the threshold or from
- * taps; what has burned stays burned.
+ * Light only from real focus (the heart series' first rule, §18): a lie burns and its truth fills with light only in
+ * a sighted push, past its lead-in, once it is at the ring, with a reliable signal, while `frame.focused`, at
+ * `focusRate` focus-seconds a second (1 at the threshold, up to 1.5 in a strong, held focus).  A pair needs `need`
+ * focus-seconds: `needLie` to burn the lie, `needTruth` to gild the truth (the founder: the focus on the positive).
+ * Nothing burns or gilds in rest, the settling, the finale, without a signal, below the threshold or from taps; what
+ * has burned stays burned, what is gilded stays gilded, and a truth without focus waits, readable, never fading.
  */
 import { breathCycle, type BreathPattern } from '../kit/breath';
 
@@ -33,6 +35,15 @@ export const RULES = {
   arriveSec: 2.5,
   /** a thought set aside ("nie moja") drifts back out this long (s) */
   leaveSec: 1.2,
+  /** a burned lie's truth unfolds on its golden slip this long (s) — not gated, nothing gilds meanwhile */
+  unfoldSec: 1.2,
+  /** the share of a pair's focus its truth takes (the rest burns the lie), and the least a truth needs (focus-s: an
+   *  average player holds it ~8 s, long enough to read 64 characters slowly twice) */
+  truthShare: 0.45,
+  truthMin: 6,
+  lieMin: 3,
+  /** a warownia falls: its moment (s) — the light breaks through, "Warownia zburzona"; not gated */
+  fallSec: 5,
   /** the library thoughts burned last time go to the back of the next session's queue (at most this many kept) */
   recentMax: 24,
   /** "nie moja": at most this many library thoughts set aside for good */
@@ -77,16 +88,16 @@ export const RULES = {
   focus: { def: 3, min: 1, max: 6 },
   /** whole breaths in a rest: the designed default and the range */
   rest: { def: 2, min: 1, max: 6 },
-  /** what a thought typically needs (focus-seconds), for the lobby's count of rests */
-  typicalNeed: 12,
+  /** what a pair typically needs (focus-seconds), for the lobby's count of rests */
+  typicalNeed: 14,
 
   // ── the plan's average player (planFor) ─────────────────────
   /** focus-seconds a second an average player gathers past the lead-in (~70 % of the time focused, a little above the threshold) */
   avgRate: 0.75,
   /** the share of the free time the planned thoughts take for that player (the rest of it: more thoughts, or slack) */
   avgShare: 0.88,
-  /** what a thought needs (focus-seconds): bounds for a real session and for a test of under two minutes */
-  needMin: 6,
+  /** what a pair needs (focus-seconds): bounds for a real session and for a test of under two minutes */
+  needMin: 9,
   needMax: 30,
   tinyNeed: 2.5,
 
@@ -124,19 +135,20 @@ export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RU
 
 /**
  * The arc's shape by the session's length (DESIGN §17: 3–30 minutes; a session under two minutes is a test or the
- * smoke): seconds a settling cue lasts, the thoughts the plan is paced for, and the quiet stretch with the point
+ * smoke): seconds a settling cue lasts, the pairs the plan is paced for (round 16: a pair is a lie and its truth, so a
+ * little fewer than round 15's thoughts, each with more time), and the quiet stretch with the point
  * alone at the end (long sessions go deeper: more thoughts, more mixtures, and the quiet).
  */
 interface Row { upTo: number; cue: number; thoughts: number; quiet: number }
 const TABLE: readonly Row[] = [
   { upTo: 119, cue: 1, thoughts: 2, quiet: 0 },
   { upTo: 239, cue: 6, thoughts: 5, quiet: 0 },
-  { upTo: 449, cue: 7, thoughts: 8, quiet: 0 },
-  { upTo: 749, cue: 8, thoughts: 16, quiet: 30 },
-  { upTo: 1049, cue: 9, thoughts: 22, quiet: 45 },
-  { upTo: 1349, cue: 10, thoughts: 28, quiet: 60 },
-  { upTo: 1649, cue: 10, thoughts: 34, quiet: 75 },
-  { upTo: Infinity, cue: 10, thoughts: 40, quiet: 90 },
+  { upTo: 449, cue: 7, thoughts: 7, quiet: 0 },
+  { upTo: 749, cue: 8, thoughts: 14, quiet: 30 },
+  { upTo: 1049, cue: 9, thoughts: 19, quiet: 45 },
+  { upTo: 1349, cue: 10, thoughts: 24, quiet: 60 },
+  { upTo: 1649, cue: 10, thoughts: 29, quiet: 75 },
+  { upTo: Infinity, cue: 10, thoughts: 34, quiet: 90 },
 ];
 
 export const rowFor = (plannedSec: number): Row => TABLE.find(r => plannedSec <= r.upTo) ?? TABLE[TABLE.length - 1];
@@ -153,11 +165,13 @@ export interface Plan {
   plannedSec: number;
   /** one settling cue (s); three of them */
   cueSec: number;
-  /** the thoughts the plan is paced for, and how many burn in one push before a rest */
+  /** the pairs the plan is paced for, and how many are given (lie burned, truth gilded) in one push before a rest */
   thoughts: number;
   perPush: number;
-  /** what one thought needs (focus-seconds) */
+  /** what one pair needs (focus-seconds): its lie, its truth; a truth alone (the daily truths) takes the whole */
   need: number;
+  needLie: number;
+  needTruth: number;
   /** a rest of whole breaths; the last rest (the ash settles) a breath longer */
   restCycles: number;
   restSec: number;
@@ -179,7 +193,7 @@ export interface Plan {
  * and long rests plans fewer thoughts (each still needs at least RULES.needMin).  A stronger player burns more
  * thoughts (the queue goes on); a weaker one fewer; the last rest, the quiet and the close always come at the end.
  */
-export function planFor(plannedSec: number, pattern: BreathPattern, rhythm: MysliRhythm, eeg = false): Plan {
+export function planFor(plannedSec: number, pattern: BreathPattern, rhythm: MysliRhythm, eeg = false, fall = false): Plan {
   const T = Math.max(10, plannedSec);
   const r = rowFor(T);
   const R = RULES;
@@ -196,19 +210,32 @@ export function planFor(plannedSec: number, pattern: BreathPattern, rhythm: Mysl
   // the focus-seconds the free time gives an average player for K thoughts (pushes of N, a rest between two)
   const freeFor = (K: number): number => {
     const pushes = Math.ceil(K / N);
-    const fixed = 3 * r.cue + finaleSec + r.quiet + lastSec + (pushes - 1) * restSec + pushes * lead + (K - pushes) * R.arriveSec;
+    const fixed = 3 * r.cue + finaleSec + r.quiet + lastSec + (pushes - 1) * restSec + pushes * lead + (K - pushes) * R.arriveSec
+      + K * R.unfoldSec + (fall ? R.fallSec : 0);
     return Math.max(0, T - fixed) * R.avgShare * R.avgRate;
   };
   // a rhythm of many short pushes and long rests leaves less time to burn in: fewer thoughts, each still worth its least
   let K = r.thoughts;
   while (!tiny && K > 2 && freeFor(K) / K < R.needMin) K--;
   const need = tiny ? R.tinyNeed : Math.max(R.needMin, Math.min(R.needMax, freeFor(K) / K));
+  const { lie: needLie, truth: needTruth } = splitNeed(need, tiny);
   return {
-    plannedSec: T, cueSec: r.cue, thoughts: K, perPush: N, need, restCycles, restSec, lastCycles, lastSec, cycleSec: cyc,
+    plannedSec: T, cueSec: r.cue, thoughts: K, perPush: N, need, needLie, needTruth, restCycles, restSec, lastCycles, lastSec, cycleSec: cyc,
     quietSec: r.quiet, finaleSec, lead,
   };
 }
 
+/**
+ * A pair's focus split between its lie and its truth: the truth RULES.truthShare of it, at least RULES.truthMin (the
+ * lie at least RULES.lieMin) — the founder wants the focus on the positive; a test under two minutes just splits it.
+ */
+export function splitNeed(need: number, tiny = false): { lie: number; truth: number } {
+  const R = RULES;
+  if (tiny) return { lie: need * (1 - R.truthShare), truth: need * R.truthShare };
+  const truth = Math.min(need - R.lieMin, Math.max(R.truthMin, need * R.truthShare));
+  return { lie: need - truth, truth };
+}
+
 /** Seconds a push of `n` thoughts typically takes (the lobby's count of rests): the lead-in, the arrivals, the burning. */
 export const pushSecFor = (n: number, eeg = false): number =>
-  (eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs) + n * (RULES.typicalNeed / RULES.avgRate) + Math.max(0, n - 1) * RULES.arriveSec;
+  (eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs) + n * (RULES.typicalNeed / RULES.avgRate + RULES.unfoldSec) + Math.max(0, n - 1) * RULES.arriveSec;

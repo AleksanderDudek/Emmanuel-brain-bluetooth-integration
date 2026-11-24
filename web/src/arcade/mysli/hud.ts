@@ -14,7 +14,7 @@ import { blend } from './content';
 import { t, type Key } from './i18n';
 import { scaleParts, type Layout, type Rect } from './layout';
 import { CALM, GOLD, GOLD_HI, INK, PEARL, WARM, fitFont, font, mix, rr, wrap } from './paint';
-import { closeVerseFor, pageOf, type MysliSim, type NowWhat } from './sim';
+import { closeVerseFor, fallVerseFor, pageOf, type MysliSim, type NowWhat } from './sim';
 
 export interface HudState { capK: number; capText: string; bandGlow: number; guideK: number; time: number; reduced: boolean }
 
@@ -22,7 +22,7 @@ export interface HudState { capK: number; capText: string; bandGlow: number; gui
 export const hudOn = (sim: MysliSim): boolean => sim.started && sim.phase !== 'done';
 
 const NOW_COLOR: Readonly<Record<NowWhat, string>> = {
-  settle: PEARL, arrive: GOLD_HI, burn: GOLD_HI, dark: '#d6d6ec', rest: CALM, valve: CALM, last: CALM, quiet: GOLD_HI, end: PEARL,
+  settle: PEARL, arrive: GOLD_HI, burn: GOLD_HI, truth: GOLD_HI, fall: GOLD_HI, dark: '#d6d6ec', rest: CALM, valve: CALM, last: CALM, quiet: GOLD_HI, end: PEARL,
 };
 
 /** The label of the band: what the thought is, or where the session is. */
@@ -39,6 +39,7 @@ export function bandLabel(sim: MysliSim): { text: string; color: string } {
   if (b.blind) return { text: t('lab.dark'), color: '#d6d6ec' };
   const c = sim.cur;
   if (!c) return { text: t('lab.settle', { i: 3 }), color: PEARL };
+  if (sim.truthUp || sim.falling) return { text: sim.thoughtLabel, color: GOLD_HI };
   return { text: sim.thoughtLabel, color: mix(blend(c.mix, 'ember'), '#ffffff', 0.35) };
 }
 
@@ -142,7 +143,7 @@ let verseFits: boolean | null = null;
 function bodyBox(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): Rect {
   const r = L.band;
   const lpx = fitFont(ctx, bandLabel(sim).text, r.w, Math.max(MIN_READ, L.font.label), MIN_READ, 700);
-  const y = r.y + 2 + Math.round(lpx * 1.6) + nowRowH(L);
+  const y = r.y + 2 + Math.round(lpx * 1.6) + nowLayout(ctx, L, t(`now.${sim.now}` as Key), r.w).h;
   return { x: r.x, y, w: r.w, h: r.y + r.h - y - 2 };
 }
 
@@ -161,6 +162,19 @@ function versePage(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): Pas
 /** The height of the band's line of what to do now. */
 export const nowRowH = (L: Pick<Layout, 'font'>): number => Math.round(Math.max(MIN_READ, L.font.now) * 1.55) + 4;
 
+/**
+ * The line of what to do now in a width: one line (shrinking to the floor), or — in a narrow column (a phone on its
+ * side beside the signal dock, a long German line) — two lines at the floor, never cut.
+ */
+function nowLayout(ctx: CanvasRenderingContext2D, L: Layout, text: string, w: number): { px: number; lines: string[]; h: number } {
+  const npx = Math.max(MIN_READ, L.font.now);
+  const px = fitFont(ctx, text, w - 3 * npx, npx, MIN_READ, 700);
+  ctx.font = font(px, 700);
+  if (ctx.measureText(text).width <= w - 3 * npx) return { px, lines: [text], h: nowRowH(L) };
+  const lines = wrap(ctx, text, w - 3 * npx).slice(0, 2);
+  return { px, lines, h: lines.length * Math.round(px * 1.3) + 6 };
+}
+
 function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, hs: HudState): void {
   const r = L.band;
   veil(ctx, r, L.shape === 'tall' ? 0.55 : 0.42);
@@ -168,13 +182,13 @@ function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, hs: H
   const lab = bandLabel(sim);
   const lpx = fitFont(ctx, lab.text, r.w, Math.max(MIN_READ, L.font.label), MIN_READ, 700);
   const labH = Math.round(lpx * 1.6);
-  const nowH = nowRowH(L);
+  const nl = nowLayout(ctx, L, t(`now.${sim.now}` as Key), r.w);
   let y = r.y + 2;
   ctx.font = font(lpx, 700);
   outlined(ctx, lab.text, cx, y + labH / 2, lab.color);
   y += labH;
-  drawNow(ctx, L, sim, cx, y + nowH / 2, r.w);
-  y += nowH;
+  drawNow(ctx, L, sim, cx, y, r.w, nl);
+  y += nl.h;
   const body = { x: r.x, y, w: r.w, h: r.y + r.h - y - 2 };
   if (sim.restBlock) {
     const vl = versePage(ctx, L, sim);
@@ -182,8 +196,17 @@ function drawBand(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, hs: H
     else drawLines(ctx, L, sim.restWord, body, '#f4efe2', 0);
     return;
   }
-  // the prayer (or the settling cue), glowing again after a tap
-  const col = hs.bandGlow > 0 ? mix('#f4efe2', '#fff1c9', hs.bandGlow) : '#f4efe2';
+  // the stronghold's fall: its passage when it fits whole, else its words
+  if (sim.falling && sim.set) {
+    const id = fallVerseFor(sim.set.place.falls);
+    const vl = verseLayout(ctx, id, body.w, body.h, Math.round(15 * L.u));
+    if (vl.fits && !sim.set.ocd) drawPassage(ctx, passage(id), vl, cx, body.y + Math.max(0, (body.h - vl.height) / 2), { text: '#fff1c9', ref: 'rgba(240,226,190,.8)' });
+    else drawLines(ctx, L, sim.line, body, '#fff1c9', 0);
+    return;
+  }
+  // the prayer (or the settling cue), glowing again after a tap; a truth's prayer in gold
+  const base = sim.truthUp ? '#ffe7b0' : '#f4efe2';
+  const col = hs.bandGlow > 0 ? mix(base, '#fff1c9', hs.bandGlow) : base;
   drawLines(ctx, L, sim.line, body, col, 0);
 }
 
@@ -201,11 +224,14 @@ function drawLines(ctx: CanvasRenderingContext2D, L: Layout, text: string, box: 
 }
 
 /** The line of what to do now (an icon and a few words). */
-function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, cx: number, y: number, w: number): void {
+function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, cx: number, top: number, w: number, nl: { px: number; lines: string[]; h: number }): void {
+  void L;
+  void w;
   const what = sim.now;
-  const text = t(`now.${what}` as Key);
-  const npx = Math.max(MIN_READ, L.font.now);
-  const px = fitFont(ctx, text, w - 3 * npx, npx, MIN_READ, 700);
+  const px = nl.px;
+  const lh = Math.round(px * 1.3);
+  const y = nl.lines.length > 1 ? top + 3 + lh / 2 : top + nl.h / 2;
+  const text = nl.lines[0];
   ctx.font = font(px, 700);
   const tw = ctx.measureText(text).width, ir = px * 0.5, gap = px * 0.5;
   const x0 = cx - (2 * ir + gap + tw) / 2;
@@ -213,7 +239,7 @@ function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, cx: nu
   // the icon: a small flame for focus, a ring that breathes in rest, a dim disc in the dark, a pearl elsewhere
   ctx.save();
   const ix = x0 + ir;
-  if (what === 'burn' || what === 'arrive' || what === 'quiet') {
+  if (what === 'burn' || what === 'arrive' || what === 'quiet' || what === 'truth' || what === 'fall') {
     ctx.fillStyle = sim.goldOn ? GOLD : 'rgba(255,210,122,.55)';
     ctx.beginPath();
     ctx.moveTo(ix, y - ir * 0.95);
@@ -236,6 +262,7 @@ function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim, cx: nu
   ctx.textAlign = 'left';
   outlined(ctx, text, x0 + 2 * ir + gap, y, color);
   ctx.textAlign = 'center';
+  if (nl.lines[1]) outlined(ctx, nl.lines[1], cx + ir + gap / 2, y + lh, color);
 }
 
 // ── the caption, "Nie moja" ──────────────────────────────────────
@@ -302,7 +329,7 @@ function drawClose(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): voi
   const w = Math.min(box.w, Math.round(520 * Math.min(L.u, 1.6)));
   const innerW = w - 2 * pad;
   const title = wrapFit(ctx, t('close.title'), innerW, Math.max(18, Math.round(21 * L.u)), 16, 1, 700, true);
-  const text = wrapFit(ctx, t('close.text'), innerW, Math.max(MIN_READ + 1, Math.round(15 * L.u)), MIN_READ, 5, 500, true, true);
+  const text = wrapFit(ctx, sim.closeText, innerW, Math.max(MIN_READ + 1, Math.round(15 * L.u)), MIN_READ, 5, 500, true, true);
   const id = closeVerseFor(sim.session);
   const avail = box.h - 2 * pad - title.lineH - text.lines.length * text.lineH - 20;
   const lay = avail >= 44 ? verseLayout(ctx, id, innerW, avail, Math.round(15 * L.u)) : null;
@@ -369,19 +396,21 @@ function drawScale(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): voi
 
 function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): void {
   const s = sim.story!;
-  const pg = pageOf(s.kind, s.page);
+  const pg = sim.storyPage ?? pageOf(s.kind, s.page);
   const box = L.story;
   const pad = Math.round(18 * Math.min(L.u, 1.4));
   const w = Math.min(box.w, Math.round(520 * Math.min(L.u, 1.6)));
   const innerW = w - 2 * pad;
   const tpx = Math.max(18, Math.round(22 * L.u));
   const title = wrapFit(ctx, pg.title, innerW, tpx, 16, 2, 700, true);
+  const kpx = Math.max(MIN_READ, L.font.small);
+  const kickH = pg.kicker ? Math.round(kpx * 1.7) : 0;
   const text = wrapFit(ctx, pg.text, innerW, Math.max(MIN_READ + 1, Math.round(15 * L.u)), MIN_READ, 8, 500, false);
   const hint = t(L.touch ? 'story.tap' : 'story.click');
   const hpx = Math.max(MIN_READ, L.font.small);
-  const avail = box.h - 2 * pad - title.lines.length * title.lineH - text.lines.length * text.lineH - hpx * 2 - 24;
+  const avail = box.h - 2 * pad - kickH - title.lines.length * title.lineH - text.lines.length * text.lineH - hpx * 2 - 24;
   const vl = verseLayout(ctx, pg.verse, innerW, Math.max(40, avail), Math.round(16 * L.u));
-  const h = Math.min(box.h, 2 * pad + title.lines.length * title.lineH + 10 + text.lines.length * text.lineH + 14 + vl.height + 14 + hpx * 1.6);
+  const h = Math.min(box.h, 2 * pad + kickH + title.lines.length * title.lineH + 10 + text.lines.length * text.lineH + 14 + vl.height + 14 + hpx * 1.6);
   const x = box.x + (box.w - w) / 2, y = box.y + (box.h - h) / 2;
   ctx.save();
   ctx.fillStyle = 'rgba(6,4,8,.42)';
@@ -395,6 +424,12 @@ function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: MysliSim): voi
   ctx.restore();
   const cx = x + w / 2;
   let yy = y + pad + title.lineH / 2;
+  if (pg.kicker) {
+    // a warownia's small line above its name: "Warownia · 2 Kor 10,4"
+    ctx.font = font(fitFont(ctx, pg.kicker.toLocaleUpperCase(), innerW, kpx, MIN_READ, 700), 700);
+    outlined(ctx, pg.kicker.toLocaleUpperCase(), cx, y + pad + kickH / 2 - 2, 'rgba(255,210,122,.85)');
+    yy += kickH;
+  }
   ctx.font = font(title.size, 700, true);
   for (const l of title.lines) {
     outlined(ctx, l, cx, yy, GOLD_HI);

@@ -275,6 +275,7 @@ export const CLOSE_VERSES: readonly PassageId[] = ['php4.7', 'isa26.3', 'jhn14.2
 /** The narrator's moments (three lines each in every language, i18n `say.<moment>.<1..3>`). */
 export const MOMENTS = [
   'open', 'settle', 'first', 'own', 'mixed', 'burned', 'rest', 'quiet', 'end', 'blind', 'blindEnd', 'nosignal', 'valve', 'good', 'wait', 'skip',
+  'truth', 'gilded', 'fall', 'daily',
 ] as const;
 export type Moment = (typeof MOMENTS)[number];
 export const LINE_COUNT = 3;

@@ -47,6 +47,8 @@ export interface Layout {
   slip: { cx: number; cy: number; w: number; maxH: number };
   /** the golden lights' orbit round the point (an ellipse) */
   orbit: { rx: number; ry: number };
+  /** a set's stronghold: the wall behind the flame, under the slip (its stones are the set's pairs) */
+  fort: Rect;
   /** the words: the band (tall) or the column (side, wide) */
   band: Rect;
   /** the narrator's caption (passive) */
@@ -116,7 +118,13 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     const r = Math.max(22, Math.min(gr0, (maxH + 2.1 * fs) / 2.6));
     const gh = guideH(r);
     const guide = { cx: slip.cx, cy: Math.max(stage.y + gh / 2 + 2, Math.min(slip.cy, fy - fs * 2.2 - gh / 2)), r, maxW: Math.min(stage.w - 2 * r - 40, 260 * u) };
-    return { fx: stage.x + stage.w / 2, fy, fs, slip, orbit, guide };
+    // the stronghold stands behind the flame, from just under the slip to a little below the point: taller than wide
+    const fTop = top0 + maxH * 0.72;
+    const fBot = Math.min(floor - 2, fy + fs * 1.5);
+    const fh = Math.max(40, fBot - fTop);
+    const fw = Math.min(stage.w * 0.86, fh * 1.15, 380 * Math.min(u, 1.5));
+    const fort = { x: stage.x + (stage.w - fw) / 2, y: fBot - fh, w: fw, h: fh };
+    return { fx: stage.x + stage.w / 2, fy, fs, slip, orbit, guide, fort };
   };
 
   if (shape === 'tall') {
@@ -247,9 +255,12 @@ export function previewLayout(w: number, h: number): Layout {
   const maxH = slipMaxH(Math.max(13, Math.min(18, h * 0.05)));
   const fy = h * 0.62;
   const stage = { x: cx - slipW / 2 - 20, y: Math.max(4, h * 0.04), w: slipW + 40, h: h * 0.9 };
+  const sy = Math.max(maxH / 2 + 6, fy - fs * 2.4 - maxH / 2 - fs * 1.6);
+  const fh = Math.max(30, fy + fs * 1.5 - (sy + maxH * 0.22)), fw = Math.min(slipW, fh * 1.15);
   return {
     ...base, w, h, top: 0, bottom: h, left: 0, right: w, stage, fx: cx, fy, fs,
-    slip: { cx, cy: Math.max(maxH / 2 + 6, fy - fs * 2.4 - maxH / 2 - fs * 1.6), w: slipW, maxH },
+    fort: { x: cx - fw / 2, y: fy + fs * 1.5 - fh, w: fw, h: fh },
+    slip: { cx, cy: sy, w: slipW, maxH },
     orbit: { rx: Math.min(w * 0.3, fs * 4.4), ry: Math.min(w * 0.3, fs * 4.4) * 0.4 },
   };
 }

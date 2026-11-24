@@ -289,3 +289,199 @@ export function bakeSlip(text: string, m: Mix, w: number, px: number, min: numbe
   }
   return { c: L.c, w, h, size: tx.size, lines: tx.lines };
 }
+
+// ── a truth's golden slip ────────────────────────────────────────
+
+export interface GoldSlip {
+  /** the slip with its words in dim gold (readable, waiting), and the same words as light (what focus fills in) */
+  base: Layer;
+  lit: Layer;
+  w: number;
+  h: number;
+  size: number;
+  lines: string[];
+  /** each line's width (CSS px), for the light that fills the letters left to right, line by line */
+  widths: number[];
+  pad: number;
+}
+
+/**
+ * A truth's slip baked once: a leaf of deep gold — burnished bronze with a fine gold edge, like gilding on dark
+ * vellum — and its words twice: in dim gold (readable while it waits, never fading) and as light (bright gold-white
+ * with a soft glow, the layer that focus reveals).  An upright serif: the lie was italic, the truth stands.
+ */
+export function bakeGoldSlip(text: string, w: number, px: number, min: number, dpr: number, seed: number): GoldSlip | null {
+  const probe = layer(4, 4, 1);
+  if (!probe) return null;
+  const pad = Math.max(10, Math.round(px * 0.75));
+  let size = Math.max(min, px), lines: string[] = [];
+  for (; size >= min; size -= 0.5) {
+    probe.ctx.font = font(size, 600, true);
+    lines = wrap(probe.ctx, text, w - 2 * pad);
+    if (lines.length <= 3) break;
+  }
+  size = Math.max(min, size);
+  probe.ctx.font = font(size, 600, true);
+  lines = wrap(probe.ctx, text, w - 2 * pad);
+  const widths = lines.map(l => probe.ctx.measureText(l).width);
+  const lh = Math.round(size * 1.3);
+  const h = lines.length * lh + 2 * pad;
+  const B = layer(w + 8, h + 8, dpr), Lt = layer(w + 8, h + 8, dpr);
+  if (!B || !Lt) return null;
+  const ctx = B.ctx;
+  ctx.translate(4, 4);
+  // a leaf with softly uneven edges
+  ctx.beginPath();
+  const n = 18;
+  const jag = (i: number, k: number) => (hash(seed * 29 + i * 5 + k) - 0.5) * 1.6;
+  ctx.moveTo(0, 0);
+  for (let i = 1; i <= n; i++) ctx.lineTo((w * i) / n, jag(i, 1));
+  for (let i = 1; i <= 5; i++) ctx.lineTo(w + jag(i, 2), (h * i) / 5);
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo((w * i) / n, h + jag(i, 3));
+  for (let i = 4; i >= 1; i--) ctx.lineTo(jag(i, 4), (h * i) / 5);
+  ctx.closePath();
+  const leaf = ctx.createLinearGradient(0, 0, w, h);
+  leaf.addColorStop(0, '#4a3514');
+  leaf.addColorStop(0.5, '#634718');
+  leaf.addColorStop(1, '#3d2b0f');
+  ctx.fillStyle = leaf;
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  // a warm sheen across it (no grain lines: on a phone they read as stray dashes by the words)
+  const sheen = ctx.createLinearGradient(0, 0, w, 0);
+  sheen.addColorStop(0, 'rgba(255,214,140,0)');
+  sheen.addColorStop(0.45, 'rgba(255,214,140,.10)');
+  sheen.addColorStop(1, 'rgba(255,214,140,0)');
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(231,194,106,.85)';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,236,190,.18)';
+  ctx.lineWidth = 1;
+  rr(ctx, 3.5, 3.5, w - 7, h - 7, 3);
+  ctx.stroke();
+  // the words in dim gold: readable while the truth waits
+  ctx.font = font(size, 600, true);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#d9b96c';
+  let y = pad + lh / 2;
+  for (const line of lines) {
+    ctx.fillText(line, w / 2, y);
+    y += lh;
+  }
+  // the same words as light (baked with their glow once: no blur per frame)
+  const L = Lt.ctx;
+  L.translate(4, 4);
+  L.font = font(size, 600, true);
+  L.textAlign = 'center';
+  L.textBaseline = 'middle';
+  L.shadowColor = 'rgba(255,200,90,.9)';
+  L.shadowBlur = Math.max(6, size * 0.55);
+  L.fillStyle = '#fff6da';
+  y = pad + lh / 2;
+  for (const line of lines) {
+    L.fillText(line, w / 2, y);
+    y += lh;
+  }
+  L.shadowBlur = 0;
+  L.fillStyle = '#fffdf4';
+  y = pad + lh / 2;
+  for (const line of lines) {
+    L.fillText(line, w / 2, y);
+    y += lh;
+  }
+  return { base: B.c, lit: Lt.c, w, h, size, lines, widths, pad };
+}
+
+// ── a set's stronghold ───────────────────────────────────────────
+
+/** The wall's courses, bottom up, for a set of n stones (a tower a little narrower at the top: never a game castle). */
+export function coursesFor(n: number): number[] {
+  const T: Record<number, number[]> = { 1: [1], 2: [2], 3: [2, 1], 4: [2, 2], 5: [3, 2], 6: [2, 2, 2], 7: [3, 2, 2], 8: [3, 3, 2], 9: [3, 3, 3], 10: [4, 3, 3] };
+  return T[Math.max(1, Math.min(10, Math.round(n)))];
+}
+
+export interface Stone { x: number; y: number; w: number; h: number; r: number }
+
+/**
+ * The wall's stones in a box of w × h (CSS px, the box's top left at 0, 0), slot by slot from the bottom left: courses
+ * of large hewn stones whose joints never line up (seeded), the courses narrowing a little toward the top, a mortar
+ * gap between them through which the light behind shows.
+ */
+export function wallStones(n: number, w: number, h: number, seed: number): Stone[] {
+  const courses = coursesFor(n);
+  const C = courses.length;
+  const gap = Math.max(2, Math.min(w, h) * 0.022);
+  const ch = h / C;
+  const out: Stone[] = [];
+  courses.forEach((m, c) => {
+    const cw = w * (1 - 0.14 * ((c + 0.5) / C));
+    const x0 = (w - cw) / 2;
+    const y0 = h - (c + 1) * ch;
+    const cuts = [0];
+    for (let i = 1; i < m; i++) cuts.push(i / m + (hash(seed + c * 7 + i * 3) - 0.5) * (0.28 / m) + (c % 2 ? 0.06 / m : -0.06 / m));
+    cuts.push(1);
+    for (let i = 0; i < m; i++) {
+      const sx = x0 + cuts[i] * cw + gap / 2, ex = x0 + cuts[i + 1] * cw - gap / 2;
+      out.push({ x: sx, y: y0 + gap / 2, w: Math.max(4, ex - sx), h: Math.max(4, ch - gap), r: Math.min(ex - sx, ch) * (0.08 + 0.06 * hash(seed + c * 11 + i)) });
+    }
+  });
+  return out.slice(0, n);
+}
+
+/** One stone baked: a dark warm hewn face, a lit upper edge, a shadowed lower one, a few chisel marks. */
+export function bakeStone(st: Stone, dpr: number, seed: number): Layer | null {
+  const L = layer(st.w + 4, st.h + 4, dpr);
+  if (!L) return null;
+  const ctx = L.ctx;
+  ctx.translate(2, 2);
+  const w = st.w, h = st.h;
+  // the outline: a rounded block with slightly uneven corners
+  ctx.beginPath();
+  const j = (k: number) => (hash(seed * 13 + k) - 0.5) * Math.min(w, h) * 0.06;
+  const r = st.r;
+  ctx.moveTo(r + j(1), j(2));
+  ctx.lineTo(w - r + j(3), j(4));
+  ctx.quadraticCurveTo(w + j(5), j(6), w + j(7), r + j(8));
+  ctx.lineTo(w + j(9), h - r + j(10));
+  ctx.quadraticCurveTo(w + j(11), h + j(12), w - r + j(13), h + j(14));
+  ctx.lineTo(r + j(15), h + j(16));
+  ctx.quadraticCurveTo(j(17), h + j(18), j(19), h - r + j(20));
+  ctx.lineTo(j(21), r + j(22));
+  ctx.quadraticCurveTo(j(23), j(24), r + j(1), j(2));
+  ctx.closePath();
+  const face = ctx.createLinearGradient(0, 0, w * 0.4, h);
+  const tone = 0.85 + 0.3 * hash(seed + 5);
+  const c = (v: number) => Math.round(v * tone);
+  face.addColorStop(0, `rgb(${c(58)},${c(50)},${c(48)})`);
+  face.addColorStop(0.6, `rgb(${c(40)},${c(34)},${c(34)})`);
+  face.addColorStop(1, `rgb(${c(28)},${c(23)},${c(25)})`);
+  ctx.fillStyle = face;
+  ctx.fill();
+  ctx.save();
+  ctx.clip();
+  // the upper edge catches a little light, the lower one sinks into shadow
+  ctx.fillStyle = 'rgba(255,226,190,.07)';
+  ctx.fillRect(0, 0, w, Math.max(2, h * 0.12));
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.fillRect(0, h * 0.84, w, h * 0.16);
+  // chisel marks
+  ctx.strokeStyle = 'rgba(0,0,0,.22)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const x = hash(seed + i * 31) * w, y = hash(seed + i * 37) * h;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (hash(seed + i * 41) - 0.5) * w * 0.25, y + (hash(seed + i * 43) - 0.5) * h * 0.2);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  return L.c;
+}

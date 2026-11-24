@@ -138,7 +138,10 @@ class MysliGame implements ArcadeGame {
     if (!this.hints.length || this.hintCool > 0 || sim.story || sim.phase !== 'play') return;
     if (sim.telegraphed || sim.blockT < RULES.bannerSec) return;
     if (sim.talk.line) return;
-    const h = this.hints.shift()!;
+    // a mark waits until what it explains is on screen (a burn's mark never lands on a truth, nor a truth's on a lie)
+    const i = this.hints.findIndex(x => relevant(sim, x.what));
+    if (i < 0) return;
+    const h = this.hints.splice(i, 1)[0];
     const text = sim.coachWords(h.what, this.env.touch);
     const ms = Math.round(readTime(text) * 1000);
     this.hintCool = ms / 1000 + RULES.hintGap;
@@ -174,6 +177,7 @@ class MysliGame implements ArcadeGame {
     if (best !== null && left > 0 && left <= 2 && s.pushBlock) return { value: s.score, sub: t('hud.subBest', { n: left }) };
     if (s.phase !== 'play') return { value: s.score, sub: t('hud.subEnd') };
     if (s.settleBlock) return { value: s.score, sub: t('hud.subSettle') };
+    if (s.falling) return { value: s.score, sub: t('hud.subFall') };
     if (s.quietBlock) return { value: s.score, sub: t('hud.subQuiet') };
     if (s.restBlock) return { value: s.score, sub: t('hud.subRest') };
     return { value: s.score, sub: t('hud.subThought', { i: s.score + 1 }) };
@@ -193,9 +197,20 @@ class MysliGame implements ArcadeGame {
   }
 }
 
+/** Whether a coach mark's subject is on screen now. */
+function relevant(sim: MysliSim, what: Coach): boolean {
+  if (what === 'burn') return sim.ready;
+  if (what === 'truth') return sim.truthReady;
+  if (what === 'skip') return sim.canSkip;
+  if (what === 'breath') return sim.restBlock;
+  return sim.blind;
+}
+
 function haptic(e: SimEvent): void {
   switch (e.type) {
     case 'burned': buzz([10, 40, 18]); break;
+    case 'gilded': buzz([6, 30, 6]); break;
+    case 'fall': buzz([20, 60, 20, 60, 30]); break;
     case 'blindEnd': if (e.gained > 0) buzz([14, 50, 14]); break;
     default: break;
   }
@@ -240,7 +255,11 @@ const mod: ArcadeModule<MysliProgress> = {
     return p.sessions > 0 ? bestOf(p) : null;
   },
   unit,
-  progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
+  progressPanel: (p, save) => {
+    // ?debug: the lobby's progress for the screenshot scripts (a warownia's place seeded before play)
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) Object.assign(globalThis, { __mysliProgress: p });
+    return progressPanel(seen(migrate(p)), () => { seen(p); save(); });
+  },
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
   rhythm: () => rhythm(),
