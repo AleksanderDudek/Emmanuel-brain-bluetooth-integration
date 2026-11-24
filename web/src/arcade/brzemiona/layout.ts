@@ -13,8 +13,11 @@
  * The triptych inside the picture goes by its shape (DESIGN §18, the brief's "design both"): **across** (the one
  * prayed for on the left, the Cross in the middle on its hill, the player on the right) when the picture is wider
  * than tall — the smallest phone's picture is about 344 × 176 — and **down** (the one prayed for above, the Cross in
- * the middle, the player below) when it is taller, as on an installed iPhone.  Pure: the tests run it at every
- * kit/mobile CHECK_SIZES entry.
+ * the middle, the player below) when it is taller, as on an installed iPhone.  The own way (round 16) has no one on
+ * the far ridge (it stays as landscape): the Cross on its hill, and near, the player with their burden — a closed
+ * bundle on the ground beside them, on the Cross's side — across (the Cross left of the middle, the bundle and the
+ * player to the right) and down (the Cross above, the bundle and the player near, side by side).  Pure: the tests run
+ * it at every kit/mobile CHECK_SIZES entry.
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, TAP_GAP, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
@@ -138,11 +141,14 @@ export interface Stage {
   globe: { x: number; y: number; r: number };
   /** where the many stand around the one (their feet, their height) */
   many: FigPlace[];
+  /** the own way: the bundle on the ground beside the player (its base, its height); null in the intercession */
+  bundle: FigPlace | null;
 }
 
-/** The triptych's places in the picture (CSS px). */
-export function stageOf(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk'>, manyCount = 0): Stage {
+/** The triptych's places in the picture (CSS px); `own`: the own way's picture (no one on the far ridge, the bundle). */
+export function stageOf(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk'>, manyCount = 0, own = false): Stage {
   const P = L.pic;
+  if (own) return ownStage(P, L.orient);
   if (L.orient === 'across') {
     const nearY = P.y + P.h * 0.86, ridgeY = P.y + P.h * 0.8, hillY = P.y + P.h * 0.8;
     const Hp = Math.min(P.h * 0.5, P.w * 0.24);
@@ -153,7 +159,7 @@ export function stageOf(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk'>, manyCo
     const cross: CrossPlace = { x: P.x + P.w * 0.5, y: foot, h: ch, arm: ch * 0.42, cx: P.x + P.w * 0.5, cy: foot - ch * 0.73 };
     const r = Math.min(P.w * 0.12, P.h * 0.27);
     const globe = { x: person.x, y: person.y - person.H * 0.5, r };
-    return { person, player, cross, ridgeY, hillY, nearY, globe, many: manyAround(person, manyCount, P.x + 6, cross.x - cross.arm * 0.7, 'across') };
+    return { person, player, cross, ridgeY, hillY, nearY, globe, many: manyAround(person, manyCount, P.x + 6, cross.x - cross.arm * 0.7, 'across'), bundle: null };
   }
   const ridgeY = P.y + P.h * 0.31, hillY = P.y + P.h * 0.64, nearY = P.y + P.h * 0.975;
   const Hp = Math.min(P.h * 0.27, P.w * 0.48);
@@ -163,7 +169,51 @@ export function stageOf(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk'>, manyCo
   const cross: CrossPlace = { x: P.x + P.w * 0.5, y: hillY - P.h * 0.015, h: ch, arm: ch * 0.42, cx: P.x + P.w * 0.5, cy: hillY - P.h * 0.015 - ch * 0.73 };
   const r = Math.min(P.w * 0.3, P.h * 0.13);
   const globe = { x: person.x, y: person.y - person.H * 0.5, r };
-  return { person, player, cross, ridgeY, hillY, nearY, globe, many: manyAround(person, manyCount, P.x + 8, P.x + P.w - 8, 'down') };
+  return { person, player, cross, ridgeY, hillY, nearY, globe, many: manyAround(person, manyCount, P.x + 8, P.x + P.w - 8, 'down'), bundle: null };
+}
+
+/**
+ * The own way's places: across — the Cross on its hill left of the middle, the player near on the right, the bundle on
+ * the ground between them, beside the player; down — the Cross above, the bundle and the player near, side by side,
+ * with room under them for the topic and "Ty".  The far ridge stays as landscape (`person` and `globe` are kept for the
+ * type, never drawn).
+ */
+function ownStage(P: Rect, orient: Orient): Stage {
+  if (orient === 'across') {
+    const nearY = P.y + P.h * 0.86, ridgeY = P.y + P.h * 0.8, hillY = P.y + P.h * 0.8;
+    const Hp = Math.min(P.h * 0.5, P.w * 0.24);
+    const player: FigPlace = { x: P.x + P.w * 0.8, y: nearY, H: Hp };
+    const bundle: FigPlace = { x: player.x - Math.max(Hp * 0.62, P.w * 0.1), y: nearY, H: Hp * 0.4 };
+    const ch = Math.min(P.h * 0.56, Hp * 1.3);
+    const foot = P.y + P.h * 0.745;
+    const cross: CrossPlace = { x: P.x + P.w * 0.4, y: foot, h: ch, arm: ch * 0.42, cx: P.x + P.w * 0.4, cy: foot - ch * 0.73 };
+    const person: FigPlace = { x: P.x + P.w * 0.12, y: ridgeY, H: Hp * 0.8 };
+    return { person, player, cross, ridgeY, hillY, nearY, globe: { x: person.x, y: person.y - person.H / 2, r: 1 }, many: [], bundle };
+  }
+  const ridgeY = P.y + P.h * 0.3, hillY = P.y + P.h * 0.56, nearY = P.y + P.h * 0.9;
+  const Hp = Math.min(P.h * 0.27, P.w * 0.48);
+  const player: FigPlace = { x: P.x + P.w * 0.66, y: nearY, H: Hp };
+  const bundle: FigPlace = { x: P.x + P.w * 0.36, y: nearY - P.h * 0.006, H: Hp * 0.38 };
+  const ch = Math.min(P.h * 0.3, Hp * 1.15);
+  const foot = hillY - P.h * 0.015;
+  const cross: CrossPlace = { x: P.x + P.w * 0.5, y: foot, h: ch, arm: ch * 0.42, cx: P.x + P.w * 0.5, cy: foot - ch * 0.73 };
+  const person: FigPlace = { x: P.x + P.w * 0.5, y: ridgeY, H: Hp * 0.6 };
+  return { person, player, cross, ridgeY, hillY, nearY, globe: { x: person.x, y: person.y - person.H / 2, r: 1 }, many: [], bundle };
+}
+
+/**
+ * The golden lights resting at the foot of the Cross, one per burden given this session (the own way's headline in
+ * the picture): alternately left and right of the foot along the hill's crest, a little lower as they go out.
+ */
+export function footLights(S: Stage, n: number): { x: number; y: number; r: number }[] {
+  const C = S.cross, sp = Math.max(8, C.h * 0.09), r = Math.max(3, C.h * 0.04);
+  const out: { x: number; y: number; r: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / 12), j = i % 12;
+    const side = j % 2 === 0 ? -1 : 1, k = Math.floor(j / 2) + 1;
+    out.push({ x: C.x + side * (k - 0.35) * sp, y: C.y - r * 0.6 + (k - 1) * sp * 0.2 - row * sp * 0.7, r });
+  }
+  return out;
 }
 
 /**
@@ -208,6 +258,30 @@ export function lanes(S: Stage, orient: Orient, world: boolean): { smoke: Lane; 
   return {
     smoke: { x0: from.x, y0: from.y - S.person.H * 0.2, cx: to.x + off, cy: my - S.person.H * 0.3, x1: to.x + S.cross.arm * 0.1, y1: to.y },
     light: { x0: to.x - S.cross.arm * 0.1, y0: to.y, cx: to.x - off, cy: my, x1: back.x, y1: back.y },
+  };
+}
+
+/**
+ * The own way's two lanes: the smoke from the bundle's tied neck to the Cross (arching up and away from the player:
+ * across up and left, down up the left side), the light from the Cross to the player's heart (across a gentle arc
+ * above the bundle, down the right side).  The smoke lane never comes toward the player; only light reaches them.
+ */
+export function ownLanes(S: Stage, orient: Orient): { smoke: Lane; light: Lane } {
+  const B = S.bundle ?? { x: S.player.x - S.player.H * 0.6, y: S.player.y, H: S.player.H * 0.34 };
+  const C = S.cross, P = S.player;
+  const from = { x: B.x, y: B.y - B.H * 0.85 };
+  const to = { x: C.cx, y: C.cy };
+  const heart = { x: P.x, y: P.y - P.H * 0.62 };
+  if (orient === 'across') {
+    return {
+      smoke: { x0: from.x, y0: from.y, cx: to.x + (from.x - to.x) * 0.35, cy: Math.min(from.y, to.y) - P.H * 0.45, x1: to.x + C.arm * 0.1, y1: to.y },
+      light: { x0: to.x + C.arm * 0.15, y0: to.y + C.h * 0.05, cx: (to.x + heart.x) / 2, cy: Math.min(to.y, heart.y) - P.H * 0.12, x1: heart.x, y1: heart.y },
+    };
+  }
+  const my = (from.y + to.y) / 2, off = Math.max(40, P.H * 0.6);
+  return {
+    smoke: { x0: from.x, y0: from.y, cx: Math.min(from.x, to.x) - off * 0.5, cy: my, x1: to.x - C.arm * 0.1, y1: to.y },
+    light: { x0: to.x + C.arm * 0.1, y0: to.y, cx: Math.max(to.x, heart.x) + off * 0.4, cy: (to.y + heart.y) / 2, x1: heart.x, y1: heart.y },
   };
 }
 

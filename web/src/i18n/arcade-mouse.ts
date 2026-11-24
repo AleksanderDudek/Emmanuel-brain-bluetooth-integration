@@ -56,7 +56,7 @@ const pl = {
   'serce.how3': 'Rękami: kliknij (albo Spacja), by zostać przy słowach jeszcze chwilę; imiona do kręgów i słowa serca wybierzesz w „Postępach”.',
   'dlonie.how3': 'Rękami: kliknij imię, za kogo się modlisz; ≡ (albo M) wybiera modlitwę (za kogoś, za siebie, za świat).',
   'ezechiel.how3': 'Rękami: kliknij miejsce na postaci, na które chcesz położyć liść; ≡ (albo M) wybiera, za co się modlisz (ciało, serce).',
-  'brzemiona.how3': 'Rękami: ≡ (albo M) — za kogo się modlisz, ◎ (W) — poszerz krąg (jedna osoba, wszyscy, którzy niosą podobny ciężar, cały świat), ▶ (N) — następne brzemię; kliknij gdziekolwiek (albo Spacja), by zostać przy nich.',
+  'brzemiona.how3': 'Rękami: ≡ (albo M) — lista, ◎ (W) — przyjmij pokój albo poszerz krąg, ▶ (N) — następne brzemię; kliknij gdziekolwiek (albo Spacja), by przy tym zostać.',
   'drzewo.how3': 'Rękami: kliknij owoc, by przeczytać jego słowo; ≡ (albo M) wybiera postawę (na stojąco albo na siedząco) i porę roku.',
   'mysli.how3': 'Rękami: kliknij „Nie moja” (albo N), gdy myśl Cię nie dotyczy; na końcu kliknij (albo 0–9), jak ciężko jest teraz.',
 } satisfies Partial<Record<ArcadeKey, string>>;
@@ -104,7 +104,7 @@ const en: Twins = {
   'serce.how3': 'With your hands: click (or press Space) to stay with the words a little longer; names for your circles and the words of the heart are under “Progress”.',
   'dlonie.how3': 'With your hands: click the name you are praying for; ≡ (or M) chooses the prayer (for someone, for yourself, for the world).',
   'ezechiel.how3': 'With your hands: click the place on the figure where you want to lay a leaf; ≡ (or M) chooses what you pray for (body, heart).',
-  'brzemiona.how3': 'With your hands: ≡ (or M) — whom you pray for, ◎ (W) — widen the circle (one person, all who carry a burden like it, the whole world), ▶ (N) — the next burden; click anywhere (or Space) to stay with them.',
+  'brzemiona.how3': 'With your hands: ≡ (or M) — the list, ◎ (W) — receive peace or widen the circle, ▶ (N) — the next burden; click anywhere (or Space) to stay with it.',
   'drzewo.how3': 'With your hands: click a fruit to read its word; ≡ (or M) chooses the posture (standing or sitting) and the season.',
   'mysli.how3': 'With your hands: click “Not mine” (or N) when a thought isn’t about you; at the end, click (or press 0–9) how heavy it is now.',
 };
@@ -149,7 +149,7 @@ const de: Twins = {
   'serce.how3': 'Mit den Händen: Klick (oder Leertaste), um noch etwas bei den Worten zu bleiben; Namen für deine Kreise und die Worte des Herzens findest du unter „Fortschritt“.',
   'dlonie.how3': 'Mit den Händen: Klick auf den Namen, für den du betest; ≡ (oder M) wählt das Gebet (für jemanden, für dich, für die Welt).',
   'ezechiel.how3': 'Mit den Händen: Klick auf die Stelle der Gestalt, auf die du ein Blatt legen willst; ≡ (oder M) wählt, wofür du betest (Körper, Herz).',
-  'brzemiona.how3': 'Mit den Händen: ≡ (oder M) — für wen du betest, ◎ (W) — Kreis weiten (ein Mensch, alle, die eine ähnliche Last tragen, die ganze Welt), ▶ (N) — die nächste Last; klicke irgendwo (oder Leertaste), um bei ihnen zu bleiben.',
+  'brzemiona.how3': 'Mit den Händen: ≡ (oder M) — die Liste, ◎ (W) — Frieden empfangen oder Kreis weiten, ▶ (N) — die nächste Last; klicke irgendwo (oder Leertaste), um dabei zu bleiben.',
   'drzewo.how3': 'Mit den Händen: Klick auf eine Frucht, um ihr Wort zu lesen; ≡ (oder M) wählt die Haltung (stehend oder sitzend) und die Jahreszeit.',
   'mysli.how3': 'Mit den Händen: Klick auf „Nicht meiner“ (oder N), wenn ein Gedanke dich nicht betrifft; am Ende klickst du (oder 0–9), wie schwer es jetzt ist.',
 };
@@ -194,7 +194,7 @@ const sv: Twins = {
   'serce.how3': 'Med händerna: klicka (eller tryck på mellanslag) för att stanna vid orden en stund till; namn till dina kretsar och hjärtats ord väljer du under ”Framsteg”.',
   'dlonie.how3': 'Med händerna: klicka på namnet du ber för; ≡ (eller M) väljer bönen (för någon, för dig själv, för världen).',
   'ezechiel.how3': 'Med händerna: klicka på platsen på gestalten där du vill lägga ett löv; ≡ (eller M) väljer vad du ber för (kropp, hjärta).',
-  'brzemiona.how3': 'Med händerna: ≡ (eller M) — vem du ber för, ◎ (W) — vidga kretsen (en människa, alla som bär en liknande börda, hela världen), ▶ (N) — nästa börda; klicka var som helst (eller mellanslag) för att stanna hos dem.',
+  'brzemiona.how3': 'Med händerna: ≡ (eller M) — listan, ◎ (W) — ta emot frid eller vidga kretsen, ▶ (N) — nästa börda; klicka var som helst (eller mellanslag) för att stanna kvar.',
   'drzewo.how3': 'Med händerna: klicka på en frukt för att läsa dess ord; ≡ (eller M) väljer hållning (stående eller sittande) och årstid.',
   'mysli.how3': 'Med händerna: klicka på ”Inte min” (eller N) när en tanke inte gäller dig; i slutet klickar du (eller 0–9) hur tungt det är nu.',
 };

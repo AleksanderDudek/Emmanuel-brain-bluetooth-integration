@@ -10,13 +10,21 @@
  * thins.  No lane touches the player: the smoke is never drawn entering them (layout.ts `lanes`).  The light-only
  * variant draws no smoke at all: light gathers at the Cross from above on the in-breath and flows to them on the
  * out-breath.  Reduced motion: no streams — the clouds and the light fade instead.
+ *
+ * The own way (round 16, `own`): no one on the far ridge.  The player's burden is a closed bundle on the ground
+ * beside them, its topic written under it; on the in-breath grey smoke lifts from the bundle — never from the player,
+ * never toward them — along the own smoke lane to the Cross, turns gold there while focus is held, and on the
+ * out-breath light returns along the light lane to the player's heart.  The bundle grows smaller and paler as the
+ * circle turns and is gone when given; a small golden light then rests at the foot of the Cross, one per burden given
+ * this session.  The receiving circle ("Przyjmuję") is light only.
  */
 import type { BreathPhase } from '../kit/breath';
 import { clamp } from '../kit/juice';
-import { laneAt, lanes, stageOf, type Layout, type Stage } from './layout';
+import { MIN_TEXT } from '../kit/mobile';
+import { footLights, laneAt, lanes, ownLanes, stageOf, type Layout, type Stage } from './layout';
 import {
-  GOLD, GOLD_HI, LILAC, PEARL, SMOKE, SMOKE_DARK, TAU, bakeCross, bakeFigure, bakeGlobe, bakeSky, cityLights, glow, hash, label, puff, type CityLight,
-  type FigureStyle, type Layer,
+  GOLD, GOLD_HI, LILAC, PEARL, SMOKE, SMOKE_DARK, TAU, bakeBundle, bakeCross, bakeFigure, bakeGlobe, bakeSky, cityLights, fitLines, glow, hash, label, puff,
+  type BundleTone, type CityLight, type FigureStyle, type Layer,
 } from './paint';
 
 export interface SceneState {
@@ -53,6 +61,16 @@ export interface SceneState {
   whoLabel: string | null;
   youLabel: string | null;
   labelPx: number;
+  /**
+   * The own way (round 16): no one on the far ridge; the bundle beside the player — its size (1 whole → 0 given), how
+   * pale it has grown (0..1), its topic (`whoLabel` is the topic); the golden lights resting at the foot of the Cross
+   * (the newest may be fractional while it settles); the player's peace at the heart (0..1).
+   */
+  own?: boolean;
+  bundle?: number;
+  bundleLight?: number;
+  lights?: number;
+  heart?: number;
 }
 
 type Baked = { c: Layer; w: number; h: number; ox: number; oy: number };
@@ -66,30 +84,42 @@ export class Scene {
   private player: Baked | null = null;
   private globe: { c: Layer; size: number } | null = null;
   private lights: CityLight[] = [];
+  private bundle: Partial<Record<BundleTone, Baked>> = {};
+  private topicMemo: { key: string; text: string } | null = null;
   S: Stage | null = null;
 
-  /** The stage for a layout (cached by size); bakes the layers on a change. */
-  stage(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk' | 'w' | 'h'>, dpr: number, many: number): Stage {
-    const key = `${L.w}x${L.h}@${dpr}|${L.orient}|${L.pic.x},${L.pic.y},${L.pic.w},${L.pic.h}|${many}`;
+  /** The stage for a layout (cached by size); bakes the layers on a change.  `own`: the own way's picture. */
+  stage(L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk' | 'w' | 'h'>, dpr: number, many: number, own = false): Stage {
+    const key = `${L.w}x${L.h}@${dpr}|${L.orient}|${L.pic.x},${L.pic.y},${L.pic.w},${L.pic.h}|${many}|${own ? 'own' : 'others'}`;
     if (key === this.key && this.S) return this.S;
     this.key = key;
-    const S = stageOf(L, many);
+    const S = stageOf(L, many, own);
     this.S = S;
     const gr = {
       ridgeY: S.ridgeY, hillY: S.hillY, nearY: S.nearY, hillX: S.cross.x, hillW: Math.max(S.cross.arm * 2.6, L.pic.w * (L.orient === 'across' ? 0.17 : 0.3)),
       orient: L.orient, personX: S.person.x, playerX: S.player.x, crossY: S.cross.y,
+      flatX: S.bundle && L.orient === 'across' ? S.bundle.x - S.bundle.H * 0.9 : undefined,
     };
     this.skyCool = bakeSky(L.w, L.h, dpr, false, gr);
     this.skyWarm = bakeSky(L.w, L.h, dpr, true, gr);
     this.cross = bakeCross(S.cross.h, S.cross.arm, dpr);
-    this.fig = { grey: bakeFigure(S.person.H, 'grey', dpr) ?? undefined, lit: bakeFigure(S.person.H, 'lit', dpr) ?? undefined };
     this.player = bakeFigure(S.player.H, 'clear', dpr);
-    this.globe = bakeGlobe(S.globe.r, dpr);
-    this.lights = cityLights(Math.round(clamp(S.globe.r * 0.9, 28, 120)));
+    if (own && S.bundle) {
+      this.fig = {};
+      this.globe = null;
+      this.lights = [];
+      this.bundle = { dark: bakeBundle(S.bundle.H, 'dark', dpr) ?? undefined, pale: bakeBundle(S.bundle.H, 'pale', dpr) ?? undefined };
+    } else {
+      this.bundle = {};
+      this.fig = { grey: bakeFigure(S.person.H, 'grey', dpr) ?? undefined, lit: bakeFigure(S.person.H, 'lit', dpr) ?? undefined };
+      this.globe = bakeGlobe(S.globe.r, dpr);
+      this.lights = cityLights(Math.round(clamp(S.globe.r * 0.9, 28, 120)));
+    }
     return S;
   }
 
   draw(ctx: CanvasRenderingContext2D, L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk' | 'w' | 'h'>, dpr: number, st: SceneState, many: number): Stage {
+    if (st.own) return this.drawOwn(ctx, L, dpr, st);
     const S = this.stage(L, dpr, many);
     // the sky: dusk, warming to gold
     if (this.skyCool) ctx.drawImage(this.skyCool, 0, 0, L.w, L.h);
@@ -233,6 +263,198 @@ export class Scene {
       const px = st.labelPx;
       if (L.orient === 'across') label(ctx, st.youLabel, P.x, Math.min(L.pic.y + L.pic.h - px * 0.7, P.y + px * 0.95), px, LILAC, 'center', 600);
       else label(ctx, st.youLabel, P.x + P.H * 0.3 + 6, P.y - P.H * 0.45, px, LILAC, 'left', 600);
+    }
+    return S;
+  }
+
+  /** The Cross of light on its hill: its aura (stronger as smoke turns to gold, and at rest), the Cross, the motes. */
+  private drawCross(ctx: CanvasRenderingContext2D, S: Stage, st: SceneState): void {
+    const C = S.cross, tm = st.time;
+    ctx.globalCompositeOperation = 'lighter';
+    const breathe = 0.04 * Math.sin(tm * 1.1);
+    glow(ctx, GOLD, C.cx, C.cy, C.h * (1.05 + 0.45 * st.glow + 0.35 * st.rest + breathe), 0.2 + 0.4 * st.glow + 0.35 * st.rest + 0.15 * st.gold);
+    glow(ctx, GOLD_HI, C.cx, C.cy, C.h * 0.42, 0.18 + 0.35 * st.glow + 0.25 * st.rest);
+    ctx.globalCompositeOperation = 'source-over';
+    if (this.cross) {
+      const b = this.cross;
+      ctx.globalAlpha = 0.82 + 0.18 * clamp(st.glow + st.rest);
+      ctx.drawImage(b.c, C.x - b.ox, C.y - b.oy, b.w, b.h);
+      ctx.globalAlpha = 1;
+    }
+    const motes = Math.max(st.rest, st.glow * 0.6);
+    if (motes > 0.03 && !st.reduced) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 14; i++) {
+        const ph = (tm * 0.06 + hash(i * 3 + 7)) % 1;
+        const x = C.cx + (hash(i * 3 + 8) - 0.5) * C.arm * 2.4 + Math.sin(tm * 0.5 + i) * C.arm * 0.12;
+        const y = C.y - ph * C.h * 1.35;
+        glow(ctx, GOLD_HI, x, y, Math.max(2, C.h * 0.022), 0.55 * motes * Math.sin(Math.PI * ph));
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  /**
+   * The own way's picture: the Cross on its hill and the golden lights at its foot; near, the bundle beside the player;
+   * the smoke lane from the bundle (in-breath), the light lane to the player (out-breath); the topic under the bundle.
+   */
+  private drawOwn(ctx: CanvasRenderingContext2D, L: Pick<Layout, 'pic' | 'orient' | 'u' | 'desk' | 'w' | 'h'>, dpr: number, st: SceneState): Stage {
+    const S = this.stage(L, dpr, 0, true);
+    if (this.skyCool) ctx.drawImage(this.skyCool, 0, 0, L.w, L.h);
+    else { ctx.fillStyle = '#1b1528'; ctx.fillRect(0, 0, L.w, L.h); }
+    if (this.skyWarm && st.warm > 0.01) {
+      ctx.globalAlpha = clamp(st.warm);
+      ctx.drawImage(this.skyWarm, 0, 0, L.w, L.h);
+      ctx.globalAlpha = 1;
+    }
+    const tm = st.time, C = S.cross, P = S.player, B = S.bundle!;
+    const { smoke, light } = ownLanes(S, L.orient);
+    this.drawCross(ctx, S, st);
+
+    // the golden lights at the foot of the Cross: one per burden given this session (the newest settling in)
+    const lights = Math.max(0, st.lights ?? 0);
+    if (lights > 0.01) {
+      const spots = footLights(S, Math.ceil(lights));
+      ctx.globalCompositeOperation = 'lighter';
+      spots.forEach((p, i) => {
+        const a = clamp(lights - i);
+        const tw = st.reduced ? 1 : 0.85 + 0.15 * Math.sin(tm * 1.6 + i * 1.3);
+        glow(ctx, GOLD, p.x, p.y, p.r * 4.2, 0.45 * a * tw);
+        glow(ctx, GOLD_HI, p.x, p.y, p.r * 1.6, 0.95 * a);
+      });
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // the bundle: smaller and paler as the circle turns, gone when given; a soft grey smoke about it (none in "light only")
+    const size = clamp(st.bundle ?? 1), pale = clamp(st.bundleLight ?? 0), alpha = clamp(st.appear) * clamp(size * 5);
+    if (alpha > 0.01) {
+      const k = 0.4 + 0.6 * size;
+      if (!st.lightOnly && st.cloud > 0.01) {
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * TAU + tm * 0.2;
+          puff(ctx, SMOKE_DARK, B.x + Math.cos(a) * B.H * 0.55 * k, B.y - B.H * k * (0.5 + 0.3 * Math.sin(a)), B.H * (0.42 + 0.08 * hash(i + 3)) * k, 0.4 * clamp(st.cloud) * alpha);
+        }
+      }
+      for (const [tone, a] of [['dark', 1 - pale], ['pale', pale]] as const) {
+        const b = this.bundle[tone];
+        if (!b || a <= 0.01) continue;
+        ctx.globalAlpha = alpha * a;
+        ctx.drawImage(b.c, B.x - b.ox * k, B.y - b.oy * k, b.w * k, b.h * k);
+      }
+      ctx.globalAlpha = 1;
+      if (pale > 0.05) {
+        ctx.globalCompositeOperation = 'lighter';
+        glow(ctx, GOLD, B.x, B.y - B.H * 0.45 * k, B.H * 0.9 * k, 0.25 * pale * alpha);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+
+    // the exchange: smoke from the bundle on the in-breath, light to the player on the out-breath
+    if (st.flows && !st.reduced) {
+      if (!st.lightOnly && st.phase === 'in' && size > 0.02) {
+        const amt = clamp(st.cloud * 1.3) * (1 - 0.7 * clamp(st.waiting)) * clamp(size * 3);
+        for (let i = 0; i < 9; i++) {
+          const u = clamp(st.p * 1.35 - i * 0.06);
+          if (u <= 0.02 || u >= 0.98) continue;
+          const [x, y] = laneAt(smoke, u);
+          const wob = Math.sin(tm * 2 + i * 1.7) * B.H * 0.1;
+          puff(ctx, SMOKE, x + wob, y, P.H * (0.08 + 0.07 * u), 0.55 * amt * Math.sin(Math.PI * u));
+        }
+      }
+      if (st.lightOnly && st.phase === 'in') {
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 7; i++) {
+          const u = clamp(st.p * 1.3 - i * 0.07);
+          if (u <= 0.02 || u >= 0.98) continue;
+          const y = C.cy - C.h * (1.2 - 1.2 * u);
+          glow(ctx, GOLD_HI, C.cx + Math.sin(i * 2.1 + tm) * C.arm * 0.12, y, C.h * 0.08, 0.6 * Math.sin(Math.PI * u));
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      if (st.phase === 'out') {
+        const amt = clamp(0.25 + st.gold * 1.5 + st.glow * 0.6);
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 11; i++) {
+          const u = clamp(st.p * 1.4 - i * 0.05);
+          if (u <= 0.02 || u >= 0.98) continue;
+          const [x, y] = laneAt(light, u);
+          glow(ctx, GOLD_HI, x, y, P.H * (0.06 + 0.025 * Math.sin(i + tm * 3)), 0.75 * amt * Math.sin(Math.PI * u));
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+
+    // the smoke waiting at the Cross, turning gold while focus is held; the gold waiting for the out-breath
+    if (!st.lightOnly && st.waiting > 0.01) {
+      const n = 7, R = C.arm * 0.55;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + tm * 0.25;
+        const x = C.cx + Math.cos(a) * R * (0.6 + 0.4 * hash(i)), y = C.cy + Math.sin(a) * R * 0.55;
+        const r = C.h * (0.09 + 0.05 * hash(i + 9)) * (0.6 + 0.4 * clamp(st.waiting));
+        puff(ctx, SMOKE, x, y, r, 0.6 * clamp(st.waiting) * (1 - 0.8 * st.glow));
+        if (st.glow > 0.02) {
+          ctx.globalCompositeOperation = 'lighter';
+          glow(ctx, GOLD, x, y, r * 1.1, 0.5 * clamp(st.waiting) * st.glow);
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      }
+    }
+    if (st.gold > 0.005) {
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, GOLD_HI, C.cx, C.cy, C.h * (0.2 + 0.5 * clamp(st.gold * 4)), 0.6 * clamp(st.gold * 5));
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // the player: a clear figure of light; the peace received glows at the heart
+    if (this.player) {
+      const b = this.player;
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, LILAC, P.x, P.y - P.H * 0.5, P.H * (0.55 + 0.15 * st.player), 0.12 + 0.2 * st.player);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.72 + 0.28 * clamp(st.player);
+      ctx.drawImage(b.c, P.x - b.ox, P.y - b.oy, b.w, b.h);
+      ctx.globalAlpha = 1;
+      const heart = clamp(st.heart ?? 0);
+      if (heart > 0.02) {
+        ctx.globalCompositeOperation = 'lighter';
+        const pulse = st.phase === 'out' && st.flows && !st.reduced ? 0.15 * Math.sin(Math.PI * st.p) : 0;
+        glow(ctx, GOLD, P.x, P.y - P.H * 0.73, P.H * (0.3 + 0.25 * heart), 0.12 + 0.35 * heart + pulse);
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    }
+
+    // a tap: a soft ring around the bundle (or, once it is given, at the foot of the Cross)
+    if (st.touch > 0.01) {
+      const there = alpha > 0.1;
+      const cx = there ? B.x : C.x, cy = there ? B.y - B.H * 0.5 : C.y - C.h * 0.03;
+      const r = (there ? B.H * 1.1 : C.h * 0.16) * (1.15 - 0.25 * st.touch);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, TAU);
+      ctx.strokeStyle = `rgba(255,236,196,${(0.6 * st.touch).toFixed(3)})`;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+
+    // the labels: the topic under the bundle (one line, never over the player), "Ty" by the player
+    const px = st.labelPx;
+    if (st.whoLabel && alpha > 0.3) {
+      const right = L.orient === 'across' ? B.x + B.H * 0.5 : P.x - P.H * 0.22;
+      const left = L.pic.x + 6;
+      const maxW = L.orient === 'across' ? right - left : 2 * Math.min(B.x - left, right - B.x);
+      const key = `${st.whoLabel}|${Math.round(maxW)}|${px}`;
+      if (this.topicMemo?.key !== key) {
+        const f = fitLines(ctx, st.whoLabel, maxW, px, Math.max(MIN_TEXT + 2, px - 1), 1, 700);
+        this.topicMemo = { key, text: f.lines[0] ?? '' };
+      }
+      const y = Math.min(L.pic.y + L.pic.h - px * 0.7, B.y + px * 0.95);
+      ctx.globalAlpha = clamp(alpha * 1.4);
+      if (L.orient === 'across') label(ctx, this.topicMemo.text, right, y, px, PEARL, 'right');
+      else label(ctx, this.topicMemo.text, B.x, y, px, PEARL, 'center');
+      ctx.globalAlpha = 1;
+    }
+    if (st.youLabel) {
+      if (L.orient === 'across') label(ctx, st.youLabel, P.x, Math.min(L.pic.y + L.pic.h - px * 0.7, P.y + px * 0.95), px, LILAC, 'center', 600);
+      else label(ctx, st.youLabel, P.x, Math.min(L.pic.y + L.pic.h - px * 0.7, P.y + px * 0.95), px, LILAC, 'center', 600);
     }
     return S;
   }

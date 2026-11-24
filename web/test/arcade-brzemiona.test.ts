@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   CIRCLES, CIRCLE_VERSES, CLOSE_VERSES, DEFAULT_LIST, FINALE_VERSE, KINDS, LEAVE_VERSE, LINE_COUNT, LIST_MAX, MOMENTS, NAME_MAX, REST_VERSES, ROOT,
-  allCirclesOf, circlesOf, cleanItem, cleanList, cleanName, itemKey, type Item,
+  TOPIC_MAX, allCirclesOf, circlesOf, cleanItem, cleanList, cleanName, cleanTopic, itemKey, topicItem, type Item,
 } from '../src/arcade/brzemiona/content';
-import { CATALOGS, addressOf, circleLabel, linesOf, prayerOf, t, unit, whoName } from '../src/arcade/brzemiona/i18n';
+import { CATALOGS, addressOf, circleLabel, linesOf, ownDefaults, prayerOf, t, unit, whoName } from '../src/arcade/brzemiona/i18n';
 import {
-  addItem, addPerson, bestOf, breathOf, freshProgress, migrate, moveItem, queueOf, removeItem, restOf, setKind, setStart, startOf, stepBreathOf,
-  type BrzProgress,
+  addItem, addPerson, addTopic, addTopics, bestOf, breathOf, cleanTopics, freshProgress, migrate, moveItem, moveTopic, ownStartOf, queueOf, removeItem,
+  removeTopic, restOf, setKind, setOwnStart, setStart, startOf, stepBreathOf, topicsToAdd, type BrzProgress,
 } from '../src/arcade/brzemiona/meta';
+import { DAILY, WAROWNIA_TOPICS, themeTopics, warowniaTopics } from '../src/arcade/brzemiona/topics';
+import { ownTargets } from '../src/arcade/brzemiona/render';
+import { WAROWNIE } from '../src/arcade/kit/warownie';
 import { RULES, WindowMean, depthFor, needFor, readTime, restTargetFor, turnRate } from '../src/arcade/brzemiona/rules';
-import { BrzSim, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/brzemiona/sim';
+import { BrzSim, pageOf, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/brzemiona/sim';
 import { BREATH_PRESETS, breathCycle } from '../src/arcade/kit/breath';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -20,7 +23,7 @@ import { CATALOGS as ARCADE_CATALOGS } from '../src/i18n/arcade';
 import { MOUSE_CATALOGS } from '../src/i18n/arcade-mouse';
 import { arcadeEntry } from '../src/arcade/registry';
 import { CHECK_SIZES, auditTargets } from '../src/arcade/kit/mobile';
-import { chooserLayout, hitAt, laneAt, lanes, layout, manyCount, stageOf, tapTargets } from '../src/arcade/brzemiona/layout';
+import { chooserLayout, footLights, hitAt, laneAt, lanes, layout, manyCount, ownLanes, stageOf, tapTargets } from '../src/arcade/brzemiona/layout';
 import { brzRhythm, howto } from '../src/arcade/brzemiona/index';
 import { progressPanel } from '../src/arcade/brzemiona/panel';
 import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
@@ -36,16 +39,20 @@ const LOW = frame({ level: 0.3, activity: 1, focused: false, calm: 0.5 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-const ALL_SEEN = ['s.open', 'c.cross', 'c.breath', 'c.controls', 'c.tap', 'c.rest'];
+const ALL_SEEN = ['s.open', 'c.cross', 'c.breath', 'c.controls', 'c.tap', 'c.rest', 's.own', 'c.own.cross', 'c.own.breath', 'c.own.controls', 'c.own.tap', 'c.own.rest'];
 
 type SimOpts = {
   progress?: Partial<BrzProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning;
   rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 };
 
+/**
+ * A session.  Round 16: a fresh progress starts on "Moje brzemiona"; the intercession's tests (most of this file, from
+ * round 13) ask for "Za innych" here, the own way's tests pass `way: 'own'`.
+ */
 function makeSim(o: SimOpts = {}): BrzSim {
   const sim = new BrzSim({
-    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
+    progress: { ...freshProgress(), way: 'others', ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false,
     tuning: o.tuning ?? TUNING, rhythm: o.rhythm,
   });
   sim.start();
@@ -504,7 +511,7 @@ describe('the session', () => {
   });
 
   it('settles once (at the end or early) and the next session goes on with the burden in progress', () => {
-    const p: BrzProgress = { ...freshProgress(), sessions: 4, seen: [...ALL_SEEN], list: [anna, piotr] };
+    const p: BrzProgress = { ...freshProgress(), way: 'others', sessions: 4, seen: [...ALL_SEEN], list: [anna, piotr] };
     const sim = new BrzSim({ progress: p, rng: mulberry32(1), plannedSec: 900, eeg: false, tuning: TUNING });
     sim.start();
     drive(sim, 14, HIGH);
@@ -520,7 +527,7 @@ describe('the session', () => {
     expect(next.item.name).toBe('Anna');
     expect(next.x).toBeCloseTo(Math.min(0.99, x), 9);
     // a burden carried: the next session begins with the next entry
-    const q: BrzProgress = { ...freshProgress(), sessions: 4, seen: [...ALL_SEEN], list: [anna, piotr] };
+    const q: BrzProgress = { ...freshProgress(), way: 'others', sessions: 4, seen: [...ALL_SEEN], list: [anna, piotr] };
     const s2 = new BrzSim({ progress: q, rng: mulberry32(1), plannedSec: 180, eeg: false, tuning: TUNING });
     s2.start();
     until(s2, () => s2.carriedNow >= 1, HIGH);
@@ -538,7 +545,7 @@ describe('the session', () => {
   });
 
   it('teaches with coach marks once each, never under the story card', () => {
-    const p = freshProgress();
+    const p: BrzProgress = { ...freshProgress(), way: 'others' };
     const sim = new BrzSim({ progress: p, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: BEGINNER });
     sim.start();
     const evs = drive(sim, 120, steady(0.7), { t: 0 }, reader(sim));
@@ -571,7 +578,7 @@ describe('the meta', () => {
     const ph = mergeSaved(freshProgress(), { best: null }) as BrzProgress;
     (ph as unknown as Record<string, unknown>).ver = undefined;
     migrate(ph);
-    expect(ph.ver).toBe(1);
+    expect(ph.ver).toBe(2);
     expect(ph.list).toEqual([]);
     const bad = { ver: 1, sessions: 'x', list: [anna, { who: 'evil' }], next: -3, pos: { key: 5 }, breath: { in: 99, holdIn: -1, out: 'a' }, tally: 7, best: { '600': 3, x: 1 } };
     const m = migrate(bad as unknown as BrzProgress);
@@ -873,5 +880,462 @@ describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () =
     const text = root.textContent ?? '';
     expect(text).toContain('„Rytm”');
     expect(text).not.toContain('auto');
+  });
+});
+
+// ── round 16: "Moje brzemiona" — the player's own burdens given to the Cross, and their own list ─────────────────────
+describe('the own way: my burdens given to the Cross (round 16)', () => {
+  const own = (o: SimOpts = {}) => later({ ...o, progress: { way: 'own', ...o.progress } });
+  const praca = topicItem('praca');
+
+  it('starts a fresh progress on "Moje brzemiona" and walks the own list as topics; empty: four gentle defaults', () => {
+    expect(freshProgress().way).toBe('own');
+    const sim = own({ progress: { own: { list: ['praca', 'zdrowie mamy'], next: 0, pos: null } } });
+    expect(sim.own).toBe(true);
+    expect(sim.queue.map(itemKey)).toEqual(['t:praca', 't:zdrowie mamy']);
+    expect(sim.circle).toBe('give');
+    const empty = own();
+    expect(empty.queue.map(whoName)).toEqual(ownDefaults());
+    expect(ownDefaults()).toHaveLength(4);
+  });
+
+  it('addresses the topic after a colon, never declined, and prays its own words on the breath', () => {
+    expect(addressOf(praca, 'give', false)).toBe('Panie Jezu, oddaję Ci: praca.');
+    expect(addressOf(topicItem('zdrowie mamy'), 'give', false)).toBe('Panie Jezu, oddaję Ci: zdrowie mamy.');
+    expect(addressOf(praca, 'receive', true)).toBe('Panie Jezu, w zamian przyjmuję Twój pokój.');
+    expect(prayerOf('in', 'give', false)).toBe('Panie Jezu, weź to ode mnie.');
+    expect(prayerOf('out', 'give', false)).toBe('Daj mi swój pokój.');
+    expect(prayerOf('out', 'receive', false)).toBe('W zamian przyjmuję Twój pokój.');
+    expect(prayerOf('in', 'give', true)).not.toMatch(/weź/);
+    expect(circleLabel(praca, 'give')).toBe('Oddaję: praca');
+    for (const l of LANGS) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      expect(String(c['call.own'])).toContain('{topic}');
+      expect(String(c['call.own'])).toMatch(/: \{topic\}\.$/);
+    }
+  });
+
+  it('deepens by length: one circle ("Oddaję") under 10 minutes, two ("Oddaję", "Przyjmuję") from 10', () => {
+    expect(circlesOf(praca, depthFor(180))).toEqual(['give']);
+    expect(circlesOf(praca, depthFor(300))).toEqual(['give']);
+    expect(circlesOf(praca, depthFor(600))).toEqual(['give', 'receive']);
+    expect(circlesOf(praca, depthFor(1800))).toEqual(['give', 'receive']);
+    for (const [planned, want] of [[180, ['give']], [600, ['give', 'receive']], [1800, ['give', 'receive']]] as const) {
+      const sim = own({ planned, progress: { own: { list: ['praca', 'szef'], next: 0, pos: null } } });
+      const evs = until(sim, () => sim.carriedNow >= 1, steady(0.8));
+      expect(ofType(evs, 'circle').map(e => e.circle), `${planned} s`).toEqual([...want]);
+      expect(ofType(evs, 'carried')[0].item.name).toBe('praca');
+    }
+  });
+
+  it('lifts smoke only in "Oddaję", only from focus it turns; "Przyjmuję" is light only; nothing from taps', () => {
+    const sim = own({ planned: 600, progress: { own: { list: ['praca'], next: 0, pos: null } } });
+    let max = 0;
+    drive(sim, 40, LOW, undefined, () => { max = Math.max(max, sim.waiting); sim.stay(); });
+    expect(sim.x).toBe(0);
+    expect(max).toBeGreaterThan(0);
+    expect(max).toBeLessThanOrEqual(RULES.puff + 1e-9);
+    until(sim, () => sim.circle === 'receive' && sim.stage === 'pray', steady(0.8));
+    expect(sim.smokeless).toBe(true);
+    drive(sim, 30, (_t, s) => (s.pushBlock ? LOW : CALM), undefined, () => expect(sim.waiting).toBe(0));
+    const x0 = sim.x;
+    drive(sim, 20, LOW);
+    expect(sim.x).toBe(x0);
+    drive(sim, 15, HIGH, undefined, () => expect(sim.waiting).toBe(0));
+    expect(sim.x).toBeGreaterThan(x0);
+  });
+
+  it('shrinks the bundle as "Oddaję" turns, gone once given; a golden light at the foot for each burden given', () => {
+    const sim = own({ planned: 600, progress: { own: { list: ['praca', 'szef'], next: 0, pos: null } } });
+    expect(ownTargets(sim, 0)).toMatchObject({ bundle: 1, pale: 0, lights: 0 });
+    let last = 1;
+    until(sim, () => sim.circle === 'give' && sim.x >= 0.6, HIGH, undefined, 600);
+    const mid = ownTargets(sim, sim.x);
+    expect(mid.bundle).toBeCloseTo(1 - sim.x, 9);
+    expect(mid.bundle).toBeLessThan(last);
+    last = mid.bundle;
+    until(sim, () => sim.stage === 'peace', HIGH);
+    expect(ownTargets(sim, sim.x).bundle).toBe(0);
+    // "Przyjmuję": the bundle is given, the next light forms at the foot
+    until(sim, () => sim.circle === 'receive' && sim.stage === 'pray' && sim.x > 0.3, steady(0.8));
+    const recv = ownTargets(sim, sim.x);
+    expect(recv.bundle).toBe(0);
+    expect(recv.lights).toBeGreaterThan(0);
+    expect(recv.lights).toBeLessThan(1);
+    until(sim, () => sim.carriedNow >= 2, steady(0.8));
+    expect(Math.floor(ownTargets(sim, sim.x).lights)).toBe(2);
+    expect(ownTargets(sim, sim.x).heart).toBeGreaterThan(ownTargets({ circle: 'give', stage: 'call', carriedNow: 0 }, 0).heart);
+    // the lights rest at the foot of the Cross, one place each, near its foot
+    const L = layout(390, 844, CHECK_SIZES[2].insets, true);
+    const S = stageOf(L, 0, true);
+    for (const n of [1, 3, 12, 14]) {
+      const spots = footLights(S, n);
+      expect(spots).toHaveLength(n);
+      expect(new Set(spots.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`)).size).toBe(n);
+      for (const p of spots) {
+        expect(Math.abs(p.x - S.cross.x)).toBeLessThan(S.cross.arm * 1.6);
+        expect(Math.abs(p.y - S.cross.y)).toBeLessThan(S.cross.h * 0.25);
+      }
+    }
+  });
+
+  it('walks the list in order and starts again when it runs out (a burden is given many times)', () => {
+    const p: BrzProgress = { ...freshProgress(), way: 'own', sessions: 3, seen: [...ALL_SEEN], own: { list: ['praca', 'szef'], next: 1, pos: null } };
+    const sim = new BrzSim({ progress: p, rng: mulberry32(2), plannedSec: 900, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.item.name).toBe('szef');
+    const evs = until(sim, () => sim.carriedNow >= 3, steady(0.9), undefined, 8000);
+    expect(ofType(evs, 'carried').map(e => e.item.name)).toEqual(['szef', 'praca', 'szef']);
+    sim.finish();
+    expect(p.own.pos).toBeNull();
+    expect(p.own.next).toBe(0);
+    expect(p.given).toBe(3);
+    expect(p.carried).toBe(0);
+    // the next session goes on where this one stopped
+    const next = new BrzSim({ progress: p, rng: mulberry32(3), plannedSec: 900, eeg: false, tuning: TUNING });
+    next.start();
+    expect(next.item.name).toBe('praca');
+  });
+
+  it('resumes a burden in progress: its circle and the light turned there', () => {
+    const p: BrzProgress = { ...freshProgress(), way: 'own', sessions: 3, seen: [...ALL_SEEN], own: { list: ['praca', 'szef'], next: 0, pos: null } };
+    const sim = new BrzSim({ progress: p, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 14, HIGH);
+    const x = sim.x;
+    expect(x).toBeGreaterThan(0);
+    sim.finish();
+    expect(p.own.pos).toEqual({ key: 't:praca', circle: 0, x: Math.min(0.99, x) });
+    expect(p.pos).toBeNull();
+    const next = new BrzSim({ progress: p, rng: mulberry32(2), plannedSec: 600, eeg: false, tuning: TUNING });
+    next.start();
+    expect(next.resumed).toBe(true);
+    expect(next.item.name).toBe('praca');
+    expect(next.circle).toBe('give');
+    expect(next.x).toBeCloseTo(Math.min(0.99, x), 9);
+    // in "Przyjmuję": it goes on there
+    const q: BrzProgress = { ...freshProgress(), way: 'own', sessions: 3, seen: [...ALL_SEEN], own: { list: ['praca'], next: 0, pos: { key: 't:praca', circle: 1, x: 0.4 } } };
+    const r = new BrzSim({ progress: q, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: TUNING });
+    r.start();
+    expect(r.circle).toBe('receive');
+    expect(r.x).toBeCloseTo(0.4, 9);
+  });
+
+  it('◎ goes to "Przyjmuję" keeping the light turned; ≡ chooses a topic; the hands say the own words', () => {
+    const sim = own({ planned: 300, progress: { own: { list: ['praca', 'szef'], next: 0, pos: null } } });
+    drive(sim, 12, HIGH);
+    const x = sim.x;
+    expect(sim.widerCircle).toBe('receive');
+    expect(sim.widen()).toBe(true);
+    expect(sim.circle).toBe('receive');
+    expect(sim.x).toBe(x);
+    expect(sim.widen()).toBe(false);
+    expect(sim.choose(1)).toBe(true);
+    expect(sim.item.name).toBe('szef');
+    expect(sim.circle).toBe('give');
+    expect(sim.coachWords('controls', true)).toMatch(/Twoja lista/);
+    expect(sim.coachWords('breath', true)).toMatch(/tobołka/);
+    expect(sim.coachWords('tap', true)).not.toMatch(/nich/);
+  });
+
+  it('opens the first-ever card with both ways, a line each, then the own way’s care; a returning player’s first own session gets its own two pages once', () => {
+    const fresh = makeSim({ tuning: BEGINNER, planned: 600, progress: { way: 'own' } });
+    expect(fresh.story?.kind).toBe('open');
+    expect(fresh.block.kind).toBe('warmup');
+    const p0 = pageOf('open', 0, 'own'), p1 = pageOf('open', 1, 'own');
+    expect(p0.text).toMatch(/„Moje brzemiona”/);
+    expect(p0.text).toMatch(/„Za innych”/);
+    expect(p1.text).toMatch(/Nie musisz niczego przeżywać od nowa\. Wystarczy nazwać i oddać/);
+    expect(p1.text).toMatch(/116 123/);
+    expect(pageOf('open', 1, 'others').text).toBe(t('story.care.text'));
+    const p: BrzProgress = { ...freshProgress(), way: 'own', sessions: 6, seen: ALL_SEEN.filter(k => k !== 's.own') };
+    const first = new BrzSim({ progress: p, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: TUNING });
+    first.start();
+    expect(first.firstOwn).toBe(true);
+    expect(first.story?.kind).toBe('own');
+    expect(first.block.kind).toBe('warmup');
+    first.finish();
+    const second = new BrzSim({ progress: p, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: TUNING });
+    second.start();
+    expect(second.story).toBeNull();
+    expect(second.block.kind).toBe('push');
+  });
+
+  it('keeps topics at home: never in result(), its stats or its highlights — only counts', () => {
+    const secret = ['Tajemnica Zośki', 'zdrowie mamy'];
+    for (const planned of [180, 600]) {
+      const sim = own({ planned, progress: { own: { list: secret, next: 0, pos: null } } });
+      drive(sim, planned + 5, steady(0.8), { t: 0 }, reader(sim));
+      const r = sim.result();
+      const all = JSON.stringify(r);
+      for (const s of [...secret, 'Zośk', 'mamy']) expect(all).not.toContain(s);
+      expect(r.highlights[0]).toMatch(/^\d+ brzemi\S+ oddan\S+ przy krzyżu$/);
+      expect(r.highlights.join(' ')).toMatch(/na Twojej liście/);
+      expect(r.stats[0][0]).toBe('Oddane brzemiona');
+    }
+    // a session that carried nothing still says nothing of them
+    const none = own({ planned: 120, progress: { own: { list: secret, next: 0, pos: null } } });
+    drive(none, 125, (_t, s) => (s.pushBlock ? LOW : CALM), { t: 0 });
+    expect(JSON.stringify(none.result())).not.toMatch(/Zośk|mamy/);
+  });
+
+  it('carries 3, 10 and 30 minutes to the end for an average player, the burdens spread over the session', () => {
+    for (const planned of [180, 600, 1800]) {
+      const sim = own({ planned, seed: 2, progress: { own: { list: ['praca', 'szef', 'długi'], next: 0, pos: null } } });
+      const fi = new FocusInput(TUNING);
+      const rnd = mulberry32(5);
+      let act = 0, noise = 0;
+      const carried: number[] = [];
+      drive(sim, planned + 5, (tt, s) => {
+        act += ((s.pushBlock ? 2 : 0) - act) * (1 - Math.exp(-STEP / 4));
+        noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+        return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+      }, { t: 0 }, () => { for (const e of sim.take()) if (e.type === 'carried') carried.push(sim.t); });
+      expect(sim.phase, `${planned}`).toBe('done');
+      expect(carried.length, `${planned}`).toBeGreaterThanOrEqual(planned >= 1800 ? 5 : planned >= 600 ? 2 : 2);
+      expect(carried.at(-1)!, `${planned}`).toBeGreaterThan(planned * 0.6);
+      sim.blocks.forEach((b, i) => { if (i) expect(b.kind).not.toBe(sim.blocks[i - 1].kind); });
+    }
+  });
+});
+
+describe('my list and its suggestions (round 16)', () => {
+  it('keeps up to 12 topics of up to 32 characters, plain text, none twice (whatever the case)', () => {
+    const p = freshProgress();
+    expect(addTopic(p, '  praca  ')).toBe(true);
+    expect(addTopic(p, 'PRACA')).toBe(false);
+    expect(addTopic(p, '   ')).toBe(false);
+    expect(addTopic(p, '<b>szef</b>')).toBe(true);
+    expect(p.own.list).toEqual(['praca', 'b szef /b']);
+    addTopic(p, 'x'.repeat(50));
+    expect([...p.own.list[2]].length).toBe(TOPIC_MAX);
+    for (let i = 0; i < 20; i++) addTopic(p, `sprawa ${i}`);
+    expect(p.own.list).toHaveLength(LIST_MAX);
+    expect(addTopic(p, 'jeszcze jedna')).toBe(false);
+    expect(cleanTopics(['a', 'A', 5, null, 'b', ...Array.from({ length: 20 }, (_, i) => `t${i}`)])).toHaveLength(LIST_MAX);
+  });
+
+  it('reorders (the next topic followed), removes, and starts from any topic', () => {
+    const p = freshProgress();
+    for (const s of ['praca', 'szef', 'długi']) addTopic(p, s);
+    expect(setOwnStart(p, 1, ownDefaults())).toBe(true);
+    expect(moveTopic(p, 1, -1)).toBe(true);
+    expect(p.own.list).toEqual(['szef', 'praca', 'długi']);
+    expect(p.own.next).toBe(0);
+    expect(moveTopic(p, 0, -1)).toBe(false);
+    p.own.pos = { key: 't:szef', circle: 0, x: 0.3 };
+    expect(ownStartOf(p, ownDefaults())).toEqual({ index: 0, circle: 0, x: 0.3, resumed: true });
+    expect(removeTopic(p, 0)).toBe(true);
+    expect(p.own.pos).toBeNull();
+    expect(p.own.list).toEqual(['praca', 'długi']);
+    expect(removeTopic(p, 5)).toBe(false);
+  });
+
+  it('adds a set of suggestions (only what is not there, while there is room) or makes it the list', () => {
+    const p = freshProgress();
+    addTopic(p, 'praca');
+    const work = themeTopics(DAILY[0]);
+    expect(work[0]).toBe('praca');
+    expect(topicsToAdd(p, work)).toBe(work.length - 1);
+    expect(addTopics(p, work, 'add')).toBe(work.length - 1);
+    expect(p.own.list).toHaveLength(work.length);
+    const rej = warowniaTopics('rejection');
+    p.own.next = 2;
+    p.own.pos = { key: 't:praca', circle: 0, x: 0.2 };
+    expect(addTopics(p, rej, 'replace')).toBe(rej.length);
+    expect(p.own.list).toEqual([...rej]);
+    expect(p.own.next).toBe(0);
+    expect(p.own.pos).toBeNull();
+    for (let i = 0; i < 12; i++) addTopic(p, `s${i}`);
+    expect(topicsToAdd(p, warowniaTopics('fears'))).toBe(0);
+  });
+
+  it('offers ten everyday themes of 3–4 topics and the 24 warownie of 3–5 burdens, in four languages, each ≤ 32 characters', () => {
+    expect(DAILY).toHaveLength(10);
+    for (const th of DAILY) for (const l of LANGS) {
+      expect(th.topics[l].length, `${th.id} ${l}`).toBeGreaterThanOrEqual(3);
+      expect(th.topics[l].length, `${th.id} ${l}`).toBeLessThanOrEqual(4);
+      expect(th.topics[l].length).toBe(th.topics.pl.length);
+      expect(th.name[l].length).toBeGreaterThan(2);
+    }
+    expect(Object.keys(WAROWNIA_TOPICS).sort()).toEqual(WAROWNIE.map(w => w.id).sort());
+    for (const w of WAROWNIE) for (const l of LANGS) {
+      const set = WAROWNIA_TOPICS[w.id][l];
+      expect(set.length, `${w.id} ${l}`).toBeGreaterThanOrEqual(3);
+      expect(set.length, `${w.id} ${l}`).toBeLessThanOrEqual(5);
+      expect(set.length, `${w.id} ${l}`).toBe(WAROWNIA_TOPICS[w.id].pl.length);
+      expect(new Set(set.map(s => s.toLocaleLowerCase())).size, `${w.id} ${l}`).toBe(set.length);
+    }
+    const every = (l: Lang) => [...DAILY.flatMap(th => th.topics[l]), ...WAROWNIE.flatMap(w => WAROWNIA_TOPICS[w.id][l])];
+    for (const l of LANGS) for (const s of every(l)) {
+      expect([...s].length, `${l} ${s}`).toBeLessThanOrEqual(TOPIC_MAX);
+      expect(cleanTopic(s), `${l} ${s}`).toBe(s);
+      if (l !== 'pl') expect(s, `${l} ${s}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/);
+    }
+  });
+
+  it('takes the wounds and the people to forgive, never the deliverance language, a spirit or the teacher', () => {
+    const bad: Record<Lang, RegExp> = {
+      pl: /duch|demon|przeklin|związuj|wyrzuc|egzorc|szatan|diab/i,
+      en: /spirit|demon|curse|bind|cast out|exorcis|satan|devil/i,
+      de: /dämon|demon|böse[nr]? geist|geist|fluch|verfluch|austreib|satan|teufel/i,
+      sv: /demon|onda ande|\bande\b|förbann|driva ut|satan|djävul/i,
+    };
+    for (const w of WAROWNIE) for (const l of LANGS) for (const s of WAROWNIA_TOPICS[w.id][l]) expect(s, `${w.id} ${l}`).not.toMatch(bad[l]);
+    // each set names a wound and the people forgiven (the series' "ulecz…" and "przebaczam tym, którzy…")
+    for (const w of WAROWNIE) expect(WAROWNIA_TOPICS[w.id].pl.some(s => /^ci,|^ci$/.test(s)) || w.id === 'compulsions' || w.id === 'humanism' || WAROWNIA_TOPICS[w.id].pl.some(s => /^ci, /.test(s)), w.id).toBe(true);
+  });
+
+  it('shows each stronghold’s care where the series flags it: the help line, once and not as a ritual, a doctor, help alongside', () => {
+    const p = freshProgress();
+    const root = progressPanel(p, () => undefined);
+    const btn = (text: string) => [...root.querySelectorAll('button')].find(b => b.textContent!.trim() === text || b.textContent!.trim().endsWith(` ${text}`)) as HTMLButtonElement;
+    expect(root.textContent).not.toContain('Chwiejność');
+    btn('Warownie').click();
+    const care: Record<string, RegExp> = {
+      Chwiejność: /116 123/, Poniżenie: /116 123/, 'Perfekcjonizm i natręctwa': /nie jako rytuał/, Podejrzliwość: /lekarzem/, Lęk: /lekarzem/,
+      'Martwe upodobania': /grupą wsparcia/, Nałogi: /grupą wsparcia/, Odrzucenie: /^/,
+    };
+    for (const [name, re] of Object.entries(care)) {
+      btn(name).click();
+      const notes = [...root.querySelectorAll('[role="note"]')].map(n => n.textContent ?? '');
+      if (name === 'Odrzucenie') expect(notes).toEqual([]);
+      else expect(notes.join(' '), name).toMatch(re);
+    }
+    for (const l of LANGS) for (const k of ['care.crisis', 'care.ocd', 'care.medical', 'care.addiction']) expect(String((CATALOGS[l] as Record<string, unknown>)[k]).length).toBeGreaterThan(20);
+    for (const l of LANGS) expect(String((CATALOGS[l] as Record<string, unknown>)['care.crisis'])).toMatch(/\d{3}/);
+  });
+
+  it('builds a card that works on a phone: the way first, finger-sized controls, shelves closed until opened', () => {
+    const p = freshProgress();
+    let saved = 0;
+    const root = progressPanel(p, () => { saved++; });
+    const buttons = () => [...root.querySelectorAll('button')] as HTMLButtonElement[];
+    const ways = [...root.querySelectorAll('[role="radiogroup"]')][0];
+    expect([...ways.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Moje brzemiona', 'Za innych']);
+    expect(ways.querySelector('[aria-checked="true"]')!.textContent).toBe('Moje brzemiona');
+    expect(root.textContent).toContain('Nie musisz niczego przeżywać od nowa. Wystarczy nazwać i oddać.');
+    const input = root.querySelector('input[data-add]') as HTMLInputElement;
+    expect(input.maxLength).toBe(TOPIC_MAX);
+    // closed shelves: no suggestion chips yet
+    expect(buttons().some(b => /^\+ /.test(b.textContent!))).toBe(false);
+    buttons().find(b => b.textContent!.includes('Codzienne'))!.click();
+    buttons().find(b => b.textContent === 'Praca')!.click();
+    const plus = buttons().filter(b => /^\+ /.test(b.textContent!));
+    expect(plus.map(b => b.textContent)).toEqual(themeTopics(DAILY[0]).map(s => `+ ${s}`));
+    plus[1].click();
+    expect(p.own.list).toEqual([themeTopics(DAILY[0])[1]]);
+    expect(saved).toBe(1);
+    for (const b of buttons()) {
+      expect(parseFloat(b.style.minHeight), b.textContent!).toBeGreaterThanOrEqual(44);
+      expect(parseFloat(b.style.minWidth), b.textContent!).toBeGreaterThanOrEqual(44);
+    }
+    // the replace asks a second tap
+    buttons().find(b => b.textContent!.includes('Warownie'))!.click();
+    buttons().find(b => b.textContent === 'Odrzucenie')!.click();
+    buttons().find(b => b.textContent === 'Zastąp listę')!.click();
+    expect(p.own.list).toHaveLength(1);
+    buttons().find(b => /^Tak, zastąp listę/.test(b.textContent!))!.click();
+    expect(p.own.list).toEqual([...warowniaTopics('rejection')]);
+    // switching the way: the intercession's card as it was
+    buttons().find(b => b.textContent === 'Za innych')!.click();
+    expect(p.way).toBe('others');
+    expect(root.textContent).toContain(t('panel.list'));
+    expect(root.textContent).toContain(t('panel.meNote'));
+  });
+
+  it('migrates: a round-15 save that played keeps "Za innych", one that never did starts "Moje brzemiona"; the own list repaired', () => {
+    const r15 = mergeSaved(freshProgress(), { ver: 1, sessions: 4, list: [anna], next: 0, pos: null, carried: 3 }) as BrzProgress;
+    migrate(r15);
+    expect(r15.ver).toBe(2);
+    expect(r15.way).toBe('others');
+    expect(r15.list.map(itemKey)).toEqual(['p:Anna']);
+    expect(r15.own).toEqual({ list: [], next: 0, pos: null });
+    const listed = migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 0, list: [anna] }) as BrzProgress);
+    expect(listed.way).toBe('others');
+    const unplayed = migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 0, list: [] }) as BrzProgress);
+    expect(unplayed.way).toBe('own');
+    const v2 = migrate(mergeSaved(freshProgress(), {
+      ver: 2, way: 'others', given: 2, own: { list: ['praca', 'PRACA', 7, 'x'.repeat(40)], next: 9, pos: { key: 'p:Anna', circle: 1, x: 0.2 } },
+    }) as BrzProgress);
+    expect(v2.way).toBe('others');
+    expect(v2.given).toBe(2);
+    expect(v2.own.list).toEqual(['praca', 'x'.repeat(TOPIC_MAX)]);
+    expect(v2.own.next).toBe(1);
+    expect(v2.own.pos).toBeNull();
+    expect(migrate(mergeSaved(freshProgress(), { ver: 2, way: 'nonsense' }) as BrzProgress).way).toBe('own');
+    // an intercession list never takes a topic, an own list never a person
+    expect(cleanList([topicItem('praca'), anna]).map(itemKey)).toEqual(['p:Anna']);
+    expect(migrate(migrate(freshProgress()))).toEqual(freshProgress());
+  });
+
+  it('speaks to the player, not of "them", in the own way’s words — in all four languages', () => {
+    const own = (l: Lang) => Object.entries(CATALOGS[l]).filter(([k]) => /^say\.own|^say\.receive|^coach\.own|^tip\.own|^own\.|^story\.own|^howto\.own|^hud\.cue\.own/.test(k)).map(([k, v]) => [k, String(v)] as const);
+    const them: Record<Lang, RegExp> = { pl: /\b(nich|nimi|ich)\b/i, en: /\b(them|their)\b/i, de: /\b(ihnen|sie zu)\b/, sv: /\b(dem|deras)\b/i };
+    for (const l of LANGS) {
+      expect(own(l).length).toBeGreaterThan(30);
+      for (const [k, s] of own(l)) expect(s, `${l}.${k}`).not.toMatch(them[l]);
+    }
+    expect(howto(true, null, 'own').goal).toBe(t('howto.ownGoal'));
+    expect(howto(false, null, 'own').hands.map(h => h.gesture)).toEqual(['tap', 'keys']);
+    expect(JSON.stringify(howto(true, null, 'own'))).not.toMatch(/Spacj|\bM\b —/);
+    // the registry explains the own way first
+    expect((ARCADE_CATALOGS.pl as unknown as Record<string, string>)['brzemiona.how1']).toMatch(/^Moje brzemiona/);
+    expect((ARCADE_CATALOGS.pl as unknown as Record<string, string>)['brzemiona.how2']).toMatch(/^Za innych/);
+  });
+});
+
+describe('the own way’s picture at every size (round 16, layout.ts)', () => {
+  it('stands the Cross, the bundle and the player apart, inside the picture, both triptychs; room under them for the words', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const S = stageOf(L, 0, true);
+        const B = S.bundle!, P = S.player, C = S.cross, R = L.pic;
+        const tag = `${c.name} ${touch ? 'touch' : 'mouse'} ${L.orient}`;
+        expect(B, tag).toBeTruthy();
+        for (const f of [B, P]) {
+          expect(f.x - f.H * 0.6, tag).toBeGreaterThan(R.x);
+          expect(f.x + f.H * 0.6, tag).toBeLessThan(R.x + R.w);
+          expect(f.y - f.H, tag).toBeGreaterThan(R.y);
+        }
+        expect(B.H, tag).toBeGreaterThan(14);
+        // the bundle beside the player, never on them; the Cross apart from both
+        expect(Math.abs(B.x - P.x), tag).toBeGreaterThan(P.H * 0.3 + B.H * 0.5);
+        expect(Math.abs(B.y - P.y), tag).toBeLessThan(P.H * 0.1);
+        if (L.orient === 'across') {
+          expect(C.x + C.arm, tag).toBeLessThan(B.x - B.H * 0.5);
+          expect(B.x, tag).toBeLessThan(P.x);
+        } else {
+          expect(C.y, tag).toBeLessThan(B.y - B.H);
+          expect(C.y, tag).toBeLessThan(P.y - P.H);
+        }
+        // a line of words under them (the topic, "Ty")
+        expect(R.y + R.h - P.y, tag).toBeGreaterThanOrEqual(L.font.label * 1.4);
+      }
+    }
+  });
+
+  it('lifts the smoke from the bundle to the Cross and never toward the player; only light reaches the player', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets, true);
+      const S = stageOf(L, 0, true);
+      const B = S.bundle!, P = S.player;
+      const { smoke, light } = ownLanes(S, L.orient);
+      const tag = `${c.name} ${L.orient}`;
+      expect(Math.hypot(smoke.x0 - B.x, smoke.y0 - (B.y - B.H * 0.85)), tag).toBeLessThan(1);
+      expect(Math.hypot(smoke.x1 - S.cross.cx, smoke.y1 - S.cross.cy), tag).toBeLessThan(S.cross.arm * 0.2 + 1);
+      expect(Math.hypot(light.x1 - P.x, light.y1 - (P.y - P.H * 0.62)), tag).toBeLessThan(1);
+      const centre = { x: P.x, y: P.y - P.H * 0.5 };
+      let prev = -Infinity;
+      for (let u = 0; u <= 1.0001; u += 0.02) {
+        const [x, y] = laneAt(smoke, u);
+        const d = Math.hypot(x - centre.x, y - centre.y);
+        expect(d, `${tag} smoke at ${u.toFixed(2)}`).toBeGreaterThanOrEqual(prev - 0.5);
+        prev = d;
+        const inFig = y > P.y - P.H && y < P.y && Math.abs(x - P.x) < P.H * 0.35;
+        expect(inFig, `${tag} smoke in the player at ${u.toFixed(2)}`).toBe(false);
+      }
+    }
   });
 });

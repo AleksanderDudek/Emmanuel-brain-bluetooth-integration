@@ -2,7 +2,9 @@
  * Brzemiona's pictures, drawn in code (no images): a dusk sky of grey-violet warming to gold over the session, a far
  * ridge, a low dark hill with the Cross of light on it (a simple luminous cross — not a crucifix, no body), the near
  * ground; the figure of light of the series (kit/figure.ts) — greyed for the one prayed for until the light returns
- * to them, clear for the player; a night globe of lights for the whole world; soft grey smoke and gold light.
+ * to them, clear for the player; a night globe of lights for the whole world; soft grey smoke and gold light; and
+ * (the own way, round 16) the player's burden as a closed bundle — a tied cloth sack, dark and then paler as it is
+ * given, never opened.
  * Light is light: additive glows from small baked sprites, never shadowBlur per frame; the sky, the ground, the
  * figures, the Cross and the globe are baked once per size, so a frame composes layers and a few dozen sprites.
  */
@@ -165,7 +167,11 @@ export function puff(ctx: CanvasRenderingContext2D, hex: string, x: number, y: n
 }
 
 // ── the sky and the ground ───────────────────────────────────────
-export interface Ground { ridgeY: number; hillY: number; nearY: number; hillX: number; hillW: number; orient: 'across' | 'down'; personX: number; playerX: number; crossY: number }
+export interface Ground {
+  ridgeY: number; hillY: number; nearY: number; hillX: number; hillW: number; orient: 'across' | 'down'; personX: number; playerX: number; crossY: number;
+  /** the own way, across: the near ground is level from here to the player's feet (the bundle stands on it) */
+  flatX?: number;
+}
 
 /**
  * The sky and the land, baked: `warm` 0 is dusk (grey-violet with a rose horizon and the first stars), 1 the warm
@@ -302,9 +308,11 @@ function drawGround(ctx: CanvasRenderingContext2D, w: number, h: number, warm: b
   if (gr.orient === 'across') {
     // a foreground band across the bottom, rising gently to the player's feet on the right
     const yl = Math.max(gr.nearY + h * 0.06, gr.ridgeY + h * 0.1);
+    const flat = gr.flatX !== undefined ? Math.min(gr.flatX, gr.playerX) : gr.playerX;
     fillDown(path => {
       path.moveTo(-2, yl);
-      path.quadraticCurveTo(gr.playerX - w * 0.28, gr.nearY + h * 0.05, gr.playerX, gr.nearY);
+      path.quadraticCurveTo(flat - w * 0.24, gr.nearY + h * 0.05, flat, gr.nearY);
+      if (flat < gr.playerX) path.lineTo(gr.playerX, gr.nearY);
       path.quadraticCurveTo(gr.playerX + (w - gr.playerX) * 0.5, gr.nearY - h * 0.004, w + 2, gr.nearY + h * 0.008);
     }, gr.nearY, C.near, C.nearLo, 0.2);
   } else {
@@ -425,6 +433,98 @@ export function bakeFigure(H: number, style: FigureStyle, dpr: number): { c: Lay
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   return { c: L.c, w: W, h: HH, ox: cx, oy: top + H };
+}
+
+// ── the bundle (the own way) ─────────────────────────────────────
+export type BundleTone = 'dark' | 'pale';
+
+/**
+ * The player's burden as a closed bundle, baked once per size: a cloth sack with a soft belly, gathered and tied at
+ * the neck with a cord, the cloth's ends above the knot; `dark` — slate violet with a thin warm rim from the horizon
+ * (the burden as it is brought), `pale` — light grey-lilac with a gold rim (as it is given).  Its base at the bottom
+ * middle of the layer; a soft shadow on the ground.  Never drawn open.
+ */
+export function bakeBundle(H: number, tone: BundleTone, dpr: number): { c: Layer; w: number; h: number; ox: number; oy: number } | null {
+  const w = H * 1.0, pad = Math.ceil(Math.max(4, H * 0.18));
+  const W = Math.ceil(w * 1.4 + pad * 2), HH = Math.ceil(H * 1.08 + pad * 2);
+  const L = layer(W, HH, dpr);
+  if (!L) return null;
+  const ctx = L.ctx;
+  const cx = W / 2, by = pad + H * 1.04;
+  const col = tone === 'dark'
+    ? { top: '#5a4e6a', mid: '#3a3148', low: '#1f1a29', rim: 'rgba(236,196,164,.55)', cord: '#9a8770', fold: 'rgba(12,8,20,.24)', shade: 'rgba(6,4,12,.45)' }
+    : { top: '#ddd5e8', mid: '#b8aecb', low: '#8f86a3', rim: 'rgba(255,226,170,.85)', cord: '#f0dcae', fold: 'rgba(80,70,100,.22)', shade: 'rgba(6,4,12,.25)' };
+  // the shadow on the ground
+  const sh = ctx.createRadialGradient(cx, by, 0, cx, by, w * 0.6);
+  sh.addColorStop(0, col.shade);
+  sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.translate(cx, by);
+  ctx.scale(1, 0.22);
+  ctx.translate(-cx, -by);
+  ctx.fillStyle = sh;
+  ctx.fillRect(cx - w, by - w, 2 * w, 2 * w);
+  ctx.restore();
+  // the body: a soft belly gathered at the neck
+  const neckY = by - H * 0.74, nw = w * 0.17;
+  const body = new Path2D();
+  body.moveTo(cx - nw, neckY);
+  body.bezierCurveTo(cx - w * 0.6, by - H * 0.62, cx - w * 0.62, by - H * 0.05, cx - w * 0.34, by);
+  body.quadraticCurveTo(cx, by + H * 0.035, cx + w * 0.34, by);
+  body.bezierCurveTo(cx + w * 0.62, by - H * 0.05, cx + w * 0.6, by - H * 0.62, cx + nw, neckY);
+  body.closePath();
+  const g = ctx.createLinearGradient(cx - w * 0.4, neckY, cx + w * 0.2, by);
+  g.addColorStop(0, col.top);
+  g.addColorStop(0.45, col.mid);
+  g.addColorStop(1, col.low);
+  ctx.fillStyle = g;
+  ctx.fill(body);
+  // folds running down from the neck
+  ctx.strokeStyle = col.fold;
+  ctx.lineWidth = Math.max(1, H * 0.025);
+  ctx.lineCap = 'round';
+  for (const [dx, bend, end] of [[-0.06, -0.22, 0.3], [0.04, 0.16, 0.22], [0.1, 0.3, 0.42]] as const) {
+    ctx.beginPath();
+    ctx.moveTo(cx + w * dx * 0.6, neckY + H * 0.07);
+    ctx.quadraticCurveTo(cx + w * (dx + bend * 0.8), by - H * 0.5, cx + w * (dx + bend), by - H * end);
+    ctx.stroke();
+  }
+  // the rim of the horizon's light along the left shoulder (the Cross's side)
+  const rim = new Path2D();
+  rim.moveTo(cx - nw, neckY);
+  rim.bezierCurveTo(cx - w * 0.6, by - H * 0.62, cx - w * 0.62, by - H * 0.05, cx - w * 0.34, by);
+  ctx.strokeStyle = col.rim;
+  ctx.lineWidth = Math.max(1, H * 0.035);
+  ctx.stroke(rim);
+  // the cloth's ends above the knot
+  const top = new Path2D();
+  top.moveTo(cx - nw * 0.9, neckY + H * 0.02);
+  top.quadraticCurveTo(cx - w * 0.3, by - H * 0.92, cx - w * 0.2, by - H * 1.0);
+  top.quadraticCurveTo(cx - w * 0.04, by - H * 0.86, cx + w * 0.02, by - H * 0.95);
+  top.quadraticCurveTo(cx + w * 0.12, by - H * 0.86, cx + w * 0.24, by - H * 0.98);
+  top.quadraticCurveTo(cx + w * 0.28, by - H * 0.86, cx + nw * 0.9, neckY + H * 0.02);
+  top.closePath();
+  const tg = ctx.createLinearGradient(0, by - H, 0, neckY);
+  tg.addColorStop(0, col.mid);
+  tg.addColorStop(1, col.top);
+  ctx.fillStyle = tg;
+  ctx.fill(top);
+  ctx.strokeStyle = col.rim;
+  ctx.lineWidth = Math.max(0.8, H * 0.02);
+  ctx.stroke(top);
+  // the cord: a band round the neck and a short loose end
+  ctx.strokeStyle = col.cord;
+  ctx.lineWidth = Math.max(1.4, H * 0.055);
+  ctx.beginPath();
+  ctx.moveTo(cx - nw * 1.25, neckY + H * 0.01);
+  ctx.quadraticCurveTo(cx, neckY + H * 0.06, cx + nw * 1.25, neckY + H * 0.01);
+  ctx.stroke();
+  ctx.lineWidth = Math.max(1, H * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(cx + nw * 0.9, neckY + H * 0.03);
+  ctx.quadraticCurveTo(cx + nw * 1.6, neckY + H * 0.12, cx + nw * 1.3, neckY + H * 0.22);
+  ctx.stroke();
+  return { c: L.c, w: W, h: HH, ox: cx, oy: by };
 }
 
 // ── the night globe ──────────────────────────────────────────────

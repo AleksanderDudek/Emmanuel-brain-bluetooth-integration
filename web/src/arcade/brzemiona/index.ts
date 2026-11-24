@@ -7,6 +7,12 @@
  * Cross.  The circle widens to all who carry the same burden and to the whole world as a night globe of lights; a
  * rest of whole breaths follows each circle, and after the last everything is left at the Cross (1 Pet 5:7).
  *
+ * Round 16 adds a second way, chosen first in the card: "Moje brzemiona" — the player simply gives their own burdens
+ * to the Cross (a closed bundle beside them, the smoke lifting from the bundle to the Cross, the light returning to
+ * them; a golden light at the foot of the Cross for each burden given), from their own list of topics with ready
+ * suggestions — everyday themes and the 24 warownie as sets of wounds and people to forgive (topics.ts).  A fresh
+ * progress starts there; a round-15 save keeps "Za innych", the intercession, which stays whole.
+ *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in rules.ts, whom
  * and the verses in content.ts, the progress in meta.ts, the narrator in talk.ts), the pictures (render.ts with
  * layout.ts, scene.ts, paint.ts and hud.ts; preview.ts for the lobby and the calibration), the sound (audio.ts), the
@@ -19,6 +25,7 @@ import { coarsePointer } from '../kit/mobile';
 import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { BrzSound } from './audio';
+import { allCirclesOf, type Way } from './content';
 import { breathWords, t, unit } from './i18n';
 import { breathOf, freshProgress, migrate, bestOf, type BrzProgress } from './meta';
 import { progressPanel } from './panel';
@@ -27,10 +34,12 @@ import { BrzView } from './render';
 import { RULES, readTime } from './rules';
 import { BrzSim, type BlockKind, type Coach, type CoachAt, type SimEvent } from './sim';
 
-/** The breath of the last progress the module saw (the lobby's, the session's): the how-to names it. */
+/** The breath and the way of the last progress the module saw (the lobby's, the session's): the how-to names them. */
 let knownBreath: BreathPattern | null = null;
+let knownWay: Way = 'own';
 const seen = (p: BrzProgress): BrzProgress => {
   knownBreath = breathOf(p);
+  knownWay = p.way === 'others' ? 'others' : 'own';
   return p;
 };
 
@@ -149,7 +158,8 @@ class BrzGame implements ArcadeGame {
 
   headline(): Headline {
     const s = this.sim;
-    const list = s.circles.includes(s.circle) ? s.circles : [s.circle];
+    // as the band says it: a circle reached by hand (◎) counts on the burden's whole ladder
+    const list = s.circles.includes(s.circle) ? s.circles : allCirclesOf(s.item);
     return { value: s.score, sub: t('hud.sub', { n: list.indexOf(s.circle) + 1, of: list.length }) };
   }
 
@@ -177,16 +187,17 @@ export function coachText(what: Coach, touch: boolean, sim: BrzSim): string {
   return sim.coachWords(what, touch);
 }
 
-/** How to play, for the hand the player has: taps on a phone; a click and keys on a desktop; the breath as set. */
-export function howto(touch = coarsePointer(), breath: BreathPattern | null = knownBreath): HowTo {
+/** How to play, for the hand the player has (taps on a phone; a click and keys on a desktop), the breath and the way as set. */
+export function howto(touch = coarsePointer(), breath: BreathPattern | null = knownBreath, way: Way = knownWay): HowTo {
   const b = breath && breathOk(breath) ? breath : BREATH_PRESETS.even;
+  const own = way === 'own';
   return {
-    goal: t('howto.goal'),
+    goal: t(own ? 'howto.ownGoal' : 'howto.goal'),
     hands: [
-      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
-      ...(touch ? [] : [{ gesture: 'keys' as const, text: t('howto.keys') }]),
+      { gesture: 'tap', text: t(own ? (touch ? 'howto.ownTap' : 'howto.ownClick') : touch ? 'howto.tap' : 'howto.click') },
+      ...(touch ? [] : [{ gesture: 'keys' as const, text: t(own ? 'howto.ownKeys' : 'howto.keys') }]),
     ],
-    tips: [t('howto.tip1', { breath: breathWords(b) }), t('howto.tip2')],
+    tips: [t(own ? 'howto.ownTip1' : 'howto.tip1', { breath: breathWords(b) }), t('howto.tip2')],
   };
 }
 

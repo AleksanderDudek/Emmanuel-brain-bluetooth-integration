@@ -3,7 +3,8 @@
  * for appearing at a call, the many and the whole world fading in as the circle widens, each circle's light, the sky
  * warming over the session, the Cross resting in its light — with the narrator over the sky, the words band, the
  * controls, the chooser and the story card (hud.ts).  Taps are routed here: a card, the chooser, a control, or the
- * picture (stay with them).
+ * picture (stay with them).  The own way: the bundle appearing at a call, shrinking and growing pale as "Oddaję" turns,
+ * gone when given; the golden lights at the foot of the Cross settling one by one; the peace at the player's heart.
  */
 import { approach, clamp } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
@@ -14,6 +15,24 @@ import { Scene, type SceneState } from './scene';
 import type { BrzSim, CoachAt, SimEvent } from './sim';
 
 export interface ViewOpts { reducedMotion: boolean; touch: boolean }
+
+/**
+ * The own way's picture from the session (what the view eases toward; pure, the tests read it): the bundle's size
+ * follows "Oddaję" as it turns (1 − x) and is 0 once that circle is turned (peace, left at the Cross) or in
+ * "Przyjmuję"; its paleness the same way up; the golden lights at the foot of the Cross are the burdens given this
+ * session, the next one forming while "Przyjmuję" turns; the peace at the player's heart grows with each.
+ */
+export function ownTargets(sim: Pick<BrzSim, 'circle' | 'stage' | 'carriedNow'>, x: number): { bundle: number; pale: number; lights: number; heart: number } {
+  const c = sim.circle;
+  const giving = c === 'give' && sim.stage !== 'leave' && sim.stage !== 'peace';
+  const forming = c === 'receive' && sim.stage !== 'leave' && sim.stage !== 'end' ? 0.25 + 0.5 * x : 0;
+  return {
+    bundle: giving ? 1 - x : 0,
+    pale: giving ? x : 1,
+    lights: sim.carriedNow + forming,
+    heart: Math.min(1, 0.15 + 0.12 * sim.carriedNow + (c === 'receive' ? 0.45 : 0.15) * x),
+  };
+}
 
 export class BrzView {
   L: Layout;
@@ -37,6 +56,11 @@ export class BrzView {
   private storyR: Rect | null = null;
   /** the narrower circles of this burden turned whole (their light stays full); else they keep the light reached */
   private done = { one: false, many: false };
+  // the own way: the bundle's size and paleness, the golden lights at the foot, the peace at the heart
+  private bundle = 1;
+  private bundlePale = 0;
+  private footLit = 0;
+  private heart = 0.15;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: ViewOpts) {
     this.ctx = canvas.getContext('2d');
@@ -54,6 +78,8 @@ export class BrzView {
       this.appear = this.opts.reducedMotion ? 0.4 : 0;
       this.done = { one: sim.circle !== 'one' && sim.x <= 0, many: sim.circle === 'world' && sim.x <= 0 };
       this.snapLights(sim);
+      this.bundle = sim.circle === 'give' ? 1 - sim.shown : 0;
+      this.bundlePale = sim.circle === 'give' ? sim.shown : 1;
     } else if (e.type === 'circle') {
       if (e.circle === 'one') this.done.one = true;
       if (e.circle === 'many') this.done.many = true;
@@ -90,11 +116,30 @@ export class BrzView {
     this.player = approach(this.player, sim.restBlock || sim.phase !== 'play' ? 1 : 0.55, dt, 1.5);
     this.touchK = approach(this.touchK, 0, dt, 0.6);
     this.glowK = approach(this.glowK, sim.loading ? 1 : 0, dt, 0.5);
+    if (sim.own) {
+      const o = ownTargets(sim, x);
+      this.bundle = approach(this.bundle, o.bundle, dt, 0.8);
+      this.bundlePale = approach(this.bundlePale, o.pale, dt, 0.8);
+      this.footLit = approach(this.footLit, o.lights, dt, this.opts.reducedMotion ? 0.4 : 1.2);
+      this.heart = approach(this.heart, o.heart, dt, 1.5);
+    }
   }
 
   private state(sim: BrzSim): SceneState {
     const b = sim.breath;
     const L = this.L;
+    if (sim.own) {
+      return {
+        time: this.time, warm: this.warm, appear: this.appear, light: 0, cloud: sim.circle === 'give' ? 1 - sim.shown : 0,
+        lightMany: 0, lightWorld: 0, many: 0, world: 0,
+        waiting: clamp(sim.waiting / 0.08), gold: sim.gold, glow: sim.glow, rest: this.rest,
+        phase: b.phase, p: b.p, k: b.k,
+        flows: sim.phase === 'play' && (!sim.restBlock || sim.stage === 'peace') && sim.stage !== 'leave',
+        lightOnly: sim.smokeless, reduced: this.opts.reducedMotion, player: this.player, touch: this.touchK,
+        whoLabel: sim.item.name, youLabel: t('who.you'), labelPx: L.font.label,
+        own: true, bundle: this.bundle, bundleLight: this.bundlePale, lights: this.footLit, heart: this.heart,
+      };
+    }
     const world = this.world > 0.5;
     const who = world ? t('who.world') : whoName(sim.item);
     return {
@@ -178,6 +223,7 @@ export class BrzView {
     const S = this.scene.S;
     const L = this.L;
     if (at === 'cross' && S) return { x: S.cross.cx, y: S.cross.cy - S.cross.h * 0.1 };
+    if (at === 'person' && S?.bundle) return { x: S.bundle.x, y: S.bundle.y - S.bundle.H * 1.1 };
     if (at === 'person' && S) return { x: S.person.x, y: S.person.y - S.person.H * 0.9 };
     if (at === 'controls') return { x: L.ctl.list.x + L.ctl.list.w / 2, y: L.ctl.list.y };
     if (at === 'band') return { x: L.words.x + L.words.w / 2, y: L.words.y };

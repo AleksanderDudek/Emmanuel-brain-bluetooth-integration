@@ -9,8 +9,12 @@
  *                  kit/breathguide.ts: the lungs' disc, the phase ≥ 20 px with its seconds, "oddech 2 z 3")
  *   the narrator   one line at a time over the picture's sky (atop the column on a wide screen)
  *   the controls   ≡ whom, ◎ widen, ▶ next — round, drawn icons; on a desk their keys under them and a name on hover
- *   the chooser    a card: whom to pray for, six a page
+ *   the chooser    a card: whom to pray for (the own way: what you give), six a page
  *   the story      the first session's two pages
+ *
+ * The own way (round 16) says its own words where the intercession's speak of "them": the address with the topic
+ * after a colon, "Panie Jezu, weź to ode mnie." / "Daj mi swój pokój.", what flows ("dym z tobołka płynie do krzyża",
+ * "światło wraca do Ciebie"), the list's names ("Moja lista", "Przyjmij pokój").
  */
 import { breathGuideBox, breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
 import { clamp, ease } from '../kit/juice';
@@ -25,12 +29,13 @@ import { BrzSim, pageOf, type NowWhat } from './sim';
 
 const KEYS: Record<Control, string> = { list: 'M', widen: 'W', next: 'N' };
 const NAMES: Record<Control, Key> = { list: 'ctl.list', widen: 'ctl.widen', next: 'ctl.next' };
+const OWN_NAMES: Record<Control, Key> = { list: 'ctl.ownList', widen: 'ctl.receive', next: 'ctl.next' };
 
 /** What the band's prayer row says now, and whether it is a verse (then in pages). */
 export function prayerNow(sim: BrzSim): { text: string; verse: PassageId | null } {
-  if (sim.phase !== 'play' || sim.stage === 'end') return sim.stageT < 7 ? { text: t('end.line'), verse: null } : { text: '', verse: sim.verse };
+  if (sim.phase !== 'play' || sim.stage === 'end') return sim.stageT < 7 ? { text: t(sim.own ? 'end.ownLine' : 'end.line'), verse: null } : { text: '', verse: sim.verse };
   const b = sim.block;
-  if (b.kind === 'warmup') return { text: sim.stage === 'call' && sim.stageT > 6 ? addressOf(sim.item, sim.circle, false) : t('warm.line'), verse: null };
+  if (b.kind === 'warmup') return { text: sim.stage === 'call' && sim.stageT > 6 ? addressOf(sim.item, sim.circle, false) : t(sim.own ? 'warm.ownLine' : 'warm.line'), verse: null };
   if (b.kind === 'rest') {
     const first = Math.max(5, sim.pattern.in + sim.pattern.holdIn + sim.pattern.out + sim.pattern.holdOut);
     if (b.why !== 'valve' && sim.blockT < first) return { text: t(b.leave ? 'leave.line' : 'peace.line'), verse: null };
@@ -46,7 +51,7 @@ export function prayerNow(sim: BrzSim): { text: string; verse: PassageId | null 
 /** The band's second row: whom now and the circle (n of the burden's), or what comes next during a rest. */
 export function whoRow(sim: BrzSim): string {
   const q = sim.queued;
-  if (sim.restBlock && q) return q.kind === 'item' ? t('hud.then', { who: whoName(sim.queue[q.index]) }) : t('hud.thenWide');
+  if (sim.restBlock && q) return q.kind === 'item' ? t('hud.then', { who: whoName(sim.queue[q.index]) }) : t(sim.own ? 'hud.thenReceive' : 'hud.thenWide');
   const label = circleLabel(sim.item, sim.circle);
   const list = sim.circles.includes(sim.circle) ? sim.circles : allCirclesOf(sim.item);
   const n = list.indexOf(sim.circle) + 1, of = list.length;
@@ -142,7 +147,10 @@ function restBand(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, glowK: 
 function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, cx: number, y: number, w: number): void {
   const what: NowWhat = sim.now;
   const px = L.font.now;
-  const text = t(`now.${what}${sim.lightOnly && (what === 'focus' || what === 'valve') ? 'Light' : ''}` as Key);
+  const own = sim.own, recv = sim.circle === 'receive';
+  const text = own && what === 'call' ? t('now.ownCall')
+    : own && recv && what === 'focus' ? t('now.receive')
+      : t(`now.${what}${sim.smokeless && (what === 'focus' || what === 'valve') ? 'Light' : ''}` as Key);
   const icon = px * 0.9;
   const fit = fitLines(ctx, text, w - icon - 6, px, 13, 1, 700);
   const tw = ctx.measureText(fit.lines[0] ?? '').width;
@@ -247,8 +255,9 @@ function drawBreath(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, cx: n
   let cue = '';
   if (sim.restBlock) cue = t('hud.breathOf', { n: b.cycle, of: b.cycles });
   else if (sim.pushBlock || sim.warmBlock) {
-    if (sim.lightOnly) cue = b.phase === 'in' ? t('hud.cueLight.in') : b.phase === 'out' ? t('hud.cue.out') : t('hud.cue.hold');
-    else cue = b.phase === 'in' ? t('hud.cue.in') : b.phase === 'out' ? t('hud.cue.out') : t('hud.cue.hold');
+    const out = t(sim.own ? 'hud.cue.ownOut' : 'hud.cue.out');
+    if (sim.smokeless) cue = b.phase === 'in' ? t('hud.cueLight.in') : b.phase === 'out' ? out : t('hud.cue.hold');
+    else cue = b.phase === 'in' ? t(sim.own ? 'hud.cue.ownIn' : 'hud.cue.in') : b.phase === 'out' ? out : t('hud.cue.hold');
   }
   if (sim.phase !== 'play') cue = '';
   const head = `${word} ${secs}`;
@@ -362,9 +371,10 @@ export function drawControls(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzS
       ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(12,8,20,.75)';
       ctx.lineWidth = 3.5;
-      ctx.strokeText(t(NAMES[c]), cx, r.y - px * 0.9);
+      const name = t((sim.own ? OWN_NAMES : NAMES)[c]);
+      ctx.strokeText(name, cx, r.y - px * 0.9);
       ctx.fillStyle = GOLD_HI;
-      ctx.fillText(t(NAMES[c]), cx, r.y - px * 0.9);
+      ctx.fillText(name, cx, r.y - px * 0.9);
     }
   }
 }
@@ -429,7 +439,7 @@ export function drawChooser(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSi
   ctx.stroke();
   const pad = Math.round(12 * u);
   const titlePx = Math.max(15, Math.round(17 * u));
-  const tf = fitLines(ctx, t('chooser.title'), C.close.x - C.card.x - 2 * pad, titlePx, 14, 1, 600, true);
+  const tf = fitLines(ctx, t(sim.own ? 'chooser.ownTitle' : 'chooser.title'), C.close.x - C.card.x - 2 * pad, titlePx, 14, 1, 600, true);
   ctx.font = font(tf.size, 600, true);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -506,10 +516,10 @@ let storyMemo: { key: string; lay: PassageLayout; lines: string[]; titlePx: numb
 export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: BrzSim, hover = false): Rect | null {
   const s = sim.story;
   if (!s) return null;
-  const pg = pageOf(s.kind, s.page);
+  const pg = pageOf(s.kind, s.page, sim.way);
   const u = L.u, inner = Math.min(L.story.w, 560 * u) - 2 * 18;
   const tapPx = L.desk ? Math.round(13 * u) : 13;
-  const key = `${s.kind}${s.page}|${Math.round(inner)}|${Math.round(L.story.h)}`;
+  const key = `${s.kind}${s.page}${sim.way}|${Math.round(inner)}|${Math.round(L.story.h)}`;
   if (storyMemo?.key !== key) {
     const tf = fitLines(ctx, pg.title, inner, 24 * Math.min(u, 1.6), 17, 1, 600, true);
     const textPx = Math.max(MIN_READ + 1, Math.round(14.5 * Math.min(u, 1.6)));

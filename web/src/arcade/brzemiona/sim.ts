@@ -21,6 +21,14 @@
  *   the finale          everything left at the Cross (Mt 11,29-30), the closing prayer to the Father through Jesus in
  *                       the Spirit
  *
+ * The own way (round 16, "Moje brzemiona"): the entries are the player's own topics, each a closed bundle on the
+ * ground beside them; its circles are "Oddaję" (`give`: on the in-breath smoke lifts from the bundle — never from the
+ * player — to the Cross, turns gold there while focus is held, and returns to the player as light on the out-breath)
+ * and, from 10 minutes, "Przyjmuję" (`receive`: the light-only exchange, the Cross's peace to the player).  The same
+ * numbers, rests, blocks and valve; a burden given leaves a small golden light at the foot of the Cross (the view);
+ * the list walks in order, goes on where the last session stopped and starts again when it runs out.  Its result
+ * never quotes a topic (only counts).
+ *
  * The headline is the burdens carried (brzemion).  An unreliable signal freezes everything: nothing is lost, nothing
  * advances.  Deterministic for a given rng.
  */
@@ -31,11 +39,12 @@ import { approach, clamp } from '../kit/juice';
 import { inTurn, passage, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  CIRCLES, CLOSE_VERSES, FINALE_VERSE, LEAVE_VERSE, LIGHT_TIPS, PUSH_TIPS, REST_TIPS, WARM_TIP, allCirclesOf, circlesOf, itemKey, restVerse, verseFor,
-  type Circle, type Item, type Moment,
+  CIRCLES, CLOSE_VERSES, FINALE_VERSE, LEAVE_VERSE, LIGHT_TIPS, OWN_CIRCLES, OWN_FINALE_VERSE, OWN_LIGHT_TIPS, OWN_MOMENT, OWN_PUSH_TIPS,
+  OWN_REST_TIPS, OWN_WARM_TIP, PUSH_TIPS, REST_TIPS, WARM_TIP, allCirclesOf, circleIndex, circlesOf, itemKey, ownLeaveVerse, restVerse, verseFor,
+  type Circle, type Item, type Moment, type Way,
 } from './content';
-import { breathWords as breathWordsOf, circleName, t, unit, whoName, type Key } from './i18n';
-import { bestOf, breathOf, lenKey, markSeen, queueOf, restOf, startOf, tallyOf, type BrzPos, type BrzProgress, type Tally } from './meta';
+import { breathWords as breathWordsOf, circleName, ownDefaults, t, unit, whoName, type Key } from './i18n';
+import { bestOf, breathOf, lenKey, markSeen, ownStartOf, restOf, startOf, tallyOf, wayQueue, type BrzPos, type BrzProgress, type Tally } from './meta';
 import { RULES, WindowMean, depthFor, needFor, readTime, turnRate } from './rules';
 import { Talk } from './talk';
 
@@ -52,7 +61,8 @@ export interface Block { kind: BlockKind; dur: number; cycles: number; why: Bloc
  */
 export type Stage = 'call' | 'widen' | 'pray' | 'peace' | 'leave' | 'end';
 
-export type StoryKind = 'open';
+/** The first-ever session's two pages (both ways, then care), or a returning player's first own session's two. */
+export type StoryKind = 'open' | 'own';
 export interface Story { kind: StoryKind; page: number; pages: number; t: number }
 
 export type Coach = 'cross' | 'breath' | 'controls' | 'tap' | 'rest';
@@ -104,14 +114,24 @@ export function secText(s: number): string {
 /** A story card's page: its title, its text, its verse. */
 export interface Page { title: string; text: string; verse: PassageId }
 
-export function pageOf(_kind: StoryKind, page: number): Page {
-  return page === 0
-    ? { title: t('story.open.title'), text: t('story.open.text'), verse: 'gal6.2' }
+/**
+ * A story page: the first-ever card opens with both ways in a line each, then the care of the way being played; a
+ * returning player's first own session gets the own way's two pages ("Nie musisz niczego przeżywać od nowa…").
+ */
+export function pageOf(kind: StoryKind, page: number, way: Way = 'others'): Page {
+  if (kind === 'own') {
+    return page === 0
+      ? { title: t('story.own.title'), text: t('story.own.text'), verse: 'mat11.28' }
+      : { title: t('story.ownCare.title'), text: t('story.ownCare.text'), verse: '1pe5.7' };
+  }
+  if (page === 0) return { title: t('story.open.title'), text: t('story.ways.text'), verse: 'gal6.2' };
+  return way === 'own'
+    ? { title: t('story.ownCare.title'), text: t('story.ownCare.text'), verse: 'mat11.28' }
     : { title: t('story.care.title'), text: t('story.care.text'), verse: 'mat11.28' };
 }
 
-export function pageTime(kind: StoryKind, page: number): number {
-  const pg = pageOf(kind, page);
+export function pageTime(kind: StoryKind, page: number, way: Way = 'others'): number {
+  const pg = pageOf(kind, page, way);
   return Math.max(RULES.pageSec, readTime(`${pg.title} ${pg.text} ${passage(pg.verse).text}`));
 }
 
@@ -130,7 +150,7 @@ export interface SimInit {
 }
 
 const zeroTally = (): Record<Tally, number> => ({ illness: 0, sadness: 0, loneliness: 0, fear: 0, grief: 0, conflict: 0, person: 0, me: 0, world: 0 });
-const cIdx = (c: Circle): number => CIRCLES.indexOf(c);
+const cIdx = circleIndex;
 
 export class BrzSim {
   readonly p: BrzProgress;
@@ -139,6 +159,11 @@ export class BrzSim {
   readonly eeg: boolean;
   readonly session: number;
   readonly firstEver: boolean;
+  /** the way this session plays (the card's choice when it began): the player's own burdens, or the intercession */
+  readonly way: Way;
+  readonly own: boolean;
+  /** the first own session of a player who played before: it opens with the own way's card under a warm-up */
+  readonly firstOwn: boolean;
   /** how far each burden widens in this session (1–3), and the focus a circle takes (s at the threshold) */
   readonly depth: 1 | 2 | 3;
   readonly need: number;
@@ -248,6 +273,9 @@ export class BrzSim {
     this.eeg = init.eeg;
     this.session = this.p.sessions + 1;
     this.firstEver = this.p.sessions === 0;
+    this.way = this.p.way === 'others' ? 'others' : 'own';
+    this.own = this.way === 'own';
+    this.firstOwn = this.own && !this.firstEver && !(this.p.seen ?? []).includes('s.own');
     this.depth = depthFor(this.plannedSec);
     this.need = needFor(this.plannedSec);
     this.lightOnly = this.p.lightOnly;
@@ -255,19 +283,20 @@ export class BrzSim {
     const rh = init.rhythm;
     this.restAfter = Math.max(1, Math.min(RULES.restAfterMax, Math.round(rh?.focus ?? RULES.restAfter)));
     this.restBreaths = rh && rh.custom !== false ? Math.max(1, Math.min(RULES.restBreathsMax, Math.round(rh.rest))) : null;
-    this.queue = queueOf(this.p).map(it => ({ ...it }));
+    this.queue = wayQueue(this.p, this.way, ownDefaults()).map(it => ({ ...it }));
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
     this.bestBefore = bestOf(this.p);
     this.mean = new WindowMean(Math.max(RULES.meanSec, breathCycle(this.pattern)));
     this.talk = new Talk(init.rng);
-    const st = startOf(this.p);
+    const st = this.own ? ownStartOf(this.p, ownDefaults()) : startOf(this.p);
     this.index = Math.max(0, Math.min(this.queue.length - 1, st.index));
     this.item = this.queue[this.index];
     this.resumed = st.resumed;
     const ladder = allCirclesOf(this.item);
-    this.circle = st.resumed ? ladder[Math.min(ladder.length - 1, Math.max(0, ladder.indexOf(CIRCLES[st.circle] ?? 'one')))] ?? ladder[0] : ladder[0];
+    const want: Circle = (this.own ? OWN_CIRCLES : CIRCLES)[st.circle] ?? ladder[0];
+    this.circle = st.resumed && ladder.includes(want) ? want : ladder[0];
     this.x = st.resumed ? st.x : 0;
     this.shown = this.x;
   }
@@ -282,6 +311,8 @@ export class BrzSim {
   get warmBlock(): boolean { return this.phase === 'play' && this.block.kind === 'warmup'; }
   /** a push past its lead-in: the turning answers the band */
   get sighted(): boolean { return this.pushBlock && this.blockT >= this.lead; }
+  /** no smoke now: the light-only version, or the own way's receiving circle (only light, from the Cross to the player) */
+  get smokeless(): boolean { return this.lightOnly || this.circle === 'receive'; }
   /** the light turns now: a sighted push, the exchange, a reliable signal, focused */
   get loading(): boolean { return this.sighted && this.stage === 'pray' && this.reliable && this.focused; }
   get leadIn(): number { return this.lead; }
@@ -307,8 +338,8 @@ export class BrzSim {
   }
   /** the verse of the step: the circle's (in turn by the burden), the rest's, left at the Cross, the finale's */
   get verse(): PassageId {
-    if (this.phase !== 'play' || this.stage === 'end') return FINALE_VERSE;
-    if (this.stage === 'leave') return LEAVE_VERSE;
+    if (this.phase !== 'play' || this.stage === 'end') return this.own ? OWN_FINALE_VERSE : FINALE_VERSE;
+    if (this.stage === 'leave') return this.own ? ownLeaveVerse(this.session + this.burdenNo - 2) : LEAVE_VERSE;
     if (this.stage === 'peace' || this.restBlock) return restVerse(this.restsNow - 1);
     return verseFor(this.circle, this.burdenNo - 1);
   }
@@ -331,14 +362,24 @@ export class BrzSim {
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.open(this.firstEver ? 'warmup' : 'push');
+    this.open(this.firstEver || this.firstOwn ? 'warmup' : 'push');
     this.callBurden(this.resumed, false);
+    if (this.own) markSeen(this.p, 's.own');
     if (this.firstEver && markSeen(this.p, 's.open')) {
       this.story = { kind: 'open', page: 0, pages: 2, t: 0 };
       this.emit({ type: 'story', kind: 'open', page: 0 });
-      this.talk.ask('open', 3, 60);
-    } else this.talk.ask(this.resumed ? 'resume' : 'open', 2, 10);
-    if (this.lightOnly) this.talk.ask('light', 1, 30);
+      this.say('open', 3, 60);
+    } else if (this.firstOwn) {
+      this.story = { kind: 'own', page: 0, pages: 2, t: 0 };
+      this.emit({ type: 'story', kind: 'own', page: 0 });
+      this.say('open', 3, 60);
+    } else this.say(this.resumed ? 'resume' : 'open', 2, 10);
+    if (this.lightOnly) this.say('light', 1, 30);
+  }
+
+  /** The narrator: the own way says its own line where the intercession's speaks of the one prayed for. */
+  private say(m: Moment, pri: number, ttl: number): void {
+    this.talk.ask(this.own ? OWN_MOMENT[m] ?? m : m, pri, ttl);
   }
 
   update(dt: number, f: FocusFrame, now: number): void {
@@ -379,7 +420,7 @@ export class BrzSim {
     const s = this.story;
     if (!s) return;
     s.t += dt;
-    if (s.t >= pageTime(s.kind, s.page)) this.turnStory();
+    if (s.t >= pageTime(s.kind, s.page, this.way)) this.turnStory();
   }
 
   private turnStory(): void {
@@ -392,7 +433,7 @@ export class BrzSim {
       return;
     }
     this.story = null;
-    this.talk.ask('call', 2, 10);
+    this.say('call', 2, 10);
     this.coach('tap', 'person');
   }
 
@@ -427,7 +468,7 @@ export class BrzSim {
     // turning takes from it, the out-breath returns the light to them — never back to the person as smoke
     const b = breathAt(this.pattern, this.breathT);
     const exchange = (this.stage === 'pray' || this.stage === 'call' || this.stage === 'widen') && this.phase === 'play' && !this.restBlock;
-    if (exchange && b.phase === 'in' && !this.lightOnly) {
+    if (exchange && b.phase === 'in' && !this.smokeless) {
       const room = Math.max(0, Math.min(RULES.puff, 1 - this.x) - this.waiting);
       this.waiting += Math.min(room, (RULES.puff / Math.max(1, this.pattern.in)) * dt);
     }
@@ -468,18 +509,18 @@ export class BrzSim {
     this.goldRun = gold ? this.goldRun + dt : 0;
     if (this.goldRun >= RULES.goodSec && !this.goodSaid) {
       this.goodSaid = true;
-      this.talk.ask('good', 2, 5);
+      this.say('good', 2, 5);
     }
     this.waitRun = this.sighted && this.stage === 'pray' && this.reliable && !gold ? this.waitRun + dt : 0;
     if (this.waitRun >= RULES.waitSec && !this.waitSaid) {
       this.waitSaid = true;
-      this.talk.ask('wait', 2, 6);
+      this.say('wait', 2, 6);
     }
     if (this.sighted && this.stage === 'pray' && this.blockT >= this.lead + 0.5) this.coach('cross', 'cross');
     this.unrelT = this.pushBlock && !this.reliable ? this.unrelT + dt : 0;
     if (this.unrelT > 3 && !this.noSigSaid) {
       this.noSigSaid = true;
-      this.talk.ask('nosignal', 2, 6);
+      this.say('nosignal', 2, 6);
     }
   }
 
@@ -510,7 +551,7 @@ export class BrzSim {
     this.gold = 0;
     this.tenths = Math.floor(this.x * 10 + 1e-9);
     this.emit({ type: 'call', item: this.item, resumed });
-    if (say) this.talk.ask(this.item.who === 'me' ? 'me' : this.item.who === 'world' ? 'world' : 'call', 2, 8);
+    if (say) this.say(this.item.who === 'me' ? 'me' : this.item.who === 'world' ? 'world' : 'call', 2, 8);
     if (this.pushBlock) this.tip = this.tipFor(this.block);
   }
 
@@ -534,7 +575,7 @@ export class BrzSim {
     this.waiting = 0;
     this.tenths = Math.floor(this.x * 10 + 1e-9);
     this.emit({ type: 'widen', circle: c });
-    this.talk.ask(c === 'world' ? 'world' : 'many', 2, 8);
+    this.say(c === 'receive' ? 'receive' : c === 'world' ? 'world' : 'many', 2, 8);
     if (this.pushBlock) this.tip = this.tipFor(this.block);
   }
 
@@ -549,7 +590,7 @@ export class BrzSim {
     this.emit({ type: 'circle', circle: this.circle, carried });
     if (carried) {
       this.carriedNow++;
-      this.tallyNow[tallyOf(this.item)]++;
+      if (!this.own) this.tallyNow[tallyOf(this.item)]++;
       this.mem.delete(this.curKey);
       this.emit({ type: 'carried', item: this.item, n: this.carriedNow });
     }
@@ -800,7 +841,7 @@ export class BrzSim {
     if (kind === 'push') this.pushesBegun++;
     else if (kind === 'rest') {
       this.restsNow++;
-      this.talk.ask(why === 'valve' ? 'valve' : leave ? 'leave' : 'rest', why === 'valve' ? 3 : 2, 12);
+      this.say(why === 'valve' ? 'valve' : leave ? 'leave' : 'rest', why === 'valve' ? 3 : 2, 12);
     }
     this.tip = this.tipFor(b);
     this.emit({ type: 'blockStart', block: b, index: this.blockIndex });
@@ -810,12 +851,13 @@ export class BrzSim {
 
   /** The block's strategy: the exchange's picture (the slow words every third), the breath and the peace in rest. */
   private tipFor(b: Block): string {
-    if (b.kind === 'warmup') return t(WARM_TIP);
+    if (b.kind === 'warmup') return t(this.own ? OWN_WARM_TIP : WARM_TIP);
     if (b.kind === 'push') {
-      const list = this.lightOnly ? LIGHT_TIPS : PUSH_TIPS;
+      const list: readonly Key[] = this.own ? (this.smokeless ? OWN_LIGHT_TIPS : OWN_PUSH_TIPS) : this.lightOnly ? LIGHT_TIPS : PUSH_TIPS;
       return t(list[(this.pushesBegun - 1 + this.session) % list.length]);
     }
-    return t(REST_TIPS[(this.session - 1 + this.restsNow) % REST_TIPS.length], { breath: breathWordsOf(this.pattern) });
+    const rest: readonly Key[] = this.own ? OWN_REST_TIPS : REST_TIPS;
+    return t(rest[(this.session - 1 + this.restsNow) % rest.length], { breath: breathWordsOf(this.pattern) });
   }
 
   private endBlock(why: BlockWhy | null): void {
@@ -844,7 +886,7 @@ export class BrzSim {
     this.stage = 'end';
     this.stageT = 0;
     this.emit({ type: 'finale' });
-    this.talk.ask('end', 3, 12);
+    this.say('end', 3, 12);
   }
 
   private posAtEnd: { pos: BrzPos | null; next: number } | null = null;
@@ -882,7 +924,8 @@ export class BrzSim {
     const p = this.p;
     p.sessions++;
     p.pushes += this.pushesBegun;
-    p.carried += this.carriedNow;
+    if (this.own) p.given += this.carriedNow;
+    else p.carried += this.carriedNow;
     p.worlds += this.worldsNow;
     for (const k of Object.keys(this.tallyNow) as Tally[]) p.tally[k] = (p.tally[k] ?? 0) + this.tallyNow[k];
     p.calmBest = Math.max(p.calmBest, Math.round(this.longestNow * 10) / 10);
@@ -890,9 +933,14 @@ export class BrzSim {
     p.lastLen = this.plannedSec;
     if (this.started) {
       this.nextPos = this.phase === 'finale' ? (this.posAtEnd ?? this.posNow()) : this.posNow();
-      // the list the session walked is the progress's own (or the default): an index into it
-      p.pos = this.nextPos.pos;
-      p.next = this.nextPos.next;
+      // the list the session walked is the progress's own (or the default): an index into it — the own way's into its own
+      if (this.own) {
+        p.own.pos = this.nextPos.pos;
+        p.own.next = this.nextPos.next;
+      } else {
+        p.pos = this.nextPos.pos;
+        p.next = this.nextPos.next;
+      }
     }
   }
 
@@ -901,16 +949,18 @@ export class BrzSim {
   // ── coach marks ────────────────────────────────────────────────
   private coach(what: Coach, at: CoachAt): void {
     if (this.story) return;
-    if (!markSeen(this.p, `c.${what}`)) return;
+    // the own way's marks say other words (the bundle, the light to the player): each is shown once in its way
+    if (!markSeen(this.p, this.own ? `c.own.${what}` : `c.${what}`)) return;
     this.emit({ type: 'coach', what, at });
   }
 
   coachWords(what: Coach, touch: boolean): string {
-    if (what === 'tap') return t(touch ? 'coach.tap' : 'coach.tap.keys');
-    if (what === 'controls') return t(touch ? 'coach.controls' : 'coach.controls.keys');
-    if (what === 'breath') return t(this.lightOnly ? 'coach.breathLight' : 'coach.breath');
-    if (what === 'cross') return t(this.lightOnly ? 'coach.crossLight' : 'coach.cross');
-    return t(`coach.${what}` as Key);
+    const o = this.own ? 'own.' : '';
+    if (what === 'tap') return t(`coach.${o}tap${touch ? '' : '.keys'}` as Key);
+    if (what === 'controls') return t(`coach.${o}controls${touch ? '' : '.keys'}` as Key);
+    if (what === 'breath') return t(`coach.${o}${this.smokeless ? 'breathLight' : 'breath'}` as Key);
+    if (what === 'cross') return t(this.smokeless ? 'coach.crossLight' : 'coach.cross');
+    return t(`coach.${o}${what}` as Key);
   }
 
   // ── output ─────────────────────────────────────────────────────
@@ -957,10 +1007,11 @@ export class BrzSim {
       p.best[k] = Math.max(p.best[k] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
+    // the own way: counts only — never a topic (they stay in the progress on this device)
     const stats: [string, string][] = [
-      [t('stat.carried'), String(this.carriedNow)],
+      [t(this.own ? 'stat.given' : 'stat.carried'), String(this.carriedNow)],
       [t('stat.circles'), String(this.circlesNow)],
-      [t('stat.widest'), this.widestNow >= 0 ? circleName(CIRCLES[this.widestNow]) : '—'],
+      ...(this.own ? [] : [[t('stat.widest'), this.widestNow >= 0 ? circleName(CIRCLES[this.widestNow]) : '—'] as [string, string]]),
       [t('stat.gold'), secText(this.goldSec)],
       [t('stat.peace'), secText(this.calmNow)],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
@@ -982,6 +1033,7 @@ export class BrzSim {
    * widest circle; the kinds prayed for; where the next session begins; the longest peace; the light-only variant.
    */
   private highlights(): string[] {
+    if (this.own) return this.ownHighlights();
     const out: string[] = [];
     if (this.carriedNow > 0) {
       out.push(t('hl.carried', { n: this.carriedNow, circle: circleName(CIRCLES[Math.max(0, this.widestNow)]) }));
@@ -989,6 +1041,24 @@ export class BrzSim {
     const kinds = (Object.keys(this.tallyNow) as Tally[]).filter(k => this.tallyNow[k] > 0);
     if (kinds.length > 1) out.push(t('hl.kinds', { list: kinds.slice(0, 4).map(k => t(`tally.${k}` as Key)).join(', ') }));
     if (this.started) out.push(t('hl.next', { who: whoName(this.nextStart) }));
+    if (this.longestNow >= 10) out.push(t('hl.peace', { sec: secText(this.longestNow) }));
+    if (this.lightOnly) out.push(t('hl.light'));
+    return out.slice(0, 5);
+  }
+
+  /**
+   * The own way's summary: how many burdens were given at the Cross, how far the list has come — counts only, never a
+   * topic (DESIGN §18.3 "names stay home"; the brief: "3 brzemiona oddane przy krzyżu").
+   */
+  private ownHighlights(): string[] {
+    const out: string[] = [];
+    if (this.carriedNow > 0) out.push(t('hl.given', { n: this.carriedNow }));
+    else if (this.started) out.push(this.circlesNow > 0 ? t('hl.ownCircles', { n: this.circlesNow }) : t('hl.ownBegun'));
+    if (this.started) {
+      const np = this.nextPos ?? (this.phase === 'finale' ? this.posAtEnd : null) ?? this.posNow();
+      const i = np.pos ? Math.max(0, this.queue.findIndex(it => itemKey(it) === np.pos!.key)) : np.next % this.queue.length;
+      out.push(np.pos ? t('hl.ownGoesOn', { n: i + 1, of: this.queue.length }) : t('hl.ownNext', { n: i + 1, of: this.queue.length }));
+    }
     if (this.longestNow >= 10) out.push(t('hl.peace', { sec: secText(this.longestNow) }));
     if (this.lightOnly) out.push(t('hl.light'));
     return out.slice(0, 5);
