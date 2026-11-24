@@ -359,8 +359,12 @@ export function stagePlan(o: StageOpts): StagePlan {
 
 // ── the session ─────────────────────────────────────────────────
 
-/** The close's least length (s): the return's lead-in and push, and one breath of its closing rest. */
-export const closeMin = (pattern: BreathPattern, eeg: boolean): number => leadOf(eeg) + RULES.closeSighted + cycleOf(pattern);
+/**
+ * The close's least length (s): the return's lead-in and push, and one breath of its closing rest.  A test-length
+ * session of a minute or less (?trainingSec) keeps only the breath, so its first stage has time to move at all.
+ */
+export const closeMin = (pattern: BreathPattern, eeg: boolean, plannedSec = Infinity): number =>
+  (plannedSec <= 60 ? 0 : leadOf(eeg) + RULES.closeSighted) + cycleOf(pattern);
 
 /**
  * The least length of the next stage with `left` s before the close must begin, or null (the close comes now): a
@@ -468,7 +472,7 @@ export interface Forecast {
 export function forecast(o: ForecastOpts): Forecast {
   const T = Math.max(10, o.plannedSec), S = cleanStageSec(o.stageSec);
   const finale = finaleFor(T), warm = warmOf(T, o.firstEver, o.warmSec);
-  const cm = closeMin(o.pattern, o.eeg), end = T - finale;
+  const cm = closeMin(o.pattern, o.eeg, T), end = T - finale;
   const start = resolveStart(o.next, o.skip4);
   const slots: Slot[] = [];
   let t = warm, reentry = 0;

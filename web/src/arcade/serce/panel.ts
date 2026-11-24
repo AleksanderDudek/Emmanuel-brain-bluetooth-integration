@@ -60,7 +60,7 @@ export function sessionSec(p: SerceProgress): number {
 /** This session's forecast in words for a session of `sec` s ("W 10 min: Serce · Ja · Rodzina — dalej następnym razem."). */
 export function forecastLine(p: SerceProgress, sec: number, day: string = dayKey()): string {
   const first = p.sessions === 0;
-  const card = first && !p.seen.includes('s.open') ? pageTime(0) + pageTime(1) + RULES.telegraph + 2 : 0;
+  const card = first && !p.seen.includes('s.open') && sec > 60 ? pageTime(0) + pageTime(1) + RULES.telegraph + 2 : 0;
   const fc = forecast({ plannedSec: sec, stageSec: p.stageSec, next: startStage(p), firstEver: first, skip4: skip4Today(p, day), pattern: p.breath, eeg: false, warmSec: card });
   const min = fmtNum(sec / 60, sec % 60 ? 1 : 0);
   const more = fc.slots.some(s => s.kind === 'more');

@@ -306,8 +306,10 @@ export class SerceSim {
     this.savedNext = startStage(this.p);
     this.from = resolveStart(this.savedNext, this.skip4);
     this.wayIdx = this.from;
-    // a first session's warm-up waits for the opening card: the plan leaves room for its reading time
-    const card = this.firstEver && !this.p.seen.includes('s.open') ? pageTime(0) + pageTime(1) + RULES.telegraph + 2 : 0;
+    // a first session's warm-up waits for the opening card: the plan leaves room for its reading time (not in a
+    // test-length session of a minute or less — ?trainingSec — where the card would take all of it; the warm-up
+    // still waits while the card is up)
+    const card = this.firstEver && !this.p.seen.includes('s.open') && this.plannedSec > 60 ? pageTime(0) + pageTime(1) + RULES.telegraph + 2 : 0;
     const rh = init.rhythm;
     const mine = !!rh && rh.custom !== false;
     const D = RULES.pushDial;
@@ -769,7 +771,7 @@ export class SerceSim {
 
   // ── stages ─────────────────────────────────────────────────────
   /** The moment the close must begin at the latest (s of play). */
-  private get closeAt(): number { return this.plannedSec - this.plan.finale - closeMin(this.pattern, this.eeg); }
+  private get closeAt(): number { return this.plannedSec - this.plan.finale - closeMin(this.pattern, this.eeg, this.plannedSec); }
 
   /** Open a stage: its steps go onto the way, its title card shows. */
   private openStage(kind: StageKind, min: number, way: number | null, extra: { arc?: ArcId; whole?: boolean; abideOn?: StageId; cap?: number } = {}): void {

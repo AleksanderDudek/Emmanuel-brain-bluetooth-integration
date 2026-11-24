@@ -665,6 +665,15 @@ describe('the summary and the progress', () => {
     expect(evs.filter(e => e.type === 'lamp').length).toBeLessThan(400);
   });
 
+  it('a test-length session (?trainingSec ≤ 60) keeps only a breath for the close, so held focus still kindles light', () => {
+    const sim = makeSim({ planned: 40 });
+    const clock = { t: 0 };
+    while (clock.t < 46 && sim.phase !== 'done') drive(sim, 0.5, strong, clock, reader(sim));
+    expect(sim.score).toBeGreaterThan(0);
+    // a real session keeps its return into the heart
+    expect(closeMin(EVEN, false, 180)).toBeGreaterThan(closeMin(EVEN, false, 40));
+  });
+
   it('migrates a round-15 save (its ring → its stage) and the placeholder’s, repairs garbage; names stay plain', () => {
     const r15 = migrate({
       ver: 1, sessions: 4, pushes: 30, best: { 600: 40 }, lights: 120, ways: 0, reach: 2, pos: { ring: 2 }, names: [['Ania'], [], [], []], word: 'abba', own: '',
