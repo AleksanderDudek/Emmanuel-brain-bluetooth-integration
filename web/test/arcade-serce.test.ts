@@ -245,7 +245,12 @@ describe('a session walks as many stages as fit (forecast and sim)', () => {
                 expect(end - cm - s.at, tag).toBeGreaterThanOrEqual(FLOOR - 1e-6);
                 expect(s.min, tag).toBeGreaterThanOrEqual(FLOOR - 1e-6);
               }
-              expect(s.min, tag).toBeLessThanOrEqual(S);
+              // only the session's last stage may take a little of the close's time: never past 4:00, the close calm
+              expect(s.min, tag).toBeLessThanOrEqual(Math.min(S + RULES.stageStretch, 240));
+              if (s.min > S + 1e-6) {
+                expect(i, tag).toBe(stages.length - 1);
+                expect(end - cm - (s.at + s.min), tag).toBeGreaterThanOrEqual(RULES.closeCalm - 1e-6);
+              }
               expect(s.len, tag).toBeGreaterThanOrEqual(s.min - 1e-6);
             });
             expect(f.close.min, tag).toBeGreaterThanOrEqual(cm - 1e-6);
@@ -255,6 +260,18 @@ describe('a session walks as many stages as fit (forecast and sim)', () => {
         }
       }
     }
+  });
+
+  it('a 5-minute session at 3:00 gives its one stage the spare half-minute, not a long close', () => {
+    const fresh = fc(300, { stageSec: 180 });
+    expect(fresh.slots.map(s => s.kind)).toEqual(['descent']);
+    expect(fresh.slots[0].min).toBe(210);
+    const resumed = fc(300, { stageSec: 180, next: 4 });
+    expect(resumed.slots.map(s => s.kind)).toEqual(['reentry', 'ring2']);
+    expect(resumed.slots[1].min).toBeGreaterThan(180);
+    // a stage with time for another after it is never stretched
+    expect(stageLen(400, 180, false)).toBe(180);
+    expect(stageLen(240, 240, false)).toBe(240);
   });
 
   it('holds the founder’s examples: 3 min one stage, 5 min two at 2:00, 10 min three, 30 min the whole way — not at 4:00', () => {

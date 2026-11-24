@@ -369,11 +369,18 @@ export const closeMin = (pattern: BreathPattern, eeg: boolean, plannedSec = Infi
 /**
  * The least length of the next stage with `left` s before the close must begin, or null (the close comes now): a
  * stage starts only with at least `stageFloor` left and then lasts S or what is left; the session's first always
- * starts.
+ * starts.  The session's last stage (no further one fits after it) takes up to `stageStretch` s more of what only
+ * the close would get — never past 4:00, the close keeping `closeCalm` s beyond its least.
  */
 export function stageLen(left: number, S: number, first: boolean): number | null {
-  if (left >= RULES.stageFloor - RULES.stageSlack) return Math.min(S, left);
-  return first ? Math.max(RULES.firstMin, left) : null;
+  const R = RULES, floor = R.stageFloor - R.stageSlack;
+  if (left >= floor) {
+    const M = Math.min(S, left);
+    if (left - M >= floor) return M;
+    const most = R.stageLens[R.stageLens.length - 1];
+    return Math.max(M, Math.min(left - R.closeCalm, S + R.stageStretch, most));
+  }
+  return first ? Math.max(R.firstMin, left) : null;
 }
 
 /**

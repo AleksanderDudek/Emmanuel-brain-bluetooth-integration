@@ -8049,7 +8049,7 @@ real focus (§18 rule 1) is unchanged; the re-entry and the close's return are p
 **The session** (`forecast` and the sim follow the same `stageLen` / `stageCap`): a stage starts only with ≥ 2:00 left
 before the close (3 s of slack for whole frames); the session's first always starts. A long blessing (circle 4's, or a
 2-minute stage's) may carry a stage past M — never so far that a following stage no longer fits, never past the close.
-Less than 2:00 left: the close, its spare time a quiet abiding (an abiding push with the last stage, the heart word), a
+**The last stage** (lead's review after the build, for the game's feel): when no further stage would fit after a stage, that stage takes up to half a minute of what only the close would get (`stageStretch`, never past 4:00, the close keeping `closeCalm` 20 s beyond its least) — a calmer last stage rather than a long close: a 5-minute session at 3:00 walks Zejście in 3:30 and closes in 1:18 instead of 3:00 and 1:44. Less than 2:00 left: the close, its spare time a quiet abiding (an abiding push with the last stage, the heart word), a
 calmer return and more breaths of the heart word. A weak player's stage still running when the close must begin is
 cut — a push at once, a rest at its breath's end — and saved. After the whole way with time left, **"more" stages**
 (≥ 2:00) light the world for one group of people at a time (cierpiący, samotni, chorzy, umierający, dzieci, które się
@@ -8070,7 +8070,7 @@ while it is out, today it goes on from circle 5, tomorrow from circle 4.
 
 | | |
 |---|---|
-| stage length | 2:00 · 2:30 · 3:00 · 3:30 · 4:00 (default 3:00); a stage starts with ≥ 1:57 left |
+| stage length | 2:00 · 2:30 · 3:00 · 3:30 · 4:00 (default 3:00); a stage starts with ≥ 1:57 left; the session's last stage up to +0:30 (never past 4:00, the close keeping 20 s beyond its least) |
 | a 3:00 stage | e.g. circle 1: two pushes of ~62 s, the heart word (2 breaths), the blessing (2 lines + verse + word = 4 breaths) — 184 s; circle 0 (3 lines): 194 s; circle 4 (3 lines, a long verse): 204 s; the descent: three pushes of 35 s with its two stops: 184 s; the sun's stage: 180 s |
 | 2:00 / 4:00 stages | two pushes of 38 s (126–156 s) / three of ~52 s (240–252 s) |
 | push dial | 50–90 s by 5, 50 by design (its minimum — see the migration) |
@@ -8085,9 +8085,9 @@ each stage in its length (2:00 stages: 126–156 s with their blessings; 3:00: 1
 goal at **76–81 % of S at 3:00, 77–85 % at 4:00, 76–77 % at 2:00** (63–68 % only in a stage fitted to exactly what is
 left). A strong player's stages last exactly as long (it abides); a weak one's 1.5–1.7 × (the valve rests it), so it
 walks fewer. Sessions at 3:00 for an average player: **3 min** one stage (fresh: Zejście; resumed: the re-entry and
-one stage of 2:00); **5 min** one stage and a calm close of 1:44 (at 2:00: two stages, resumed too); **10 min** Zejście
+one stage of 2:00); **5 min** one stage of 3:30 and a close of 1:18 (resumed: the re-entry, a stage of 3:25, a close of 0:43; at 2:00: two stages, resumed too); **10 min** Zejście
 · Serce · Ja (next: re-entry, Rodzina, Przyjaciele, Ludzie… at 2:17); **15 min** five; **20 min** six; **25 min**
-eight; **30 min** the whole way and a close of 1:46. At 4:00 the
+eight; **30 min** the whole way (its last stage 3:30) and a close of 1:16. At 4:00 the
 whole way takes two sessions even at 30 minutes (seven stages, then the re-entry and the rest) — the founder's rule,
 said honestly in the forecast.
 

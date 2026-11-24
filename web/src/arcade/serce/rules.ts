@@ -69,6 +69,13 @@ export const RULES = {
   /** a stage still starts this much under the floor (s): a session's blocks end on whole frames, not to the millisecond */
   stageSlack: 3,
   /**
+   * The session's last stage (no further one would fit after it) takes up to `stageStretch` s of what only the close
+   * would get — never past 4:00, always leaving the close `closeCalm` s beyond its least: a calmer last stage rather
+   * than a long close (a 5-minute session at 3:00: 3:30 and a close of ~1:10, not 3:00 and 1:44).
+   */
+  stageStretch: 30,
+  closeCalm: 20,
+  /**
    * The Rytm row's focus dial: a push of a stage about this long (s, its lead-in included).  The default is the
    * dial's minimum on purpose: a round-15 save (a blessing after 1–3 circles) clamps to the minimum, so it reads as the
    * design, not as a surprising "30 s · Twój rytm".  A stage fits its pushes to its length around this: at 50 s a
