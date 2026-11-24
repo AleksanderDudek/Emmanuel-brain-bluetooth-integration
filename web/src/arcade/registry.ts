@@ -61,7 +61,7 @@ export interface ArcadeEntry {
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
-  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli';
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -391,6 +391,15 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: '2co10.5',
     brain: brain('mysli'),
     load: () => import('./mysli/index').then(m => m.default),
+  },
+  {
+    id: 'kintsugi', kind: 'heart', title: t('kintsugi.title'), tagline: t('kintsugi.tagline'), text: t('kintsugi.text'),
+    how: [t('kintsugi.how1'), t('kintsugi.how2'), t('kintsugi.how3')],
+    tips: [t('kintsugi.tip1'), t('kintsugi.tip2'), t('kintsugi.tip3'), t('kintsugi.tip4'), t('kintsugi.tip5')],
+    unit: t('kintsugi.unit'), art: 'art-kintsugi', fill: ['#fff6dc', '#f2c35c', '#7a4a52', '#0c0b1c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa147.3',
+    brain: brain('kintsugi'),
+    load: () => import('./kintsugi/index').then(m => m.default),
   },
 ];
 

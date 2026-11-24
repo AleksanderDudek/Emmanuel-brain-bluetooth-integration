@@ -59,6 +59,7 @@ const pl = {
   'brzemiona.how3': 'Rękami: ≡ (albo M) — lista, ◎ (W) — przyjmij pokój albo poszerz krąg, ▶ (N) — następne brzemię; kliknij gdziekolwiek (albo Spacja), by przy tym zostać.',
   'drzewo.how3': 'Rękami: kliknij owoc, by przeczytać jego słowo; ≡ (albo M) wybiera postawę (na stojąco albo na siedząco) i porę roku.',
   'mysli.how3': 'Rękami: kliknij „Nie moja” (albo N), gdy myśl Cię nie dotyczy; na końcu kliknij (albo 0–9), jak ciężko jest teraz.',
+  'kintsugi.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9), jak bardzo boli teraz.',
 } satisfies Partial<Record<ArcadeKey, string>>;
 
 type TwinKey = keyof typeof pl;
@@ -107,6 +108,7 @@ const en: Twins = {
   'brzemiona.how3': 'With your hands: ≡ (or M) — the list, ◎ (W) — receive peace or widen the circle, ▶ (N) — the next burden; click anywhere (or Space) to stay with it.',
   'drzewo.how3': 'With your hands: click a fruit to read its word; ≡ (or M) chooses the posture (standing or sitting) and the season.',
   'mysli.how3': 'With your hands: click “Not mine” (or N) when a thought isn’t about you; at the end, click (or press 0–9) how heavy it is now.',
+  'kintsugi.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9) how much it hurts now.',
 };
 
 const de: Twins = {
@@ -152,6 +154,7 @@ const de: Twins = {
   'brzemiona.how3': 'Mit den Händen: ≡ (oder M) — die Liste, ◎ (W) — Frieden empfangen oder Kreis weiten, ▶ (N) — die nächste Last; klicke irgendwo (oder Leertaste), um dabei zu bleiben.',
   'drzewo.how3': 'Mit den Händen: Klick auf eine Frucht, um ihr Wort zu lesen; ≡ (oder M) wählt die Haltung (stehend oder sitzend) und die Jahreszeit.',
   'mysli.how3': 'Mit den Händen: Klick auf „Nicht meiner“ (oder N), wenn ein Gedanke dich nicht betrifft; am Ende klickst du (oder 0–9), wie schwer es jetzt ist.',
+  'kintsugi.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9), wie sehr es jetzt wehtut.',
 };
 
 const sv: Twins = {
@@ -197,6 +200,7 @@ const sv: Twins = {
   'brzemiona.how3': 'Med händerna: ≡ (eller M) — listan, ◎ (W) — ta emot frid eller vidga kretsen, ▶ (N) — nästa börda; klicka var som helst (eller mellanslag) för att stanna kvar.',
   'drzewo.how3': 'Med händerna: klicka på en frukt för att läsa dess ord; ≡ (eller M) väljer hållning (stående eller sittande) och årstid.',
   'mysli.how3': 'Med händerna: klicka på ”Inte min” (eller N) när en tanke inte gäller dig; i slutet klickar du (eller 0–9) hur tungt det är nu.',
+  'kintsugi.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9) hur ont det gör nu.',
 };
 
 export const MOUSE_CATALOGS: Readonly<Record<Lang, Twins>> = { pl, en, de, sv };
