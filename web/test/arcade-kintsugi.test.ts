@@ -226,6 +226,18 @@ describe('Złote serce — the session', () => {
     expect(avg.gathered.care).toBeGreaterThanOrEqual(Math.max(1, avg.plan.planned - 1));
   });
 
+  it('a test session (≤ 60 s, app:smoke plays 40 s) pours gold and scores before its close', () => {
+    for (const T of [40, 60]) {
+      for (const eeg of [false, true]) {
+        for (const f of [HIGH, player(HIGH)]) {
+          const sim = makeSim({ planned: T, seed: T, eeg });
+          drive(sim, T * 0.85, f);
+          expect(sim.score, `${T} s ${eeg ? 'eeg' : 'fnirs'}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
   it('always reaches the close and its end, at every length, with any focus — a test session too', () => {
     for (const T of [40, 60, 180, 300, 600, 1200, 1800]) {
       for (const f of [LOW, player(AVG), player(HIGH)]) {

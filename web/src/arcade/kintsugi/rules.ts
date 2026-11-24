@@ -47,6 +47,8 @@ export const RULES = {
   /** a test session (≤ testSec): the arrival and the close as shares only */
   testSec: 60,
   test: { arrive: 0.08, close: 0.14 },
+  /** a test session's gold: seconds of sighted pour it keeps room for (app:smoke plays 40 s and wants a score) */
+  testPour: 7,
   /** the middle's shares of the session (the arrival and the close aside) */
   shares: { gather: 0.48, gold: 0.2, beat: 0.1, radiance: 0.12 },
   beatMax: 120,
@@ -228,7 +230,9 @@ export function planFor(o: PlanOpts): Plan {
   const beat = whole(Math.min(R.beatMax, (mid * S.beat) / sum));
   const radiance = whole(Math.min(R.radianceMax, (mid * S.radiance) / sum));
   const work = Math.max(1, mid - beat - radiance);
-  const gather = (work * S.gather) / (S.gather + S.gold);
+  // a test (≤ testSec): the gold keeps room for one sighted push after the grace — a minute's test still pours and scores
+  const share = (work * S.gather) / (S.gather + S.gold);
+  const gather = test ? Math.max(R.taskMin, Math.min(share, work - R.graceTest - lead - R.testPour)) : share;
 
   // the pieces: the heart's, and how many fit the player's rhythm (a lift-and-lay block of F s: tasks of (F − lead) / 2)
   const pieces = piecesFor(T);
