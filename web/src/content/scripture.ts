@@ -410,6 +410,9 @@ export type PassageId =
   | 'psa62.8'
   | 'isa46.4'
   | 'heb4.16'
+  | 'mat5.8'
+  | 'isa61.1'
+  | '1pe1.7'
   ;
 
 export interface Passage {
@@ -2811,6 +2814,24 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Let us then approach the throne of grace with confidence, so that we may receive mercy and find grace to help us in our time of need.', 'Hebrews 4:16'],
     de: ['Darum laßt uns hinzutreten mit Freudigkeit zu dem Gnadenstuhl, auf daß wir Barmherzigkeit empfangen und Gnade finden auf die Zeit, wenn uns Hilfe not sein wird.', 'Hebräer 4,16'],
     sv: ['Låtom oss därför med frimodighet gå fram till nådens tron, för att vi må undfå barmhärtighet och finna nåd, till hjälp i rätt tid.', 'Hebr 4:16'],
+  },
+  'mat5.8': {
+    pl: ['Błogosławieni czystego serca; albowiem oni Boga oglądają.', 'Mt 5,8'],
+    en: ['Blessed are the pure in heart, for they will see God.', 'Matthew 5:8'],
+    de: ['Selig sind, die reines Herzens sind; denn sie werden Gott schauen.', 'Matthäus 5,8'],
+    sv: ['Saliga äro de renhjärtade, ty de skola se Gud.', 'Matt 5:8'],
+  },
+  'isa61.1': {
+    pl: ['Duch Panującego Pana jest nademną; przeto mię pomazał Pan, abym opowiadał Ewangeliję cichym, posłał mię, abym związał rany tych, którzy są skruszonego serca, abym zwiastował pojmanym wyzwolenie, a więźniom otworzenie ciemnicy…', 'Iz 61,1'],
+    en: ['The Spirit of the Lord GOD is on Me, because the LORD has anointed Me to preach good news to the poor. He has sent Me to bind up the brokenhearted, to proclaim liberty to the captives and freedom to the prisoners…', 'Isaiah 61:1'],
+    de: ['Der Geist des Herrn HERRN ist über mir, darum daß mich der HERR gesalbt hat. Er hat mich gesandt, den Elenden zu predigen, die zerbrochenen Herzen zu verbinden, zu verkündigen den Gefangenen die Freiheit, den Gebundenen, daß ihnen geöffnet werde…', 'Jesaja 61,1'],
+    sv: ['Herrens, HERRENS Ande är över mig, ty HERREN har smort mig till att förkunna glädjens budskap för de ödmjuka; han har sänt mig till att läka dem som hava ett förkrossat hjärta, till att predika frihet för de fångna och förlossning för de bundna…', 'Jes 61:1'],
+  },
+  '1pe1.7': {
+    pl: ['Aby doświadczenie wiary waszej daleko droższe niż złoto, które ginie, którego jednak przez ogień doświadczają, znalezione było wam ku chwale i ku czci, i ku sławie w objawienie Jezusa Chrystusa…', '1 P 1,7'],
+    en: ['…so that the proven character of your faith—more precious than gold, which perishes even though refined by fire—may result in praise, glory, and honor at the revelation of Jesus Christ.', '1 Peter 1:7'],
+    de: ['…auf daß euer Glaube rechtschaffen und viel köstlicher erfunden werde denn das vergängliche Gold, das durchs Feuer bewährt wird, zu Lob, Preis und Ehre, wenn nun offenbart wird Jesus Christus…', '1. Petrus 1,7'],
+    sv: ['…för att, om eder tro håller provet – vilket är mycket mer värt än guldet, som förgås, men som dock genom eld bliver beprövat – detta må befinnas lända eder till pris, härlighet och ära vid Jesu Kristi uppenbarelse.', '1 Petr 1:7'],
   },
 };
 

@@ -290,6 +290,8 @@ PASSAGES: list[tuple[str, str]] = [
     ("rom8.38-39", "Romans 8:38-39"), ("eph1.6", "Ephesians 1:6"),
     # round 16 — Brzemiona: my own burdens given to the Cross
     ("psa62.8", "Psalm 62:8"), ("isa46.4", "Isaiah 46:4"), ("heb4.16", "Hebrews 4:16"),
+    # round 17 — Złote serce: the broken heart gathered, washed, joined with gold
+    ("mat5.8", "Matthew 5:8"), ("isa61.1", "Isaiah 61:1"), ("1pe1.7", "1 Peter 1:7"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
