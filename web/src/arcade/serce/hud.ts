@@ -4,6 +4,10 @@
  * bright —, a blessing's line, or its verse; the breath's phase; the stage's light as a thin bar; on a desk the way as a
  * list), the narrator's caption at the top of the picture and the story card.  Reading text ≥ 13 px, never under 11.
  *
+ * Round 16 (the way in stages): each stage opens with its title card over the picture ("Etap 4 z 9" over "Krąg 1 —
+ * Rodzina"), a thin line along the card's top fills with the stage's time (no ticking seconds), and the desk's way
+ * list shows the nine stages.
+ *
  * In rest the kit's breath guide (kit/breathguide.ts, round 15) says the breath — the lungs' disc, the phase in a word
  * ≥ 20 px with its seconds, "oddech 2 z 3": on a phone held upright in its own band over the card (the picture gives
  * it room, render.ts), on its side and on a desk at the card's foot in place of the small breath line.
@@ -12,16 +16,16 @@ import { breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit
 import type { BreathPhase } from '../kit/breath';
 import { drawPassage, layoutPassage, passage, type PassageId } from '../kit/scripture';
 import type { Rect } from '../kit/mobile';
-import { ringName, stageRing, type StageId } from './content';
-import { cap, t, type Key } from './i18n';
+import { WAY_LEN, stageTitle } from './content';
+import { cap, t } from './i18n';
 import type { Layout } from './layout';
 import { GOLD, GOLD_HI, PEARL, ROSE, font, fitLines, rr, SERIF } from './paint';
 import { RULES } from './rules';
-import { STORY_PAGES, pageOf, type SerceSim, type Words } from './sim';
+import { STORY_PAGES, pageOf, type SerceSim, type TitleCard, type Words } from './sim';
 
 const ICON: Record<string, string> = {
   warm: '◌', descent: '↓', heart: '◉', field: '◎', reach: '◎', kindle: '✦', sun: '☀', pervade: '✛', back: '◉', more: '✦',
-  rest: '☾', grat: '☾', stop: '☾', valve: '☾', nosig: '…', end: '✦',
+  rest: '☾', grat: '☾', stop: '☾', valve: '☾', nosig: '…', end: '✦', abide: '◎',
 };
 
 /** The "now" line: an icon and one short line in a soft pill. */
@@ -147,6 +151,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
   ctx.fillStyle = GOLD;
   ctx.fillText(head.lines[0] ?? '', x0, y);
   y += Math.round(head.size * 1.5);
+  // the stage's time: a thin line along the card's top, filling calmly (no seconds)
+  drawStageLine(ctx, sim, x0, r.y + Math.max(4, Math.round(pad * 0.4)), cw);
 
   // the footer: the breath guide in rest (on a phone held upright it has its own band over the card), the stage's
   // light in a push
@@ -154,13 +160,18 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
   const rest = sim.restBlock;
   const footH = rest ? (L.kind === 'tall' ? 0 : guideH(guideR(L))) : Math.round(footPx * 1.6);
   const footY = r.y + r.h - pad - footH;
-  const desk = L.kind !== 'tall' && r.h - wayListHeight(L) > 180;
+  // the way as a list where the card keeps room for the words beside it (a rest's verse needs more: it comes first)
+  const desk = L.kind !== 'tall' && footY - 6 - wayListHeight(L) - y >= (rest ? 150 : 110);
   const listH = desk ? wayListHeight(L) : 0;
   const mainBottom = footY - 6 - listH;
   const mainH = Math.max(20, mainBottom - y);
 
-  ctx.globalAlpha = 0.25 + 0.75 * fade;
-  if (w.verse) {
+  // a new stage: its title card holds the main area for its first seconds, the words come back after it
+  const tk = sim.titleK;
+  ctx.globalAlpha = (0.25 + 0.75 * fade) * (1 - tk);
+  if (tk > 0.99) {
+    // the title alone
+  } else if (w.verse) {
     const maxPx = Math.min(L.fs.verse, Math.max(13, Math.floor(mainH / 3.2)));
     const lay = passageLayout(ctx, w.verse, cw, mainH, maxPx);
     drawPassage(ctx, passage(w.verse), lay, r.x + r.w / 2, y + Math.max(0, (mainH - lay.height) / 2), { text: PEARL, ref: 'rgba(255,217,138,.78)' });
@@ -208,6 +219,7 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
     }
   }
   ctx.globalAlpha = 1;
+  if (tk > 0.01) drawTitle(ctx, L, sim.titleOf(), x0, y, cw, mainH, tk);
 
   if (desk) drawWayList(ctx, L, sim, x0, mainBottom + 4, cw);
 
@@ -245,16 +257,23 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
   ctx.restore();
 }
 
-/** The way as a list on a desk's card (◉ now, ✓ walked, ○ waiting, – left out today). */
-const WAY: readonly StageId[] = ['descent', 'heart', 'field', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'sun', 'back'];
-export const wayListHeight = (L: Layout): number => Math.round(WAY.length * wayLine(L) + 10);
-const wayLine = (L: Layout): number => Math.max(19, Math.min(24, 19 * L.ui));
-
-function wayLabel(s: StageId): string {
-  const r = stageRing(s);
-  if (r) return `${r} · ${ringName(r)}`;
-  return t(`sub.${s}` as Key);
+/** The stage's time as a thin line: its track, and how far its least length has gone (full while it runs longer). */
+function drawStageLine(ctx: CanvasRenderingContext2D, sim: SerceSim, x: number, y: number, w: number): void {
+  if (!sim.run || w < 40) return;
+  const k = sim.stageK;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,.09)';
+  rr(ctx, x, y - 1, w, 2, 1);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,217,138,.62)';
+  rr(ctx, x, y - 1, Math.max(2, w * k), 2, 1);
+  ctx.fill();
+  ctx.restore();
 }
+
+/** The way as a list on a desk's card: the nine stages (◉ now, ✓ walked, ○ waiting, – left out today). */
+export const wayListHeight = (L: Layout): number => Math.round(WAY_LEN * wayLine(L) + 10);
+const wayLine = (L: Layout): number => Math.max(19, Math.min(24, 19 * L.ui));
 
 function drawWayList(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim, x: number, y: number, w: number): void {
   const lh = wayLine(L);
@@ -267,18 +286,61 @@ function drawWayList(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim, x:
   ctx.stroke();
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  const cur = sim.stage;
-  WAY.forEach((s, i) => {
-    const r = stageRing(s);
-    const out = r !== null && sim.ringOut(r);
-    const done = (sim.prog[s] ?? 0) >= 1 || (r !== null && sim.remembered(r));
-    const now = s === cur && !done;
-    const mark = out ? '–' : done ? '✓' : now ? '◉' : '○';
+  for (let i = 0; i < WAY_LEN; i++) {
+    const st = sim.wayState(i);
+    const mark = st === 'out' ? '–' : st === 'done' ? '✓' : st === 'now' ? '◉' : '○';
     const yy = y + 10 + i * lh + lh / 2;
-    ctx.font = font(px, now ? 700 : 500);
-    ctx.fillStyle = out ? 'rgba(220,214,240,.35)' : now ? GOLD_HI : done ? 'rgba(255,217,138,.85)' : 'rgba(226,220,250,.55)';
-    ctx.fillText(`${mark}  ${wayLabel(s)}`, x, yy);
-  });
+    ctx.font = font(px, st === 'now' ? 700 : 500);
+    ctx.fillStyle = st === 'out' ? 'rgba(220,214,240,.35)' : st === 'now' ? GOLD_HI : st === 'done' ? 'rgba(255,217,138,.85)' : 'rgba(226,220,250,.55)';
+    const label = fitLines(ctx, `${mark}  ${i + 1}. ${stageTitle(i)}`, w, px, 12, 1, st === 'now' ? 700 : 500, false, false);
+    ctx.font = font(label.size, st === 'now' ? 700 : 500);
+    ctx.fillText(label.lines[0] ?? '', x, yy);
+  }
+  ctx.restore();
+}
+
+/**
+ * A stage's title card in the words card's main area for its first seconds (`alpha` fades it in and out; the words
+ * fade back after it): "Etap 4 z 9" small in gold, the stage's name large in the serif, a line under it (the re-entry:
+ * what comes after it).  The card is never under the runner's block banner, on a phone or a desk.
+ */
+function drawTitle(ctx: CanvasRenderingContext2D, L: Layout, c: TitleCard, x: number, y: number, w: number, h: number, alpha: number): void {
+  if (alpha <= 0.01 || !c.title) return;
+  const ui = Math.min(L.ui, 1.5);
+  const kPx = Math.max(13, Math.round(13 * ui));
+  let tPx = Math.max(18, Math.round(24 * ui));
+  const sPx = Math.max(13, Math.round(13.5 * ui));
+  let kick, title, sub, kl = 0, tl = 0, sl = 0, total = 0;
+  for (;;) {
+    kick = fitLines(ctx, c.kicker, w, kPx, 12, 1, 700, false, false);
+    title = fitLines(ctx, c.title, w, tPx, 15, 2, 600, true, false);
+    sub = c.sub ? fitLines(ctx, c.sub, w, sPx, 12, 2, 500, false, false) : { lines: [] as string[], size: sPx };
+    kl = Math.round(kick.size * 1.5);
+    tl = Math.round(title.size * 1.22);
+    sl = Math.round(sub.size * 1.35);
+    total = kl + title.lines.length * tl + (sub.lines.length ? 6 + sub.lines.length * sl : 0);
+    if (total <= h || tPx <= 15) break;
+    tPx -= 1;
+  }
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  const cx = x + w / 2;
+  let yy = y + Math.max(0, (h - total) / 2);
+  ctx.font = font(kick.size, 700);
+  ctx.fillStyle = GOLD;
+  ctx.fillText(kick.lines[0] ?? '', cx, yy);
+  yy += kl;
+  ctx.font = `600 ${title.size}px ${SERIF}`;
+  ctx.fillStyle = GOLD_HI;
+  for (const l of title.lines) { ctx.fillText(l, cx, yy); yy += tl; }
+  if (sub.lines.length) {
+    yy += 6;
+    ctx.font = font(sub.size, 500);
+    ctx.fillStyle = '#ece6ff';
+    for (const l of sub.lines) { ctx.fillText(l, cx, yy); yy += sl; }
+  }
   ctx.restore();
 }
 

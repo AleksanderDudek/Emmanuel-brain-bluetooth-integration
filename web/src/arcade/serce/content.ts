@@ -26,8 +26,44 @@ export const stageRing = (s: StageId): Ring | null => (/^ring[1-5]$/.test(s) ? (
 export type PlaceId = (typeof RULES.descentPlaces)[number];
 export const PLACES: readonly PlaceId[] = RULES.descentPlaces;
 
-/** The kinds of rest: a stop on the descent, gratitude at the heart, a blessing, the sun's, the closing, the heart word. */
-export type RestKind = 'stop' | 'grat' | 'bless' | 'sun' | 'amen' | 'word' | 'more';
+/**
+ * The kinds of rest: a stop on the descent, gratitude at the heart, a blessing, the sun's, the closing, the heart word,
+ * a "more" stage's blessing; round 16: the descent's arrival in the heart, the four dimensions' closing, the re-entry's.
+ */
+export type RestKind = 'stop' | 'grat' | 'bless' | 'sun' | 'amen' | 'word' | 'more' | 'arrive' | 'pervade' | 'enter';
+
+// ── the way in nine stages (round 16) ───────────────────────────
+/**
+ * The nine stages of the way, each walked calmly in 2–4 minutes (the founder, round 16: "Tutaj trzeba przejść pewne
+ * etapy i przejść je spokojnie. Etapami."): the descent, the heart, circle 0 (me), circles 1–5, and the one sun with
+ * the four dimensions (`sun` walks the progress of both `sun` and `pervade`).
+ */
+export const WAY = ['descent', 'heart', 'field', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'sun'] as const;
+export type WayId = (typeof WAY)[number];
+export const WAY_LEN = WAY.length;
+/** A session's stages: the way's, the re-entry of a resumed session, a "more" stage after the way, and the close. */
+export type StageKind = WayId | 'reentry' | 'more' | 'close';
+/** The way stage of a ring (ring 1 is stage 4, index 3). */
+export const ringIndex = (r: Ring): number => 2 + r;
+/** The ring a way stage is (null for the descent, the heart, circle 0 and the sun). */
+export const indexRing = (i: number): Ring | null => (i >= 3 && i <= 7 ? ((i - 2) as Ring) : null);
+
+/** A way stage's full name, as its title card and "next time" say it: "Krąg 1 — Rodzina". */
+export function stageTitle(i: number): string {
+  const w = WAY[Math.max(0, Math.min(WAY_LEN - 1, Math.floor(i)))];
+  const r = indexRing(i);
+  if (r) return t('stage.ring', { n: r, ring: ringName(r) });
+  return t(`stage.${w}` as Key);
+}
+/** A way stage's short name for lists and the forecast: "Zejście", "Ja", "Rodzina", "Jedno słońce". */
+export function stageLabel(i: number): string {
+  const w = WAY[Math.max(0, Math.min(WAY_LEN - 1, Math.floor(i)))];
+  const r = indexRing(i);
+  if (r) return ringName(r);
+  return w === 'field' ? ringName(0) : t(`sub.${w}` as Key);
+}
+/** "Etap 4 z 9". */
+export const stageOf = (i: number): string => t('stage.of', { n: Math.floor(i) + 1, of: WAY_LEN });
 
 /** How each ring's lamps look (the brief's "each its own, readable even at phone size"). */
 export interface RingLook {
@@ -113,8 +149,6 @@ export const ALL_VERSES: readonly PassageId[] = [...new Set(Object.values(VERSES
 
 // ── the rings' words ────────────────────────────────────────────
 export const ringName = (r: 0 | Ring): string => t(`ring.${r}` as Key);
-/** "od kręgu przyjaciół" — where the next session goes on. */
-export const fromRing = (r: Ring): string => t(`from.${r}` as Key);
 
 /** The named arcs of ring 5 in long sessions (the people the world's light reaches by name). */
 export const ARCS = ['suffer', 'lonely', 'sick', 'dying', 'born'] as const;
@@ -144,6 +178,6 @@ export function pushTip(stage: StageId, place: PlaceId, n: number, who = ''): st
 /** The rest's strategy line. */
 export function restTip(kind: RestKind, n: number): string {
   if (kind === 'grat') return t('tip.grat');
-  if (kind === 'stop' || kind === 'word') return t('tip.word');
+  if (kind === 'stop' || kind === 'word' || kind === 'enter') return t('tip.word');
   return t(`tip.rest.${(n % 3) + 1}` as Key);
 }

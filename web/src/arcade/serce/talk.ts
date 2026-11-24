@@ -8,7 +8,9 @@ import { RULES, readTime } from './rules';
 
 export type Moment =
   | 'open' | 'resume' | 'descend' | 'settle' | 'heart' | 'field' | 'whole' | 'ring1' | 'ring2' | 'ring3' | 'ring4' | 'ring5'
-  | 'sun' | 'pervade' | 'back' | 'home' | 'more' | 'wait' | 'good' | 'nosignal' | 'valve' | 'end';
+  | 'sun' | 'pervade' | 'back' | 'home' | 'more' | 'wait' | 'good' | 'nosignal' | 'valve' | 'end'
+  // round 16: abiding in a stage whose light is met early (a circle's own lines), the close before the way is whole
+  | 'abide' | 'abideRing' | 'close';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 

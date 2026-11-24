@@ -17,10 +17,9 @@ import { BREATH_PRESETS, breathCycle, breathOk, type BreathPattern } from '../ki
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
-import { breathDial, type RhythmSpec } from '../kit/rhythm';
+import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { SerceSound } from './audio';
-import { stageRing } from './content';
 import { breathWords, lightsText, t, unit } from './i18n';
 import { bestOf, freshProgress, migrate, type SerceProgress } from './meta';
 import { progressPanel } from './panel';
@@ -154,9 +153,8 @@ class SerceGame implements ArcadeGame {
     const best = bestOf(s.p);
     const left = best !== null ? best - s.score : 0;
     if (best !== null && left > 0 && left <= Math.max(20, best * 0.2)) return { value: s.score, sub: t('sub.best', { left: lightsText(left) }) };
-    const r = stageRing(s.stage);
-    const sub = r ? t('sub.ring', { n: r }) : t(`sub.${s.stage}` as 'sub.heart');
-    return { value: s.score, sub };
+    // the stage ("Etap 4 z 9 · Krąg 1"), the re-entry, the world, the return
+    return { value: s.score, sub: s.subLine };
   }
 
   finish(): void {
@@ -176,7 +174,8 @@ class SerceGame implements ArcadeGame {
 /** Whether a coach mark still fits the moment (it waited for a banner or the narrator). */
 function hintFits(what: Coach, sim: SerceSim): boolean {
   switch (what) {
-    case 'light': return sim.pushBlock;
+    // how the light moves: not while the player abides (nothing moves then)
+    case 'light': return sim.pushBlock && !sim.abiding;
     case 'breath': return sim.restBlock;
     case 'names': return sim.restBlock && sim.rest?.rest === 'bless';
     case 'ring4': return sim.stage === 'ring4' || sim.ring === 4;
@@ -194,18 +193,21 @@ function haptic(e: SimEvent): void {
 }
 
 /**
- * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): a blessing after 1–3 circles (1 by design: the field and
- * each ring blessed in turn; more, and the circles are blessed together, the descent's stops and the sun's rest left
- * out) and each rest's whole breaths of the player's own pattern (by design the plan's budget, about 2 of 5 · 5).
+ * The rest's rhythm in the lobby (kit/rhythm.ts; round 16): a stage's push length — 45–90 s, by design 45, its
+ * shortest (a stage fits its pushes to its length around it: fewer, longer stretches of focus as it grows) — and each
+ * rest's whole breaths of the player's own pattern (by design 2).  The stage length itself is the card's (panel.ts):
+ * one place for it.  A round-15 save (a blessing after 1–3 circles) clamps to the dial's minimum, the design, so it
+ * reads "jak zaprojektowano" and plays as designed.
  */
 export function serceRhythm(p?: SerceProgress): RhythmSpec {
   const b = p ? migrate(p).breath : BREATH_PRESETS.even;
   const cyc = breathCycle(breathOk(b) ? b : BREATH_PRESETS.even);
+  const D = RULES.pushDial;
   return {
-    focus: { def: 1, min: 1, max: RULES.circlesMax, step: 1, name: t('rhythm.after'), format: n => t('rhythm.circles', { n }) },
+    focus: secDial(D.def, t('rhythm.push'), { min: D.min, max: D.max, step: D.step }),
     rest: breathDial(RULES.restBreathsDef, undefined, cyc, { min: 1, max: RULES.restBreathsMax }),
     note: t('rhythm.note'),
-    focusSec: n => n * RULES.circleSec,
+    focusSec: n => n,
     restSec: n => n * cyc,
   };
 }

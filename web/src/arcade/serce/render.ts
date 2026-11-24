@@ -175,7 +175,9 @@ export class SerceView {
   framingOf(sim: SerceSim): Framing {
     const rest = sim.rest;
     if (rest && sim.block.why !== 'valve') {
-      if (rest.rest === 'stop' || rest.rest === 'grat') return 'body';
+      if (rest.rest === 'stop' || rest.rest === 'grat' || rest.rest === 'arrive') return 'body';
+      if (rest.rest === 'enter') return sim.prog.field > 0 ? 'figure' : 'body';
+      if (rest.rest === 'pervade' || rest.rest === 'more') return 'world';
       if (rest.rest === 'bless') {
         const r = rest.rings[rest.rings.length - 1] ?? 0;
         return r === 0 ? 'figure' : r === 5 ? 'world' : (`ring${r}` as Framing);
@@ -477,7 +479,7 @@ export class SerceView {
   private drawField(ctx: CanvasRenderingContext2D, sim: SerceSim, fr: number): void {
     if (fr <= 0.02) return;
     const c = this.sp(0, 0), r = Math.min(fr, R[4] + 0.7) * this.cam.s;
-    const g0 = 0.6 + 0.4 * sim.glow;
+    const g0 = 0.6 + 0.4 * sim.glow + 0.35 * sim.deep;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
@@ -502,7 +504,8 @@ export class SerceView {
     const s = this.cam.s, c = this.sp(0, 0);
     const cur = sim.ring;
     const eq = this.sunK(sim);
-    const showRings = sim.prog.field >= 0.95 || sim.from > 1;
+    // a resumed way past circle 1 shows its rings at once (the earlier ones as remembered)
+    const showRings = sim.prog.field >= 0.95 || sim.from > 3;
     if (!showRings) return;
     ctx.save();
     for (const k of [1, 2, 3, 4] as Ring[]) {
@@ -514,6 +517,15 @@ export class SerceView {
       const look = RING_LOOK[k];
       const bright = cur === k ? 1 : mem ? 0.6 : 0.75;
       const b = bright + (1 - bright) * eq;
+      // abiding in a circle whose lamps are all lit: held focus deepens its glow (never more lamps)
+      if (cur === k && sim.deep > 0.01 && reached && !out) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineWidth = Math.max(2, 0.03 * s);
+        ctx.strokeStyle = `${rgbaPrefix(look.lamp)}${0.28 * sim.deep})`;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, rad, 0, TAU);
+        ctx.stroke();
+      }
       // the ring's line
       ctx.globalCompositeOperation = 'source-over';
       ctx.lineWidth = reached ? 1.6 : 1;
@@ -683,7 +695,7 @@ export class SerceView {
       const shown = names.filter((_, j) => Math.floor((j * lamps.length) / names.length) < lit);
       if (!shown.length) return;
       const y = this.sp(0, -R[1] + 0.28 + (lamps.length > 3 ? 0.15 : 0) + 0.2).y;
-      this.label(ctx, shown.join(' · '), this.sp(0, 0).x, y, '#ffe2bd', false, Math.min(this.L.pic.w - 16, R[1] * 1.6 * this.cam.s));
+      this.label(ctx, shown.join(' · '), this.sp(0, 0).x, y, sim.deep > 0.35 ? '#fff4e6' : '#ffe2bd', false, Math.min(this.L.pic.w - 16, R[1] * 1.6 * this.cam.s));
       return;
     }
     names.forEach((nm, j) => {
@@ -692,7 +704,7 @@ export class SerceView {
       const lp = lamps[i];
       const out = 0.16 + px / this.cam.s;
       const p = this.sp(lp.x + Math.cos(lp.a) * out, lp.y + Math.sin(lp.a) * out);
-      this.label(ctx, nm, p.x, p.y - px / 2, RING_LOOK[k].lamp, false, 110);
+      this.label(ctx, nm, p.x, p.y - px / 2, sim.deep > 0.35 ? mix(RING_LOOK[k].lamp, '#ffffff', 0.5) : RING_LOOK[k].lamp, false, 110);
     });
   }
 
@@ -830,7 +842,8 @@ export class SerceView {
       ctx.globalAlpha = 1;
     }
     const p = sim.prog;
-    const g = sim.glow;
+    // abiding: held focus deepens the figure's glow
+    const g = Math.min(1, sim.glow + 0.4 * sim.deep);
     // the heart's glow filling the figure from the heart outward (head, hands, feet last)
     const fill = p.field;
     const path = figureWorldPath();
@@ -909,7 +922,7 @@ export class SerceView {
     const flame = clamp(p.heart);
     const arrived = p.descent >= 1 || flame > 0;
     if (!arrived) return;
-    const s = this.cam.s, c = this.sp(0, 0), g = sim.glow;
+    const s = this.cam.s, c = this.sp(0, 0), g = Math.min(1, sim.glow + 0.4 * sim.deep);
     let beat = 0;
     if (this.pulse !== null) {
       const ph = this.beatPh % 1;
