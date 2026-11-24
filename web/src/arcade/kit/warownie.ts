@@ -58,7 +58,7 @@ export const WAROWNIE: readonly Warownia[] = [
   W('paranoia', 8, 'unrest', 'pro18.11', ['medical'], 'Podejrzliwość', 'Suspicion', 'Argwohn', 'Misstänksamhet'),
   W('antisocial', 9, 'self', 'psa36.2', [], 'Lekceważenie innych', 'Disregard for others', 'Rücksichtslosigkeit', 'Hänsynslöshet'),
   W('dependence', 10, 'self', 'jer17.7', [], 'Zależność od ludzi', 'Dependence on people', 'Abhängigkeit von Menschen', 'Beroende av människor'),
-  W('acting', 11, 'self', '2sa13.6', [], 'Aktorstwo', 'Acting', 'Schauspielerei', 'Skådespeleri'),
+  W('acting', 11, 'self', '2sa13.6', [], 'Aktorstwo', 'Play-acting', 'Schauspielerei', 'Skådespeleri'),
   W('isolation', 12, 'wounds', 'pro18.1', [], 'Izolacja', 'Isolation', 'Rückzug', 'Isolering'),
   W('humiliation', 13, 'wounds', 'luk1.52', ['crisis'], 'Poniżenie', 'Humiliation', 'Demütigung', 'Förödmjukelse'),
   W('manipulation', 14, 'self', '2co2.11', [], 'Manipulacja', 'Manipulation', 'Manipulation', 'Manipulation'),
@@ -82,7 +82,7 @@ export const WAROWNIA_GROUPS: readonly { id: WarowniaGroup; name: Readonly<Recor
   { id: 'unrest', name: { pl: 'Lęk i niepokój', en: 'Fear and unrest', de: 'Angst und Unruhe', sv: 'Rädsla och oro' } },
   { id: 'wounds', name: { pl: 'Rany i wstyd', en: 'Wounds and shame', de: 'Wunden und Scham', sv: 'Sår och skam' } },
   { id: 'self', name: { pl: 'Ja i inni', en: 'Me and others', de: 'Ich und die anderen', sv: 'Jag och andra' } },
-  { id: 'desire', name: { pl: 'Pragnienia', en: 'Desires', de: 'Begierden', sv: 'Begär' } },
+  { id: 'desire', name: { pl: 'Pragnienia', en: 'Desires', de: 'Verlangen', sv: 'Begär' } },
   { id: 'truth', name: { pl: 'Wiara i prawda', en: 'Faith and truth', de: 'Glaube und Wahrheit', sv: 'Tro och sanning' } },
 ];
 

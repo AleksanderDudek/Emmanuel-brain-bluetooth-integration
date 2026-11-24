@@ -31,14 +31,14 @@ export const DAILY: readonly Theme[] = [
   T('work', { pl: 'Praca', en: 'Work', de: 'Arbeit', sv: 'Arbete' }, {
     pl: ['praca', 'szef', 'termin, który mnie goni', 'brak pracy'],
     en: ['work', 'my boss', 'a deadline chasing me', 'no work'],
-    de: ['die Arbeit', 'Druck bei der Arbeit', 'eine Frist, die mich jagt', 'keine Arbeit'],
+    de: ['die Arbeit', 'Druck bei der Arbeit', 'eine Frist, die drängt', 'keine Arbeit'],
     sv: ['arbetet', 'min chef', 'en deadline som jagar mig', 'inget arbete'],
   }),
   T('money', { pl: 'Pieniądze', en: 'Money', de: 'Geld', sv: 'Pengar' }, {
     pl: ['pieniądze', 'długi', 'rachunki', 'lęk o utrzymanie'],
     en: ['money', 'debts', 'bills', 'worry about making ends meet'],
     de: ['Geld', 'Schulden', 'Rechnungen', 'die Sorge ums Auskommen'],
-    sv: ['pengar', 'skulder', 'räkningar', 'oron att få det att gå ihop'],
+    sv: ['pengar', 'skulder', 'räkningar', 'oron för försörjningen'],
   }),
   T('health', { pl: 'Zdrowie', en: 'Health', de: 'Gesundheit', sv: 'Hälsa' }, {
     pl: ['moje zdrowie', 'zdrowie mamy', 'badania, które mnie czekają', 'ból'],
@@ -79,8 +79,8 @@ export const DAILY: readonly Theme[] = [
   T('decisions', { pl: 'Decyzje', en: 'Decisions', de: 'Entscheidungen', sv: 'Beslut' }, {
     pl: ['decyzja przede mną', 'wybór, którego się boję', 'zmiana, która nadchodzi'],
     en: ['a decision before me', 'a choice I am afraid of', 'a change that is coming'],
-    de: ['eine Entscheidung vor mir', 'eine Wahl, die mir Angst macht', 'eine Veränderung, die kommt'],
-    sv: ['ett beslut framför mig', 'ett val som skrämmer mig', 'en förändring som kommer'],
+    de: ['eine anstehende Entscheidung', 'eine Wahl, die mir Angst macht', 'eine Veränderung, die kommt'],
+    sv: ['ett beslut jag står inför', 'ett val som skrämmer mig', 'en förändring som kommer'],
   }),
   T('loss', { pl: 'Strata', en: 'Loss', de: 'Verlust', sv: 'Förlust' }, {
     pl: ['strata', 'żałoba', 'rozstanie', 'to, co się skończyło'],
@@ -99,7 +99,7 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
     pl: ['rana odrzucenia', 'miłość, której mi nie okazano', 'krytyka zamiast pochwały', 'ci, którzy mnie odrzucili', 'ci, którzy mnie zdradzili'],
     en: ['the wound of rejection', 'love that was not shown me', 'criticism instead of praise', 'those who rejected me', 'those who betrayed me'],
     de: ['die Wunde der Ablehnung', 'Liebe, die mir fehlte', 'Kritik statt Lob', 'die, die mich abgelehnt haben', 'die, die mich verraten haben'],
-    sv: ['såret av avvisning', 'kärlek jag aldrig fick', 'kritik i stället för beröm', 'de som avvisade mig', 'de som svek mig'],
+    sv: ['såret av att bli avvisad', 'kärlek jag aldrig fick', 'kritik i stället för beröm', 'de som avvisade mig', 'de som svek mig'],
   },
   instability: {
     pl: ['rany, które są pod spodem', 'pustka, która nie mija', 'lęk przed opuszczeniem', 'ci, którzy mnie zostawili', 'świat, który nie był bezpieczny'],
@@ -116,14 +116,14 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
   compulsions: {
     pl: ['lęk przed każdym błędem', 'wymagania nie do spełnienia', 'potrzeba kontroli', 'ci, którzy żądali doskonałości'],
     en: ['the fear of every mistake', 'demands I could never meet', 'the need for control', 'those who demanded perfection'],
-    de: ['die Angst vor jedem Fehler', 'Ansprüche, die keiner erfüllt', 'das Bedürfnis nach Kontrolle', 'die, die Perfektion verlangten'],
+    de: ['die Angst vor jedem Fehler', 'unerfüllbare Ansprüche', 'das Bedürfnis nach Kontrolle', 'die, die Perfektion verlangten'],
     sv: ['rädslan för varje misstag', 'krav som ingen kan uppfylla', 'behovet av kontroll', 'de som krävde perfektion'],
   },
   paranoia: {
     pl: ['rana po zdradzie', 'wyśmianie i oszustwo', 'urazy, które w sobie noszę', 'ci, którzy mnie skrzywdzili'],
     en: ['the wound of betrayal', 'mockery and deceit', 'the grudges I carry', 'those who hurt me'],
     de: ['die Wunde des Verrats', 'Spott und Betrug', 'der Groll, den ich trage', 'die, die mir wehgetan haben'],
-    sv: ['såret efter svek', 'hån och bedrägeri', 'agget jag bär på', 'de som skadade mig'],
+    sv: ['såret efter svek', 'hån och bedrägeri', 'agget jag bär på', 'de som gjorde mig illa'],
   },
   antisocial: {
     pl: ['to, co pękło we mnie w młodości', 'zły przykład z domu', 'ci, którzy uczyli mnie twardości'],
@@ -140,14 +140,14 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
   acting: {
     pl: ['miejsca, w których mnie pomijano', 'lęk, że ktoś mnie naprawdę pozna', 'ci, którzy mnie nie zauważali', 'miłość, którą trzeba było zdobyć'],
     en: ['the times I was overlooked', 'the fear of being truly known', 'those who overlooked me', 'love I had to win'],
-    de: ['wo man mich übersah', 'die Angst, erkannt zu werden', 'die, die mich übersahen', 'Liebe, um die ich spielen musste'],
-    sv: ['när jag blev förbisedd', 'rädslan att bli verkligt känd', 'de som förbisåg mig', 'kärlek jag fick spela till mig'],
+    de: ['wo man mich übersah', 'die Angst, erkannt zu werden', 'die, die mich übersahen', 'Liebe, die ich verdienen musste'],
+    sv: ['när jag blev förbisedd', 'rädslan att bli sedd på riktigt', 'de som förbisåg mig', 'kärlek jag fick förtjäna'],
   },
   isolation: {
     pl: ['rany, które mnie zamknęły', 'lęk przed zranieniem', 'ci, którzy zranili mnie z bliska', 'ci, których przy mnie nie było'],
-    en: ['the wounds that closed me in', 'the fear of being hurt', 'those who hurt me from close up', 'those who were never there'],
-    de: ['Wunden, die mich verschlossen', 'die Angst, verletzt zu werden', 'Nahe, die mich verletzt haben', 'die, die nie für mich da waren'],
-    sv: ['såren som stängde in mig', 'rädslan att bli sårad', 'de nära som sårade mig', 'de som aldrig fanns där'],
+    en: ['the wounds that closed me in', 'the fear of being hurt', 'those close to me who hurt me', 'those who were never there'],
+    de: ['Wunden, die mich verschlossen', 'die Angst, verletzt zu werden', 'Vertraute, die mich verletzten', 'die, die nie für mich da waren'],
+    sv: ['såren som stängde in mig', 'rädslan att bli sårad', 'närstående som sårade mig', 'de som aldrig fanns där'],
   },
   humiliation: {
     pl: ['chwile, gdy mnie wyśmiewano', 'wstyd, który mi zadano', 'dawne upokorzenia', 'ci, którzy mnie poniżali'],
@@ -159,7 +159,7 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
     pl: ['miłość zdobywana naciskiem', 'lęk, że nikt o mnie nie zadba', 'ci, którzy mną sterowali'],
     en: ['love won by pressure', 'the fear no one will care for me', 'those who steered me'],
     de: ['Liebe, durch Druck erkämpft', 'die Angst, zu kurz zu kommen', 'die, die mich gesteuert haben'],
-    sv: ['kärlek vunnen genom tryck', 'rädslan att bli utan', 'de som styrde mig'],
+    sv: ['kärlek vunnen genom press', 'rädslan att bli utan', 'de som styrde mig'],
   },
   immaturity: {
     pl: ['braki z dzieciństwa', 'niskie poczucie wartości', 'kompleksy, które noszę', 'ci, którzy mi nie pomogli rosnąć'],
@@ -170,8 +170,8 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
   pessimism: {
     pl: ['zawiedzione nadzieje', 'zamartwianie się', 'oczekiwanie najgorszego', 'ci, którzy zgasili moją nadzieję'],
     en: ['disappointed hopes', 'worrying', 'expecting the worst', 'those who crushed my hopes'],
-    de: ['enttäuschte Hoffnungen', 'das ständige Sorgen', 'das Schlimmste erwarten', 'die, die meine Hoffnung brachen'],
-    sv: ['svikna förhoppningar', 'oron som springer före mig', 'att vänta sig det värsta', 'de som krossade mitt hopp'],
+    de: ['enttäuschte Hoffnungen', 'das ständige Sorgen', 'das Schlimmste erwarten', 'die, die mir die Hoffnung nahmen'],
+    sv: ['svikna förhoppningar', 'att ständigt oroa sig', 'att vänta sig det värsta', 'de som krossade mitt hopp'],
   },
   fears: {
     pl: ['chwile, które mnie przeraziły', 'lęk o jutro', 'lęk przed chorobą', 'lęk przed ludźmi', 'ci, którzy mnie straszyli'],
@@ -188,7 +188,7 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
   foolishness: {
     pl: ['wyśmiana niewiedza', 'wstyd, że czegoś nie wiem', 'ci, którzy mnie zmylili', 'ci, którzy mnie źle uczyli'],
     en: ['being mocked for not knowing', 'the shame of not knowing', 'those who misled me', 'those who taught me wrongly'],
-    de: ['verspottetes Nichtwissen', 'die Scham, etwas nicht zu wissen', 'die, die mich irreführten', 'die, die mich Falsches lehrten'],
+    de: ['Spott über mein Nichtwissen', 'die Scham, etwas nicht zu wissen', 'die, die mich irreführten', 'die, die mich Falsches lehrten'],
     sv: ['att bli hånad för att inte veta', 'skammen över att inte veta', 'de som vilseledde mig', 'de som lärde mig fel'],
   },
   religion: {
@@ -213,12 +213,12 @@ export const WAROWNIA_TOPICS: Readonly<Record<WarowniaId, ByLang<readonly string
     pl: ['rany od ludzi z innej grupy', 'ci, którzy mnie skrzywdzili', 'ci, którzy uczyli mnie pogardy'],
     en: ['wounds from another group', 'those who hurt me', 'those who taught me contempt'],
     de: ['Wunden durch eine andere Gruppe', 'die, die mir wehgetan haben', 'die, die mich Verachtung lehrten'],
-    sv: ['sår från en annan grupp', 'de som skadade mig', 'de som lärde mig förakt'],
+    sv: ['sår från en annan grupp', 'de som gjorde mig illa', 'de som lärde mig förakt'],
   },
   greed: {
     pl: ['pamięć niedostatku', 'wstyd biedy', 'lęk, że nie wystarczy', 'ci, którzy mi coś odebrali'],
     en: ['the memory of lack', 'the shame of poverty', 'the fear there won’t be enough', 'those who took from me'],
-    de: ['die Erinnerung an Mangel', 'die Scham der Armut', 'die Angst, es reicht nicht', 'die, die mir etwas nahmen'],
+    de: ['die Erinnerung an Mangel', 'die Scham der Armut', 'die Angst, dass es nicht reicht', 'die, die mir etwas nahmen'],
     sv: ['minnet av brist', 'skammen över fattigdom', 'rädslan att det inte räcker', 'de som tog från mig'],
   },
   lies: {
