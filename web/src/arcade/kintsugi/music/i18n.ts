@@ -227,8 +227,8 @@ const de: Cat = {
   'player.tap': 'Tippe im Player auf ▶, um die Musik zu starten.',
   'player.tapMouse': 'Klicke im Player auf ▶, um die Musik zu starten.',
   'stat.tracks': { one: '{n} Stück', other: '{n} Stücke' },
-  'stat.withAmbient': '{tracks} und Hintergrundmusik',
-  'stat.ambient': 'Hintergrundmusik',
+  'stat.withAmbient': '{tracks} und Hintergrund\u00ADmusik',
+  'stat.ambient': 'Hintergrund\u00ADmusik',
   'stat.silence': 'Stille',
 };
 
