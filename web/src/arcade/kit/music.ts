@@ -29,6 +29,8 @@ export interface TrackPlayer {
   readonly error: number | null;
   /** the browser refused to start the track without a tap on the player itself */
   readonly blocked: boolean;
+  /** the player has answered (its handshake is done); absent = always ready (a fake in tests) */
+  readonly ready?: boolean;
 }
 
 /** The game's ambient music: how loud it is against the tracks (1 = alone, 0 = silent behind a track). */
@@ -59,7 +61,9 @@ export interface MusicNow {
 export const CLOSE_MIN = 20;
 /** How long the tracks fade in (s), and the ambient fades out under them / back in after them. */
 const FADE_IN = 3, AMBIENT_OUT = 5, AMBIENT_IN = 4;
-/** Waiting for a track to start: then it counts as blocked (a tap needed) or failed. */
+/** After a session pause the player reports "paused" for a moment while it starts again: not a pause by hand. */
+const RESUME_SETTLE = 2;
+/** Waiting for a track to start (counted from the player's handshake): then it counts as blocked (a tap needed) or failed. */
 const START_WAIT = 8, LOAD_GIVE_UP = 25, TAP_WAIT = 40, STALL_GIVE_UP = 45;
 /** A track counts as heard (for the rotation) after this much of it, or at its end. */
 const HEARD = 30;
@@ -80,6 +84,10 @@ export class MusicDirector {
   private failed = new Set<string>();
   private paused = false;
   private tapAsked = false;
+  /** the start wait counts from here: the player's handshake, never across a resume */
+  private waitFrom = 0;
+  private resumed = false;
+  private resumeAt = -Infinity;
 
   constructor(private plan: MusicPlan, private player: TrackPlayer | null, private ambient: AmbientBus, private o: MusicOptions) {
     this.queue = player ? plan.slots.slice() : [];
@@ -100,6 +108,8 @@ export class MusicDirector {
   update(t: number): void {
     const pl = this.player;
     if (!pl || this.phase === 'done' || this.paused) return;
+    if (this.resumed) { this.resumed = false; this.resumeAt = t; }
+    const settling = t - this.resumeAt < RESUME_SETTLE;
     const total = this.o.total;
     switch (this.phase) {
       case 'ambient': {
@@ -109,6 +119,7 @@ export class MusicDirector {
         const [slot] = this.queue.splice(0, i + 1).slice(-1);
         this.cur = slot;
         this.since = t;
+        this.waitFrom = t;
         this.vol = -1;
         this.setVolume(0, t, true);
         pl.load(slot.id);
@@ -118,14 +129,20 @@ export class MusicDirector {
       case 'loading': {
         if (pl.state === 'playing') { this.begin(t); return; }
         if (pl.error !== null) { this.skip(t); return; }
-        if (pl.blocked || (t - this.since > START_WAIT && (pl.state === 'unstarted' || pl.state === 'cued' || pl.state === 'paused'))) {
+        // a slow network's handshake, or the moment after a resume, is not a browser that wants a tap
+        if (pl.ready === false || settling) {
+          this.waitFrom = t;
+          if (t - this.since > LOAD_GIVE_UP) this.skip(t);
+          return;
+        }
+        if (pl.blocked || (t - this.waitFrom > START_WAIT && (pl.state === 'unstarted' || pl.state === 'cued' || pl.state === 'paused'))) {
           if (this.tapAsked) { this.skip(t); this.quit(); return; }   // asked once already: the ambient alone, no nagging
           this.tapAsked = true;
           this.since = t;
           this.set('blocked', this.cur);
           return;
         }
-        if (t - this.since > LOAD_GIVE_UP) this.skip(t);
+        if (t - this.waitFrom > LOAD_GIVE_UP) this.skip(t);   // answered, but only buffers
         return;
       }
       case 'blocked': {
@@ -142,7 +159,7 @@ export class MusicDirector {
         if (ended) { this.heard.add(cur.id); this.afterTrack(t); return; }
         if (pl.error !== null) { this.skip(t); return; }
         // the player paused the track by hand: the ambient comes back softly until it plays again
-        const hand = pl.state === 'paused';
+        const hand = pl.state === 'paused' && !settling;
         if (hand !== this.handPaused) { this.handPaused = hand; this.ambient.mix(hand ? 0.7 : 0, hand ? AMBIENT_IN : AMBIENT_OUT); }
         // a stall (the network) that does not clear: let it go
         if (pl.time !== this.lastTime) { this.lastTime = pl.time; this.lastMove = t; }
@@ -166,6 +183,7 @@ export class MusicDirector {
   pause(on: boolean): void {
     if (this.paused === on) return;
     this.paused = on;
+    if (!on) this.resumed = true;
     const pl = this.player;
     if (!pl) return;
     if (this.phase === 'track' || this.phase === 'loading' || this.phase === 'closing') {

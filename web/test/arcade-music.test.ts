@@ -244,6 +244,48 @@ describe('kit/music MusicDirector', () => {
     expect(p.state).toBe('playing');
   });
 
+  it('after a session pause the player\'s moment of "paused" is not taken for a pause by hand (no ambient swell)', () => {
+    const p = new FakePlayer();
+    p.lengths = Object.fromEntries(ELEVEN.map(t => [t.id, t.sec]));
+    const plan = planMusic({ total: 900, tracks: ELEVEN, rng: seeded(11) });
+    const mixes: number[] = [];
+    const d = new MusicDirector(plan, p, { mix: l => mixes.push(l) }, { total: 900, volume: 1 });
+    let t = 0;
+    while (d.now.phase !== 'track' && t < 300) { p.tick(0.25); d.update(t); t += 0.25; }
+    for (let k = 0; k < 20; k++) { p.tick(0.25); d.update(t); t += 0.25; }
+    d.pause(true);
+    // the real player takes a moment to start again: it still says "paused"
+    p.play = () => undefined;
+    d.pause(false);
+    const before = mixes.length;
+    for (let k = 0; k < 4; k++) { p.tick(0.25); d.update(t); t += 0.25; }
+    p.state = 'playing';
+    for (let k = 0; k < 8; k++) { p.tick(0.25); d.update(t); t += 0.25; }
+    expect(mixes.slice(before)).not.toContain(0.7);
+    expect(d.now.phase).toBe('track');
+  });
+
+  it('a slow handshake is not a browser that wants a tap: the start wait counts from the player\'s answer', () => {
+    const p = new FakePlayer() as FakePlayer & { ready: boolean };
+    p.ready = false;
+    const load = p.load.bind(p);
+    let loadedAt = -1;
+    let t = 0;
+    p.load = (id: string) => { load(id); p.state = 'unstarted'; p.ready = false; loadedAt = t; };
+    p.lengths = Object.fromEntries(ELEVEN.map(x => [x.id, x.sec]));
+    const plan = planMusic({ total: 900, tracks: ELEVEN, rng: seeded(11) });
+    const d = new MusicDirector(plan, p, { mix: () => undefined }, { total: 900, volume: 1 });
+    let asked = false;
+    for (; t < 400; t += 0.25) {
+      if (loadedAt >= 0 && !p.ready && t - loadedAt >= 15) { p.ready = true; p.state = 'buffering'; }
+      p.tick(0.25);
+      d.update(t);
+      if (d.now.tap) asked = true;
+    }
+    expect(asked).toBe(false);
+    expect(d.played.length).toBeGreaterThan(0);
+  });
+
   it('with no player (offline, sound off) the ambient carries the whole session', () => {
     const plan = planMusic({ total: 900, tracks: ELEVEN, rng: seeded(11) });
     const d = new MusicDirector(plan, null, { mix: () => undefined }, { total: 900, volume: 1 });

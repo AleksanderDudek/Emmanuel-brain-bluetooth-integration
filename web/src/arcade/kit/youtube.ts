@@ -54,7 +54,8 @@ export class YouTubePlayer implements TrackPlayer {
   duration = 0;
   error: number | null = null;
   blocked = false;
-  private ready = false;
+  /** the player answered the handshake */
+  ready = false;
   private queued: [string, unknown[]][] = [];
   private listenTimer: ReturnType<typeof setInterval> | null = null;
   private id: string | null = null;
