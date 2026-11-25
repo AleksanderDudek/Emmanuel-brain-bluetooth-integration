@@ -61,6 +61,8 @@ export interface RozProgress {
   next: number;
   /** the tiles of a picture: 0 "Auto" (they grow with the sessions), else one of RULES.tileChoices */
   tilesPick: number;
+  /** the player's pace (base light's seconds pressed per second of light, DESIGN §24.8); 0 before it is known */
+  pace: number;
   /** first-time explanations and story cards already given */
   seen: string[];
 }
@@ -68,7 +70,7 @@ export interface RozProgress {
 export function freshProgress(): RozProgress {
   return {
     ver: 1, sessions: 0, pushes: 0, pictures: 0, shards: 0, best: 0, bestChain: 0, flares: 0, goldSeams: 0,
-    album: {}, own: [], source: 'both', pick: null, lastDay: '', dayDone: '', next: 0, tilesPick: 0, seen: [],
+    album: {}, own: [], source: 'both', pick: null, lastDay: '', dayDone: '', next: 0, tilesPick: 0, pace: 0, seen: [],
   };
 }
 
@@ -128,6 +130,7 @@ export function migrate(p: RozProgress): RozProgress {
   p.dayDone = day(raw.dayDone);
   p.next = int(raw.next);
   p.tilesPick = readPick(raw.tilesPick);
+  p.pace = readPace(raw.pace);
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))] : [];
   return p;
 }
@@ -144,6 +147,37 @@ export function readPick(v: unknown): number {
   if (choices.includes(n)) return n;
   if ((RULES.tilesOld as readonly number[]).includes(n)) return Math.min(...choices.filter(c => c > 0));
   return 0;
+}
+
+/** A saved pace as the rules allow it: 0 (unknown) or inside RULES.paceRange. */
+export function readPace(v: unknown): number {
+  const n = num(v, 0);
+  return n > 0 ? Math.min(RULES.paceRange[1], Math.max(RULES.paceRange[0], n)) : 0;
+}
+
+/** The pace after a session with `work` base-light seconds pressed in `light` seconds of light (unchanged under paceMinLight). */
+export function nextPace(saved: number, work: number, light: number): number {
+  if (!(light >= RULES.paceMinLight)) return saved;
+  const own = readPace(Math.max(RULES.paceRange[0], work / light));
+  return readPace(saved > 0 ? saved + (own - saved) * RULES.paceEma : own);
+}
+
+/**
+ * A picture fitted to the light left (DESIGN §24.8): `design` tiles (tilesFor, or the player's fixed count) whose work
+ * would be picBase + picPerTile × design; `room` the work the player can still do this session (pace × light left ×
+ * fitShare).  While the room holds a whole picture of the design's size, that is the picture; the one the room no
+ * longer holds is cut to the room (it is fitted again at each new picture, with the pace measured so far).  Auto cuts the tiles by the
+ * square root of the work's share (a picture of a third of the work: 58 % of the tiles, each 58 % as heavy) — fewer
+ * pieces, each a little lighter; a fixed count keeps its tiles and lightens them.  null: less room than fitMinWork —
+ * no new picture.
+ */
+export function fitPicture(design: number, room: number, fixed: boolean): { tiles: number; work: number } | null {
+  const R = RULES;
+  const full = R.picBase + R.picPerTile * design;
+  if (!(room >= R.fitMinWork)) return null;
+  const work = Math.min(full, room);
+  if (fixed) return { tiles: design, work };
+  return { tiles: Math.max(Math.min(design, R.fitMinTiles), Math.min(design, Math.round(design * Math.sqrt(work / full)))), work };
 }
 
 /** How many tiles a picture has: by the sessions saved before this one, a little more for a session's later pictures. */

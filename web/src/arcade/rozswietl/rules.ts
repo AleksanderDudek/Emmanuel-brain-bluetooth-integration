@@ -21,6 +21,25 @@ export const RULES = {
   tileChoices: [0, 16, 24, 32, 48, 64, 96] as const,
   /** a saved count the card no longer offers (8 and 12, before 2026-11-17) becomes the smallest one it does */
   tilesOld: [8, 12] as const,
+  /**
+   * The picture fits the time (the founder, 2026-11-26: "za dużo kafelków względem długości sesji — robię 50–60 %").
+   * A picture takes at most the design's work above (picBase + picPerTile × tiles); when the light left in the
+   * session, at the player's own pace, holds less, the picture is cut to fitShare of it — fewer tiles (Auto) or
+   * lighter ones (a fixed count) — and when it holds more than one, the pictures share it evenly, so a session ends on
+   * a finished picture rather than on a fresh one.  Pace: base light's seconds pressed into tiles per second of light
+   * (a push past its lead-in with a picture to press); the saved pace counts as paceWeight s against this session's.
+   */
+  fitShare: 0.85,
+  paceDefault: 0.45,
+  paceWeight: 90,
+  /** the saved pace moves this share toward a session's own (sessions with at least paceMinLight s of light) */
+  paceEma: 0.5,
+  paceMinLight: 40,
+  paceRange: [0.25, 2.5] as const,
+  /** a fitted picture keeps at least this many tiles (Auto) */
+  fitMinTiles: 6,
+  /** less room than this (base light's seconds) holds no new picture: the last one stays bright to the end */
+  fitMinWork: 9,
   /** Lloyd steps that even the tiles out */
   relax: 2,
   /** a tile's need grows with its size: (area / mean)^needPow */

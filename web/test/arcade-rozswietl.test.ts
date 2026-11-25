@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_PASSAGES, LINE_COUNT, MOMENTS, PAIRS, PAIR_IDS, lineKey, pairTitle, pairVerse, taskFor } from '../src/arcade/rozswietl/content';
 import { CATALOGS, t, unit } from '../src/arcade/rozswietl/i18n';
 import {
-  addOwn, albumCount, bestOf, choosePicture, dayPair, freshProgress, leastPair, migrate, recordPicture, removeOwn, tilesFor,
+  addOwn, albumCount, bestOf, choosePicture, dayPair, fitPicture, freshProgress, leastPair, migrate, nextPace, readPace, recordPicture, removeOwn, tilesFor,
   type RozProgress,
 } from '../src/arcade/rozswietl/meta';
 import { RULES } from '../src/arcade/rozswietl/rules';
@@ -47,6 +47,9 @@ function makeSim(o: SimOpts = {}): RozSim {
   sim.start();
   return sim;
 }
+
+/** A saved pace so fast, in a session so long, that the room holds whole pictures of the design's size (DESIGN §24.8). */
+const ROOMY = { progress: { pace: RULES.paceRange[1] }, planned: 1800 } as const;
 
 /** A returning player (no warm-up, no opening card), the day's picture already seen. */
 const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, pushes: 1, seen: [...ALL_SEEN], lastDay: DAY, ...o.progress } });
@@ -381,7 +384,7 @@ describe('the light', () => {
 describe('gazing (rest)', () => {
   it('lays gold in the seams of the uncovered pieces, faster with calm, and warms them', () => {
     const run = (f: FocusFrame) => {
-      const sim = later({ seed: 2, progress: { sessions: 11 } });
+      const sim = later({ seed: 2, planned: ROOMY.planned, progress: { sessions: 11, ...ROOMY.progress } });
       const clock = { t: 0 };
       drive(sim, sim.block.dur - 0.1, HELD, clock);
       until(sim, 'rest', HELD, clock);
@@ -530,8 +533,8 @@ describe('pictures', () => {
     // every step of Auto is at least twice what it was before 2026-11-17 at the start, never fewer later
     const old = [7, 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36];
     old.forEach((n, i) => expect(tilesFor(i, 0), `session ${i + 1}`).toBeGreaterThanOrEqual(2 * n));
-    expect(makeSim().pic.tiles.length).toBe(16);
-    expect(later({ progress: { sessions: 30 } }).pic.tiles.length).toBe(72);
+    expect(makeSim(ROOMY).pic.tiles.length).toBe(16);
+    expect(later({ ...ROOMY, progress: { sessions: 30, ...ROOMY.progress } }).pic.tiles.length).toBe(72);
   });
 
   it('lets the player choose the pieces: a fixed count for every picture, or Auto', () => {
@@ -559,7 +562,7 @@ describe('pictures', () => {
 
   it('keeps every tile’s need near one and the picture’s pace sensible (1.5–2.5 min of base light)', () => {
     for (const s of [0, 3, 30]) {
-      const sim = later({ progress: { sessions: s } });
+      const sim = later({ ...ROOMY, progress: { sessions: s, ...ROOMY.progress } });
       const needs = sim.pic.tiles.map(x => x.need);
       const mean = needs.reduce((a, b) => a + b, 0) / needs.length;
       expect(mean).toBeGreaterThan(0.8);
@@ -777,7 +780,10 @@ describe('old saves', () => {
     sim.start();
     drive(sim, 10, MID);
     expect(sim.result().score).toBeGreaterThanOrEqual(0);
-    expect(sim.pic.tiles.length).toBe(tilesFor(4, 0));
+    // a 2-minute session at the default pace: the picture fitted to it — fewer tiles than the design's, never under the floor
+    expect(sim.pic.tiles.length).toBeLessThanOrEqual(tilesFor(4, 0));
+    expect(sim.pic.tiles.length).toBeGreaterThanOrEqual(RULES.fitMinTiles);
+    expect(p.pace).toBe(0);
   });
 
   it('keeps a realistic version-1 save and repairs fields of a wrong type', () => {
@@ -1192,11 +1198,11 @@ describe('round 11: the founder’s asks (2026-11-17)', () => {
       const now = RULES.picBase + RULES.picPerTile * n;
       expect(now, `session ${i + 1}: ${n} tiles`).toBeGreaterThanOrEqual(before - 1e-9);
       expect(now, `session ${i + 1}: ${n} tiles`).toBeLessThanOrEqual(before * 1.12);
-      expect(later({ progress: { sessions: i } }).pic.perTile * n).toBeCloseTo(now, 6);
+      expect(later({ ...ROOMY, progress: { sessions: i, ...ROOMY.progress } }).pic.perTile * n).toBeCloseTo(now, 6);
     }
   });
 
-  it('paces sessions as measured (focus held half of each 16 s, a tap every 2.5 s): pictures as before, twice the pieces', () => {
+  it('paces sessions as measured (focus held a share of each 16 s, a tap every 2.5 s): every session ends on a finished picture', () => {
     const run = (sessions: number, planned: number, share: number, seed: number) => {
       const sim = new RozSim({
         progress: { ...freshProgress(), sessions, pushes: sessions * 6, seen: sessions ? [...ALL_SEEN] : [], lastDay: sessions ? DAY : '' },
@@ -1216,17 +1222,32 @@ describe('round 11: the founder’s asks (2026-11-17)', () => {
       return sim;
     };
     const mean = (f: (s: RozSim) => number, sims: RozSim[]) => sims.reduce((a, s) => a + f(s), 0) / sims.length;
+    // round 20 (the founder, 2026-11-26: "I clear 50–60 % of the tiles"): the picture fits the light left at the
+    // player's pace, so a session ends with its last picture finished, never on a fresh or half-dark one
+    const ended = (s: RozSim) => s.lastPic || s.pic.open === s.pic.tiles.length;
     const first = [1, 2, 3, 4].map(seed => run(0, 300, 0.5, seed));
-    expect(mean(s => s.picturesDone, first)).toBeGreaterThanOrEqual(1);
+    expect(mean(s => s.picturesDone, first)).toBeGreaterThanOrEqual(2);
     expect(mean(s => s.tilesBroken, first)).toBeGreaterThanOrEqual(20);
+    expect(first.every(ended)).toBe(true);
     const eleventh = [1, 2, 3].map(seed => run(10, 600, 0.5, seed));
-    expect(mean(s => s.picturesDone, eleventh)).toBeGreaterThanOrEqual(1.5);
-    expect(mean(s => s.picturesDone, eleventh)).toBeLessThanOrEqual(3);
+    expect(mean(s => s.picturesDone, eleventh)).toBeGreaterThanOrEqual(3);
+    expect(mean(s => s.picturesDone, eleventh)).toBeLessThanOrEqual(7);
     expect(mean(s => s.tilesBroken, eleventh)).toBeGreaterThanOrEqual(140);
-    // little focus: progress only from it — a picture, no flare
+    expect(eleventh.every(ended)).toBe(true);
+    // a slow pace, five minutes (the founder's case: a big picture of 72–76 tiles stayed 50–70 % dark): now it fits
+    const slow = [1, 2, 3].map(seed => run(12, 300, 0.3, seed));
+    expect(slow.every(ended)).toBe(true);
+    expect(mean(s => s.picturesDone, slow)).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...slow.map(s => s.pic.tiles.length))).toBeLessThan(tilesFor(12, 0));
+    // little focus: progress only from it — no flare
     const low = [1, 2].map(seed => run(10, 600, 0.3, seed));
     expect(mean(s => s.flares, low)).toBe(0);
-    expect(mean(s => s.picturesDone, low)).toBeLessThanOrEqual(1.5);
+    expect(low.every(ended)).toBe(true);
+    // the pace is learnt: saved after the session, inside the rules' range
+    for (const s of [...first, ...eleventh, ...slow]) {
+      expect(s.p.pace).toBeGreaterThanOrEqual(RULES.paceRange[0]);
+      expect(s.p.pace).toBeLessThanOrEqual(RULES.paceRange[1]);
+    }
   });
 
   it('keeps every line on screen long enough to read twice (2.5 s + 70 ms a character, never under 4.5 s)', () => {
@@ -1363,5 +1384,66 @@ describe('long sessions (15–30 minutes)', () => {
     for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
     for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
     expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});
+
+describe('the picture fits the time (round 20, DESIGN §24.8)', () => {
+  it('a room for a whole picture gives the design; less room cuts the tiles by the square root of the work’s share', () => {
+    const full = RULES.picBase + RULES.picPerTile * 72;
+    expect(fitPicture(72, full * 3, false)).toEqual({ tiles: 72, work: full });
+    expect(fitPicture(72, full, false)).toEqual({ tiles: 72, work: full });
+    const half = fitPicture(72, full / 2, false)!;
+    expect(half.work).toBeCloseTo(full / 2, 9);
+    expect(half.tiles).toBe(Math.round(72 * Math.SQRT1_2));
+    // each tile a little lighter than the design's, never heavier
+    expect(half.work / half.tiles).toBeLessThan(full / 72);
+    // a fixed count keeps its tiles and lightens them
+    expect(fitPicture(48, (RULES.picBase + RULES.picPerTile * 48) / 3, true)).toEqual({ tiles: 48, work: (RULES.picBase + RULES.picPerTile * 48) / 3 });
+    // never under the floor of tiles; no room: no picture
+    expect(fitPicture(16, RULES.fitMinWork, false)!.tiles).toBe(RULES.fitMinTiles);
+    expect(fitPicture(72, RULES.fitMinWork - 0.01, false)).toBeNull();
+    expect(fitPicture(72, Number.NaN, false)).toBeNull();
+  });
+
+  it('learns the pace: a session of enough light moves the saved pace halfway to its own, inside the range', () => {
+    expect(nextPace(0, 30, 60)).toBeCloseTo(0.5, 9);
+    expect(nextPace(0.5, 60, 60)).toBeCloseTo(0.75, 9);
+    expect(nextPace(0.5, 10, RULES.paceMinLight - 1)).toBe(0.5);
+    expect(nextPace(0, 1000, 60)).toBe(RULES.paceRange[1]);
+    expect(nextPace(0, 0, 60)).toBe(RULES.paceRange[0]);
+    for (const bad of [-1, 'x', null, Number.NaN, Infinity]) expect(readPace(bad), String(bad)).toBe(0);
+    expect(readPace(99)).toBe(RULES.paceRange[1]);
+    const saved = (pace: unknown) => migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 2, pace }) as RozProgress).pace;
+    expect(saved(0.6)).toBe(0.6);
+    expect(saved('0.6')).toBe(0);
+  });
+
+  it('sizes each picture to the light left at the pace so far: a slow player gets fewer tiles, a fast one the design', () => {
+    const slow = later({ progress: { sessions: 12, pace: 0.3 } });
+    const fast = later({ progress: { sessions: 12, pace: 2 } });
+    expect(slow.pic.tiles.length).toBeLessThan(fast.pic.tiles.length);
+    expect(fast.pic.tiles.length).toBe(tilesFor(12, 0));
+    // the picture's work: what the pace can press into the light left, with room to spare
+    expect(slow.pic.perTile * slow.pic.tiles.length).toBeCloseTo(0.3 * slow.lightLeft() * RULES.fitShare, 6);
+  });
+
+  it('leaves the last picture bright when the light left holds no other: no fresh dark mosaic at the end', () => {
+    // a player as fast as their saved pace says: the pace is learnt in one session, then played again
+    const play = (pace: number) => {
+      const sim = later({ planned: 240, progress: { sessions: 12, pace } });
+      const clock = { t: 0 };
+      let pictures = 1, last = sim.pic;
+      drive(sim, 244, t => frame({ level: 0.9, activity: 5, focused: true, hold: t, calm: 0.1 }), clock, () => {
+        if (sim.story && sim.story.t > 1.3) sim.tapCard();
+        if (sim.pic !== last) { last = sim.pic; pictures++; }
+      });
+      return { sim, pictures };
+    };
+    const learnt = play(0).sim.p.pace;
+    expect(learnt).toBeGreaterThan(RULES.paceDefault);
+    const { sim, pictures } = play(learnt);
+    expect(sim.lastPic).toBe(true);
+    expect(sim.picturesDone).toBe(pictures);
+    expect(sim.pic.open).toBe(sim.pic.tiles.length);
   });
 });

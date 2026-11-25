@@ -35,7 +35,7 @@ import {
   GOLD_VERSE, LINE_COUNT, PLAIN_CLOSINGS, ROOT, OWN_VERSES, lineKey, pairTitle, pairVerse, revealKey, taskFor, type Moment,
 } from './content';
 import { pct, t, unit } from './i18n';
-import { albumCount, choosePicture, dayPair, recordPicture, sameSrc, srcKey, tilesFor, type PicSrc, type RozProgress } from './meta';
+import { albumCount, choosePicture, dayPair, fitPicture, nextPace, recordPicture, sameSrc, srcKey, tilesFor, type PicSrc, type RozProgress } from './meta';
 import { RULES } from './rules';
 import { Talk } from './talk';
 
@@ -290,6 +290,14 @@ export class RozSim {
   score = 0;
   tilesBroken = 0;
   picturesDone = 0;
+  /**
+   * The pace of this session (DESIGN §24.8): base light's seconds pressed into tiles, and the seconds of light it took
+   * (a push past its lead-in, a picture to press, no card)
+   */
+  work = 0;
+  lightSec = 0;
+  /** the light left holds no further picture: the last one stays bright to the end */
+  lastPic = false;
   chainNow = 0;
   bestChain = 0;
   flares = 0;
@@ -521,6 +529,7 @@ export class RozSim {
     const p = this.p;
     p.sessions = Math.max(p.sessions, this.session);
     p.pushes = Math.max(p.pushes, this.pushesBase + this.pushesBegun);
+    p.pace = nextPace(p.pace, this.work, this.lightSec);
   }
 
   /** The session ends before its own end: settle as the end would. */
@@ -615,12 +624,18 @@ export class RozSim {
   }
 
   // ── pictures ────────────────────────────────────────────────────
-  private newPicture(): void {
+  private newPicture(): boolean {
     const R = RULES;
+    const fixed = (R.tileChoices as readonly number[]).includes(this.p.tilesPick) && this.p.tilesPick > 0;
+    const design = tilesFor(this.sessionsBefore, this.picCount, this.p.tilesPick);
+    // fitted to the light left at the player's pace; the first picture always comes, at least its smallest
+    const fit = fitPicture(design, this.roomLeft(), fixed)
+      ?? (this.picCount ? null : { tiles: fixed ? design : Math.min(design, R.fitMinTiles), work: R.fitMinWork });
+    if (!fit) return false;
     const src = choosePicture(this.p, {
       day: this.init.day, daySeed: this.init.daySeed, ownReady: this.init.ownReady?.() ?? [], index: this.picCount, prev: this.prevSrc,
     });
-    const n = tilesFor(this.sessionsBefore, this.picCount, this.p.tilesPick);
+    const n = fit.tiles;
     const mh = R.MH, mw = R.MH * clamp(this.aspect, R.aspect[0], R.aspect[1]);
     const weight = this.init.weight?.(src, mw, mh);
     const mosaic = makeMosaic(mw, mh, n, this.rng, { weight, relax: R.relax });
@@ -639,7 +654,7 @@ export class RozSim {
     const day = src.kind === 'pair' && src.id === dayPair(this.init.daySeed) && this.p.dayDone !== this.init.day;
     this.pic = {
       src, index: this.picCount, mosaic, tiles, seams, seamsOf, meanR: Math.sqrt(mean / Math.PI),
-      perTile: (R.picBase + R.picPerTile * N) / N, state: 'assemble', stateT: 0, open: 0, goldSrc: new Set(),
+      perTile: fit.work / N, state: 'assemble', stateT: 0, open: 0, goldSrc: new Set(),
       saidCrack: false, saidBurst: false, saidNear: false, day, ver: 0,
     };
     this.picCount++;
@@ -658,6 +673,34 @@ export class RozSim {
     }
     // a new picture in the middle of a block: its strategy follows the new scene
     if (this.plan.length) this.tip = this.tipFor(this.block, this.blockIndex);
+    return true;
+  }
+
+  /** Seconds of light left in the session: the pushes' time past their lead-in, from now. */
+  lightLeft(): number {
+    if (this.phase !== 'play') return 0;
+    let s = 0;
+    for (let i = this.blockIndex; i < this.plan.length; i++) {
+      const b = this.plan[i];
+      if (b.kind !== 'push') continue;
+      s += Math.max(0, b.dur - (i === this.blockIndex ? Math.max(this.blockT, this.lead) : this.lead));
+    }
+    return s;
+  }
+
+  /** The player's pace now: the saved one (or the rules' default) weighed against this session's own. */
+  paceNow(): number {
+    const R = RULES;
+    const saved = this.p.pace > 0 ? this.p.pace : R.paceDefault;
+    return (this.work + saved * R.paceWeight) / (this.lightSec + R.paceWeight);
+  }
+
+  /** The work the player can still do this session, with room to spare (fitShare). */
+  roomLeft(): number { return this.paceNow() * this.lightLeft() * RULES.fitShare; }
+
+  /** The light counts toward the pace: a push past its lead-in in play, a picture to press, no card. */
+  private get counting(): boolean {
+    return this.pushBlock && this.blockT >= this.lead && !this.story && !!this.pic && this.pic.state === 'play';
   }
 
   /**
@@ -783,6 +826,7 @@ export class RozSim {
   private press(dt: number): void {
     const pic = this.pic, R = RULES;
     if (this.restBlock) return;
+    if (this.counting) this.lightSec += dt;
     const base = 1 / pic.perTile;
     const m = this.held ? this.mult(this.light) : this.phase === 'play' && this.block.kind === 'warmup' ? R.warmLight : 1;
     const cap = this.held ? Infinity : R.baseCap;
@@ -822,6 +866,7 @@ export class RozSim {
     const before = tile.press;
     const next = tile.press + amount / tile.need;
     tile.press = cap >= 1 ? next : Math.max(tile.press, Math.min(cap, next));
+    if (this.counting) this.work += (Math.min(1, tile.press) - Math.min(1, before)) * tile.need * this.pic.perTile;
     if (before < 0.12 && tile.press >= 0.12) {
       this.emit({ type: 'crack', cell: i });
       if (!this.pic.saidCrack) {
@@ -850,6 +895,7 @@ export class RozSim {
     const pic = this.pic, R = RULES;
     const tile = pic.tiles[i];
     if (tile.open) return;
+    if (this.counting) this.work += Math.max(0, 1 - tile.press) * tile.need * pic.perTile;
     tile.open = true;
     tile.openAt = this.t;
     tile.depth = depth;
@@ -961,8 +1007,10 @@ export class RozSim {
   }
 
   private nextPicture(): void {
+    if (this.lastPic) return;
     this.prevSrc = this.pic.src;
-    this.newPicture();
+    // no room for another picture: the bright one stays to the end (DESIGN §24.8)
+    if (!this.newPicture()) this.lastPic = true;
   }
 
   /** The share of the picture's seams laid in gold (0..100). */
