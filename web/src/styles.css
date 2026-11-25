@@ -952,6 +952,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   --ab-c:#9fd8ff;transition:top .45s ease;animation:ab-in .5s ease both}
 .arcade-breath[hidden]{display:none}
 .arcade-breath.placed{transition:none}   /* a game's own spot (pacerAt): left/top come from the runner */
+/* the ring alone where the game has no room for the pill (kit/pacerspot pacerRing): over a board it lets the cells show */
+.arcade-breath.ring{gap:0;padding:8px;background:rgba(8,9,14,.58);-webkit-backdrop-filter:none;backdrop-filter:none}
+.arcade-breath.ring .ab-text{display:none}
 .arcade-breath[data-phase="holdIn"]{--ab-c:#ffe2a0}
 .arcade-breath[data-phase="out"]{--ab-c:#b8f0d6}
 .arcade-breath[data-phase="holdOut"]{--ab-c:#cbc4ff}

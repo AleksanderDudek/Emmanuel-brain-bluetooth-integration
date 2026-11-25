@@ -60,11 +60,13 @@ export class BreathPacer {
    * Stand where the game asks (the pill's top centre in canvas CSS px, `origin` the canvas's offset in the pacer's
    * parent), or — null — in the standard place the stylesheet gives (top centre, under the banner while it shows).
    */
-  place(at: { x: number; y: number } | null, origin: { left: number; top: number }): void {
-    const key = at ? `${Math.round(at.x + origin.left)},${Math.round(at.y + origin.top)}` : '';
+  place(at: { x: number; y: number; ring?: boolean } | null, origin: { left: number; top: number }): void {
+    const key = at ? `${Math.round(at.x + origin.left)},${Math.round(at.y + origin.top)}${at.ring ? 'r' : ''}` : '';
     if (this.memo.at === key) return;
     this.memo.at = key;
     this.el.classList.toggle('placed', !!at);
+    // the ring alone where the game has no room for the pill (its seconds and its colour; the word stays in aria-label)
+    this.el.classList.toggle('ring', !!at?.ring);
     this.el.style.left = at ? `${Math.round(at.x + origin.left)}px` : '';
     this.el.style.top = at ? `${Math.round(at.y + origin.top)}px` : '';
   }

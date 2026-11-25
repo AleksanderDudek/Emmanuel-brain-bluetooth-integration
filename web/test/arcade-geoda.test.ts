@@ -11,7 +11,7 @@ import { Board, bestSpot, chamberBoard, deal, EMPTY, idx, N, placeable, ROCK, ta
 import { LINES, MINERALS, MOMENTS, orientations, PIECES, pieceById, TIPS } from '../src/arcade/geoda/content';
 import { CATALOGS, t } from '../src/arcade/geoda/i18n';
 import { boardAt, computeLayout, pacerAt, pacerOverDial, restBowl, slotAt, tapTargets } from '../src/arcade/geoda/layout';
-import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
+import { pacerBox, pacerProblems, pacerSize, pacerSizeAt } from '../src/arcade/kit/pacerspot';
 import { bestOf, chamber, freshProgress, migrate, nextMineral, shelve, starsFor, type GeodaProgress } from '../src/arcade/geoda/meta';
 import { comboFactor, linePoints, multOf, RULES } from '../src/arcade/geoda/rules';
 import { GeodaSim, planBlocks, type GeodaEvent } from '../src/arcade/geoda/sim';
@@ -1181,7 +1181,7 @@ describe('Geoda: the breath pacer in a Szlif stands in the dial\'s place (pacerA
         const at = pacerAt(L);
         const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.mode})`;
         expect(at, name).not.toBeNull();
-        const size = pacerSize(L.kind === 'big');
+        const size = pacerSizeAt(at, L.kind === 'big');
         const box = pacerBox(at!, size);
         const tray = tapTargets(L, { tray: [1, 2, 3], story: false });
         // a strip's pill covers the dial and the bowl's picture (its words and the HUD's gauge keep the polish), the
@@ -1192,6 +1192,8 @@ describe('Geoda: the breath pacer in a Szlif stands in the dial\'s place (pacerA
         expect(pacerProblems(at, c.w, c.h, c.insets, room ? [...keep, { label: 'board', ...L.board }] : keep, size), name).toEqual([]);
         // a narrow phone on its side: a corner of the board; the smallest phones (no strip): the least of it there is
         expect(cover(box, L.board), name).toBeLessThanOrEqual(size.w * size.h * (L.mode === 'columns' ? 0.6 : 0.2));
+        // where the pill has no room clear of the geode, the ring alone: at most a sliver of the board (the pill: 14 %)
+        expect(cover(box, L.board), name).toBeLessThanOrEqual(L.board.w * L.board.h * 0.02);
       }
     }
   });

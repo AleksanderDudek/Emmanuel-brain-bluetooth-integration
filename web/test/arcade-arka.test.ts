@@ -6,7 +6,7 @@ import { FIRST_OF, KINDS, STAGES, kindsAt, levelSpec } from '../src/arcade/arka/
 import { CATALOGS, t, unit } from '../src/arcade/arka/i18n';
 import arka, { howto } from '../src/arcade/arka/index';
 import { cellAt, cellCentre, cellRect, layout, pacerAt, reachOf, sdir, sightRadius, tapTargets, toScreen, toSim, type Layout } from '../src/arcade/arka/layout';
-import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
+import { pacerBox, pacerProblems, pacerSizeAt } from '../src/arcade/kit/pacerspot';
 import { SANS, font, fontPx } from '../src/arcade/arka/paint';
 import { clearLevel, freshProgress, homestead, migrate, settle, totalStars, type ArkaProgress } from '../src/arcade/arka/meta';
 import { DX, DY, RULES, parFor, sightShare, starsFor } from '../src/arcade/arka/rules';
@@ -1201,7 +1201,7 @@ describe('Arka: the breath pacer in a Tęcza stands off the deck (pacerAt)', () 
           const at = pacerAt(L);
           const name = `${c.name}${touch ? '' : ' (mouse)'}, level ${n}`;
           expect(at, name).not.toBeNull();
-          const size = pacerSize(L.kind === 'big');
+          const size = pacerSizeAt(at, L.kind === 'big');
           const s = L.raven.s;
           const hull = { label: 'hull', x: L.deck.x - L.rim, y: L.deck.y - L.rim, w: L.deck.w + 2 * L.rim, h: L.deck.h + 2 * L.rim };
           const keep = [
@@ -1216,6 +1216,8 @@ describe('Arka: the breath pacer in a Tęcza stands off the deck (pacerAt)', () 
           expect(pacerProblems(at, c.w, c.h, c.insets, [...keep, ...also], size), name).toEqual([]);
           if (L.mode === 'tall' && at!.y > L.deck.y) expect(at!.y, name).toBeGreaterThanOrEqual(L.deck.y + L.deck.h);
           expect(cover(pacerBox(at!, size), L.deck), name).toBeLessThanOrEqual(size.w * size.h * 0.3);
+          // a small phone on its side: the ring alone beside the hull, off the deck (the pill: 5 % of it)
+          expect(cover(pacerBox(at!, size), L.deck), name).toBeLessThanOrEqual(L.deck.w * L.deck.h * 0.005);
         }
       }
     }

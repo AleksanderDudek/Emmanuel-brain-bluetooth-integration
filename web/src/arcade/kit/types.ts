@@ -200,9 +200,11 @@ export interface ArcadeGame {
   /**
    * Where the runner's breath pacer stands in a rest: the pill's top centre in canvas CSS px, when its standard
    * place (the top centre, under the HUD band) would cover what the rest is about — a board's top row, a goal card.
-   * Null or absent: the standard place.  Cheap, no side effects; read every frame of a rest.
+   * Null or absent: the standard place.  `ring`: the band has no room for the pill clear of the play there, so the
+   * runner shows the ring alone (kit/pacerspot `pacerRing`, `pacerLeastOf`).  Cheap, no side effects; read every frame
+   * of a rest.
    */
-  pacerAt?(): { x: number; y: number } | null;
+  pacerAt?(): { x: number; y: number; ring?: boolean } | null;
 }
 
 export interface ArcadeModule<P extends object = object> {

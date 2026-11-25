@@ -14,16 +14,26 @@ import type { Rect } from './mobile';
 
 export interface Pt { x: number; y: number }
 
+/** A spot for the pacer; `ring`: the runner shows the ring alone there (its seconds, no phase word) — see `pacerRing`. */
+export interface PacerAt extends Pt { ring?: boolean }
+
 /** The pill a game keeps room for (CSS px): a little over its real size, any language. */
 export const PACER_W = 210;
 export const PACER_H = 70;
 /** On a big screen with a mouse (kit/mobile `screenKind` 'big': the runner grows the pill there). */
 export const PACER_BIG_W = 240;
 export const PACER_BIG_H = 80;
+/** The ring alone (`.arcade-breath.ring`: 50 px ring + 8 px padding, 76 px on a big screen) with a little room. */
+export const PACER_RING = 72;
+export const PACER_BIG_RING = 82;
 
 export interface PacerSize { w: number; h: number }
 
-export const pacerSize = (big: boolean): PacerSize => (big ? { w: PACER_BIG_W, h: PACER_BIG_H } : { w: PACER_W, h: PACER_H });
+export const pacerSize = (big: boolean, ring = false): PacerSize =>
+  ring ? { w: big ? PACER_BIG_RING : PACER_RING, h: big ? PACER_BIG_RING : PACER_RING } : big ? { w: PACER_BIG_W, h: PACER_BIG_H } : { w: PACER_W, h: PACER_H };
+
+/** The size of what stands at a spot: the ring alone where `at.ring`, else the pill. */
+export const pacerSizeAt = (at: PacerAt | null, big: boolean): PacerSize => pacerSize(big, !!at?.ring);
 
 /** The pill's rectangle for a spot (its top centre). */
 export const pacerBox = (at: Pt, size: PacerSize = pacerSize(false)): Rect => ({ x: at.x - size.w / 2, y: at.y, w: size.w, h: size.h });
@@ -94,6 +104,32 @@ function ysIn(r: Rect, ph: number, from: 'top' | 'bottom', walls: readonly Rect[
   for (let y = lo; y <= hi + 0.01; y += step) out.push(y);
   for (const b of walls) for (const y of [b.y + b.h + 0.5, b.y - ph - 0.5]) if (y >= lo - 0.01 && y <= hi + 0.01) out.push(y);
   return out.sort((a, b) => (from === 'bottom' ? b - a : a - b));
+}
+
+/**
+ * Where the pill has no room clear of the play (a small phone, a phone on its side): the ring alone — the lungs and
+ * the phase's seconds, the phase in its colour, without the word — in the first place it fits whole, clear of every
+ * rectangle in `avoid` (the same list as the pill's `pacerSpot`, so it covers nothing the rest is about); null when
+ * even the ring has no room (then `pacerLeast` with the pill).  The ring is a third of the pill's area: it fits into
+ * the corners and the gaps beside a board that the pill does not.
+ */
+export function pacerRing(regions: readonly Rect[], avoid: readonly Rect[], o: SpotOpts & { big?: boolean } = {}): PacerAt | null {
+  const at = pacerSpot(regions, avoid, { ...o, size: pacerSize(!!o.big, true) });
+  return at ? { ...at, ring: true } : null;
+}
+
+/**
+ * `pacerLeast` for the pill and for the ring alone: the one that covers less of `soft` (the same weights), the pill on
+ * a tie (its phase word helps).  The pacer takes no taps (pointer-events: none), so what it covers still plays; the
+ * ring over a board covers about a third of what the pill would.
+ */
+export function pacerLeastOf(regions: readonly Rect[], hard: readonly Rect[], soft: readonly Rect[], o: SpotOpts & { big?: boolean } = {}): PacerAt | null {
+  const big = !!o.big;
+  const pill = pacerLeast(regions, hard, soft, { ...o, size: pacerSize(big) });
+  const ring = pacerLeast(regions, hard, soft, { ...o, size: pacerSize(big, true) });
+  if (!ring) return pill;
+  const on = (at: Pt, size: PacerSize) => soft.reduce((s, b) => s + area(pacerBox(at, size), b), 0);
+  return !pill || on(ring, pacerSize(big, true)) < on(pill, pacerSize(big)) - 1 ? { ...ring, ring: true } : pill;
 }
 
 /** How many px² of `a` lie on `b`. */

@@ -25,7 +25,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
-import { overlaps, pacerBox, pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
+import { overlaps, pacerBox, pacerLeast, pacerLeastOf, pacerRing, pacerSize, pacerSizeAt, pacerSpot, safeBand, type PacerAt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { GEODE_REACH } from './art';
 import { N } from './board';
@@ -293,7 +293,7 @@ export function restBowl(l: Layout): Box {
  * clear of the tray and the goal that covers the least of the board (its cells count thrice; the bowl's margin and
  * Bazyl once).
  */
-export function pacerAt(l: Layout): Pt | null {
+export function pacerAt(l: Layout): PacerAt | null {
   const size = pacerSize(l.kind === 'big');
   const band = safeBand(l.w, l.h, l.ins);
   const reach = l.rim * GEODE_REACH;
@@ -310,17 +310,24 @@ export function pacerAt(l: Layout): Pt | null {
     return pacerSpot([{ x: band.x, y: band.y, w: band.w, h: b.y - band.y }], [b, ...l.slots], { size, align: 'left', pad: 2, edge: 2 })
       ?? pacerLeast([band], l.slots, [b, b, b, geode, l.bowl, mole], { size, align: 'left' });
   }
-  if (l.mode === 'columns') return pacerLeast([band], [l.goal, ...l.slots], [b, b, b, geode, l.column, mole], { size });
+  const big = l.kind === 'big';
+  if (l.mode === 'columns') {
+    const clear = [l.goal, restBowl(l), ...l.slots, geode, mole, talk];
+    return pacerSpot([band], clear, { size })
+      ?? pacerRing([band], clear, { big })
+      ?? pacerLeastOf([band], [l.goal, ...l.slots], [b, b, b, geode, l.column, mole], { big });
+  }
   const keep = [l.goal, restBowl(l), ...l.slots];
   return pacerSpot([band], [...keep, geode, mole, talk], { size })
-    ?? pacerLeast([band], keep, [b, b, b, geode, mole, talk], { size });
+    ?? pacerRing([band], [...keep, geode, mole, talk], { big })
+    ?? pacerLeastOf([band], keep, [b, b, b, geode, mole, talk], { big });
 }
 
 /** Whether the pacer in a rest (`pacerAt`) stands over the shine dial: the view leaves the dial out then. */
-export function pacerOverDial(l: Layout, at: Pt | null): boolean {
+export function pacerOverDial(l: Layout, at: PacerAt | null): boolean {
   if (!at) return false;
   const d = l.dial;
-  return overlaps(pacerBox(at, pacerSize(l.kind === 'big')), { x: d.x - d.r, y: d.y - d.r, w: 2 * d.r, h: 2 * d.r }, 2);
+  return overlaps(pacerBox(at, pacerSizeAt(at, l.kind === 'big')), { x: d.x - d.r, y: d.y - d.r, w: 2 * d.r, h: 2 * d.r }, 2);
 }
 
 /** The board cell under a point (a little margin around the board counts), or null. */

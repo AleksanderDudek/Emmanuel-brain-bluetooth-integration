@@ -4,7 +4,7 @@ import { CONSTELLATIONS, constName, figure } from '../src/arcade/firmament/conte
 import { CATALOGS, line, t, unit } from '../src/arcade/firmament/i18n';
 import firmament, { howto } from '../src/arcade/firmament/index';
 import { cardRect, layout, outButtons, pacerAt, tapTargets, type Layout } from '../src/arcade/firmament/layout';
-import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
+import { pacerBox, pacerProblems, pacerSizeAt } from '../src/arcade/kit/pacerspot';
 import { boardSpec, difficulty, layoutCounts, levelAt, starsFor, traySize } from '../src/arcade/firmament/levels';
 import { bestOf, freshProgress, migrate, winLevel, type FirmamentProgress } from '../src/arcade/firmament/meta';
 import { SANS, font, fontPx } from '../src/arcade/firmament/paint';
@@ -1294,7 +1294,7 @@ describe('Firmament: the breath pacer in a Cisza nocy stands off the board (pace
           const at = pacerAt(L);
           const name = `${c.name}${touch ? '' : ' (mouse)'}, ${slots} slots`;
           expect(at, name).not.toBeNull();
-          const size = pacerSize(L.kind === 'big');
+          const size = pacerSizeAt(at, L.kind === 'big');
           const o = L.owl, sc = L.scope;
           const keep = [
             L.mode === 'tall' ? { label: 'moves', x: L.goal.x, y: L.goal.y, w: L.goal.h, h: L.goal.h } : { label: 'goal card', ...L.goal },
@@ -1308,6 +1308,8 @@ describe('Firmament: the breath pacer in a Cisza nocy stands off the board (pace
           expect(pacerProblems(at, c.w, c.h, c.insets, room ? [...keep, { label: 'board', ...L.board }] : keep, size), name).toEqual([]);
           // elsewhere (a small phone, a narrow phone on its side) at most an edge of it: under a third of the pill
           expect(cover(pacerBox(at!, size), L.board), name).toBeLessThanOrEqual(size.w * size.h * 0.33);
+          // the ring alone where the pill would cover the board: at most a sliver of it (the pill: up to 7 %)
+          expect(cover(pacerBox(at!, size), L.board), name).toBeLessThanOrEqual(L.board.w * L.board.h * 0.015);
         }
       }
     }

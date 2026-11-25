@@ -23,7 +23,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
-import { pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
+import { pacerLeastOf, pacerRing, pacerSize, pacerSpot, safeBand, type PacerAt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -319,7 +319,7 @@ export function outButtons(L: Layout, can: boolean): { use: Rect | null; retry: 
  * fills the band (a small phone, a phone on its side) it takes the spot clear of the moves, the telescope, Bubo and
  * the tray that covers the least of the board (its cells count thrice, the goal's words once).
  */
-export function pacerAt(L: Layout): Pt | null {
+export function pacerAt(L: Layout): PacerAt | null {
   const size = pacerSize(L.kind === 'big');
   const band = safeBand(L.w, L.h, L.ins);
   const o = L.owl, sc = L.scope, u = L.u;
@@ -338,7 +338,8 @@ export function pacerAt(L: Layout): Pt | null {
   const talk = L.mode === 'tall' ? null : { x: bb.x, y: bb.y - 84 * L.tk, w: bb.w, h: 84 * L.tk };
   const keep = [L.goal, owl, scope, ...L.tray, ...(words ? [words] : []), ...(names ? [names] : [])];
   return pacerSpot([band], [...keep, board, ...(talk ? [talk] : [])], { size })
-    ?? pacerLeast([band], [moves, owl, scope, ...L.tray], [L.board, L.board, L.board, L.goal, ...(words ? [words] : [])], { size });
+    ?? pacerRing([band], [...keep, board, ...(talk ? [talk] : [])], { big: L.kind === 'big' })
+    ?? pacerLeastOf([band], [moves, owl, scope, ...L.tray], [L.board, L.board, L.board, L.goal, ...(words ? [words] : [])], { big: L.kind === 'big' });
 }
 
 export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;

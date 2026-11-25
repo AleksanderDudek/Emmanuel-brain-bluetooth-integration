@@ -24,7 +24,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
-import { pacerLeast, pacerSize, pacerSpot, safeBand } from '../kit/pacerspot';
+import { pacerLeastOf, pacerRing, pacerSize, pacerSpot, safeBand, type PacerAt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -307,7 +307,7 @@ export const reachOf = (L: Layout): number => Math.max(6, (MIN_TAP - L.cell) / 2
  * the spot clear of the hearts, the raven and the dove that covers the least of the deck (a corner of it, or its
  * hull's rim over the new land).
  */
-export function pacerAt(L: Layout): Pt | null {
+export function pacerAt(L: Layout): PacerAt | null {
   const size = pacerSize(L.kind === 'big');
   const band = safeBand(L.w, L.h, L.ins);
   const hull = { x: L.deck.x - L.rim - 2, y: L.deck.y - L.rim - 2, w: L.deck.w + 2 * L.rim + 4, h: L.deck.h + 2 * L.rim + 4 };
@@ -320,11 +320,14 @@ export function pacerAt(L: Layout): Pt | null {
   const xs = L.slots.map(p => p.x);
   const waiting = xs.length ? { x: Math.min(...xs) - L.slotH * 0.6, y: L.slots[0].y - L.slotH - 24, w: Math.max(...xs) - Math.min(...xs) + L.slotH * 1.2, h: L.slotH + 26 } : null;
   const hard = [L.bar, dove, raven];
-  return pacerSpot([band], waiting ? [...hard, hull, gangway, waiting] : [...hard, hull, gangway], { size })
+  const clear = waiting ? [...hard, hull, gangway, waiting] : [...hard, hull, gangway];
+  return pacerSpot([band], clear, { size })
     // an upright phone: the foot, the new land's left end
     ?? (L.mode === 'tall' ? pacerSpot([band], [...hard, L.deck], { size, from: 'bottom', align: 'left', pad: 2, edge: 2 }) : null)
+    // a small phone on its side: the ring alone beside the hull
+    ?? pacerRing([band], clear, { big: L.kind === 'big' })
     // (the cells count twice, the hull's rim, the gangway and the waiting firsts once)
-    ?? pacerLeast([band], hard, waiting ? [L.deck, hull, gangway, waiting] : [L.deck, hull, gangway], { size, align: 'right' });
+    ?? pacerLeastOf([band], hard, waiting ? [L.deck, hull, gangway, waiting] : [L.deck, hull, gangway], { big: L.kind === 'big', align: 'right' });
 }
 
 /** What on screen decides the targets: a card that takes a tap (its rectangle), else the dove's button in play. */

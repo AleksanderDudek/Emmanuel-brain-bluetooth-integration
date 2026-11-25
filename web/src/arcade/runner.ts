@@ -740,15 +740,15 @@ export class ArcadeRunner {
       const sec = c.blockSec + Math.min(0.15, Math.max(0, (performance.now() - this.lastSampleAt) / 1000));
       ui.pacer.update(rest && !ses.paused ? pacerState(sec, ph.left ?? null, own) : null);
       if (rest && game.pacerAt) {
-        let at: { x: number; y: number } | null = null;
+        let at: { x: number; y: number; ring?: boolean } | null = null;
         this.safe(() => { at = game.pacerAt!(); });
         // while the block's banner shows, a game's spot under it waits below it (as the standard place does, --ban-h)
-        const spot = at as { x: number; y: number } | null;
+        const spot = at as { x: number; y: number; ring?: boolean } | null;
         if (spot && !ui.banner.hidden) {
           const b = ui.banner.getBoundingClientRect(), c = ui.canvas.getBoundingClientRect(), p = ui.pacer.el.getBoundingClientRect();
-          const half = Math.max(100, p.width / 2), tall = Math.max(66, p.height);
+          const half = Math.max(spot.ring ? 33 : 100, p.width / 2), tall = Math.max(66, p.height);
           const bx0 = b.left - c.left, bx1 = b.right - c.left, by0 = b.top - c.top, by1 = b.bottom - c.top;
-          if (spot.x + half > bx0 && spot.x - half < bx1 && spot.y < by1 + 10 && spot.y + tall > by0) at = { x: spot.x, y: by1 + 10 };
+          if (spot.x + half > bx0 && spot.x - half < bx1 && spot.y < by1 + 10 && spot.y + tall > by0) at = { ...spot, y: by1 + 10 };
         }
         ui.pacer.place(at, { left: ui.canvas.offsetLeft, top: ui.canvas.offsetTop });
       }
