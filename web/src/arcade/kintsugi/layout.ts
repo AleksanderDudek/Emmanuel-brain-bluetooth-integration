@@ -5,8 +5,8 @@
  * play, so nothing jumps when one starts (YouTube's player at least 200 × 200 CSS px plus its title line, never over
  * the heart).
  *
- *   tall   a phone upright: the heart, the cloth under it; the band; at the bottom the card on the left with the
- *          breath guide beside it (without the card: the guide alone, its word beside the ring)
+ *   tall   a phone upright: the heart, the cloth under it; at the bottom the card on the left, and beside it the
+ *          band over the breath guide (without the card: the band, then the guide alone, its word beside the ring)
  *   side   a phone on its side: the heart and the cloth on the left; a column on the right with the band and the card
  *          (the guide under the scene); without the card the guide under the band
  *   wide   a tablet or the desk: the heart in the middle, the cloth under it; the band at the bottom centre, the guide
@@ -123,19 +123,26 @@ export function layout(w: number, h: number, ins: Insets, tracks: boolean): Layo
 
   if (kind === 'tall') {
     const bandH = Math.max(88, Math.min(120, H * 0.16));
+    // the close's place: the band and the guide's row at the foot (the card is gone by then: the outro is ambient),
+    // and at least ~5 lines for the blessing over the 0–10 rows (the heart moves up out of its way)
+    const closeY = Math.min(B - guideHeight(28, 'row') - 8 - bandH, B - rateH(R - L) - 52 - 118);
     if (tracks) {
+      // the card at the foot on the left, and beside it a column: the words over the breath guide — the scene keeps
+      // the whole width and everything above the card (under a band of words over the card a short phone's heart
+      // was half its size)
       music = { x: L, y: B - card.h, w: card.w, h: card.h };
-      band = { x: L, y: music.y - 8 - bandH, w: R - L, h: bandH };
-      const gx = music.x + music.w + 8, gw = R - gx;
-      const r = Math.max(20, Math.min(30, gw * 0.22));
-      guide = { cx: gx + gw / 2, cy: music.y + 8 + r + 8, r, layout: 'stack', maxW: Math.max(60, gw - 4) };
+      const cx0 = music.x + music.w + 10, cw = Math.max(60, R - cx0);
+      const r = Math.max(18, Math.min(28, cw * 0.15)), gH = guideHeight(r, 'stack');
+      guide = { cx: cx0 + cw / 2, cy: B - gH + r + 8, r, layout: 'stack', maxW: Math.max(60, cw - 8) };
+      band = { x: cx0, y: music.y, w: cw, h: Math.max(56, music.h - gH - 6) };
+      scene = { x: L, y: T, w: R - L, h: Math.max(80, music.y - 8 - T) };
     } else {
       const r = 28, gH = guideHeight(r, 'row');
       guide = { cx: (L + R) / 2 - 44, cy: B - gH / 2, r, layout: 'row', maxW: (R - L) / 2 };
       band = { x: L, y: B - gH - 8 - bandH, w: R - L, h: bandH };
+      scene = { x: L, y: T, w: R - L, h: Math.max(80, band.y - 6 - T) };
     }
-    scene = { x: L, y: T, w: R - L, h: Math.max(80, band.y - 6 - T) };
-    closeArea = { x: L, y: band.y, w: R - L, h: B - band.y };
+    closeArea = { x: L, y: closeY, w: R - L, h: B - closeY };
   } else if (kind === 'side') {
     const colW = Math.max(card.w + 8, Math.min(320, (R - L) * 0.42));
     const colX = R - colW;
@@ -180,11 +187,12 @@ export function layout(w: number, h: number, ins: Insets, tracks: boolean): Layo
   const rateQ: Rect = { x: closeArea.x, y: rateArea.y - 46, w: closeArea.w, h: 42 };
   const textH = kind === 'wide' ? 112 : Math.max(60, rateQ.y - 6 - closeArea.y);
   const closeText: Rect = { x: closeArea.x, y: rateQ.y - 6 - textH, w: closeArea.w, h: textH };
-  // the heart in the close: where the blessing reaches into the scene (the desk), it moves up and a little smaller
+  // the heart in the close: where the blessing reaches into the scene (the desk; a phone whose scene runs down
+  // beside the card), it moves up and a little smaller
   let sX = heart.sC, cyX = heart.cyC;
   const room = closeText.y - 10 - scene.y;
-  if (kind === 'wide' && heart.cyC + HEART.bottom * heart.sC > closeText.y - 10) {
-    sX = Math.max(28, Math.min(heart.sC, room / (HH + 0.12)));
+  if (heart.cyC + HEART.bottom * heart.sC > closeText.y - 10) {
+    sX = Math.max(28, Math.min(heart.sC, room / (HH + 0.24)));   // (room for the beat's swell)
     cyX = scene.y + Math.max(0, (room - HH * sX) / 2) - HEART.top * sX;
   }
   return { w: W, h: H, kind, ...heart, scene, band, guide, music, rateQ, rate: rateRow(rateArea), closeText, cyX, sX, font };

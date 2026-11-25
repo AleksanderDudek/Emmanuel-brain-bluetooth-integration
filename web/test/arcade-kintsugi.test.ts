@@ -472,6 +472,34 @@ describe('Złote serce — the layout and the lobby', () => {
     }
   });
 
+  it('keeps the heart large on an upright phone while the tracks play: the words and the guide beside the card, not over it', () => {
+    for (const size of CHECK_SIZES) {
+      const a = layout(size.w, size.h, size.insets, false), b = layout(size.w, size.h, size.insets, true);
+      if (b.kind !== 'tall') continue;
+      const m = b.music!;
+      // (round 17's band over the card left a small phone's heart at under half its size: 28 of 60 px a unit)
+      expect(b.s, size.name).toBeGreaterThanOrEqual(0.65 * a.s);
+      expect(b.band.x, size.name).toBeGreaterThanOrEqual(m.x + m.w);
+      expect(b.scene.y + b.scene.h, size.name).toBeLessThanOrEqual(m.y);
+      expect(b.guide.cx - b.guide.r, size.name).toBeGreaterThanOrEqual(m.x + m.w);
+      expect(b.guide.cy - b.guide.r, size.name).toBeGreaterThanOrEqual(b.band.y + b.band.h);
+    }
+  });
+
+  it('gives the close room for the whole blessing over the 0–10, the heart above it', () => {
+    for (const size of CHECK_SIZES) {
+      for (const tracks of [false, true]) {
+        const l = layout(size.w, size.h, size.insets, tracks);
+        const name = `${size.name} ${tracks}`;
+        if (l.kind === 'tall') expect(l.closeText.h, name).toBeGreaterThanOrEqual(110);
+        expect(l.closeText.y + l.closeText.h, name).toBeLessThanOrEqual(l.rateQ.y);
+        // the heart in the close ends above the blessing where they share the width (a phone on its side: beside it)
+        const across = l.cx - l.sX < l.closeText.x + l.closeText.w && l.closeText.x < l.cx + l.sX;
+        if (across) expect(l.cyX + HEART.bottom * l.sX, name).toBeLessThanOrEqual(l.closeText.y);
+      }
+    }
+  });
+
   it('builds the card: the numbers, what hurts, the 0–10, the breath, the care note and the forecast', () => {
     const p = freshProgress();
     let saves = 0;

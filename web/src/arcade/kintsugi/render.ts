@@ -84,6 +84,8 @@ export class KintsugiView {
   private bloom = 0;
   private sprites: Record<'gold' | 'white' | 'rose' | 'warm' | 'cool', HTMLCanvasElement | null> = { gold: null, white: null, rose: null, warm: null, cool: null };
   private verseCache = new Map<string, PassageLayout>();
+  /** text fitted to a band (the narrator's line, the blessing): its size and lines, per text and band size */
+  private fitCache = new Map<string, { size: number; lines: string[] }>();
   private readonly bokeh: { x: number; y: number; r: number; s: number; p: number }[] = [];
   private qualityT = -10;
   private rateFlash = 0;
@@ -149,6 +151,7 @@ export class KintsugiView {
     this.l = this.compact ? this.mixLayout(this.cardK) : this.lCard;
     this.clothK = this.cardK;
     this.verseCache.clear();
+    this.fitCache.clear();
     const ps = Math.min(400, Math.max(80, Math.ceil(Math.max(this.lFull.s, this.lFull.sC, this.l.sC) * Math.min(2, this.dpr))));
     if (!this.tex || Math.abs(this.tex.ps - ps) > 24) {
       this.tex = bakeHeart(ps, this.o.seed % 100000);
@@ -976,6 +979,8 @@ export class KintsugiView {
       ctx.globalCompositeOperation = 'source-over';
       drawHands(ctx, gx, gy, this.c.s * 0.95, 0.85 * a);
     }
+    // the words of pain go on last, over every piece (a grace's piece flying home, the cloth's) — never under one
+    const words: { word: string; x: number; y: number; a: number; re: number }[] = [];
     for (const pc of active) {
       const pose = this.pose(pc.id, sim);
       const pd = this.geo.pieces[pc.id];
@@ -1003,9 +1008,10 @@ export class KintsugiView {
       if (pc.word && !pc.grace) {
         const fade = pc.state === 'wash' ? 1 - clamp(pc.washed * 1.3) : pc.state === 'lift' || pc.state === 'held' ? 1 : 0;
         const re = sim.t < sim.reshowUntil ? 0.25 : 0;
-        if (fade > 0.01) this.drawWord(ctx, pc.word, pose.x, pose.y + R * 0.9 + 14, fade, re);
+        if (fade > 0.01) words.push({ word: pc.word, x: pose.x, y: pose.y + R * 0.9 + 14, a: fade, re });
       }
     }
+    for (const w of words) this.drawWord(ctx, w.word, w.x, w.y, w.a, w.re);
   }
 
   private restPose(id: number, where: 'cloth' | 'hold' | 'home'): Pose {
@@ -1159,10 +1165,10 @@ export class KintsugiView {
 
   private drawLine(ctx: CanvasRenderingContext2D, text: string, band: Rect, a: number): void {
     if (a <= 0.01) return;
-    const size = Math.round(this.l.font + 1);
+    // the base size, smaller (to 13 px) where a narrow band (a phone's column beside the card) needs more lines
     ctx.save();
+    const { size, lines } = this.fitText(ctx, text, band, Math.round(this.l.font + 1), 1.4, 14, s => `500 ${s}px ${FONT}`);
     ctx.font = `500 ${size}px ${FONT}`;
-    const lines = wrapLines(ctx, text, band.w - 16).slice(0, 3);
     const lh = Math.round(size * 1.4);
     const top = band.y + Math.max(0, (band.h - lines.length * lh) / 2);
     ctx.textAlign = 'center';
@@ -1176,6 +1182,29 @@ export class KintsugiView {
     ctx.fillStyle = INK;
     lines.forEach((s, i) => ctx.fillText(s, band.x + band.w / 2, top + i * lh));
     ctx.restore();
+  }
+
+  /**
+   * Text (one string, or paragraphs each starting a line) wrapped to `band`'s width less `pad`, at `max` px or smaller —
+   * down to 13 — until its lines × `lead` (+ `extra`) fit the band's height; then cut to the lines that fit (at least
+   * three).  Kept per text and band size: the frames between redraw it from the cache.
+   */
+  private fitText(ctx: CanvasRenderingContext2D, text: string | string[], band: Rect, max: number, lead: number, extra: number, font: (px: number) => string, pad = 16): { size: number; lines: string[] } {
+    const paras = typeof text === 'string' ? [text] : text;
+    const key = `${paras.join('\n')}|${Math.round(band.w)}|${Math.round(band.h)}|${max}`;
+    const hit = this.fitCache.get(key);
+    if (hit) return hit;
+    let size = max, lines: string[] = [];
+    for (;;) {
+      ctx.font = font(size);
+      lines = paras.flatMap(p => wrapLines(ctx, p, band.w - pad));
+      if (size <= 13 || lines.length * Math.round(size * lead) + extra <= band.h) break;
+      size -= 1;
+    }
+    const out = { size, lines: lines.slice(0, Math.max(3, Math.floor((band.h - extra) / Math.round(size * lead)))) };
+    if (this.fitCache.size > 64) this.fitCache.clear();
+    this.fitCache.set(key, out);
+    return out;
   }
 
   private verseLayout(ctx: CanvasRenderingContext2D, id: PassageId, w: number, h: number, max: number): PassageLayout {
@@ -1207,10 +1236,16 @@ export class KintsugiView {
   private drawQuality(ctx: CanvasRenderingContext2D, sim: KintsugiSim, band: Rect): void {
     const q = sim.qualities[sim.qualities.length - 1];
     const a = clamp((this.time - this.qualityT) / 1.2);
-    const size = Math.round(Math.min(40, this.l.font * 2));
+    let size = Math.round(Math.min(40, this.l.font * 2));
     ctx.save();
     ctx.globalAlpha = a;
     ctx.font = `600 ${size}px ${SERIF}`;
+    // a narrow band (a phone's column beside the card): the word smaller, whole
+    const qw = ctx.measureText(t(`q.${q}` as Key)).width;
+    if (qw > band.w - 8) {
+      size = Math.max(16, Math.floor((size * (band.w - 8)) / qw));
+      ctx.font = `600 ${size}px ${SERIF}`;
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = rgba(GOLD_HI, 1);
@@ -1230,9 +1265,9 @@ export class KintsugiView {
     if (sim.blessing) {
       ctx.save();
       ctx.globalAlpha = a;
-      const size = Math.round(Math.min(22, l.font + 2));
+      // the whole blessing, never cut: smaller (to 13 px) where its place is short
+      const { size, lines } = this.fitText(ctx, [t('bless.1'), t('bless.2')], band, Math.round(Math.min(22, l.font + 2)), 1.35, 0, s => `italic 500 ${s}px ${SERIF}`, 20);
       ctx.font = `italic 500 ${size}px ${SERIF}`;
-      const lines = [...wrapLines(ctx, t('bless.1'), band.w - 20), ...wrapLines(ctx, t('bless.2'), band.w - 20)];
       const lh = Math.round(size * 1.35);
       const fit = Math.max(1, Math.floor(band.h / lh));
       const shown = lines.slice(0, fit);
