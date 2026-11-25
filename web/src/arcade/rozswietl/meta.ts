@@ -61,7 +61,7 @@ export interface RozProgress {
   next: number;
   /** the tiles of a picture: 0 "Auto" (they grow with the sessions), else one of RULES.tileChoices */
   tilesPick: number;
-  /** the player's pace (base light's seconds pressed per second of light, DESIGN §24.8); 0 before it is known */
+  /** the player's pace (base light's seconds pressed per second of light, DESIGN §24.4); 0 before it is known */
   pace: number;
   /** first-time explanations and story cards already given */
   seen: string[];
@@ -163,7 +163,7 @@ export function nextPace(saved: number, work: number, light: number): number {
 }
 
 /**
- * A picture fitted to the light left (DESIGN §24.8): `design` tiles (tilesFor, or the player's fixed count) whose work
+ * A picture fitted to the light left (DESIGN §24.4): `design` tiles (tilesFor, or the player's fixed count) whose work
  * would be picBase + picPerTile × design; `room` the work the player can still do this session (pace × light left ×
  * fitShare).  While the room holds a whole picture of the design's size, that is the picture; the one the room no
  * longer holds is cut to the room (it is fitted again at each new picture, with the pace measured so far).  Auto cuts the tiles by the

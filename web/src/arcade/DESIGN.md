@@ -8838,3 +8838,103 @@ iPhone.
 * **Rozświetl's own pictures** are not animated (the living picture is Ja jestem's): a feature, not a polish.
 * **de/sv texts** of Wiedza and round 16 still want a native reader.
 * **A real iPhone**: the "tap once" path and the device-volume tracks.
+
+## 24. Round 20: health visualisations on one engine (2026-11-26)
+
+(§23 is round 19's Ogród o świcie, on its own branch.)
+
+### 24.1 The founder's requests
+
+The first message (Polish, away, "masz wolną rękę… pick recommended"): *"dodaj nowe treningi — Wizualizacja pokonywania
+chorób zgodnie z medycznym punktem widzenia, jak zrobiłby to układ odpornościowy (pokonywanie raka, odmładzanie komórek
+ciała, regeneracja skóry, regeneracja zębów, regeneracja dysków w kręgosłupie), zgodne z tym, co nauka wie o ciele.
+Chodzi o to, żeby zwizualizować w ciele wzbudzenie procesów odpowiedzialnych za doskonałe zdrowie, wysoką energię, dobre
+samopoczucie, młody wygląd"* — and *"popraw lekko Light up: generuje się za dużo kafelków względem długości sesji; jestem
+w stanie zrobić maksymalnie 50–60 %"*.
+
+The second, while the first was being built: a beautiful visualisation of losing weight and shaping an attractive body
+for women (the breasts, the figure) and for men; one of creating, growing and multiplying a person's great happiness;
+and one that does it all at once — cells repaired, posture straightened, rejuvenation, better hair, a beautiful figure,
+a healthy look, and the great happiness.
+
+### 24.2 What the round decided
+
+* **The section "Wizualizacje zdrowotne"** (registry `kind: 'health'`, §15) is where these belong: each request is a
+  part of the body (or of the person), and the form Każdy włos set — a library of short guided meditations to choose,
+  walk through and repeat, every picture grown only by real focus and deepened by calm, the physiology true and sourced,
+  never a promise — is the form the founder asked for then.  Eight new games, one per part:
+
+  | id | title | root | what it pictures |
+  |---|---|---|---|
+  | `straz` | Czujna straż | Ps 121:4 | immune surveillance: NK cells, the dendritic cell, T cells removing a cancer cell, memory |
+  | `komorki` | Każda komórka | Ps 103:5 | mitochondria, autophagy, DNA repair, stem cells renewing tissues, the night |
+  | `skora` | Żywa skóra | Job 10:11 | the epidermis renewed, the barrier, collagen, circulation, healing (with the player's skin tone) |
+  | `zeby` | Mocne zęby | Song 4:2 | saliva, remineralisation, living dentine, pulp and ligament, gums — enamel does not regrow, it remineralises |
+  | `kregoslup` | Sprężysty kręgosłup | Ps 145:14 | the discs, water at night, movement as the discs' pump, the deep muscles, upright |
+  | `ksztalt` | Lekkość i siła | 1 Cor 6:19–20 | fat leaving through the breath, muscle growing in rest, posture and the chest, the core (a woman's or a man's silhouette) |
+  | `radosc` | Pełnia radości | Ps 16:11 | savouring, gratitude, kindness, relationships spreading joy three degrees out, the upward spiral |
+  | `rozkwit` | Rozkwit | Ps 139:13–14 | all at once: the other libraries' pictures walked as one whole-body meditation |
+
+* **One engine for the section** (`src/arcade/kit/healthlib/`, §24.5): Każdy włos's sim, view, HUD, picker, layout,
+  lobby card, preview, sound and generic words generalised, so a game is a `HealthLibrary` (`spec.ts`) plus its
+  pictures and words — `src/arcade/<id>/library.ts` and `index.ts = makeHealthModule(LIBRARY)`.  The same controls,
+  modes and cards in every health visualisation; a new one costs its content, not a game.  Każdy włos itself is not
+  ported this round.
+* **"Na co dzień"** — new: each meditation's closing card names one everyday step that truly serves that process
+  (fluoride toothpaste and spit, don't rinse; getting up to walk; sleep; sun protection; screening when invited; three
+  good things tonight…), sourced like the numbers: the bridge from the picture to life.
+* **The capstone reuses, it does not redraw**: Rozkwit's scenes are the other games' worlds (and Każdy włos's pictures
+  through an adapter), so "all at once" is literally the same body seen whole.
+
+### 24.3 What the section says — and never says
+
+A meditation, never a promise.  The pictures show what the body really does; the narrator thanks God for it ("Dziękuję
+za…").  Never: that focus or imagination heals, cures, regrows a tooth or a disc, reverses ageing, burns fat; no
+"energy field", "vibration", "activate", "manifest", "detox" (each game's test runs `checkLibrary`, which keeps such
+words out of all four languages; a true sentence may be whitelisted with its reason, e.g. "Szkliwo nie odrasta").
+"Not a treatment" stands in the registry's last tip, the opening card and the lobby card, with the right "see a doctor /
+a dentist" for that part of the body.
+
+* **Czujna straż** speaks of cancer as the founder asked, in calm precision rather than war — the watch recognises,
+  removes, tidies, keeps watch; a cancer cell is a cell gone wrong, removed with care.  It never suggests that anyone's
+  focus or attitude decides the course of an illness.  For people who live with cancer: it accompanies treatment and
+  never replaces it; the evidence for relaxation and guided imagery is for anxiety and quality of life, not for tumours.
+* **Lekkość i siła** honours the wish for a beautiful, fit body with care for those who struggle with eating or body
+  image: no weight, BMI or measurements about the player, no "ideal", no before/after, no claim that exercise changes
+  the breast's own tissue (it strengthens the muscle beneath; posture lifts the chest's line); an eating-disorder note
+  and help lines.  The figures are luminous and featureless, never sexualised.
+* **Pełnia radości** keeps the effects honest (gratitude and kindness "help", modestly); not therapy; low mood for two
+  weeks or more → a doctor, with the help lines.
+* Polish second person without gendered forms; capitalised address; no figure of God drawn; verses only from
+  scripture.ts (new: Job 10:11, Song 4:2 — Luther's "bechnittener" fixed —, Ps 145:14, Ps 34:20, 1 Cor 12:26, Ps 16:9;
+  Ps 16:11, Phil 4:4, Ps 118:24, Ps 126:2–3, Jn 16:24, Isa 61:10, Prov 31:25, Ps 149:4, Song 4:7, Rom 12:1; Eccl 3:11
+  kept but unused — Luther speaks of the heart's fear there).
+
+### 24.4 Rozświetl: the picture fits the session (`rozswietl/meta.ts fitPicture`, `sim.ts`)
+
+**Why it was 50–60 %.**  A picture's work was 95 + 0.6·N seconds of base light whatever the session's length, and Auto's
+tiles grew with the sessions to 72–80.  Measured with the sim (sessions 1, 5 and 13; 3–15 minutes; focus held 30–50 %
+of each 16 s; a tap every 2.5 s) the share of the tiles a session generated that were broken was **0.40–0.92**: two
+ways to fall short — a first picture too big for a short session (13th session, 5 min, 30 % focus: 73 % of 72 tiles),
+and a fresh picture assembling just before the end (5th session, 5 min: one finished, a new 36-tile mosaic untouched).
+
+**Now each picture is fitted when it begins.**
+
+* **The pace** — base light's seconds pressed into tiles per second of light (a push past its lead-in, a picture to
+  press, no card) — is measured in the session and saved (`RozProgress.pace`, half-way toward each session's own after
+  ≥ 40 s of light, 0.25–2.5); unknown, it is 0.45, a careful guess below the sim's 0.36–1.03 at 30–50 % focus, so the
+  first fitted picture rather ends early than half dark.  In a session the saved pace counts as 90 s against the
+  session's own.
+* **The room** = pace × the light left (the remaining pushes past their lead-in) × 0.85.  A room for a whole picture of
+  the design's work gives exactly that picture; a smaller room cuts the work to the room.  Auto then cuts the tiles by
+  the square root of the work's share — a third of the work gives 58 % of the tiles, each 58 % as heavy (fewer pieces,
+  each a little lighter: the founder asked for more pieces in round 11 and for finishing now); a fixed count keeps its
+  tiles and lightens them; never under 6 tiles.  Less than 9 s of work left starts **no new picture**: the last one
+  stays bright to the end (the bloom goes on; the gold still gathers with calm).
+* The lobby's card says it ("Kafli najwyżej" and a note that the picture fits the session and the player's pace).
+
+**Measured after** (the same grid): every session ends on a finished picture (share 1.00 in all 36 cases); the quiet
+tail after the last picture 3–21 s of light (mostly 7–13); a 13th session of 5 minutes at 30 % focus now makes two
+pictures of ~35 tiles instead of 73 % of one of 72; long sessions keep design-size pictures while the time allows.
+Tests: `test/arcade-rozswietl.test.ts` "the picture fits the time" (fitPicture, the pace, sizing, the bright end) and
+the reworked pacing test.

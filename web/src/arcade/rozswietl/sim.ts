@@ -291,7 +291,7 @@ export class RozSim {
   tilesBroken = 0;
   picturesDone = 0;
   /**
-   * The pace of this session (DESIGN §24.8): base light's seconds pressed into tiles, and the seconds of light it took
+   * The pace of this session (DESIGN §24.4): base light's seconds pressed into tiles, and the seconds of light it took
    * (a push past its lead-in, a picture to press, no card)
    */
   work = 0;
@@ -1009,7 +1009,7 @@ export class RozSim {
   private nextPicture(): void {
     if (this.lastPic) return;
     this.prevSrc = this.pic.src;
-    // no room for another picture: the bright one stays to the end (DESIGN §24.8)
+    // no room for another picture: the bright one stays to the end (DESIGN §24.4)
     if (!this.newPicture()) this.lastPic = true;
   }
 

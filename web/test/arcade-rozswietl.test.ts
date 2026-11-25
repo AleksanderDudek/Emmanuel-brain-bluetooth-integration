@@ -48,7 +48,7 @@ function makeSim(o: SimOpts = {}): RozSim {
   return sim;
 }
 
-/** A saved pace so fast, in a session so long, that the room holds whole pictures of the design's size (DESIGN §24.8). */
+/** A saved pace so fast, in a session so long, that the room holds whole pictures of the design's size (DESIGN §24.4). */
 const ROOMY = { progress: { pace: RULES.paceRange[1] }, planned: 1800 } as const;
 
 /** A returning player (no warm-up, no opening card), the day's picture already seen. */
@@ -1387,7 +1387,7 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
-describe('the picture fits the time (round 20, DESIGN §24.8)', () => {
+describe('the picture fits the time (round 20, DESIGN §24.4)', () => {
   it('a room for a whole picture gives the design; less room cuts the tiles by the square root of the work’s share', () => {
     const full = RULES.picBase + RULES.picPerTile * 72;
     expect(fitPicture(72, full * 3, false)).toEqual({ tiles: 72, work: full });
