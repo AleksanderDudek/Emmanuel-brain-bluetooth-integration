@@ -110,9 +110,10 @@ export class ArcadeLobby {
       };
       return h('div', { class: 'rh-dial', role: 'group', 'aria-label': d.name }, h('span', { class: 'rh-name' }, d.name), btn(-1), out, btn(1));
     };
-    const count = restsIn(s, r, plannedSeconds(prefs.minutes));
-    // the player's rest longer than the session's way leaves room for: what the session keeps
+    // the player's rest longer than the session's way leaves room for: what the session keeps (the count and the
+    // share then read that rest, not the dial's)
     const kept = restKept(s, r, plannedSeconds(prefs.minutes));
+    const count = restsIn(s, kept === null ? r : { ...r, rest: kept }, plannedSeconds(prefs.minutes));
     const line = [s.note, count ? tr('rhythm.count', { n: count.rests }) : '', count ? tr('rhythm.share', { pct: Math.round(count.share * 100) }) : '']
       .filter(Boolean).join(' · ');
     const restSec = s.restSec?.(r.rest);
