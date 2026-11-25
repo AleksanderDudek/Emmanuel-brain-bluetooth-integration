@@ -413,6 +413,13 @@ export type PassageId =
   | 'mat5.8'
   | 'isa61.1'
   | '1pe1.7'
+  | 'jhn20.15-16'
+  | 'psa56.8'
+  | 'sng2.11-12'
+  | 'ecc3.4'
+  | 'isa66.13'
+  | 'jhn16.22'
+  | '2co1.4'
   ;
 
 export interface Passage {
@@ -2832,6 +2839,48 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['…so that the proven character of your faith—more precious than gold, which perishes even though refined by fire—may result in praise, glory, and honor at the revelation of Jesus Christ.', '1 Peter 1:7'],
     de: ['…auf daß euer Glaube rechtschaffen und viel köstlicher erfunden werde denn das vergängliche Gold, das durchs Feuer bewährt wird, zu Lob, Preis und Ehre, wenn nun offenbart wird Jesus Christus…', '1. Petrus 1,7'],
     sv: ['…för att, om eder tro håller provet – vilket är mycket mer värt än guldet, som förgås, men som dock genom eld bliver beprövat – detta må befinnas lända eder till pris, härlighet och ära vid Jesu Kristi uppenbarelse.', '1 Petr 1:7'],
+  },
+  'jhn20.15-16': {
+    pl: ['Rzekł jej Jezus: Niewiasto! czemu płaczesz? kogo szukasz? A ona mniemając, że był ogrodnik, rzekła mu: Panie! jeźliś go ty wziął, powiedz mi, gdzieś go położył, a ja go wezmę. Rzekł jej Jezus: Maryjo! Która obróciwszy się, rzekła mu: Rabbuni! co się wykłada: Nauczycielu!', 'J 20,15–16'],
+    en: ['“Woman, why are you weeping?” Jesus asked. “Whom are you seeking?” Thinking He was the gardener, she said, “Sir, if you have carried Him off, tell me where you have put Him, and I will get Him.” Jesus said to her, “Mary.” She turned and said to Him in Hebrew, “Rabboni!” (which means “Teacher”).', 'John 20:15–16'],
+    de: ['Spricht er zu ihr: Weib, was weinest du? Wen suchest du? Sie meint es sei der Gärtner, und spricht zu ihm: Herr, hast du ihn weggetragen, so sage mir, wo hast du ihn hin gelegt, so will ich ihn holen. Spricht Jesus zu ihr: Maria! Da wandte sie sich um und spricht zu ihm: Rabbuni (das heißt: Meister)!', 'Johannes 20,15–16'],
+    sv: ['Jesus sade till henne: »Kvinna, varför gråter du? Vem söker du?» Hon trodde att det var örtagårdsmästaren och svarade honom: »Herre, om det är du som har burit bort honom, så säg mig var du har lagt honom, så att jag kan hämta honom.» Jesus sade till henne: »Maria!» Då vände hon sig om och sade till honom på hebreiska: »Rabbuni!» (det betyder mästare).', 'Joh 20:15–16'],
+  },
+  'psa56.8': {
+    pl: ['Tyś tułanie moje policzył; zbierzże też łzy moje w wiadro twe; izaż nie są spisane w księgach twoich?', 'Ps 56,9'],
+    en: ['You have taken account of my wanderings. Put my tears in Your bottle—are they not in Your book?', 'Psalm 56:8'],
+    de: ['Zähle die Wege meiner Flucht; fasse meine Tränen in deinen Krug. Ohne Zweifel, du zählst sie.', 'Psalm 56,9'],
+    sv: ['Du har räknat min flykts dagar. Samla mina tårar i din lägel; de stå ju i din bok.', 'Ps 56:9'],
+  },
+  'sng2.11-12': {
+    pl: ['Albowiem oto minęła zima! deszcz przeszedł, i przestał. Kwiatki się ukazują na ziemi; czas śpiewania przyszedł, a głos synogarlicy słychać w ziemi naszej.', 'Pnp 2,11–12'],
+    en: ['For now the winter is past; the rain is over and gone. The flowers have appeared in the countryside; the season of singing has come, and the cooing of turtledoves is heard in our land.', 'Song of Solomon 2:11–12'],
+    de: ['Denn siehe, der Winter ist vergangen, der Regen ist weg und dahin; die Blumen sind hervorgekommen im Lande, der Lenz ist herbeigekommen, und die Turteltaube läßt sich hören in unserm Lande…', 'Hohelied 2,11–12'],
+    sv: ['Ty se, vintern är förbi, regntiden är förliden och har gått sin kos. Blommorna visa sig på marken, tiden har kommit, då vinträden skäras, och turturduvan låter höra sin röst i vårt land.', 'Höga v 2:11–12'],
+  },
+  'ecc3.4': {
+    pl: ['Czas płaczu, i czas śmiechu; czas smutku, i czas skakania…', 'Koh 3,4'],
+    en: ['…a time to weep and a time to laugh, a time to mourn and a time to dance…', 'Ecclesiastes 3:4'],
+    de: ['…weinen und lachen, klagen und tanzen…', 'Prediger 3,4'],
+    sv: ['Gråta har sin tid, och le har sin tid. Klaga har sin tid, och dansa har sin tid.', 'Pred 3:4'],
+  },
+  'isa66.13': {
+    pl: ['Jako ten, którego cieszy matka jego, tak Ja was cieszyć będę; a tak w Jeruzalemie uciechy miewać będziecie.', 'Iz 66,13'],
+    en: ['As a mother comforts her son, so will I comfort you, and you will be consoled over Jerusalem.', 'Isaiah 66:13'],
+    de: ['Ich will euch trösten, wie einen seine Mutter tröstet; ja, ihr sollt an Jerusalem ergötzt werden.', 'Jesaja 66,13'],
+    sv: ['Såsom en moder tröstar sin son, så skall jag trösta eder; ja, i Jerusalem skolen I få tröst.', 'Jes 66:13'],
+  },
+  'jhn16.22': {
+    pl: ['I wy teraz smutek macie; ale zasię ujrzę was, a będzie się radowało serce wasze, a radości waszej nikt nie odejmie od was.', 'J 16,22'],
+    en: ['So also you have sorrow now, but I will see you again and your hearts will rejoice, and no one will take away your joy.', 'John 16:22'],
+    de: ['Und ihr habt auch nun Traurigkeit; aber ich will euch wiedersehen, und euer Herz soll sich freuen, und eure Freude soll niemand von euch nehmen.', 'Johannes 16,22'],
+    sv: ['Så haven ock I nu bedrövelse; men jag skall se eder åter, och då skola edra hjärtan glädja sig, och ingen skall taga eder glädje ifrån eder.', 'Joh 16:22'],
+  },
+  '2co1.4': {
+    pl: ['Który nas cieszy w każdym ucisku naszym, abyśmy i my cieszyć mogli i tych, którzy są w jakimkolwiek ucisku, tąż pociechą, którą my sami pocieszeni bywamy od Boga.', '2 Kor 1,4'],
+    en: ['…who comforts us in all our troubles, so that we can comfort those in any trouble with the comfort we ourselves have received from God.', '2 Corinthians 1:4'],
+    de: ['…der uns tröstet in aller unsrer Trübsal, daß auch wir trösten können, die da sind in allerlei Trübsal, mit dem Trost, damit wir getröstet werden von Gott.', '2. Korinther 1,4'],
+    sv: ['…han som tröstar oss i all vår nöd, så att vi genom den tröst vi själva undfå av Gud kunna trösta dem som äro stadda i allahanda nöd.', '2 Kor 1:4'],
   },
 };
 

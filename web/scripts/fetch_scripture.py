@@ -292,6 +292,11 @@ PASSAGES: list[tuple[str, str]] = [
     ("psa62.8", "Psalm 62:8"), ("isa46.4", "Isaiah 46:4"), ("heb4.16", "Hebrews 4:16"),
     # round 17 — Złote serce: the broken heart gathered, washed, joined with gold
     ("mat5.8", "Matthew 5:8"), ("isa61.1", "Isaiah 61:1"), ("1pe1.7", "1 Peter 1:7"),
+    # round 19 — Ogród o świcie: a garden from night to dawn for a broken heart (John 11:35 left out: the 1917 numbers it 11:36)
+    ("jhn20.15-16", "John 20:15-16"), ("psa56.8", "Psalm 56:8"), ("sng2.11-12", "Song of Solomon 2:11-12"),
+    ("ecc3.4", "Ecclesiastes 3:4"),
+    ("isa66.13", "Isaiah 66:13"), ("jhn16.22", "John 16:22"),
+    ("2co1.4", "2 Corinthians 1:4"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
