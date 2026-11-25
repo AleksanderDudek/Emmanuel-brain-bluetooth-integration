@@ -19,7 +19,7 @@ import { worldTop as worldTopOf } from '../src/arcade/drzewo/tree';
 import { BOTTOM, DEPTH, SEATED_OUTLINE, branchesFor, crownOf, fruitPlace, grownTo, leavesFor, rootsFor, stonesFor, tipsAt } from '../src/arcade/drzewo/tree';
 import { OUTLINE } from '../src/arcade/kit/figure';
 import { drzewoRhythm, howto } from '../src/arcade/drzewo/index';
-import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
+import { restKept, restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 
 const STEP = 1 / 30;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -678,6 +678,23 @@ describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () =
     const n = restsIn(spec, rhythmOf(spec, undefined)!, 600)!;
     expect(n.rests).toBeGreaterThanOrEqual(10);
     expect(n.rests).toBeLessThanOrEqual(12);
+  });
+
+  it('tells the lobby the rest a session really keeps: the player’s breaths where they fit, fewer in a short session', () => {
+    const spec = drzewoRhythm(freshProgress());
+    // the design fits by itself: nothing to say
+    expect(restKept(spec, rhythmOf(spec, undefined)!, 300)).toBeNull();
+    // 8 breaths after every stage do not fit 5 or 10 minutes: the plan keeps fewer — what a session with them walks
+    for (const min of [5, 10]) {
+      const r = { focus: 1, rest: 8, custom: true };
+      const kept = restKept(spec, r, min * 60)!;
+      expect(kept, `${min} min`).toBeGreaterThanOrEqual(1);
+      expect(kept, `${min} min`).toBeLessThan(8);
+      const sim = later({ planned: min * 60, rhythm: r });
+      expect(sim.plan.restCycles, `${min} min`).toBe(kept);
+    }
+    // a rest that fits stands
+    expect(restKept(spec, { focus: 3, rest: 2, custom: true }, 1800)).toBeNull();
   });
 
   it('with a rest after 2 stages the light flows on within the push; the water and the whole crown still rest', () => {

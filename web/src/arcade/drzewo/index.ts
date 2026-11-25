@@ -24,7 +24,7 @@ import { bestOf, breathOf, freshProgress, migrate, setPosture, setSeason, type D
 import { progressPanel } from './panel';
 import { DrzewoIntro, drawPreview } from './preview';
 import { DrzewoView } from './render';
-import { RULES, readTime } from './rules';
+import { RULES, planFor, readTime } from './rules';
 import { DrzewoSim, type BlockKind, type Coach, type CoachAt, type SimEvent } from './sim';
 
 /** The breath of the last progress the module saw: the how-to names it. */
@@ -239,7 +239,8 @@ export function howto(touch = coarsePointer(), breath: BreathPattern | null = kn
  * player's own pattern (2 by design for 10 minutes; as designed the session's own table keeps the length's rest).
  */
 export function drzewoRhythm(p?: DrzewoProgress): RhythmSpec {
-  const cyc = breathCycle(breathOf(p ? migrate(p) : freshProgress()));
+  const pattern = breathOf(p ? migrate(p) : freshProgress());
+  const cyc = breathCycle(pattern);
   return {
     focus: {
       def: RULES.restAfter, min: 1, max: RULES.restAfterMax, step: 1, name: t('rhythm.after'),
@@ -249,6 +250,8 @@ export function drzewoRhythm(p?: DrzewoProgress): RhythmSpec {
     note: t('rhythm.note'),
     focusSec: n => n * RULES.stageSec,
     restSec: n => n * cyc,
+    // the plan keeps the rests and the wind within RULES.restCap of the session: fewer breaths in a short one
+    restIn: (r, sec) => planFor(sec, pattern, false, { restAfter: r.focus, restBreaths: r.rest }).restCycles,
   };
 }
 

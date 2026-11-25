@@ -12,7 +12,7 @@ import { $, h, run } from '../ui/dom';
 import { readiness } from '../ui/focus';
 import { coarsePointer } from './kit/mobile';
 import { loadProgress, saveProgress } from './kit/progress';
-import { REST_SETTLE, restsIn, rhythmOf, stepDial, type RhythmDial, type RhythmSpec } from './kit/rhythm';
+import { REST_SETTLE, restKept, restsIn, rhythmOf, stepDial, type RhythmDial, type RhythmSpec } from './kit/rhythm';
 import type { ArcadeModule } from './kit/types';
 import { arcadeEntry, forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
@@ -111,6 +111,8 @@ export class ArcadeLobby {
       return h('div', { class: 'rh-dial', role: 'group', 'aria-label': d.name }, h('span', { class: 'rh-name' }, d.name), btn(-1), out, btn(1));
     };
     const count = restsIn(s, r, plannedSeconds(prefs.minutes));
+    // the player's rest longer than the session's way leaves room for: what the session keeps
+    const kept = restKept(s, r, plannedSeconds(prefs.minutes));
     const line = [s.note, count ? tr('rhythm.count', { n: count.rests }) : '', count ? tr('rhythm.share', { pct: Math.round(count.share * 100) }) : '']
       .filter(Boolean).join(' · ');
     const restSec = s.restSec?.(r.rest);
@@ -125,6 +127,7 @@ export class ArcadeLobby {
         r.custom ? h('button', { class: 'btn ghost rh-reset', type: 'button', on: { click: () => { this.lastDial = ''; save(s.focus.def, s.rest.def); } } }, tr('rhythm.reset')) : null),
       dial('focus', s.focus, r.focus), dial('rest', s.rest, r.rest),
       line ? h('p', { class: 'muted rh-line' }, line) : null,
+      kept !== null ? h('p', { class: 'rh-warn rh-kept' }, tr('rhythm.kept', { rest: s.rest.format(kept), minutes: prefs.minutes })) : null,
       restSec !== undefined && restSec < REST_SETTLE ? h('p', { class: 'rh-warn' }, tr('rhythm.short')) : null,
       why];
     box.replaceChildren(...kids.filter((n): n is HTMLElement => n !== null));

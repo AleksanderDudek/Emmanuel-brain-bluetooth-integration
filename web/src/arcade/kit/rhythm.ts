@@ -41,6 +41,12 @@ export interface RhythmSpec {
   focusSec?(n: number): number;
   /** seconds a rest value takes (whole breaths × the cycle) */
   restSec?(n: number): number;
+  /**
+   * The rest a session of `sec` seconds really keeps with the player's dials (the rest dial's unit): less than
+   * `r.rest` where the game shortens the player's rests so its way still fits (Drzewo: the rests at most 55 % of the
+   * session).  The lobby says so under the dials; omit where the rest is always the player's.
+   */
+  restIn?(r: Pick<Rhythm, 'focus' | 'rest'>, sec: number): number;
 }
 
 /** The player's rhythm for a session, in the dials' units; `custom` when it differs from the game's design. */
@@ -136,6 +142,16 @@ export function blockRhythm(def: { focus: number; rest: number }, names: { focus
 }
 
 /** About how many rests a session of `sec` seconds brings, and what share of it they take (null: the spec cannot say). */
+/**
+ * The rest the game keeps in a session of `sec` seconds when the player's own rest is longer than it fits (null:
+ * the player's rest stands — or the game's design, which fits by itself).
+ */
+export function restKept(spec: RhythmSpec, r: Rhythm, sec: number): number | null {
+  if (!spec.restIn || !r.custom || !(sec > 0)) return null;
+  const kept = spec.restIn(r, sec);
+  return Number.isFinite(kept) && kept < r.rest ? kept : null;
+}
+
 export function restsIn(spec: RhythmSpec, r: Pick<Rhythm, 'focus' | 'rest'>, sec: number): { rests: number; share: number } | null {
   if (!spec.focusSec || !spec.restSec) return null;
   const f = spec.focusSec(r.focus), q = spec.restSec(r.rest);
