@@ -413,6 +413,12 @@ export type PassageId =
   | 'mat5.8'
   | 'isa61.1'
   | '1pe1.7'
+  | 'job10.11'
+  | 'sng4.2'
+  | 'psa145.14'
+  | 'psa34.20'
+  | '1co12.26'
+  | 'psa16.9'
   ;
 
 export interface Passage {
@@ -2832,6 +2838,42 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['…so that the proven character of your faith—more precious than gold, which perishes even though refined by fire—may result in praise, glory, and honor at the revelation of Jesus Christ.', '1 Peter 1:7'],
     de: ['…auf daß euer Glaube rechtschaffen und viel köstlicher erfunden werde denn das vergängliche Gold, das durchs Feuer bewährt wird, zu Lob, Preis und Ehre, wenn nun offenbart wird Jesus Christus…', '1. Petrus 1,7'],
     sv: ['…för att, om eder tro håller provet – vilket är mycket mer värt än guldet, som förgås, men som dock genom eld bliver beprövat – detta må befinnas lända eder till pris, härlighet och ära vid Jesu Kristi uppenbarelse.', '1 Petr 1:7'],
+  },
+  'job10.11': {
+    pl: ['Skórą i ciałem przyoblokłeś mię, a kościami i żyłami pospinałeś mię.', 'Hi 10,11'],
+    en: ['You clothed me with skin and flesh, and knit me together with bones and sinews.', 'Job 10:11'],
+    de: ['Du hast mir Haut und Fleisch angezogen; mit Gebeinen und Adern hast du mich zusammengefügt.', 'Hiob 10,11'],
+    sv: ['Med hud och kött beklädde du mig, av ben och senor vävde du mig samman.', 'Job 10:11'],
+  },
+  'sng4.2': {
+    pl: ['Zęby twoje jako stado owiec jednakich, gdy wychodzą z kąpieli, z których każda miewa po dwojgu, a niepłodnej niemasz między niemi.', 'Pnp 4,2'],
+    en: ['Your teeth are like a flock of newly shorn sheep coming up from the washing; each has its twin, and not one of them is lost.', 'Song of Solomon 4:2'],
+    de: ['Deine Zähne sind wie eine Herde Schafe mit beschnittener Wolle, die aus der Schwemme kommen, die allzumal Zwillinge haben, und es fehlt keiner unter ihnen.', 'Hohelied 4,2'],
+    sv: ['Dina tänder likna en hjord av nyklippta tackor, nyss uppkomna ur badet, allasammans med tvillingar, ofruktsam är ingen ibland dem.', 'Höga v 4:2'],
+  },
+  'psa145.14': {
+    pl: ['Trzyma Pan wszystkich upadających, a podnosi wszystkich obalonych.', 'Ps 145,14'],
+    en: ['The LORD upholds all who fall and lifts up all who are bowed down.', 'Psalm 145:14'],
+    de: ['Der HERR erhält alle, die da fallen, und richtet auf alle, die niedergeschlagen sind.', 'Psalm 145,14'],
+    sv: ['HERREN uppehåller alla dem som äro på väg att falla, och han upprättar alla nedböjda.', 'Ps 145:14'],
+  },
+  'psa34.20': {
+    pl: ['On strzeże wszystkich kości jego, tak, iż i jedna z nich nie skruszy się.', 'Ps 34,21'],
+    en: ['He protects all his bones; not one of them will be broken.', 'Psalm 34:20'],
+    de: ['Er bewahrt ihm alle seine Gebeine, daß deren nicht eins zerbrochen wird.', 'Psalm 34,21'],
+    sv: ['Han bevarar alla hans ben; icke ett enda av dem skall sönderslås.', 'Ps 34:21'],
+  },
+  '1co12.26': {
+    pl: ['A przetoż jeźliże jeden członek cierpi, cierpią z nim wszystkie członki; a jeźli bywa uczczony jeden członek, radują się z nim wszystkie członki.', '1 Kor 12,26'],
+    en: ['If one part suffers, every part suffers with it; if one part is honored, every part rejoices with it.', '1 Corinthians 12:26'],
+    de: ['Und so ein Glied leidet, so leiden alle Glieder mit; und so ein Glied wird herrlich gehalten, so freuen sich alle Glieder mit.', '1. Korinther 12,26'],
+    sv: ['Om nu en lem lider, så lida alla de andra lemmarna med den; om åter en lem äras, så glädja sig alla de andra lemmarna med den.', '1 Kor 12:26'],
+  },
+  'psa16.9': {
+    pl: ['Przetoż uweseliło się serce moje, a rozradowała się chwała moja; dotego ciało moje mieszkać będzie bezpiecznie.', 'Ps 16,9'],
+    en: ['Therefore my heart is glad and my tongue rejoices; my body also will dwell securely.', 'Psalm 16:9'],
+    de: ['Darum freut sich mein Herz, und meine Ehre ist fröhlich; auch mein Fleisch wird sicher liegen.', 'Psalm 16,9'],
+    sv: ['Fördenskull gläder sig mitt hjärta, och min ära fröjdar sig; jämväl min kropp får bo i trygghet.', 'Ps 16:9'],
   },
 };
 

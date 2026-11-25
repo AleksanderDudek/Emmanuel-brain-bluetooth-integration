@@ -292,6 +292,9 @@ PASSAGES: list[tuple[str, str]] = [
     ("psa62.8", "Psalm 62:8"), ("isa46.4", "Isaiah 46:4"), ("heb4.16", "Hebrews 4:16"),
     # round 17 — Złote serce: the broken heart gathered, washed, joined with gold
     ("mat5.8", "Matthew 5:8"), ("isa61.1", "Isaiah 61:1"), ("1pe1.7", "1 Peter 1:7"),
+    # round 20 — health visualisations: the watch, every cell, living skin, strong teeth, the spine
+    ("job10.11", "Job 10:11"), ("sng4.2", "Song of Solomon 4:2"), ("psa145.14", "Psalm 145:14"),
+    ("psa34.20", "Psalm 34:20"), ("1co12.26", "1 Corinthians 12:26"), ("psa16.9", "Psalm 16:9"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -317,6 +320,7 @@ DROP_END: dict[str, dict[str, str]] = {
 # The run fails if the wrong text is gone, so a corrected upstream is noticed.
 FIX: dict[str, dict[str, tuple[str, str]]] = {
     "psa133.3": {"de": ("verheizt", "verheißt")},   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
+    "sng4.2": {"de": ("bechnittener", "beschnittener")},   # both digitisations of Luther 1912 print „bechnittener“ (a misprint: the word is beschnitten)
     "jhn8.12": {"de": ("sondern wir das Licht", "sondern wird das Licht")},   # a dropped "d": the 1912 text reads „wird“
     "isa43.19": {"pl": ("poznacie Nadto", "poznacie? Nadto")},   # getbible lost the question mark the 1881 print has
     "2ti1.7": {"sv": ("försagdbetens", "försagdhetens")},   # a scanning slip on Wikisource; getbible's 1917 reads „försagdhetens“
