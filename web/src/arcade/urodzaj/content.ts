@@ -109,10 +109,10 @@ export const TIPS = {
 
 // ── Feliks the sparrow ───────────────────────────────────────────
 export type Moment = 'open' | 'warm' | 'push' | 'blind' | 'rest' | 'good' | 'ready' | 'wind' | 'near' | 'saved' | 'basket'
-  | 'big' | 'newTier' | 'glean' | 'chain' | 'pole' | 'fest' | 'end' | 'idle';
+  | 'big' | 'newTier' | 'glean' | 'chain' | 'pole' | 'fest' | 'festFull' | 'end' | 'idle';
 
 export const MOMENTS: readonly Moment[] = ['open', 'warm', 'push', 'blind', 'rest', 'good', 'ready', 'wind', 'near', 'saved', 'basket',
-  'big', 'newTier', 'glean', 'chain', 'pole', 'fest', 'end', 'idle'];
+  'big', 'newTier', 'glean', 'chain', 'pole', 'fest', 'festFull', 'end', 'idle'];
 
 /** How many lines each moment has in the catalog (say.<moment>.1 … n). */
 export const LINE_COUNT = 3;

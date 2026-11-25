@@ -20,7 +20,7 @@ import { DECORS, MAX_TIER, decorName, festName, festivalAt, fruit } from './cont
 import { cap, t } from './i18n';
 import { UrodzajIntro } from './intro';
 import { computeLayout, sx, sy, worldX, type Layout } from './layout';
-import { decorCount, reached, type UrodzajProgress } from './meta';
+import { decorCount, reached, setsDecor, type UrodzajProgress } from './meta';
 import {
   C, FONT, FieldCache, SERIF, FruitSprites, TAU, font, glow, paintBasketBack, paintBasketFront, paintBubble, paintCard, paintFruit,
   paintGleanBasket, paintGleaner, paintRim, paintSilhouette, paintSparrow, paintStar, paintTable, paintWheatTrace, roundRect,
@@ -694,7 +694,8 @@ export class UrodzajView {
     ctx.fillStyle = C.goldDeep;
     ctx.fillText(this.fitIn(t('story.fest.title', { fest: festName(f) }), cw - 24, 19 * u, 800), L.cx, y + 28 * u);
     ctx.fillStyle = C.ink;
-    ctx.fillText(this.fitIn(t('story.fest.text', { decor: decorName(f.decor) }), cw - 24, 14 * u, 600), L.cx, y + 55 * u);
+    const text = setsDecor(st.fest) ? t('story.fest.text', { decor: decorName(f.decor) }) : t('story.fest.full');
+    ctx.fillText(this.fitIn(text, cw - 24, 14 * u, 600), L.cx, y + 55 * u);
     ctx.globalAlpha = 1;
   }
 

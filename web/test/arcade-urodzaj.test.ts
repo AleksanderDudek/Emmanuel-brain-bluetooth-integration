@@ -4,10 +4,10 @@ import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTarget
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { hintText, howto } from '../src/arcade/urodzaj/index';
 import { FONT, SERIF, font } from '../src/arcade/urodzaj/paint';
-import { DROP_TIERS, FESTIVALS, FRUITS, LINES, LINE_COUNT, MAX_TIER, MOMENTS, festivalAt, fruit, missionText, tierFromU } from '../src/arcade/urodzaj/content';
+import { DROP_TIERS, FESTIVALS, FRUITS, LINES, LINE_COUNT, MAX_TIER, MOMENTS, festName, festivalAt, fruit, missionText, tierFromU } from '../src/arcade/urodzaj/content';
 import { CATALOGS, cap, t, unit } from '../src/arcade/urodzaj/i18n';
 import { computeLayout, sx, sy, worldX } from '../src/arcade/urodzaj/layout';
-import { festFeed, freshProgress, migrate, reached, starsFor, type UrodzajProgress } from '../src/arcade/urodzaj/meta';
+import { DECOR_MAX, decorCount, festFeed, freshProgress, migrate, reached, setsDecor, starsFor, type UrodzajProgress } from '../src/arcade/urodzaj/meta';
 import { PHYS, World } from '../src/arcade/urodzaj/physics';
 import { BASKET, RULES } from '../src/arcade/urodzaj/rules';
 import { UrodzajSim, chainMult, chargeRate, finaleFor, mergePoints, planBlocks, type SimEvent } from '../src/arcade/urodzaj/sim';
@@ -506,6 +506,27 @@ describe('the meta', () => {
     expect(p.festProg).toEqual([0, 0, 0]);
     expect(festivalAt(10).missions).toHaveLength(3);
     for (const fe of FESTIVALS) for (const m of fe.missions) expect(missionText(m).length).toBeGreaterThan(3);
+  });
+
+  it('after the sixth festival ever the table is full: no "new decoration" in the summary, the card or Feliks\'s words', () => {
+    expect([0, 5, 6, 9].map(setsDecor)).toEqual([true, true, false, false]);
+    expect(decorCount({ ...freshProgress(), fest: 9 })).toBe(DECOR_MAX);
+    for (const [fest, key] of [[5, 'hl.fest'], [6, 'hl.festAgain']] as const) {
+      const sim = later({ progress: { fest: fest + 1 } });
+      sim.start();
+      (sim as unknown as { fest(e: { kind: 'festival'; fest: number; mission: number }[]): void }).fest([{ kind: 'festival', fest, mission: -1 }]);
+      const name = festName(festivalAt(fest));
+      expect(sim.result().highlights, `festival ${fest}`).toContain(t(key, { fest: name }));
+    }
+    // a session with one of each: the kind whose feast set a decoration says so
+    const sim = later({ progress: { fest: 8 } });
+    sim.start();
+    (sim as unknown as { fest(e: { kind: 'festival'; fest: number; mission: number }[]): void }).fest([5, 6].map(fest => ({ kind: 'festival' as const, fest, mission: -1 })));
+    const hl = sim.result().highlights;
+    expect(hl).toContain(t('hl.fest', { fest: festName(festivalAt(5)) }));
+    if (festName(festivalAt(6)) !== festName(festivalAt(5))) expect(hl).toContain(t('hl.festAgain', { fest: festName(festivalAt(6)) }));
+    // Feliks: three full-table lines in every language, none promising a new decoration
+    for (const k of [1, 2, 3]) expect(t(`say.festFull.${k}` as 'say.festFull.1')).not.toMatch(/ozdob/);
   });
 
   it('the circle counts the five droppable fruits once played, then the biggest made', () => {

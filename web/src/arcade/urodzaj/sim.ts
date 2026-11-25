@@ -34,7 +34,7 @@ import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
 import { DROP_TIERS, LINES, MAX_TIER, TIPS, festName, festivalAt, fruit, tierFromU } from './content';
 import { cap, pts, t, unit } from './i18n';
-import { dailyDue, festFeed, migrate, starsFor, type FestEvent, type UrodzajProgress } from './meta';
+import { dailyDue, festFeed, migrate, setsDecor, starsFor, type FestEvent, type UrodzajProgress } from './meta';
 import { PHYS, World, type Body, type Merge, type Pair } from './physics';
 import { BASKET, RULES } from './rules';
 import { Talk } from './talk';
@@ -836,7 +836,7 @@ export class UrodzajSim {
       else {
         this.fests.push(e.fest);
         this.emit({ type: 'festival', fest: e.fest });
-        this.talk.ask('fest', 4, 6);
+        this.talk.ask(setsDecor(e.fest) ? 'fest' : 'festFull', 4, 6);
         if (!this.story && this.phase !== 'done') this.story = { kind: 'fest', t: 0, dur: 3.2, fest: e.fest };
       }
     }
@@ -1022,8 +1022,11 @@ export class UrodzajSim {
     const out: string[] = [];
     for (const tier of this.firsts.slice(-3)) out.push(t('hl.first', { fruit: fruit(tier).name }));
     if (this.poles) out.push(t('hl.pole', { n: this.poles }));
-    // a long session may keep several feasts: each of the three kinds once (the summary stays short)
-    for (const name of new Set(this.fests.map(f => festName(festivalAt(f))))) out.push(t('hl.fest', { fest: name }));
+    // a long session may keep several feasts: each of the three kinds once (the summary stays short); "a new
+    // decoration" only where one was set — after the sixth festival ever the table is full
+    const feasts = new Map<string, boolean>();
+    for (const f of this.fests) { const name = festName(festivalAt(f)); feasts.set(name, (feasts.get(name) ?? false) || setsDecor(f)); }
+    for (const [name, decor] of feasts) out.push(t(decor ? 'hl.fest' : 'hl.festAgain', { fest: name }));
     if (this.score > this.bestBefore && this.bestBefore > 0) out.push(t('hl.record'));
     else if (this.bestBefore > 0 && this.bestBefore - this.score > 0 && this.bestBefore - this.score <= this.bestBefore * 0.2) out.push(t('hl.near', { n: this.bestBefore - this.score }));
     if (this.daily) out.push(t('hl.daily'));

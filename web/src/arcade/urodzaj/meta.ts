@@ -117,8 +117,14 @@ export function festFeed(p: UrodzajProgress, kind: Mission['kind'], v: number): 
   return out;
 }
 
+/** The table holds six decorations: the first six festivals each set one; later ones are celebrated at the full table. */
+export const DECOR_MAX = 6;
+
 /** Decorations on the table: one per festival celebrated, the six in turn. */
-export const decorCount = (p: UrodzajProgress): number => Math.min(6, p.fest);
+export const decorCount = (p: UrodzajProgress): number => Math.min(DECOR_MAX, p.fest);
+
+/** Whether celebrating festival `fest` (0-based, ever) sets a new decoration on the table. */
+export const setsDecor = (fest: number): boolean => fest < DECOR_MAX;
 
 // ── stars and the day ────────────────────────────────────────────
 /** Stars for a basket's score (0–3). */
