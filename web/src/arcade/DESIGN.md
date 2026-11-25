@@ -8838,3 +8838,50 @@ iPhone.
 * **Rozświetl's own pictures** are not animated (the living picture is Ja jestem's): a feature, not a polish.
 * **de/sv texts** of Wiedza and round 16 still want a native reader.
 * **A real iPhone**: the "tap once" path and the device-volume tracks.
+
+## 23. Round 19: Ogród o świcie — a garden from night to dawn for a broken heart (2026-11-25)
+
+### 23.1 The founder's request
+
+> stwórz nową, osobną medytację związaną z sercem na bazie tego: [an English text on healing a broken heart —
+> psychological practices: emotional processing and journaling (an unsent letter), self-compassion and cognitive
+> reframing (soothing touch: a hand over the heart and the abdomen), attachment and identity (values, strengths,
+> passions), boundaries and digital distance, support and therapy; spiritual practices: mindfulness and grief
+> meditation, compassion and loving-kindness, prayer, contemplation or ritual, forgiveness and letting go, nature and
+> creative expression]. Chcę, żeby to było piękne wizualnie doświadczenie. Chcę, żeby był to też symboliczny, świadomy
+> proces dla użytkownika. [+ "masz wolną rękę… pick recommended… I am away"]
+
+### 23.2 What the round decided
+
+* **One garden, one night, one dawn.** Ten practices would make ten exercises; the founder asked for one *process*. So
+  the practices became the stations of a single walk through a walled garden after rain, from the night to the
+  sunrise — Psalm 30:6 is its root: *"z wieczora bywa płacz, ale z poranku wesele"*. Each practice is a symbol the
+  player performs: the waves of feeling on the pond (grief), hands on the heart (soothing touch), the letter that
+  becomes a paper boat (journaling), the gate closed for the time of healing (boundaries), the stone let fall — or held
+  ("not yet") — (forgiveness), the lanterns blessed (loving-kindness, support), the seeds sown (identity, values,
+  creativity); the dawn gathers prayer, nature and renewal, and the gardener's question at the empty tomb — *"Woman,
+  why are you weeping?… Mary!"* (Jn 20:15-16) — calls the player by name.
+* **Distinct from the series' other broken-heart work.** Złote serce (§21.6) is God mending the heart; Każda myśl (§19)
+  is the lie answered by the truth; Brzemiona (§18.8) gives burdens to the cross. Ogród o świcie is the *player's own
+  walk* through grief to the morning, with concrete steps that continue after the session.
+* **Conscious and symbolic, but zero effort to start.** The lobby's "Twoja droga" lets the player choose the stations
+  and bring their own words to each (feelings, a kind word, the letter, what keeps reopening the wound and a boundary
+  for the week, the stones, the names for the lanterns, the seeds, how the dawn should call them, how heavy the heart
+  is before); everything has a good default, so Play works at once. The recommended way grows with the length (2
+  stations at 3 minutes, the whole way from 15).
+* **The letter is never saved** — not in the progress, not in `result()`: it lives in memory from the lobby to the
+  session, and leaves on the boat (`ogrod/letter.ts`). Names and own words stay on the device (§18.3).
+* **The week.** After the session the lobby card keeps "Na ten tydzień": the boundary chosen, the friends to reach out
+  to, the seeds to tend — the psychology's concrete next steps, the support practice made real.
+* **Honest neurofeedback.** Each act moves only with real focus; what the time leaves unfinished is finished gently by
+  grace — except a stone marked "not yet", which is never let go for the player. The flowers that open at dawn
+  (the score) are the acts done with focus.
+* **Care and source** as the series (§18.3): no promise of healing; prayer with a Thou; the practices' sources named
+  once in the lobby (the psychology of grief and self-compassion; grief meditation; metta, here a prayer of blessing);
+  help lines in the lobby and tip 5; "not therapy", and a nudge toward real people.
+* **Scripture.** Seven new passages (four editions read): Jn 20:15-16, Ps 56:8 (tears in Your bottle), Song 2:11-12,
+  Eccl 3:4, Isa 66:13, Jn 16:22, 2 Cor 1:4. John 11:35 ("Jesus wept") was left out: the Bibel 1917 numbers that text
+  11:36 and gives 11:35's place to the next verse.
+* **Two builders**: A the meditation (`ogrod/*`), B the lobby's way and the soundscape (`prep.ts`, `words.ts`,
+  `prep-panel.ts`, `audio.ts`); the lead's contract `stations.ts` (the stations, their order, the session's frame,
+  `stationsFor`) and `letter.ts`.
