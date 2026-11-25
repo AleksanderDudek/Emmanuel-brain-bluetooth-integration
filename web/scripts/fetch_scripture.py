@@ -295,6 +295,10 @@ PASSAGES: list[tuple[str, str]] = [
     # round 20 — health visualisations: the watch, every cell, living skin, strong teeth, the spine
     ("job10.11", "Job 10:11"), ("sng4.2", "Song of Solomon 4:2"), ("psa145.14", "Psalm 145:14"),
     ("psa34.20", "Psalm 34:20"), ("1co12.26", "1 Corinthians 12:26"), ("psa16.9", "Psalm 16:9"),
+    # round 20, part B — the body's lightness and strength, the fullness of joy, flourishing
+    ("psa16.11", "Psalm 16:11"), ("php4.4", "Philippians 4:4"), ("psa118.24", "Psalm 118:24"), ("psa126.2-3", "Psalm 126:2-3"),
+    ("jhn16.24", "John 16:24"), ("isa61.10", "Isaiah 61:10"), ("ecc3.11", "Ecclesiastes 3:11"),
+    ("pro31.25", "Proverbs 31:25"), ("psa149.4", "Psalm 149:4"), ("sng4.7", "Song of Solomon 4:7"), ("rom12.1", "Romans 12:1"),
 ]
 
 DROP: dict[str, dict[str, str]] = {

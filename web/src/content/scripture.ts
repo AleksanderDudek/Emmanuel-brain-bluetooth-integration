@@ -419,6 +419,17 @@ export type PassageId =
   | 'psa34.20'
   | '1co12.26'
   | 'psa16.9'
+  | 'psa16.11'
+  | 'php4.4'
+  | 'psa118.24'
+  | 'psa126.2-3'
+  | 'jhn16.24'
+  | 'isa61.10'
+  | 'ecc3.11'
+  | 'pro31.25'
+  | 'psa149.4'
+  | 'sng4.7'
+  | 'rom12.1'
   ;
 
 export interface Passage {
@@ -2874,6 +2885,72 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Therefore my heart is glad and my tongue rejoices; my body also will dwell securely.', 'Psalm 16:9'],
     de: ['Darum freut sich mein Herz, und meine Ehre ist fröhlich; auch mein Fleisch wird sicher liegen.', 'Psalm 16,9'],
     sv: ['Fördenskull gläder sig mitt hjärta, och min ära fröjdar sig; jämväl min kropp får bo i trygghet.', 'Ps 16:9'],
+  },
+  'psa16.11': {
+    pl: ['Oznajmisz mi drogę żywota; obfitość wesela jest przed obliczem twojem, rozkoszy po prawicy twojej aż na wieki.', 'Ps 16,11'],
+    en: ['You have made known to me the path of life; You will fill me with joy in Your presence, with eternal pleasures at Your right hand.', 'Psalm 16:11'],
+    de: ['Du tust mir kund den Weg zum Leben; vor dir ist Freude die Fülle und liebliches Wesen zu deiner Rechten ewiglich.', 'Psalm 16,11'],
+    sv: ['Du skall kungöra mig livets väg; inför ditt ansikte är glädje till fyllest, ljuvlighet i din högra hand evinnerligen.', 'Ps 16:11'],
+  },
+  'php4.4': {
+    pl: ['Radujcie się zawsze w Panu; znowu mówię, radujcie się.', 'Flp 4,4'],
+    en: ['Rejoice in the Lord always. I will say it again: Rejoice!', 'Philippians 4:4'],
+    de: ['Freuet euch in dem HERRN allewege! Und abermals sage ich: Freuet euch!', 'Philipper 4,4'],
+    sv: ['Glädjen eder i Herren alltid. Åter vill jag säga: Glädjen eder.', 'Fil 4:4'],
+  },
+  'psa118.24': {
+    pl: ['Tenci to dzień, który uczynił Pan; rozweselmyż się, a rozradujmy się weń.', 'Ps 118,24'],
+    en: ['This is the day that the LORD has made; we will rejoice and be glad in it.', 'Psalm 118:24'],
+    de: ['Dies ist der Tag, den der HERR macht; lasset uns freuen und fröhlich darinnen sein.', 'Psalm 118,24'],
+    sv: ['Detta är den dag som HERREN har gjort; låtom oss på den fröjdas och vara glada.', 'Ps 118:24'],
+  },
+  'psa126.2-3': {
+    pl: ['Tedy były napełnione weselem usta nasze, a język nasz radością; tedy mówiono między narodami: Wielmożne rzeczy Pan uczynił z nimi. Wielmożne rzeczy Pan uczynił z nami, z czegośmy się bardzo uradowali.', 'Ps 126,2–3'],
+    en: ['Then our mouths were filled with laughter, our tongues with shouts of joy. Then it was said among the nations, “The LORD has done great things for them.” The LORD has done great things for us; we are filled with joy.', 'Psalm 126:2–3'],
+    de: ['Dann wird unser Mund voll Lachens und unsere Zunge voll Rühmens sein. Da wird man sagen unter den Heiden: Der HERR hat Großes an ihnen getan! Der HERR hat Großes an uns getan; des sind wir fröhlich.', 'Psalm 126,2–3'],
+    sv: ['Då blev vår mun uppfylld med löje och vår tunga med jubel; då sade man bland hedningarna: »HERREN har gjort stora ting med dem.» Ja, HERREN hade gjort stora ting med oss; däröver voro vi glada.', 'Ps 126:2–3'],
+  },
+  'jhn16.24': {
+    pl: ['Dotąd o niceście nie prosili w imieniu mojem; proścież, a weźmiecie, aby radość wasza była doskonała.', 'J 16,24'],
+    en: ['Until now you have not asked for anything in My name. Ask and you will receive, so that your joy may be complete.', 'John 16:24'],
+    de: ['Bisher habt ihr nichts gebeten in meinem Namen. Bittet, so werdet ihr nehmen, daß eure Freude vollkommen sei.', 'Johannes 16,24'],
+    sv: ['Hittills haven I icke bett om något i mitt namn; bedjen, och I skolen få, för att eder glädje skall bliva fullkomlig.', 'Joh 16:24'],
+  },
+  'isa61.10': {
+    pl: ['Weseląc weselić się będą w Panu, a dusza moja rozraduje się w Bogu moim; bo mię oblókł w szaty zbawienia, a płaszczem sprawiedliwości przyodział mię, jako oblubieńca ozdobnego chwałą, i jako oblubienicę ozdobioną w klejnoty swoje.', 'Iz 61,10'],
+    en: ['I will rejoice greatly in the LORD, my soul will exult in my God; for He has clothed me with garments of salvation and wrapped me in a robe of righteousness, as a bridegroom wears a priestly headdress, as a bride adorns herself with her jewels.', 'Isaiah 61:10'],
+    de: ['Ich freue mich im Herrn, und meine Seele ist fröhlich in meinem Gott; denn er hat mich angezogen mit Kleidern des Heils und mit dem Rock der Gerechtigkeit gekleidet, wie einen Bräutigam, mit priesterlichem Schmuck geziert, und wie eine Braut, die in ihrem Geschmeide prangt.', 'Jesaja 61,10'],
+    sv: ['Jag gläder mig storligen i HERREN, och min själ fröjdar sig i min Gud, ty han har iklätt mig frälsningens klädnad och höljt mig i rättfärdighetens mantel, likasom när en brudgum sätter högtidsbindeln på sitt huvud eller likasom när en brud pryder sig med sina smycken.', 'Jes 61:10'],
+  },
+  'ecc3.11': {
+    pl: ['Wszystko dobrze czyni czasu swego; owszem i żądość świata dał do serca ich, choć człowiek dzieła tego, które Bóg sprawuje, ani początku, ani końca nie dochodzi.', 'Koh 3,11'],
+    en: ['He has made everything beautiful in its time. He has also set eternity in the hearts of men, yet they cannot fathom the work that God has done from beginning to end.', 'Ecclesiastes 3:11'],
+    de: ['Er aber tut alles fein zu seiner Zeit und läßt ihr Herz sich ängsten, wie es gehen solle in der Welt; denn der Mensch kann doch nicht treffen das Werk, das Gott tut, weder Anfang noch Ende.', 'Prediger 3,11'],
+    sv: ['Allt har han gjort skönt för sin tid, ja, han har ock lagt evigheten i människornas hjärtan, dock så, att de icke förmå att till fullo, ifrån begynnelsen intill änden, fatta det verk som Gud har gjort.', 'Pred 3:11'],
+  },
+  'pro31.25': {
+    pl: ['Moc i przystojność jest odzieniem jej; nie frasuje się o czasy przyszłe.', 'Prz 31,25'],
+    en: ['Strength and honor are her clothing, and she can laugh at the days to come.', 'Proverbs 31:25'],
+    de: ['Kraft und Schöne sind ihr Gewand, und sie lacht des kommenden Tages.', 'Sprüche 31,25'],
+    sv: ['Kraft och heder är hennes klädnad, och hon ler mot den dag som kommer.', 'Ords 31:25'],
+  },
+  'psa149.4': {
+    pl: ['Albowiem się kocha Pan w ludu swym; pokornych zbawieniem uwielbia.', 'Ps 149,4'],
+    en: ['For the LORD takes pleasure in His people; He adorns the afflicted with salvation.', 'Psalm 149:4'],
+    de: ['Denn der HERR hat Wohlgefallen an seinem Volk; er hilft den Elenden herrlich.', 'Psalm 149,4'],
+    sv: ['Ty HERREN har behag till sitt folk, han smyckar de ödmjuka med frälsning.', 'Ps 149:4'],
+  },
+  'sng4.7': {
+    pl: ['Wszystkaś ty jest piękna, przyjaciółko moja! a zmazy niemasz na tobie.', 'Pnp 4,7'],
+    en: ['You are altogether beautiful, my darling; in you there is no flaw.', 'Song of Solomon 4:7'],
+    de: ['Du bist allerdinge schön, meine Freundin, und ist kein Flecken an dir.', 'Hohelied 4,7'],
+    sv: ['Du är skön alltigenom, min älskade, på dig finnes ingen fläck.', 'Höga v 4:7'],
+  },
+  'rom12.1': {
+    pl: ['Proszę was tedy, bracia! przez litości Boże, abyście stawiali ciała wasze ofiarą żywą, świętą, przyjemną Bogu, to jest rozumną służbę waszę.', 'Rz 12,1'],
+    en: ['Therefore I urge you, brothers, on account of God’s mercy, to offer your bodies as living sacrifices, holy and pleasing to God, which is your spiritual service of worship.', 'Romans 12:1'],
+    de: ['Ich ermahne euch nun, liebe Brüder, durch die Barmherzigkeit Gottes, daß ihr eure Leiber begebet zum Opfer, das da lebendig, heilig und Gott wohlgefällig sei, welches sei euer vernünftiger Gottesdienst.', 'Römer 12,1'],
+    sv: ['Så förmanar jag nu eder, mina bröder, vid Guds barmhärtighet, att frambära edra kroppar till ett levande, heligt och Gud välbehagligt offer – eder andliga tempeltjänst.', 'Rom 12:1'],
   },
 };
 
