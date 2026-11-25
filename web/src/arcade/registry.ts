@@ -61,7 +61,8 @@ export interface ArcadeEntry {
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
-  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi';
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi'
+  | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -337,6 +338,51 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'luk12.7',
     brain: brain('wlosy'),
     load: () => import('./wlosy/index').then(m => m.default),
+  },
+  {
+    id: 'straz', kind: 'health', title: t('straz.title'), tagline: t('straz.tagline'), text: t('straz.text'),
+    how: [t('straz.how1'), t('straz.how2'), t('straz.how3')],
+    tips: [t('straz.tip1'), t('straz.tip2'), t('straz.tip3'), t('straz.tip4'), t('straz.tip5')],
+    unit: t('straz.unit'), art: 'art-straz', fill: ['#eef6ff', '#8fd3ff', '#5a6fd6', '#0c1026'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa121.4',
+    brain: brain('straz'),
+    load: () => import('./straz/index').then(m => m.default),
+  },
+  {
+    id: 'komorki', kind: 'health', title: t('komorki.title'), tagline: t('komorki.tagline'), text: t('komorki.text'),
+    how: [t('komorki.how1'), t('komorki.how2'), t('komorki.how3')],
+    tips: [t('komorki.tip1'), t('komorki.tip2'), t('komorki.tip3'), t('komorki.tip4'), t('komorki.tip5')],
+    unit: t('komorki.unit'), art: 'art-komorki', fill: ['#fff6d8', '#ffd27a', '#c86a9a', '#170d22'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa103.5',
+    brain: brain('komorki'),
+    load: () => import('./komorki/index').then(m => m.default),
+  },
+  {
+    id: 'skora', kind: 'health', title: t('skora.title'), tagline: t('skora.tagline'), text: t('skora.text'),
+    how: [t('skora.how1'), t('skora.how2'), t('skora.how3')],
+    tips: [t('skora.tip1'), t('skora.tip2'), t('skora.tip3'), t('skora.tip4'), t('skora.tip5')],
+    unit: t('skora.unit'), art: 'art-skora', fill: ['#fff0e6', '#ffc2a6', '#d07a8a', '#1a0d1c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'job10.11',
+    brain: brain('skora'),
+    load: () => import('./skora/index').then(m => m.default),
+  },
+  {
+    id: 'zeby', kind: 'health', title: t('zeby.title'), tagline: t('zeby.tagline'), text: t('zeby.text'),
+    how: [t('zeby.how1'), t('zeby.how2'), t('zeby.how3')],
+    tips: [t('zeby.tip1'), t('zeby.tip2'), t('zeby.tip3'), t('zeby.tip4'), t('zeby.tip5')],
+    unit: t('zeby.unit'), art: 'art-zeby', fill: ['#ffffff', '#d8f4ff', '#7fb8d8', '#0d1622'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'sng4.2',
+    brain: brain('zeby'),
+    load: () => import('./zeby/index').then(m => m.default),
+  },
+  {
+    id: 'kregoslup', kind: 'health', title: t('kregoslup.title'), tagline: t('kregoslup.tagline'), text: t('kregoslup.text'),
+    how: [t('kregoslup.how1'), t('kregoslup.how2'), t('kregoslup.how3')],
+    tips: [t('kregoslup.tip1'), t('kregoslup.tip2'), t('kregoslup.tip3'), t('kregoslup.tip4'), t('kregoslup.tip5')],
+    unit: t('kregoslup.unit'), art: 'art-kregoslup', fill: ['#f2fbff', '#a8e8e0', '#4f9fb0', '#0b1a22'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa145.14',
+    brain: brain('kregoslup'),
+    load: () => import('./kregoslup/index').then(m => m.default),
   },
   {
     id: 'serce', kind: 'heart', title: t('serce.title'), tagline: t('serce.tagline'), text: t('serce.text'),
