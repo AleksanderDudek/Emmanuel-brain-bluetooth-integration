@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CLOSE_MIN, MusicDirector, type PlayerState, type TrackPlayer } from '../src/arcade/kit/music';
 import { ageRecent, frame, longestFit, mmss, parseLength, planMusic, type Track } from '../src/arcade/kit/playlist';
-import { isVideoId, parseVideoId } from '../src/arcade/kit/youtube';
+import { appleTouch, isVideoId, parseVideoId } from '../src/arcade/kit/youtube';
 
 /** The founder's eleven (round 17), with their lengths. */
 const ELEVEN: Track[] = [
@@ -105,6 +105,18 @@ describe('kit/playlist planMusic', () => {
     expect(parseLength('5')).toBeNull();
     expect(mmss(439)).toBe('7:19');
     expect(mmss(59.6)).toBe('1:00');
+  });
+});
+
+describe('kit/youtube appleTouch', () => {
+  it('knows an iPhone, an iPad (also iPadOS calling itself a Mac with a touch screen) — not a Mac, not Android', () => {
+    const ua = (s: string, touch = 5) => ({ userAgent: s, maxTouchPoints: touch });
+    expect(appleTouch(ua('Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15'))).toBe(true);
+    expect(appleTouch(ua('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)'))).toBe(true);
+    expect(appleTouch(ua('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15'))).toBe(true);
+    expect(appleTouch(ua('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15', 0))).toBe(false);
+    expect(appleTouch(ua('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/131 Mobile Safari/537.36'))).toBe(false);
+    expect(appleTouch(undefined)).toBe(false);
   });
 });
 

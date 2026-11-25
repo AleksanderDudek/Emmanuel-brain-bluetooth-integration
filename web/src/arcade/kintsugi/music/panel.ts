@@ -23,7 +23,7 @@ import { fmtNum } from '../../../i18n';
 import { MAX_SESSION_SEC, SESSION_MINUTES } from '../../../settings';
 import { h } from '../../../ui/dom';
 import { longestFit, mmss, planMusic, type Recent, type Track } from '../../kit/playlist';
-import { watchUrl } from '../../kit/youtube';
+import { appleTouch, watchUrl } from '../../kit/youtube';
 import { mulberry32 } from '../../../core/random';
 import { t } from './i18n';
 import {
@@ -191,6 +191,8 @@ export function musicPanel(m: MusicPrefs, save: () => void, sessionSec: () => nu
       if (m.youtube) {
         out.push(h('p', { class: 'kin-music-note' }, t('consent.on'), ' ',
           button(t('consent.withdraw'), () => { m.youtube = false; changed('consent'); }, 'kin-music-link', { 'data-k': 'withdraw' })));
+        // iOS sets no embedded video's volume: the tracks follow the phone's buttons, not the app's slider
+        if (appleTouch()) out.push(h('p', { class: 'kin-music-note kin-music-ios' }, t('ios.volume')));
       }
     }
     root.replaceChildren(...out.filter((x): x is HTMLElement => x !== null));

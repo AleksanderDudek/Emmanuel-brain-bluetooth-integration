@@ -186,6 +186,21 @@ describe('kintsugi music: the lobby section', () => {
     expect(el.querySelectorAll('iframe, img')).toHaveLength(0);
   });
 
+  it('on an iPhone or iPad says, once the tracks are on, that they play at the phone’s volume', () => {
+    const ua = Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent');
+    Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15' });
+    try {
+      const m = { ...freshMusic(), youtube: true };
+      const el = panel(m);
+      expect(el.querySelector('.kin-music-ios')?.textContent).toMatch(/głośnością telefonu/);
+      el.querySelector<HTMLButtonElement>('[data-k="withdraw"]')!.click();
+      expect(el.querySelector('.kin-music-ios')).toBeNull();
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).userAgent;
+      if (ua && navigator.userAgent === undefined) Object.defineProperty(Navigator.prototype, 'userAgent', ua);
+    }
+  });
+
   it('consent: "Włącz utwory z YouTube" agrees and saves; it can be withdrawn; "Tylko muzyka tła" chooses the ambient', () => {
     const m = freshMusic();
     const el = panel(m);
@@ -193,6 +208,8 @@ describe('kintsugi music: the lobby section', () => {
     expect(m.youtube).toBe(true);
     expect(saves).toBe(1);
     expect(el.querySelector('.kin-music-consent')).toBeNull();
+    // not on an iPhone: no word about the phone's volume
+    expect(el.querySelector('.kin-music-ios')).toBeNull();
     el.querySelector<HTMLButtonElement>('[data-k="withdraw"]')!.click();
     expect(m.youtube).toBe(false);
     expect(el.querySelector('.kin-music-consent')).not.toBeNull();

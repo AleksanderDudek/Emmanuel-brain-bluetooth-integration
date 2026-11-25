@@ -23,6 +23,7 @@ const pl = {
   'consent.yes': 'Włącz utwory z YouTube',
   'consent.on': 'Utwory z YouTube są włączone.',
   'consent.withdraw': 'Wycofaj zgodę na YouTube',
+  'ios.volume': 'Na iPhonie i iPadzie utwory grają z głośnością telefonu — ustawisz ją przyciskami z boku. Muzyka tła słucha głośności w aplikacji.',
   'fit.exact': {
     one: `Na {min}${N}min zmieści się {n} utwór (w całości), resztę czasu gra muzyka tła.`,
     few: `Na {min}${N}min zmieszczą się {n} utwory (w całości), resztę czasu gra muzyka tła.`,
@@ -102,6 +103,7 @@ const en: Cat = {
   'consent.yes': 'Play tracks from YouTube',
   'consent.on': 'Tracks from YouTube are on.',
   'consent.withdraw': 'Withdraw consent for YouTube',
+  'ios.volume': 'On an iPhone or iPad the tracks play at the phone’s volume — set it with the side buttons. The background music follows the app’s volume.',
   'fit.exact': {
     one: `In {min}${N}min, {n} track fits (played whole); the background music plays the rest of the time.`,
     other: `In {min}${N}min, {n} tracks fit (played whole); the background music plays the rest of the time.`,
@@ -174,6 +176,7 @@ const de: Cat = {
   'consent.yes': 'Stücke von YouTube abspielen',
   'consent.on': 'Stücke von YouTube sind eingeschaltet.',
   'consent.withdraw': 'Zustimmung für YouTube widerrufen',
+  'ios.volume': 'Auf iPhone und iPad spielen die Stücke in der Lautstärke des Geräts – stelle sie mit den seitlichen Tasten ein. Die Hintergrundmusik folgt der Lautstärke in der App.',
   'fit.exact': {
     one: `In {min}${N}min passt {n} Stück (ganz); die übrige Zeit spielt die Hintergrundmusik.`,
     other: `In {min}${N}min passen {n} Stücke (ganz); die übrige Zeit spielt die Hintergrundmusik.`,
@@ -246,6 +249,7 @@ const sv: Cat = {
   'consent.yes': 'Spela låtar från YouTube',
   'consent.on': 'Låtar från YouTube är påslagna.',
   'consent.withdraw': 'Återkalla samtycket till YouTube',
+  'ios.volume': 'På iPhone och iPad spelas spåren med telefonens volym – ställ in den med knapparna på sidan. Bakgrundsmusiken följer volymen i appen.',
   'fit.exact': {
     one: `På {min}${N}min ryms {n} låt (hel); resten av tiden spelar bakgrundsmusiken.`,
     other: `På {min}${N}min ryms {n} låtar (hela); resten av tiden spelar bakgrundsmusiken.`,

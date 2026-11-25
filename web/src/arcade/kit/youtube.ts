@@ -13,6 +13,15 @@ import type { PlayerState, TrackPlayer } from './music';
 
 export const YT_ORIGIN = 'https://www.youtube-nocookie.com';
 
+/**
+ * An iPhone, iPod or iPad (iPadOS says "Macintosh" but has a touch screen): there no script sets a video's volume, so
+ * an embedded track plays at the device's volume and its fades do not apply — the lobby says so.
+ */
+export function appleTouch(nav: Pick<Navigator, 'userAgent' | 'maxTouchPoints'> | undefined = typeof navigator === 'undefined' ? undefined : navigator): boolean {
+  if (!nav) return false;
+  return /\b(iPhone|iPad|iPod)\b/.test(nav.userAgent) || (/\bMacintosh\b/.test(nav.userAgent) && (nav.maxTouchPoints ?? 0) > 1);
+}
+
 /** An 11-character YouTube video id. */
 export const isVideoId = (s: string): boolean => /^[A-Za-z0-9_-]{11}$/.test(s);
 
