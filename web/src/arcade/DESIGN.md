@@ -8760,3 +8760,81 @@ waits for a tap, and away between tracks. When the browser wants a tap on the pl
 line under the card (over it when there is no room) asks once — "Stuknij ▶ w odtwarzaczu, aby włączyć muzykę" — with
 "Tylko muzyka tła", which ends the tracks for this session. Never an error on screen: a track that cannot play is
 skipped. The summary's line: "Muzyka: 2 utwory i muzyka tła" / "muzyka tła" / "cisza" (`music.stat()`).
+
+## 22. Round 18: the backlog polished (2026-11-25)
+
+The founder chose "Szlif zaległości": the open points earlier rounds left, measured first, then fixed where a fix
+does not change what a game means.
+
+### 22.1 The breath pacer's ring (`kit/pacerspot.ts`, `src/arcade/pacer.ts`)
+
+On the smallest phones the rest's pill (210 × 70) found no place clear of the play and took the one that covered
+least: **14 % of Geoda's board**, 7 % of Firmament's, 5 % of Arka's deck on a phone on its side. Where the pill has
+no room, the runner now shows **the ring alone** (`.arcade-breath.ring`, 66 × 66: the lungs, the phase's seconds and
+its colour; the phase's word stays in `aria-label`), lighter behind so the cells show through, and still taking no
+taps. A game asks for it with `pacerAt(): { x, y, ring: true }`:
+
+* `pacerRing(regions, avoid)` — the ring in the first place clear of everything the pill had to keep clear of;
+* `pacerLeastOf(regions, hard, soft)` — where even the ring has no clear place: whichever of the pill and the ring
+  covers less of the play (the pill on a tie, for its word).
+
+Geoda tries pill → ring → least in every layout (its columns mode used to go straight to the least); Arka and
+Firmament put the ring between their pill searches and the least. Measured over `CHECK_SIZES`: Geoda 14.1 → 1.5 %,
+Firmament 6.6 → 1.0 %, Arka 5.1 → 0 %; the games' tests hold ≤ 2 %, ≤ 1.5 % and ≤ 0.5 % of the board.
+
+### 22.2 A shorter rest than the player chose is said (`RhythmSpec.restIn`, the lobby)
+
+Drzewo nad wodą keeps its rests and the wind within 55 % of the session (`RULES.restCap`), so a long rest dial was
+cut without a word in a short session (8 breaths after every stage: 1 at 5 minutes, 2 at 10). A game may now give
+`restIn(r, sec)` — the rest its plan really keeps — and `restKept()` tells the lobby when the player's own (custom)
+rest is longer: under the dials, "W sesji 5 min odpoczynek trwa 1 oddech — dłuższy nie zmieściłby całej drogi. Wybierz
+dłuższą sesję, by oddychać dłużej." The line above it (how many rests, their share of the session) then counts the
+kept rest, not the dial's (8 breaths read "rest about 70 % of the time" where 2 were kept). The design never triggers
+it (it fits by itself). Serce, named with Drzewo in
+round 15's open points, no longer shortens its between-rests since round 16's stages (only a 2-minute stage's closing
+rest may hold fewer breaths than a long dial, never below the dial's 1–6 at the usual breath): left as it is.
+
+### 22.3 Urodzaj's full table
+
+The first six festivals each set a decoration (`DECOR_MAX`, `setsDecor`); later ones said "a new decoration on the
+table" in the summary, the festival's card and two of Feliks's lines. Now: "{fest} — świętowane przy pełnym stole",
+"Stół pełen — świętujcie razem", and a moment of their own (`festFull`, three lines in every language).
+
+### 22.4 Złote serce on an upright phone (`kintsugi/layout.ts`, `render.ts`)
+
+Round 17 kept the player card's place free with the words' band over it, so on a short phone the heart had what was
+left: 28 px a unit on a small phone (60 without tracks), 30 on an iPhone in Safari (82). Now the card stands at the
+foot on the left and **the band and the breath guide stand beside it** in a column (the guide under the words, a
+stack); the scene keeps the whole width and everything above the card: 28 → 41, 30 → 64, a large phone 65 → 105, a
+tablet upright 172 → 217 (`test/arcade-kintsugi.test.ts`: ≥ 0.65 of the heart without tracks). In the column's
+narrow band the narrator's line takes up to the lines the band holds and steps down to 13 px before it would be cut;
+a quality's word ("Radość") shrinks to the column's width; a passage that would be cut is still never shown.
+
+The close (the card is gone by then: the outro is ambient) keeps at least ~5 lines for the blessing over the 0–10
+rows, and the heart moves up and a little smaller out of its way on any layout (it was the desk's alone); the blessing
+steps down to 13 px rather than lose its end (a phone cut it after "…dziękuję, że zbierasz to, co"). The words of pain
+are drawn after every active piece, so a grace's piece flying home never passes over one.
+
+### 22.5 iPhone and iPad (`kit/youtube.ts appleTouch`, the music section)
+
+iOS lets no script set an embedded video's volume. Once the tracks are on, the lobby says so on an iPhone or iPad
+(`appleTouch()`: the user agent's iPhone/iPad/iPod, or iPadOS's "Macintosh" with a touch screen): "Na iPhonie i iPadzie
+utwory grają z głośnością telefonu — ustawisz ją przyciskami z boku. Muzyka tła słucha głośności w aplikacji."
+
+**Measured in WebKit** (Playwright's WebKit 27.2 — Safari's engine — with an iPhone 13's screen, touch and user agent,
+the dev build, 2026-11-25): no request to YouTube before the consent nor in the lobby after it; the card at t = 26 s
+of a 5-minute session; the track plays; the player 200 × 200, nothing over it; the embed reported the fade-in's
+volumes (0 → 25 …: desktop WebKit honours `setVolume`; a real iPhone does not); no console error. WebKit on a Mac lets
+the embed start without a tap, so the "tap once" path is still held only by the director's tests and needs a real
+iPhone.
+
+### 22.6 Left for the founder
+
+* **Synapsy's headline** stops rising once every link is at its most synapses — only for a player who presses Space
+  alone (the lessons' paths saturate ~2.5 minutes in); a player who wires new pairs keeps building. Counting anything
+  else would change what "połączenia" means: unchanged.
+* **Balance** named in rounds 12 and 15 (Zastępy's chapter cap, Nehemiasz's year top, rest-earned scores a little
+  lower with long rests in Nehemiasz, Pasterz and Posłaniec): working as designed; a change is a decision, not a fix.
+* **Rozświetl's own pictures** are not animated (the living picture is Ja jestem's): a feature, not a polish.
+* **de/sv texts** of Wiedza and round 16 still want a native reader.
+* **A real iPhone**: the "tap once" path and the device-volume tracks.
