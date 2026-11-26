@@ -29,6 +29,8 @@ export interface CardView {
   /** where it is: 0 far down the street (arriving) … 1 held up close; 'gone' after it flew into the garland / pocket */
   near: number;
   own: boolean;
+  /** (optional, B) the chosen reframe is a heavy card's "not yet — I trust": its gold side is a small flame */
+  trust?: boolean;
 }
 
 /** A choice of reframe (the thumb zone; up to four: the wins and, for a heavy moment, "not yet — I trust"). */
@@ -62,6 +64,8 @@ export interface PassaView {
   /** cards carried in the pocket so far (not turned) */
   carried: number;
   reduced: boolean;
+  /** (optional, B) the hanging sign by the café in the page's language ("Dzień passy: 5"); absent: a sun and the number */
+  sign?: string;
 }
 
 export interface Rect { x: number; y: number; w: number; h: number }
