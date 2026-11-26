@@ -437,6 +437,11 @@ export type PassageId =
   | 'psa149.4'
   | 'sng4.7'
   | 'rom12.1'
+  | '1co9.26-27'
+  | 'psa144.1'
+  | 'pro24.16'
+  | 'psa18.34'
+  | '1ti6.12'
   ;
 
 export interface Passage {
@@ -3000,6 +3005,36 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Therefore I urge you, brothers, on account of God’s mercy, to offer your bodies as living sacrifices, holy and pleasing to God, which is your spiritual service of worship.', 'Romans 12:1'],
     de: ['Ich ermahne euch nun, liebe Brüder, durch die Barmherzigkeit Gottes, daß ihr eure Leiber begebet zum Opfer, das da lebendig, heilig und Gott wohlgefällig sei, welches sei euer vernünftiger Gottesdienst.', 'Römer 12,1'],
     sv: ['Så förmanar jag nu eder, mina bröder, vid Guds barmhärtighet, att frambära edra kroppar till ett levande, heligt och Gud välbehagligt offer – eder andliga tempeltjänst.', 'Rom 12:1'],
+  },
+  '1co9.26-27': {
+    pl: ['Ja tedy tak bieżę, nie jako na niepewne; tak szermuję, nie jako wiatr bijąc. Ale karzę ciało moje i w niewolę podbijam, abym snać inszym każąc, sam nie był odrzucony.', '1 Kor 9,26–27'],
+    en: ['Therefore I do not run aimlessly; I do not fight like I am beating the air. No, I discipline my body and make it my slave, so that after I have preached to others, I myself will not be disqualified.', '1 Corinthians 9:26–27'],
+    de: ['Ich laufe aber also, nicht als aufs Ungewisse; ich fechte also, nicht als der in die Luft streicht; sondern ich betäube meinen Leib und zähme ihn, daß ich nicht den andern predige, und selbst verwerflich werde.', '1. Korinther 9,26–27'],
+    sv: ['Jag för min del löper alltså icke såsom gällde det ett ovisst mål; jag kämpar icke likasom en man som hugger i vädret. Fastmer tuktar jag min kropp och kuvar den, för att jag icke, när jag predikar för andra, själv skall komma till korta vid provet.', '1 Kor 9:26–27'],
+  },
+  'psa144.1': {
+    pl: ['Błogosławiony Pan, skała moja, który ćwiczy ręce moje do bitwy, a palce moje do wojny.', 'Ps 144,1'],
+    en: ['Blessed be the LORD, my Rock, who trains my hands for war, my fingers for battle.', 'Psalm 144:1'],
+    de: ['Gelobet sei der HERR, mein Hort, der meine Hände lehrt streiten und meine Fäuste kriegen…', 'Psalm 144,1'],
+    sv: ['Lovad vare HERREN, min klippa, han som lärde mina armar att kriga, mina händer att strida…', 'Ps 144:1'],
+  },
+  'pro24.16': {
+    pl: ['Bo choć siedm kroć upada sprawiedliwy, przecie zaś powstaje; ale niezbożni wpadną w nieszczęście.', 'Prz 24,16'],
+    en: ['For though a righteous man may fall seven times, he still gets up; but the wicked stumble in bad times.', 'Proverbs 24:16'],
+    de: ['Denn ein Gerechter fällt siebenmal und steht wieder auf; aber die Gottlosen versinken im Unglück.', 'Sprüche 24,16'],
+    sv: ['Ty den rättfärdige faller sju gånger och står åter upp; men de ogudaktiga störta över ända olyckan.', 'Ords 24:16'],
+  },
+  'psa18.34': {
+    pl: ['Ćwiczy ręce moje do boju, tak, iż kruszę łuk miedziany ramionami swemi.', 'Ps 18,35'],
+    en: ['He trains my hands for battle; my arms can bend a bow of bronze.', 'Psalm 18:34'],
+    de: ['Er lehrt meine Hand streiten und lehrt meinen Arm einen ehernen Bogen spannen.', 'Psalm 18,35'],
+    sv: ['…du som lärde mina händer att strida och mina armar att spänna kopparbågen!', 'Ps 18:35'],
+  },
+  '1ti6.12': {
+    pl: ['Bojuj on dobry bój wiary, chwyć się żywota wiecznego, do któregoś też powołany, i wyznałeś dobre wyznanie przed wieloma świadkami.', '1 Tm 6,12'],
+    en: ['Fight the good fight of the faith. Take hold of the eternal life to which you were called when you made the good confession before many witnesses.', '1 Timothy 6:12'],
+    de: ['…kämpfe den guten Kampf des Glaubens; ergreife das ewige Leben, dazu du auch berufen bist und bekannt hast ein gutes Bekenntnis vor vielen Zeugen.', '1. Timotheus 6,12'],
+    sv: ['Kämpa trons goda kamp, sök att vinna det eviga livet, vartill du har blivit kallad, du som ock inför många vittnen har avlagt den goda bekännelsen.', '1 Tim 6:12'],
   },
 };
 

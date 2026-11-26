@@ -110,6 +110,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "PHP": ("Philippians", "Flp", "Philipper", "philipper", "Filipperbrevet", "Fil"),
     "COL": ("Colossians", "Kol", "Kolosser", "kolosser", "Kolosserbrevet", "Kol"),
     "2TH": ("2 Thessalonians", "2 Tes", "2. Thessalonicher", "2_thessalonicher", "Andra Thessalonikerbrevet", "2 Tess"),
+    "1TI": ("1 Timothy", "1 Tm", "1. Timotheus", "1_timotheus", "Första Timoteusbrevet", "1 Tim"),
     "2TI": ("2 Timothy", "2 Tm", "2. Timotheus", "2_timotheus", "Andra Timoteusbrevet", "2 Tim"),
     "HEB": ("Hebrews", "Hbr", "Hebräer", "hebraeer", "Hebreerbrevet", "Hebr"),
     "JAS": ("James", "Jk", "Jakobus", "jakobus", "Jakobsbrevet", "Jak"),
@@ -304,10 +305,14 @@ PASSAGES: list[tuple[str, str]] = [
     ("psa16.11", "Psalm 16:11"), ("php4.4", "Philippians 4:4"), ("psa118.24", "Psalm 118:24"), ("psa126.2-3", "Psalm 126:2-3"),
     ("jhn16.24", "John 16:24"), ("isa61.10", "Isaiah 61:10"), ("ecc3.11", "Ecclesiastes 3:11"),
     ("pro31.25", "Proverbs 31:25"), ("psa149.4", "Psalm 149:4"), ("sng4.7", "Song of Solomon 4:7"), ("rom12.1", "Romans 12:1"),
+    # round 21 — Dobry bój: the good fight in the ring (Paul's boxer, the hands trained, rising after a fall)
+    ("1co9.26-27", "1 Corinthians 9:26-27"), ("psa144.1", "Psalm 144:1"), ("pro24.16", "Proverbs 24:16"),
+    ("psa18.34", "Psalm 18:34"), ("1ti6.12", "1 Timothy 6:12"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
     "psa62.1": {"en": "For the choirmaster. According to Jeduthun. A Psalm of David."},
+    "psa144.1": {"en": "Of David.", "pl": "Pieśń Dawidowa.", "de": "Ein Psalm Davids.", "sv": "Av David."},
     "psa19.1": {"en": "For the choirmaster. A Psalm of David."},
     "psa42.1": {"en": "For the choirmaster. A Maskil of the sons of Korah."},
     "psa23.1-3": {"en": "A Psalm of David.", "pl": "Psalm Dawidowy.", "de": "Ein Psalm Davids.", "sv": "En psalm av David."},
@@ -328,7 +333,8 @@ DROP_END: dict[str, dict[str, str]] = {
 # Known misprints in a primary source, corrected to the witness that prints the edition right: (wrong, right).
 # The run fails if the wrong text is gone, so a corrected upstream is noticed.
 FIX: dict[str, dict[str, tuple[str, str]]] = {
-    "psa133.3": {"de": ("verheizt", "verheißt")},   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
+    "psa133.3": {"de": ("verheizt", "verheißt")},
+    "psa18.34": {"pl": ("Çwiczy", "Ćwiczy")},   # a C-cedilla for Ć in the transcription; the 1881 print has „Ćwiczy“   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
     "sng4.2": {"de": ("bechnittener", "beschnittener")},   # both digitisations of Luther 1912 print „bechnittener“ (a misprint: the word is beschnitten)
     "jhn8.12": {"de": ("sondern wir das Licht", "sondern wird das Licht")},   # a dropped "d": the 1912 text reads „wird“
     "isa43.19": {"pl": ("poznacie Nadto", "poznacie? Nadto")},   # getbible lost the question mark the 1881 print has
