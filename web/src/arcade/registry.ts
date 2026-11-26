@@ -60,7 +60,7 @@ export interface ArcadeEntry {
 }
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty' | 'boj'
-  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
+  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'passa' | 'wlosy'
   | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi' | 'ogrod'
   | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup' | 'ksztalt' | 'radosc' | 'rozkwit';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
@@ -339,6 +339,16 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'jhn7.38-39',
     brain: brain('rzeki'),
     load: () => import('./rzeki/index').then(m => m.default),
+  },
+  // ── round 22 (DESIGN.md §26): a day of wins, noticed and turned by focus
+  {
+    id: 'passa', kind: 'vision', title: t('passa.title'), tagline: t('passa.tagline'), text: t('passa.text'),
+    how: [t('passa.how1'), t('passa.how2'), t('passa.how3')],
+    tips: [t('passa.tip1'), t('passa.tip2'), t('passa.tip3'), t('passa.tip4'), t('passa.tip5')],
+    unit: t('passa.unit'), art: 'art-passa', fill: ['#fff4d8', '#ffcf6e', '#c4703a', '#1b1420'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'rom8.28',
+    brain: brain('passa'),
+    load: () => import('./passa/index').then(m => m.default),
   },
   {
     id: 'wlosy', kind: 'health', title: t('wlosy.title'), tagline: t('wlosy.tagline'), text: t('wlosy.text'),

@@ -70,6 +70,7 @@ const pl = {
   'mysli.how3': 'Rękami: kliknij „Nie moja” (albo N), gdy myśl Cię nie dotyczy; na końcu kliknij (albo 0–9), jak ciężko jest teraz.',
   'kintsugi.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9), jak bardzo boli teraz.',
   'ogrod.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9), jak ciężko jest teraz Twojemu sercu.',
+  'passa.how3': 'Rękami: kliknij (albo 1–4, Spacja — następny), jak spojrzeć na kłopot albo jaką nadzieję wybierasz — bez wyboru idzie pierwsza. Wieczorem kliknij, za co dziękujesz najbardziej.',
 } satisfies Partial<Record<ArcadeKey, string>>;
 
 type TwinKey = keyof typeof pl;
@@ -129,6 +130,7 @@ const en: Twins = {
   'mysli.how3': 'With your hands: click “Not mine” (or N) when a thought isn’t about you; at the end, click (or press 0–9) how heavy it is now.',
   'kintsugi.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9) how much it hurts now.',
   'ogrod.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9) how heavy your heart is now.',
+  'passa.how3': 'With your hands: click (or press 1–4, Space for the next) how to see a trouble or which hope you choose — with no choice the first one goes. In the evening, click what you are most grateful for.',
 };
 
 const de: Twins = {
@@ -185,6 +187,7 @@ const de: Twins = {
   'mysli.how3': 'Mit den Händen: Klick auf „Nicht meiner“ (oder N), wenn ein Gedanke dich nicht betrifft; am Ende klickst du (oder 0–9), wie schwer es jetzt ist.',
   'kintsugi.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9), wie sehr es jetzt wehtut.',
   'ogrod.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9), wie schwer dein Herz jetzt ist.',
+  'passa.how3': 'Mit den Händen: Klicke (oder 1–4, Leertaste für die nächste), wie du ein Ärgernis siehst oder welche Hoffnung du wählst — ohne Wahl geht die erste. Am Abend klickst du, wofür du am dankbarsten bist.',
 };
 
 const sv: Twins = {
@@ -241,6 +244,7 @@ const sv: Twins = {
   'mysli.how3': 'Med händerna: klicka på ”Inte min” (eller N) när en tanke inte gäller dig; i slutet klickar du (eller 0–9) hur tungt det är nu.',
   'kintsugi.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9) hur ont det gör nu.',
   'ogrod.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9) hur tungt ditt hjärta är nu.',
+  'passa.how3': 'Med händerna: klicka (eller 1–4, mellanslag för nästa) på hur du ser ett bekymmer eller vilket hopp du väljer — utan val går det första. På kvällen klickar du på vad du är mest tacksam för.',
 };
 
 export const MOUSE_CATALOGS: Readonly<Record<Lang, Twins>> = { pl, en, de, sv };
