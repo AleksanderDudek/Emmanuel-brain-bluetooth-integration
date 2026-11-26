@@ -17,7 +17,7 @@ import { rhythmOf } from '../src/arcade/kit/rhythm';
 import { font, fontPx } from '../src/arcade/wlosy/paint';
 import { buildTune } from '../src/arcade/wlosy/tune';
 import { hairlineY, profileStrands } from '../src/arcade/wlosy/world-head';
-import { cycleAt } from '../src/arcade/wlosy/render';
+import { WlosyView, cycleAt } from '../src/arcade/wlosy/render';
 import { shapeFor } from '../src/arcade/wlosy/world-follicle';
 import { strandsShown } from '../src/arcade/wlosy/world-above';
 import { mosaicCounts } from '../src/arcade/wlosy/world-section';
@@ -27,6 +27,8 @@ import { passage } from '../src/arcade/kit/scripture';
 import { songProblems } from '../src/arcade/kit/song';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { mulberry32 } from '../src/core/random';
+import { SETTLE, freshInner, type InnerPrefs } from '../src/arcade/kit/inner';
+import { wt } from '../src/arcade/wlosy/inner';
 import { catalogProblems } from '../src/i18n';
 
 const STEP = 1 / 60;
@@ -42,7 +44,8 @@ const UNFOCUSED = frame({ level: 0.4, activity: 1.6, focused: false, hold: 0, ca
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0, focused: false });
 
-const ALL_SEEN = ['s.open', 'c.grow', 'c.nav', 'c.pick', 'c.breath', 'c.blind'];
+/** Every first-time card and coach mark seen — round 23's one-time card of the inner layer ('s.inner') among them. */
+const ALL_SEEN = ['s.open', 's.inner', 'c.grow', 'c.nav', 'c.pick', 'c.breath', 'c.blind'];
 
 type SimOpts = { progress?: Partial<WlosyProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; rhythm?: { focus: number; rest: number } | null };
 
@@ -269,6 +272,8 @@ describe('the block plan', () => {
     const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
     const blinds: boolean[] = [];
     const clock = { t: 0 };
+    // past the settling-in rest that opens a session of 3 minutes and more (round 23)
+    if (sim.block.settle) drive(sim, sim.block.dur + 0.05, CALM, clock);
     for (let i = 0; i < 6; i++) {
       blinds.push(sim.block.kind === 'push' ? sim.block.blind : false);
       drive(sim, sim.block.dur + 0.05, frame(), clock, reader(sim));
@@ -278,7 +283,7 @@ describe('the block plan', () => {
   });
 
   it('judges each block once at its end and tells the next block during the telegraph', () => {
-    const sim = later();
+    const sim = later({ planned: 150 });
     const evs = drive(sim, sim.block.dur + 0.1, HIGH);
     expect(ofType(evs, 'blockEnd')).toHaveLength(1);
     expect(ofType(evs, 'blockEnd')[0].verdict).toBe(true);
@@ -375,7 +380,8 @@ describe('growth only from real focus (the founder’s rule)', () => {
   });
 
   it('the warm-up of a first session grows at half the rate (it is real focus too)', () => {
-    const sim = makeSim({ tuning: BEGINNER });
+    // a session under 3 minutes: no settling-in rest before the warm-up (round 23)
+    const sim = makeSim({ tuning: BEGINNER, planned: 150 });
     sim.story = null;
     expect(sim.block.kind).toBe('warmup');
     drive(sim, RULES.moveSec + 0.1, HIGH);
@@ -531,16 +537,20 @@ describe('choose, walk, repeat', () => {
 });
 
 describe('the session', () => {
-  it('opens the first session with the two-page card (Luke 12:7, then what this is not) and teaches with coach marks', () => {
+  it('opens the first session with the three-page card (Luke 12:7, what this is not, why the body listens) and teaches with coach marks', () => {
     const sim = makeSim();
-    expect(sim.story).toMatchObject({ kind: 'open', page: 0, pages: 2 });
+    expect(sim.story).toMatchObject({ kind: 'open', page: 0, pages: 3 });
     const clock = { t: 0 };
     drive(sim, 1, MID, clock);
     sim.stay();
     expect(sim.story!.page).toBe(1);
     drive(sim, 1, MID, clock);
     sim.stay();
+    expect(sim.story!.page).toBe(2);
+    drive(sim, 1, MID, clock);
+    sim.stay();
     expect(sim.story).toBeNull();
+    expect(sim.p.seen).toContain('s.inner');
     const evs = drive(sim, 120, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim));
     const coach = ofType(evs, 'coach').map(e => e.what);
     expect(coach).toContain('grow');
@@ -587,7 +597,8 @@ describe('the session', () => {
   });
 
   it('keeps the narrator quiet while a coach mark is up, and says the scene’s line on arriving', () => {
-    const sim = later();
+    // a session under 3 minutes: no settling-in rest first (its narrator speaks on its in-breaths, round 23)
+    const sim = later({ planned: 150 });
     const clock = { t: 0 };
     drive(sim, 8, MID, clock);
     expect(sim.talk.said.length).toBeGreaterThan(0);
@@ -999,4 +1010,138 @@ describe('Każdy włos — the words for the body (round 23, "Słowo na wydech")
       for (const s of three) expect(s, m).not.toMatch(/\p{L}+(łeś|łaś)(?!\p{L})|(?<!\p{L})gotow[ya](?!\p{L})|\p{L}\/a(?!\p{L})/u);
     }
   });
+});
+
+// ── "Ciało słucha" in Każdy włos (round 23, builder A): the same layer as the engine's games ──
+describe('Każdy włos — the body listens: the settling-in, the words on the out-breath, the night (round 23)', () => {
+  const innerOf = (o: Partial<InnerPrefs> = {}): InnerPrefs => ({ ...freshInner(), ...o });
+  const withInner = (inner: InnerPrefs, o: SimOpts = {}) => {
+    const sim = new WlosySim({
+      progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN], ...o.progress }, rng: mulberry32(o.seed ?? 1),
+      plannedSec: o.planned ?? 300, eeg: false, tuning: TUNING, rhythm: o.rhythm, inner,
+    });
+    sim.start();
+    return sim;
+  };
+  const restsOf = (sim: WlosySim, sec: number, f: (t: number, s: WlosySim) => FocusFrame) => {
+    const rests: string[][] = [];
+    let last = -1;
+    const look = () => {
+      if (sim.restBlock && sim.blockIndex !== last && sim.track.plan) rests.push(sim.track.plan.map(x => (x.kind === 'word' ? `word:${x.from}:${x.text}` : x.kind)));
+      last = sim.blockIndex;
+    };
+    look();
+    drive(sim, sec, f, { t: 0 }, look);
+    return rests;
+  };
+
+  it('opens sessions of 3 minutes and more with the settling-in rest (never the 40 s test), waiting under the opening card', () => {
+    for (const planned of [180, 300, 1800]) {
+      const plan = planBlocks(planned, true, mulberry32(planned), null, true);
+      expect(plan[0]).toMatchObject({ kind: 'rest', settle: true, dur: SETTLE.breaths * BREATH });
+      expect(plan[1].kind).toBe('warmup');
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+    }
+    expect(planBlocks(40, true, mulberry32(1), null, true).some(b => b.settle)).toBe(false);
+    const first = makeSim({ planned: 300 });
+    expect(first.holding).toBe(true);
+    const clock = { t: 0 };
+    drive(first, 15, CALM, clock);
+    expect(first.blockT).toBe(0);
+    let guard = 0;
+    while (first.story && guard++ < 400) drive(first, 0.1, CALM, clock);
+    expect(first.innerNow!.show.kind).toBe('settle');
+    expect(first.innerNow!.show).toMatchObject({ text: wt('settle.1') });
+    while (first.phase !== 'done' && clock.t < 320) drive(first, 1, (_t, s) => (s.restBlock ? CALM : MID), clock);
+    expect(first.phase).toBe('done');
+    expect(clock.t).toBeLessThanOrEqual(300 + RULES.settle + 1.1);
+  });
+
+  it('meets a returning player once with the new layer’s card; every fourth push asks to feel the place from inside', () => {
+    const sim = later({ progress: { seen: ALL_SEEN.filter(s => s !== 's.inner') } });
+    expect(sim.story).toMatchObject({ kind: 'inner', pages: 1 });
+    expect(later({ progress: { seen: [...sim.p.seen] } }).story).toBeNull();
+    expect(pushTip('czepiec', 3)).toBe(TIPS.feel);
+    expect(pushTip('czepiec', 2)).toBe(TIPS.count);
+    expect(wt(TIPS.feel)).toMatch(/od środka/);
+    expect(linesOf('settle')).toHaveLength(3);
+    expect(linesOf('night').every(l => l.length > 10 && l.length <= 90)).toBe(true);
+  });
+
+  it('shows the meditation’s verse in its first rest, then its own words (from its catalog), the word of peace last; receives only calm out-breaths', () => {
+    const sim = withInner(innerOf(), { planned: 900 });
+    const rests = restsOf(sim, 300, (_t, s) => (s.restBlock ? CALM : UNFOCUSED));
+    expect(rests[0]).toEqual(['settle', 'settle']);
+    expect(rests[1]).toEqual(['verse', 'verse', 'cue']);
+    expect(rests[2][0]).toBe(`word:med:${wt('word.krazenie.1')}`);
+    expect(rests[2].at(-1)).toBe('cue');
+    expect(sim.track.received).toBeGreaterThan(0);
+    const restless = withInner(innerOf(), { planned: 900 });
+    drive(restless, 300, (_t, s) => (s.restBlock ? UNFOCUSED : UNFOCUSED));
+    expect(restless.track.received).toBe(0);
+    expect(sim.score).toBe(restless.score);
+    expect(sim.result().highlights).toContain(wt('hl.received', { n: sim.track.received }));
+  });
+
+  it('before sleep: the night’s words, goodnight, the night’s passages — and never the own words in the result', () => {
+    const night = withInner(innerOf({ night: true, own: 'Moje zdanie tylko tutaj.', cue: 'own', cueOwn: 'Cisza' }), { planned: 300 });
+    const rests = restsOf(night, 296, (_t, s) => (s.restBlock ? CALM : HIGH));
+    expect(rests[0]).toEqual(['settle', 'settle']);
+    expect(night.finaleLine).toBe(wt('finale.night', { word: 'Cisza' }));
+    expect(night.talk.said.some(l => linesOf('night').includes(l))).toBe(true);
+    night.finish();
+    const out = night.result();
+    expect(['psa4.8', 'psa127.2', 'pro3.24']).toContain(out.verse);
+    expect(out.highlights).toContain(wt('hl.night'));
+    expect(JSON.stringify(out) + JSON.stringify(night.p)).not.toMatch(/Moje zdanie|Cisza/);
+  });
+
+  it('draws the longest words and the word of peace whole under the breath guide, at 13 px and more, at every checked size', () => {
+    if (typeof (globalThis as { Path2D?: unknown }).Path2D === 'undefined') {
+      (globalThis as { Path2D?: unknown }).Path2D = class { moveTo() {} lineTo() {} arc() {} arcTo() {} closePath() {} quadraticCurveTo() {} bezierCurveTo() {} rect() {} ellipse() {} roundRect() {} };
+    }
+    const texts: { text: string; px: number }[] = [];
+    const state: Record<string | symbol, unknown> = { font: '10px sans-serif', globalAlpha: 1, globalCompositeOperation: 'source-over', lineWidth: 1 };
+    const pxOf = (f: unknown) => Number(String(f).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10);
+    const ctx = new Proxy(state, {
+      get(tg, k) {
+        if (k === 'measureText') return (s: string) => ({ width: [...s].length * pxOf(tg.font) * 0.55 });
+        if (k === 'fillText') return (s: string) => { if (String(s).trim()) texts.push({ text: String(s), px: pxOf(tg.font) }); };
+        if (k === 'createLinearGradient' || k === 'createRadialGradient' || k === 'createPattern') return () => ({ addColorStop() {}, setTransform() {} });
+        if (k === 'getTransform') return () => ({ a: 1, d: 1 });
+        if (k in tg) return tg[k];
+        return () => {};
+      },
+      set(tg, k, v) { tg[k] = v; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+    const longest = (Object.entries(CATALOGS.de) as [string, unknown][]).filter(([k]) => /^word\./.test(k)).map(([, v]) => String(v)).reduce((a, b) => (b.length > a.length ? b : a));
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        for (const kind of ['word', 'cue'] as const) {
+          const sim = withInner(innerOf(), { planned: 600 });
+          const clock = { t: 0 };
+          let guard = 0;
+          while (!(sim.restBlock && !sim.settleBlock) && guard++ < 4000) drive(sim, 0.25, MID, clock);
+          sim.track.plan = sim.track.plan!.map(() => (kind === 'word' ? { kind: 'word', text: longest, from: 'med' } : { kind: 'cue', text: 'Maranatha' })) as typeof sim.track.plan;
+          drive(sim, 5, CALM, clock);
+          texts.length = 0;
+          const view = new WlosyView({ getContext: () => ctx, style: {} } as unknown as HTMLCanvasElement, { reducedMotion: false, touch });
+          view.resize(c.w, c.h, 1, c.insets);
+          for (const e of sim.take()) view.on(e, sim);
+          sim.talk.line = null;
+          view.update(0.5, sim);
+          view.draw(sim);
+          const id = `${kind} · ${c.name} · ${touch ? 'touch' : 'mouse'}`;
+          for (const tx of texts) expect(tx.px, `${id}: “${tx.text}”`).toBeGreaterThanOrEqual(MIN_TEXT);
+          if (kind === 'word') {
+            const lines = texts.filter(tx => longest.includes(tx.text) && tx.text.length > 3);
+            expect(lines.map(tx => tx.text).join(' '), id).toBe(longest);
+            for (const tx of lines) expect(tx.px, id).toBeGreaterThanOrEqual(view.L.words.h < 120 ? MIN_READ : 15);
+          } else expect(texts.filter(tx => /^[A-Za-z]$/.test(tx.text)).map(tx => tx.text).join(''), id).toContain('Maranatha');
+          const w = view.fx.wordAt!;
+          expect(w.y + w.h, id).toBeLessThanOrEqual(view.L.words.y + view.L.words.h + 1);
+        }
+      }
+    }
+  }, 120_000);
 });

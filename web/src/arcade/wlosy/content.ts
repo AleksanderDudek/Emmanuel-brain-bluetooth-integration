@@ -14,6 +14,7 @@ import {
   ABOVE_PORTAL, ABOVE_VIEW, CROWN, FU, HEAD_VIEW, SEC_FOLLICLES, SKIN_VIEW, folPt, folViews, secPt, secViews, type Pt, type Rect,
 } from './geo';
 import { t, type Key } from './i18n';
+import { wt } from './inner';
 import { RULES } from './rules';
 
 export const MEDS = ['krazenie', 'korzen', 'kolor', 'wzrost', 'wir', 'cykl', 'skora', 'cala'] as const;
@@ -320,17 +321,23 @@ export const TIPS = {
   rest: ['tip.rest.1', 'tip.rest.2', 'tip.rest.3', 'tip.rest.4'] as readonly Key[],
   blind: ['tip.blind.1', 'tip.blind.2'] as readonly Key[],
   warmup: 'tip.warmup' as Key,
+  /** round 23: the place felt from inside — warmth, movement, light (the engine's words, kit/healthlib/i18n.ts) */
+  feel: 'tip.feel' as Key,
 };
 
 /** The strategy of a push block on a scene: its picture, but every RULES.repeatEvery-th push the counting one. */
 export function pushTip(s: SceneId, pushIndex: number): Key {
-  if ((pushIndex + 1) % RULES.repeatEvery === 0) return TIPS.count;
+  const n = pushIndex + 1;
+  if (n % RULES.repeatEvery === 0) return TIPS.count;
+  if (n % RULES.feelEvery === 0) return TIPS.feel;
   return TIPS.scene[s];
 }
 
 // ── the narrator's moments ────────────────────────────────────────
 export const MOMENTS = [
   'open', 'warm', 'grown', 'whole', 'good', 'rest', 'blind', 'blindEnd', 'nosignal', 'still', 'after', 'again', 'end', 'grey',
+  // round 23 (kit/inner-i18n.ts): settling in at the start, goodnight before sleep
+  'settle', 'night',
   ...SCENES.map(s => `at.${s}` as const),
 ] as const;
 export type Moment = (typeof MOMENTS)[number];
@@ -341,7 +348,8 @@ export const LINE_COUNT: Readonly<Record<Moment, number>> = Object.fromEntries(M
 /** The narrator's lines for a moment, in the page's language. */
 export function linesOf(m: Moment): string[] {
   const out: string[] = [];
-  for (let i = 1; i <= LINE_COUNT[m]; i++) out.push(t(`say.${m}.${i}` as Key));
+  // Każdy włos's own lines, or the inner layer's (settle, night)
+  for (let i = 1; i <= LINE_COUNT[m]; i++) out.push(wt(`say.${m}.${i}`));
   return out;
 }
 

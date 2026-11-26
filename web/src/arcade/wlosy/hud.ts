@@ -5,14 +5,22 @@
  * (≡ ◀ ↻ ▶, their keys under them on a desk), the meditation picker, the story cards, the names of the parts on the
  * picture, the cycle's dial, the mosaic's legend, the counter of a square centimetre.  Every text has a floor: never
  * under 11 px; what the player reads, 13 px and more.
+ *
+ * Round 23, "Ciało słucha" (kit/inner.ts, kit/innerdraw.ts — as the engine's games draw it): in rest, under the breath
+ * guide, the breath's word for the body (bright on the out-breath, dim on the in-breath, its glow following the
+ * calm), the settling-in words and the word of peace — the guide shrinks a little when a word needs the room, a word
+ * is never cut; the finale's line with the word of peace; the opening card's third page and a returning player's card.
  */
 import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
+import type { InnerShow } from '../kit/inner';
+import { type InnerFx, roomForWords } from '../kit/innerdraw';
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout } from '../kit/scripture';
 import { MED, MEDS, MODES, medName, modeName, partName, sceneName, sceneTeach, type Part, type MedId } from './content';
 import { CYCLE, CYCLE_LEN, type Phase, type Rect } from './geo';
 import { t } from './i18n';
+import { wt } from './inner';
 import { type Control, type Layout, pickerLayout, storyRect } from './layout';
 import { GOLD, GOLD_HI, INK, LILAC, PEARL, ROSE, TAU, fitFont, font, label, mix, rgba, rr, wrap } from './paint';
 import { RULES } from './rules';
@@ -61,7 +69,7 @@ let lastTeach = '';
  * gilded rule; then what the scene teaches (pages that turn slowly when it does not fit), or in rest the breath and
  * the meditation's verse.  On a desk the narrator has its own place above it.
  */
-export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, dt: number, caption: { text: string; k: number }): void {
+export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, dt: number, caption: { text: string; k: number }, fx?: InnerFx): void {
   if (!sim.started || sim.story) return;
   const r = L.words;
   const cx = r.x + r.w / 2;
@@ -91,15 +99,20 @@ export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySi
   const capH = Math.round(cpx * 1.35) * Math.max(1, clines.length);
   const rowH = rowH0 + (Math.max(rowH0, capH) - rowH0) * ease.inOutSine(clamp(rowEase));
   const rest = sim.restBlock && sim.stage !== 'whole';
-  // a rest: the kit's breath guide at the band's top (round 15), the narrator's line or the verse under it
-  const guide = rest ? wordsGuide(ctx, L, sim) : null;
+  // a rest: the kit's breath guide at the band's top (round 15), the narrator's line, the verse or the breath's word
+  // under it (round 23: the guide gives a little of its room when the rest's longest word needs it — never cut)
+  const now = rest ? sim.innerNow : null;
+  const room = rest ? guideFor(ctx, L, sim) : null;
+  const guide = room?.g ?? null;
   if (guide && sim.breathNow) {
     const a = Math.min(1, sim.blockT / 0.6, Math.max(0, sim.block.dur - sim.blockT) / 0.6);
     drawBreathGuide(ctx, sim.breathNow, { ...guide.o, alpha: a, time: sim.t });
-    const gy = guide.box.y + guide.box.h + 5;
-    const under = { x: r.x, y: gy + 6, w: r.w, h: r.y + r.h - (gy + 6) };
+    const gy = guide.box.y + guide.box.h + room!.gap;
+    const under = { x: r.x, y: gy, w: r.w, h: r.y + r.h - gy };
     pageClock += dt;
-    if (clines.length && caption.k > 0.01) {
+    // a breath's word has its out-breath: the narrator's line gives way to it then (it speaks on the in-breath)
+    const wordOut = !!now && now.show.kind !== 'verse' && now.out;
+    if (clines.length && caption.k > 0.01 && !wordOut) {
       ctx.globalAlpha = clamp(caption.k);
       ctx.font = font(cpx, 600);
       ctx.textAlign = 'center';
@@ -114,7 +127,12 @@ export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySi
         ctx.fillText(line, cx, under.y + i * lh);
       });
       ctx.globalAlpha = 1;
-    } else if (under.h >= 18) drawVerse(ctx, L, MED[sim.med].verse, under);
+    } else if (under.h >= 18) {
+      const show = now?.show;
+      if (fx && now && show && show.kind !== 'verse') {
+        fx.drawWord(ctx, under, { kind: show.kind, text: show.text, out: now.out, p: now.p, calm: sim.calmShown, label: labelOf(sim, show), desk: L.desk, u: L.u });
+      } else drawVerse(ctx, L, MED[sim.med].verse, under);
+    }
     return;
   }
   const rowMid = r.y + rowH / 2;
@@ -153,8 +171,22 @@ export function drawWords(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySi
   const box = { x: r.x, y: ruleY + 7, w: r.w, h: r.y + r.h - (ruleY + 7) };
   if (box.h < 18) return;
   pageClock += dt;
+  const fin = sim.finaleLine;
   if (rest) drawVerse(ctx, L, MED[sim.med].verse, box);
+  else if (fin && fx) fx.drawWord(ctx, box, { kind: 'word', text: fin, out: true, p: 0.5, calm: 0.5, desk: L.desk, u: L.u });
   else drawTeach(ctx, L, sim, box);
+}
+
+/** The small label over a show: the settling-in rest's, and the word of peace's the first time in a session. */
+function labelOf(sim: WlosySim, show: InnerShow): string | null {
+  if (show.kind === 'settle') return wt('hud.settle');
+  if (show.kind === 'cue' && sim.track.cueRests <= 1) return wt('hud.cue');
+  return null;
+}
+
+/** The rest's guide, sized so that the rest's longest word fits whole under it (kit/innerdraw roomForWords). */
+function guideFor(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim): { g: { o: BreathGuideOpts; box: Rect } | null; gap: number } {
+  return roomForWords(ctx, L.words, sim.track.plan ?? [], show => labelOf(sim, show), L.desk, L.u, share => wordsGuide(ctx, L, sim, share));
 }
 
 /** The title row: the scene's name in a serif, its meditation and place smaller beside it (or its place only, when narrow). */
@@ -237,7 +269,7 @@ function drawTeach(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, box:
  * where the band is wide, else stacked; the ring as large as the screen asks, shrunk (never under 26 px) so the guide
  * takes at most ~62 % of the band and the verse keeps a few lines under it.
  */
-export function wordsGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim): { o: BreathGuideOpts; box: Rect } | null {
+export function wordsGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosySim, share = 0.62): { o: BreathGuideOpts; box: Rect } | null {
   const b = sim.breathNow;
   if (!b) return null;
   const r = L.words, of = sim.breaths;
@@ -246,7 +278,7 @@ export function wordsGuide(ctx: CanvasRenderingContext2D, L: Layout, sim: WlosyS
     for (const layout of ['row', 'stack'] as const) {
       const o: BreathGuideOpts = { cx: r.x + r.w / 2, cy: 0, r: rad, sub, layout, maxW: layout === 'row' ? r.w - 2 * rad - 40 : r.w - 16 };
       const bx = breathGuideBox(ctx, o);
-      if ((bx.w <= r.w && bx.h <= r.h * 0.62) || (rad <= 26 && (bx.w <= r.w || layout === 'stack'))) {
+      if ((bx.w <= r.w && bx.h <= r.h * share) || (rad <= 26 && (bx.w <= r.w || layout === 'stack'))) {
         return { o: { ...o, cy: r.y - bx.y }, box: { x: bx.x, y: r.y, w: bx.w, h: bx.h } };
       }
     }
@@ -545,10 +577,12 @@ function pageOf(sim: WlosySim): Page | null {
   const s = sim.story;
   if (!s) return null;
   if (s.kind === 'open') {
-    return s.page === 0
-      ? { title: t('story.open.title'), text: t('story.open.text'), sub: '', verse: 'luk12.7' }
-      : { title: t('story.open2.title'), text: t('story.open2.text'), sub: '', verse: null };
+    if (s.page === 0) return { title: t('story.open.title'), text: t('story.open.text'), sub: '', verse: 'luk12.7' };
+    if (s.page === 1) return { title: t('story.open2.title'), text: t('story.open2.text'), sub: '', verse: null };
+    // round 23: why the body listens (calm, the word and sleep reach it; honestly)
+    return { title: wt('story.body.title'), text: wt('story.body.text'), sub: '', verse: null };
   }
+  if (s.kind === 'inner') return { title: wt('story.inner.title'), text: wt('story.inner.text'), sub: '', verse: null };
   const m = s.med;
   const nextMed = MEDS[(MEDS.indexOf(m) + 1) % MEDS.length];
   const sub = sim.mode === 'order' ? t('story.next.order', { med: medName(nextMed) }) : sim.mode === 'repeat' ? t('story.next.repeat', { med: medName(m) }) : t('story.next.one');

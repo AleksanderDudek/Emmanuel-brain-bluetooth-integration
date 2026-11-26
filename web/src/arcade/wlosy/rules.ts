@@ -94,6 +94,8 @@ export const RULES = {
   stillSec: 9,
   /** every repeatEvery-th push asks to count instead of picturing (for those who do not picture easily) */
   repeatEvery: 3,
+  /** every feelEvery-th push (not a counting one) asks to feel the place from inside: warmth, movement, light (round 23) */
+  feelEvery: 4,
 
   // ── cards and the voice ──────────────────────────────────────
   /** the opening card's pages close themselves after pageSec each; a closing card after closeSec */

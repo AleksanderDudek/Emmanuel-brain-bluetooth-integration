@@ -9,7 +9,12 @@
  * follicle) it zooms into the place it came from while the lens opens from there, shallower it pulls out.  Each
  * picture's still parts are baked per view and size; a frame composes them and draws what grows: no shadowBlur, no
  * filters.
+ *
+ * Round 23, "Ciało słucha" (kit/innerdraw.ts, as the engine's games): a word received in calm dissolves into 12–18
+ * gold motes that drift from the words band to the growing point (reduced motion: a soft fade); "Przed snem" lays a
+ * dark veil and a warm wash over the picture — under the words and the controls — with a small crescent in its corner.
  */
+import { InnerFx, drawNightMark, drawNightVeil } from '../kit/innerdraw';
 import { clamp, ease, Floaters, Particles } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
 import { DEPTH, SCENE, portal, sceneAt, type HairColour, type SceneId, type World } from './content';
@@ -18,6 +23,7 @@ import {
   drawCaption, drawControls, drawCounter, drawDial, drawLabels, drawLegend, drawPicker, drawStory, drawWords, type PlacedLabel,
 } from './hud';
 import { hairsText, t } from './i18n';
+import { wt } from './inner';
 import { CONTROLS, hitAt, layout, tapTargets, type Control, type Layout } from './layout';
 import { scenesGrown, type WlosyProgress } from './meta';
 import {
@@ -62,6 +68,9 @@ export class WlosyView {
   private captionK = 0;
   private lastCaption = '';
   private labelK = new Map<string, number>();
+  /** the inner layer's effects (round 23): the word's dissolve and its motes; the night's veil fading in */
+  readonly fx: InnerFx;
+  private nightK = 0;
   /** the story card and the picker as last drawn (taps and the audit) */
   storyRect: Rect | null = null;
   pickRect: Rect | null = null;
@@ -72,6 +81,7 @@ export class WlosyView {
   constructor(canvas: HTMLCanvasElement, private readonly o: ViewOpts) {
     this.ctx = canvas.getContext('2d');
     this.L = layout(360, 640, { top: 134, right: 0, bottom: 0, left: 0 }, o.touch);
+    this.fx = new InnerFx(o.reducedMotion);
   }
 
   resize(w: number, h: number, dpr: number, ins: Insets): void {
@@ -146,6 +156,10 @@ export class WlosyView {
         if (e.gained > 0.005) this.floats.add(t('hud.revealed', { pct: t('pct', { n: Math.round(Math.min(1, e.gained) * 100) }) }), f.x, f.y - 24 * L.u, { color: '#eef0ff', size: 14 * L.u, dur: 2.4 });
         break;
       }
+      case 'received':
+        // the word goes into the picture as light (reduced motion: it fades with a soft glow)
+        this.fx.received(e.text, this.focusScreen(sim));
+        break;
       case 'gold':
         if (e.on) {
           const f = this.focusScreen(sim);
@@ -183,6 +197,8 @@ export class WlosyView {
     this.lastDt = dt;
     this.parts.update(dt);
     this.floats.update(dt);
+    this.fx.update(dt);
+    this.nightK = sim.inner.night ? Math.min(1, this.nightK + dt / 2) : 0;
     this.pop = Math.max(0, this.pop - dt * 2.2);
     this.flash = Math.max(0, this.flash - dt * 0.6);
     const line = sim.talk.line;
@@ -302,9 +318,15 @@ export class WlosyView {
       ctx.fillStyle = 'rgba(6,3,16,.36)';
       ctx.fillRect(P.x - 4, P.y - 4, P.w + 8, P.h + 8);
     }
+    // before sleep: darker and warmer — over the picture and its ground, under the words and the controls
+    if (this.nightK > 0) {
+      drawNightVeil(ctx, 0, 0, L.w, L.h, this.nightK);
+      if (!sim.story && !sim.picker) drawNightMark(ctx, wt('hud.night'), P.x + P.w - 12, P.y + 16, 0.78 * this.nightK);
+    }
     const capK = sim.story || sim.picker ? 0 : this.captionK;
     drawCaption(ctx, L, this.lastCaption, capK);
-    drawWords(ctx, L, sim, this.lastDt, { text: this.lastCaption, k: capK });
+    drawWords(ctx, L, sim, this.lastDt, { text: this.lastCaption, k: capK }, this.fx);
+    this.fx.drawMotes(ctx);
     const hv = this.mouse && !sim.story && !sim.picker ? (hitAt(L, { story: null, picker: false, live: sim.canWalk }, this.mouse.x, this.mouse.y) as Control | null) : null;
     drawControls(ctx, L, sim, hv && (CONTROLS as readonly string[]).includes(hv) ? hv : null, this.time);
     this.pickRect = sim.picker && !sim.story
