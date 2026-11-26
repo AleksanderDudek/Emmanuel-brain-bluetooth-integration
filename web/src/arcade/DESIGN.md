@@ -8840,6 +8840,375 @@ iPhone.
 * **de/sv texts** of Wiedza and round 16 still want a native reader.
 * **A real iPhone**: the "tap once" path and the device-volume tracks.
 
+## 23. Round 19: Ogród o świcie — a garden from night to dawn for a broken heart (2026-11-25)
+
+### 23.1 The founder's request
+
+> stwórz nową, osobną medytację związaną z sercem na bazie tego: [an English text on healing a broken heart —
+> psychological practices: emotional processing and journaling (an unsent letter), self-compassion and cognitive
+> reframing (soothing touch: a hand over the heart and the abdomen), attachment and identity (values, strengths,
+> passions), boundaries and digital distance, support and therapy; spiritual practices: mindfulness and grief
+> meditation, compassion and loving-kindness, prayer, contemplation or ritual, forgiveness and letting go, nature and
+> creative expression]. Chcę, żeby to było piękne wizualnie doświadczenie. Chcę, żeby był to też symboliczny, świadomy
+> proces dla użytkownika. [+ "masz wolną rękę… pick recommended… I am away"]
+
+### 23.2 What the round decided
+
+* **One garden, one night, one dawn.** Ten practices would make ten exercises; the founder asked for one *process*. So
+  the practices became the stations of a single walk through a walled garden after rain, from the night to the
+  sunrise — Psalm 30:6 is its root: *"z wieczora bywa płacz, ale z poranku wesele"*. Each practice is a symbol the
+  player performs: the waves of feeling on the pond (grief), hands on the heart (soothing touch), the letter that
+  becomes a paper boat (journaling), the gate closed for the time of healing (boundaries), the stone let fall — or held
+  ("not yet") — (forgiveness), the lanterns blessed (loving-kindness, support), the seeds sown (identity, values,
+  creativity); the dawn gathers prayer, nature and renewal, and the gardener's question at the empty tomb — *"Woman,
+  why are you weeping?… Mary!"* (Jn 20:15-16) — calls the player by name.
+* **Distinct from the series' other broken-heart work.** Złote serce (§21.6) is God mending the heart; Każda myśl (§19)
+  is the lie answered by the truth; Brzemiona (§18.8) gives burdens to the cross. Ogród o świcie is the *player's own
+  walk* through grief to the morning, with concrete steps that continue after the session.
+* **Conscious and symbolic, but zero effort to start.** The lobby's "Twoja droga" lets the player choose the stations
+  and bring their own words to each (feelings, a kind word, the letter, what keeps reopening the wound and a boundary
+  for the week, the stones, the names for the lanterns, the seeds, how the dawn should call them, how heavy the heart
+  is before); everything has a good default, so Play works at once. The recommended way grows with the length (2
+  stations at 3 minutes, the whole way from 15).
+* **The letter is never saved** — not in the progress, not in `result()`: it lives in memory from the lobby to the
+  session, and leaves on the boat (`ogrod/letter.ts`). Names and own words stay on the device (§18.3).
+* **The week.** After the session the lobby card keeps "Na ten tydzień": the boundary chosen, the friends to reach out
+  to, the seeds to tend — the psychology's concrete next steps, the support practice made real.
+* **Honest neurofeedback.** Each act moves only with real focus; what the time leaves unfinished is finished gently by
+  grace — except a stone marked "not yet", which is never let go for the player. The flowers that open at dawn
+  (the score) are the acts done with focus.
+* **Care and source** as the series (§18.3): no promise of healing; prayer with a Thou; the practices' sources named
+  once in the lobby (the psychology of grief and self-compassion; grief meditation; metta, here a prayer of blessing);
+  help lines in the lobby and tip 5; "not therapy", and a nudge toward real people.
+* **Scripture.** Seven new passages (four editions read): Jn 20:15-16, Ps 56:8 (tears in Your bottle), Song 2:11-12,
+  Eccl 3:4, Isa 66:13, Jn 16:22, 2 Cor 1:4. John 11:35 ("Jesus wept") was left out: the Bibel 1917 numbers that text
+  11:36 and gives 11:35's place to the next verse.
+* **Two builders**: A the meditation (`ogrod/*`), B the lobby's way and the soundscape (`prep.ts`, `words.ts`,
+  `prep-panel.ts`, `audio.ts`); the lead's contract `stations.ts` (the stations, their order, the session's frame,
+  `stationsFor`) and `letter.ts`.
+
+### 23.3 Ogród o świcie — a broken heart walks a walled garden from the night to the dawn (Garden at Dawn · Garten im Morgenlicht · Trädgården i gryningen)
+
+Registry `kind: 'heart'` (after Złote serce), id `ogrod`, root **Psalm 30:6** (`psa30.5`), tools Mendi and HALO,
+`tuning: { adapt: 0.08 }`, `focusChip: false`, `ownBreath: true`. Headline: flowers (`kwiat / kwiaty / kwiatów`, flower(s),
+Blume(n), blomma/blommor) — grown this session by acts done with focus. Code: `src/arcade/ogrod/` (stations.ts and
+letter.ts the lead's contract; content.ts the passages and the narrator's moments; rules.ts the numbers and the plan;
+sim.ts the session; meta.ts the progress; talk.ts the narrator; world.ts the garden's geometry; layout.ts, paint.ts,
+scenery.ts, hands.ts, render.ts the picture; preview.ts the lobby and the cards; panel.ts the lobby card; i18n.ts the
+words; builder B's prep.ts, words.ts, prep-panel.ts, prep-i18n.ts, audio.ts — §23.4); test `test/arcade-ogrod.test.ts` (35).
+
+**One line:** a walled garden at night after rain — the bench by the pond, the olive, the gate in the wall, the lantern
+path, the bed of dark soil; the player walks the stations of their way (the waves of feeling on the pond, the hands on
+the heart and a kind word, the unsent letter sailing off as a paper boat, the gate closed gently for the time of
+healing, the stone let fall or held, the lanterns blessed, the seeds sown), each act done only by real focus and each
+settling in whole breaths, while the sky turns from indigo to rose and gold; at dawn the buds the focus grew open all
+over the garden and someone in the garden calls the player by name.
+
+#### The plan (rules.ts `planFor` on stations.ts `frameOf` / `stationsFor`: fixed blocks over T, 3–30 min or a ≤ 60 s test)
+
+Every block has a planned start and end; they follow one another from 0 to T with no gap, so the walk always reaches
+the dawn and the session's end (a late frame shortens the next block, never the session). The order:
+
+| Part | Length | What happens | Block |
+|---|---|---|---|
+| **Przyjście** | the frame's arrival (~6 %, 20–60 s) in whole breaths | the night garden after rain, the bench by the pond; Ps 30:6 (or Ps 34:18) card | rest |
+| **a station's opening** | one whole breath (never under `openMin` 6 s when a long breath must give way) | the camera walks there (2.4 s), its name card, the narrator's opening line | rest |
+| **an act** | the push: 20 s by design (lead-in included), 15–45 | the station's symbol moves only with focus (below) | push |
+| **its settle** | whole breaths: 1–3 under 10 min, 2–3 at 10–20, 3–5 at 25, 5–6 at 30 (Dłoń one more) | the act settles (below); the station's passage in its first settle, then every other one | rest |
+| **Wschód** | ~34 % of the dawn's receptive part, whole breaths | the camera pulls back to the whole garden, the sun over the wall, birdsong, the buds open one after another (18 %–100 % of it); Song 2:11-12 (or Isa 35:1) | rest |
+| **Imię** | ~26 %, whole breaths | "Ktoś w ogrodzie woła Cię po imieniu."; the gardener's question (Jn 20:15-16); the player's name in light (prep `name`, the form to be called by, alone — never inside a sentence), else Isa 43:1 | rest |
+| **Modlitwa** | ~16 % (a dawn under 50 s says it in the close) | „Ojcze, przez Jezusa, w Duchu Świętym: dziękuję, że zbierasz moje łzy i znasz moje imię. Powierzam Ci moje serce i ten ogród. Niech rośnie w nim to, co dobre. Amen.” | rest |
+| **Zamknięcie** | the rest, ≥ 14 s (≥ 40 % of a short dawn) | the blessing „Idź w pokoju. Pan jest z Tobą — nocą i o świcie.”, the closing verse (Song 2:11-12, Lam 3:22-23, Jn 16:22, Isa 58:11, Rev 21:4 in turn — `result().verse`), "Jak ciężko jest teraz Twojemu sercu?" 0–10 (waits ≤ 6 s past T) | free |
+
+The dawn is the frame's (~14 %, 30–110 s) and never shorter: a session too short for the player's dials or for a long
+breath (4 · 7 · 8 at 3 minutes with a chosen way) shortens the settles to one breath first, then the stations'
+openings (down to 6 s), then the pushes (never under the lead-in + 6 s). Time left after the acts goes, in this order,
+to: the acts the player prepared, round the way; settles up to 3 breaths; the acts a longer session repeats (a wave
+that comes back, the kind word written again, more roses over the gate, the sprouts tended); pushes up to 30 s; settles
+up to 5 (the hands 6); pushes up to 45 s; a dawn up to 1.6 × its frame; then — a way much too short for its length
+(one station at 30 minutes) — settles up to 9 breaths and the rest to the dawn (`plan.short`: the lobby's forecast
+says "Ta droga jest krótka na tę długość — dłużej potrwają odpoczynki i świt.").
+
+With the default words and the recommended way (5 · 5): 3 min — Łzy and Dłoń, 2 acts of 25 s, settles of 3 breaths,
+dawn 30 s; 5 min — + List (fold, sail), 4 acts; 10 min — Łzy, Dłoń, List, Kamienie, Latarnie, 8 acts; 15 min — all
+seven, 14 acts of ~21 s; 20–30 min — 18 acts, pushes 28 → 35 s, settles 2–3 → 5–6. **A test session** (≤ 60 s,
+app:smoke plays 40 s with `?trainingSec=40`): the shares only — arrival 10 %, one station, one act (an opening of 8 %,
+a push of the rest, a settle of at most a breath), dawn 20 % — and a held focus reaches the dawn with a flower (a test
+holds it at 40 and 60 s, Mendi and HALO, first-ever and returning).
+
+#### The acts (sim.ts `actsOf`; never more than the player's words)
+
+| Station | Acts | The push (focus) | The settle (rest) |
+|---|---|---|---|
+| **Łzy** | each feeling a wave; a longer session lets them come back (≤ feelings + 2, ≤ 5) | the wave crosses the pond through a steady light, its word on it | the word sinks and rises as a drop of light into the clay vessel (Ps 56:8; Eccl 3:4; Mt 5:4) |
+| **Dłoń na sercu** | the kind word written (≤ 3; each time the harsh word fades a step) | first person: the kind word written in light, letter by letter, over the harsh one | the hands rise and fall with the breath, warmth under them (Isa 66:13; Ps 131:2; Mt 11:28) |
+| **List bez adresu** | fold, then sail (one act "foldSail" in a test) | the letter folds into a paper boat with a small light; it crosses the pond | it drifts away, its words lift off as motes (Ps 62:8; 1 Pt 5:7); no letter: a sealed blank one |
+| **Furtka** | close, then the rose (≤ 4: more roses) | the gate closes gently; a rose climbs over the latch | the words beyond the gate fade into mist — "na czas gojenia" (Prov 4:23; Ps 46:10) |
+| **Kamienie** | each stone (the player's, 1–3) | ready: the fingers open, the stone falls; "not yet": the stone rests warm in the open hand | rings spread, the water clears, it glows on the bottom (Col 3:13; Eph 4:32) — or "Możesz go jeszcze potrzymać" |
+| **Latarnie** | me → the friends → the one who hurt me (when chosen) → all; fewer acts than lanterns: "all" is still last | a lantern kindles; its paper says whom it is for | a blessing to the Father in the band: „Ojcze, oto Ania. Pobłogosław i strzeż…” (the name alone, in every language), the last one "…I wszystkich, których noszę w sercu." when some had no act (Eccl 4:9-10; 2 Cor 1:4; Rom 12:15) |
+| **Nasiona** | each seed sown, then ≤ 2 "tend" | a seed pressed in; it sprouts | the gathered tears fall as a rain of light on the sprouts (Ps 126:5; Ps 139:14; Isa 58:11) |
+
+**Light only from real focus** (§18.3–18.4): an act moves only in a sighted push past its lead-in (5 s Mendi, 2 s
+HALO), with a reliable signal, while `focused`, at `focusRate` = (0.7 + 0.6 × above) × (0.85 + 0.3 × held/12 s), the
+level averaged over one whole breath (10 s); an act asks `needFor(push)` focus-seconds = 0.75 × (push − lead-in) × 0.88
+(the average player finishes it). No focus: the act waits — nothing is forced; after 12 s with no progress the narrator
+says it once ("wait"). Focus in the settles and the dawn moves nothing (a test holds it: focus only in rests grows no
+flower).
+
+**Grace.** An act not finished when its push ends is finished gently (the wave passes, the boat drifts on, the gate
+closes softly, the lantern kindles, the earth takes the seed — „Fala przechodzi sama. Tak też jest dobrze.”, a soft
+chord, no flower). **A stone is never let go for the player**: an unfinished stone — ready or "not yet" — is *kept*
+(it stays in the open hand, „Kamień zostaje w otwartej dłoni — na inny dzień.”; the summary: „Kamień „jeszcze nie”
+został w otwartej dłoni — i tak jest dobrze.”). A "not yet" stone's push is holding it warm: done with focus it grows
+the same flowers as a stone let fall (a test holds both), and only stones let fall count in the record `stones`.
+
+**Flowers (the score).** An act done with focus grows a bud where it happened (world.ts `flowerSpot`: the pond's near
+rim for Łzy, its far rim for the letter, its right rim for the stones, by the bench for Dłoń, at the wall's foot by the
+gate, along the lantern path, in the bed — 14–18 spots each, then a meadow along the garden's front); focus held after
+the act is done (abiding, "Zostań w tym świetle") grows one more for each 5 focus-seconds, at most 2 more (≤ 3 an act).
+Nothing else grows one. At the sunrise the buds open one after another; the garden at dawn shows the attention given —
+honest neurofeedback, said kindly: „Ogród pokazuje uwagę z tej sesji: każdy kwiat to akt w skupieniu.” / „Tym razem
+ogród zakwitł cicho — akty dokończyły się łagodnie. Uwaga wróci.”
+
+#### The sky, the garden and the camera (the picture)
+
+* **The sky's time** (`sim.sky`): night 0.02 in the arrival; 0.04 → 0.62 over the stations by time; a cosine ease to 1
+  over the sunrise. The scenery's colours are ramps over it (paint.ts): indigo night, the blue hour, rose, gold, morning;
+  stars fade, the moon sets behind the wall, the sun rises over it behind the olive with rays through its leaves.
+* **The panorama** (world.ts, 3.3 units wide, 1 unit = the picture's height): the gate (x 0.62) · the bench and the clay
+  vessel (0.9) · the pond (1.48) · the olive (2.08) · the lantern path (2.3–2.6) · the bed (2.78–3.22); 2.6 screens wide
+  upright, 2.0 on its side, 1.6 on a desk. Each station has its place and zoom; the camera walks 2.4 s (ease in-out)
+  and 3.6 s to the dawn's whole view, then drifts slowly; reduced motion: a soft cut through the dark. Hills and
+  cypresses beyond the wall at half parallax.
+* **Water and air**: the pond reflects the sky, the wall and the olive (flipped, darkened), the moon's or the sun's path,
+  lily pads, two lilies that open at dawn, ripples and rings; mist at night, fireflies, dew at dawn, birds in the
+  morning. **First person** (Dłoń, Kamienie): the hands of light (hands.ts; the stone in Złote serce's cupped hands)
+  over the softly blurred garden. Reduced motion: nothing drifts.
+* **Looked at** by the lead in a 3-, 10- and 15-minute session (all seven stations, the dawn) on a desk and a phone.
+  The lobby's hero (preview.ts) shows the pond, the olive and the wall at the first light: a desk's hero is as tall
+  as the long card beside it, so the garden stands in a frame at the hero's top (at most as tall as it is wide) and
+  the lawn runs on below. A lantern's or a seed's long name wraps to a second line on its paper tag ("Dla wszystkich
+  ze złamanym sercem" lost its end before).
+
+#### Layout (layout.ts; every size of kit/mobile `CHECK_SIZES` in a test)
+
+Phone upright: the view on the garden above; at the bottom the words' band and under it the breath guide (its word
+beside the ring). Phone on its side: the view on the left, a column on the right with the band and the guide. Desk: the
+view over the whole width, the band at the bottom centre, the guide left of it. Everything inside the insets and under
+the HUD; the station's name card at the view's top, the name in light in its upper part, the hands in its lower part.
+The close: the 0–10 row — one row of 11, 6 + 5 or 4 + 4 + 3 at ≥ 44 px — at the foot, its question above it (as tall as
+two lines at the layout's font, so a big screen's question never reaches over the row), the blessing or the verse
+above that. Text from a base of 15 px (desk 15–20); nothing under 13 px but the verses' references.
+
+#### The letter, the words, the week, the result
+
+* **The letter** (letter.ts): written in the lobby, taken once by the session that starts (`takeLetter()` — it is gone
+  from the lobby then), held only in the sim's memory for the boat; never in the progress, the settings, `result()` or
+  a request. A save that somehow carries a `letter` (at the top or in the prep) loses it on migrate.
+* **The words**: `prepView(progress.prep)` read once at the start — the feelings on the waves, the harsh and the kind
+  word, the bounds beyond the gate, the stones' words, the lanterns' names (on their paper), the seeds', the name for
+  the dawn. They stay in this game's progress on this device (§18.3).
+* **Before → after**: the 0–10 before comes from the lobby (`prep.before`) and is cleared by the session's finish; the
+  answer in the close is kept with it (`history`, ≤ 30); the summary says "8 → 4" — the player's own sense, not a
+  measurement. **The week**: after the session `progress.week = weekOf(prep, day, stations walked)` (§23.4's card "Na
+  ten tydzień": the boundary if the gate was walked, the friends if the lanterns were, the seeds if the bed was);
+  what this way did not walk keeps last week's (a card ≤ 7 days old), and a way that walked none of the three — a
+  short way, a session ended early — leaves last week's card as it was.
+* **`result()`** holds: the flowers, the unit, the record, stats — "Stacje drogi 7 z 7", "Akty w skupieniu 12 z 14",
+  "Skupienie − odpoczynek" (the band's block contrast), "Ciężar serca 8 → 4" (numbers only) — highlights from the
+  catalog (the dawn reached, the garden or the quiet garden, grace, the kept stone, a record), the closing verse.
+  **Never**: own words, names (the friends', the dawn's), the letter, the week (a test feeds all of them in and reads
+  the JSON). The progress keeps: sessions, best, flowers, acts with focus, acts by grace, ways walked to the dawn,
+  stones let fall, the prep, the week, the breath, the history, the first-time marks, the last length.
+
+#### Rhythm (kit/rhythm.ts)
+
+Focus "Akt" — an act's push in seconds, lead-in included (20 by design, 15–45, by 5); rest "Wyciszenie" — a settle's
+whole breaths of the player's pattern (2 by design, 1–4). By design the plan fits both to the length (a session under
+10 minutes builds on one-breath settles so the prepared acts fit, then lengthens them; the note says so). A player who
+moved a dial keeps their push and settle where they fit (the dawn takes what is left, up to its growth; a way much too
+short lets the settles grow rather than a dawn of many minutes); a session too short for a long settle keeps fewer
+breaths and `restIn` says how many — planned on the player's own way and words as they are when the lobby asks (more
+stations, less room).
+
+#### Care and reverence (§18.3)
+
+God comforts, gathers the tears, calls by name and makes the garden grow; the player feels, lets go, blesses, sows and
+entrusts. The light pictures attention, never grace. No promise of healing (the series' forbidden-words test over this
+game's catalogs, B's way and the registry texts in four languages: no energy, vibration, heal…/uleczy/heilt/läk…,
+cure, activate, manifest, detox, magic). Polish second person without a gendered form (a test: past tenses -łeś/-łaś,
+"y/a" pairs, gotowy/a, sam/sama… — "sama" only of a thing in the grace lines). The sources are named once, in the
+lobby text: the psychology of grief and self-compassion (an unsent letter, soothing touch, boundaries, values) and
+contemplative traditions (grief meditation; metta, loving-kindness — here a prayer of blessing). Not therapy: the
+lobby text and tip 5 (the help lines exactly as Złote serce's: pl 116 123 / 116 111 / 112; de TelefonSeelsorge 0800 111
+0 111, 112; sv Mind Självmordslinjen 90101, 112; en a local emergency number or a crisis line), and the lanterns and
+the week nudge toward real people.
+
+#### Numbers worth knowing
+
+Lead-in 5 / 2 s; a push ≥ lead-in + 6 s; an opening ≥ 6 s; the narrator's "wait" after 12 s without progress; a flower
+per act done with focus + 1 per 5 focus-seconds of abiding (≤ 3); the sky 0.62 at the last station's end; the buds open
+over 18 %–100 % of the sunrise; the name's part: the narrator's line (≤ 6.5 s), Jn 20:15-16, the name in light from 62 %
+(a call under 9 s goes straight to the name); with a name the passage stays on the band while the name rises, without
+one Isa 43:1 takes the band at 62 %; the close ≥ 14 s and waits 6 s past the end for the 0–10.
+
+#### Tests (`test/arcade-ogrod.test.ts`, 35)
+
+The plan at 3–30 min and 40 / 60 s, for the recommended and chosen ways, every breath preset (10, 16, 19 s), Mendi and
+HALO, few and many words: blocks contiguous and in order, ending at T, the dawn never under its frame, the arrival
+whole breaths, settles whole breaths, pushes past the lead-in; the recommended way per length, acts never over the
+player's words; the dials kept and `restIn` (also on a chosen way). The session: focus moves an act only sighted,
+reliable and focused; no focus waits and says so once; grace finishes an act at its push's end with no flower; a "not
+yet" stone kept, never dropped, not even by grace, with the same flowers as a stone let fall; flowers only from focus;
+the average player does the acts, a stronger one grows more; a test session reaches the dawn with a flower (first-ever
+and returning, Mendi and HALO); the arc reaches the close and `canStop` at every length with any focus; the sky and the
+buds; the call by name; the result idempotent, records only rise, before → after; nothing personal in `result()` and
+no letter in the progress; the week of the stations walked; the lanterns' blessings (a friend by name in all four
+languages). The progress: fresh, broken and hostile saves (a letter lost), the week, the history. The words: all four
+catalogs, every narrator moment ≤ 90 characters, Polish plurals, the arcade texts and their help lines, the source
+named once, forbidden words, gendered forms, every passage in four editions, the registry entry. The layout at every
+`CHECK_SIZES` entry and the lobby card in happy-dom.
+
+#### Left open
+
+* Lengths between 61 and ~110 s (only through `?trainingSec`): the lead's frame gives them a full arrival (20 s) and
+  dawn (30 s), leaving no room for a station, so the plan overruns into the dawn (2–13 s left of it). Real lengths and
+  the ≤ 60 s test are not affected.
+* The gardener's passage (Jn 20:15-16, ~21–27 s to read in the four editions) without a name given: 12 s at 15–30 min,
+  6 s at 10, 3 s at 5, none at 3 (a call under 9 s goes straight to the name); with a name it now stays to the call's
+  end (~23 s at 15–30 min). A fuller fix needs the dawn's shares rebalanced and the view's name fade (fixed at 62 % of
+  the call) to follow the sim's phase.
+* (Fixed by the lead: a call shorter than 9 s — 3 minutes, the tests — goes straight to the name and its bell; the
+  view now shows the name at once there instead of from 62 % of the call.)
+
+### 23.4 Twoja droga — the conscious preparation in the lobby, the week after, and the garden's sound (builder B)
+
+Code: `src/arcade/ogrod/prep.ts` (the preparation: shapes, repair, view, the week, the lobby's changes), `words.ts` (the
+word sets and limits), `prep-panel.ts` (the lobby section and the week's card), `prep-i18n.ts` (their words in four
+languages), `audio.ts` (the soundscape); the `og-` block at the end of `styles.css`; tests
+`test/arcade-ogrod-prep.test.ts` (25) and `test/arcade-ogrod-audio.test.ts` (12).
+
+#### What the player brings (a symbolic, conscious process — and zero effort)
+
+The founder asked for "a symbolic, conscious process": the player decides what they carry into the garden. It also
+works with no effort at all: `freshPrep()` chooses a whole session (one feeling — smutek; the pair "To wszystko moja
+wina" → "Biorę na siebie moją część — nie całość"; one thing that reopens the wound; one stone, ready; one seed;
+the recommended way), so "Graj" straight away is a good session.
+
+The section "Twoja droga" in the lobby card (DOM, mobile first):
+
+* **The way.** "Polecana droga na {n} min" or "Moja droga" (radio); the seven stations as a vertical path — a glyph
+  (a drop, a heart, a paper boat, an arched gate, a stone, a lantern, a sprout) on a dashed line, the name, one line on
+  what the station is, a switch. A switch in the recommended way makes the way the player's own (starting from the
+  recommended stations); the last station cannot be switched off ("Przynajmniej jedna stacja zostaje w drodze."). The
+  dawn is last and always on. What fits the lobby's length is said from the lead's `stationRoom` / `stationsFor`:
+  "Na 5 min: 3 stacje, a potem świt." or "Na 5 min zmieści się 5 stacji; reszta poczeka na dłuższą sesję." — a row that
+  will wait says "nie zmieści się w 5 min" (dimmed, never hidden). The section follows the lobby's length buttons.
+* **Each chosen station**: one line summarising the choice (in the dawn's rose-gold) and "Zmień", which opens its
+  choices under the row (one at a time; "Zwiń" closes):
+  - **Łzy** — "Co czujesz?": 1–3 of 12 feelings (smutek, żal, tęsknota, złość, lęk, wstyd, samotność, rozczarowanie,
+    poczucie winy, pustka, zmęczenie, ulga — "Każde uczucie może tu być") or own words.
+  - **Dłoń na sercu** — "Dobre słowo dla siebie": 8 pairs, harsh → kind, true and gentle, never toxic positivity, the
+    first person without a gendered form ("Powinno mi już przejść" → "Smutek ma swój czas — mogę dać sobie ten czas";
+    "Nie zasługuję na miłość" → "Bóg kocha mnie także dziś"); "Z twardym słowem" / "Tylko dobre słowo"; own words (the
+    harsh one optional).
+  - **List bez adresu** — a paper-coloured page in the serif (≤ 1 200 characters), typed straight into `letter.ts`
+    (memory only), filled again from it on a redraw; "List nie jest nigdzie zapisywany — w medytacji odpłynie i
+    zniknie. Zamknięcie aplikacji też go wymaże."; nothing written → a sealed blank page sails; "Wyczyść list".
+  - **Furtka** — "Co ciągle otwiera ranę?" 1–4 of 10 (wiadomości, zdjęcia, profil tej osoby, wspólne miejsca, nasze
+    piosenki, stare rozmowy, przeglądanie wspomnień, pytanie o tę osobę, czekanie na znak, nocne przewijanie) or own;
+    "Moja granica na ten tydzień": one of 8 small, concrete, kind resolutions ("Wyciszę powiadomienia od tej osoby",
+    "Odłożę telefon godzinę przed snem", "Gdy przyjdzie tęsknota, zadzwonię do kogoś bliskiego"…) or none (the
+    default: a boundary is the player's own decision). "Na czas gojenia — nie ze złości i nie za karę."
+  - **Kamienie** — 1–3 stones: żal do tej osoby, do siebie, do tego, co się stało, do Boga ("Możesz Mu go powiedzieć —
+    skarga też jest modlitwą."), do innych ludzi, or own; each "Gotowe, by puścić" / "Jeszcze nie teraz" (ready unless
+    the player says not yet; "Możesz go jeszcze potrzymać."). "Przebaczenie to droga, nie chwila. Dziś wystarczy chcieć."
+  - **Latarnie** — "Dla mnie" and "Dla wszystkich ze złamanym sercem" always (dashed chips); up to 5 names of the
+    people who stand by the player; a switch "Zapal też dla osoby, która mnie zraniła", off by default — "Tylko jeśli
+    chcesz. Błogosławić nie znaczy udawać, że nie bolało."; "Po sesji karta „Na ten tydzień” przypomni, by do nich
+    napisać albo zadzwonić."
+  - **Nasiona** — 1–3 of 16 values, strengths and loves (czułość, wierność, odwaga, humor, ciekawość, twórczość,
+    muzyka, ruch, przyroda, przyjaźń, służba, wiara, cierpliwość, prawdomówność, gościnność, nauka) or own.
+  - **Świt** — "Jak cię zawołać?": an optional name (placeholder "np. Mario": the form the player wants to be called
+    by — in Polish the vocative — shown as the call itself); none → the dawn calls with a word of Scripture.
+* **Before**: "Jak ciężko jest dziś twojemu sercu?" 0–10 (6 + 5 on a phone, 11 in a row from 700 px; a second tap or
+  "Bez odpowiedzi" clears it) — the player's own sense, not a measurement; the session asks again at dawn and clears it.
+* **Care and privacy** at the foot: "To nie terapia — jeśli to możliwe, porozmawiaj też z kimś bliskim albo z
+  terapeutą." with the help lines as `kintsugi.tip5` (pl 116 123 / 116 111 / 112; de TelefonSeelsorge 0800 111 0 111,
+  112; sv Mind Självmordslinjen 90101, 112; en a local emergency number or a crisis line); "Twoje słowa i imiona zostają
+  tylko na tym urządzeniu. List nie jest zapisywany."; "Zapomnij moje słowa" (every own word and name gone, the letter
+  too, the defaults back; the way and the 0–10 stay).
+
+Own words: ≤ 24 characters, trimmed, spaces folded, control characters gone; an own word that reads as a set's word
+becomes that word; doubles refused with a word. Every change saves at once and redraws only the section, with the
+keyboard focus back on the control used (`data-k`). Typing never redraws: the letter goes to `letter.ts` only, the
+name into the progress in memory, saved when the field is left (a redraw there would swallow the tap that left it).
+No inline styles (the CSP); every control ≥ 44 px, text ≥ 13 px (the app's shared 11-px section head aside), inputs at
+16 px so a phone does not zoom; no sideways scroll at 360 px; on a desk the section keeps to 780 px and the pairs and
+boundaries take two columns.
+
+#### The shapes (the contract with the meditation)
+
+`GardenPrep` (the lead's) lives in the progress: `freshPrep()`, `cleanPrep(x)` — repairs a save **in place** (a wrong
+type gets its fresh value, unknown keys go — a `letter` key never survives —, unknown words drop out, lists keep 1–3 /
+1–4 / ≤ 5 names, an emptied list gets its default back, `way` keeps known stations in the way's order, `before` a whole
+0–10 or null) — and `prepView(p)` (the words in the page's language; the lanterns me → friends → the one who hurt
+(only when chosen) → all, "Dla mnie" / the name (Polish: the name alone — "Dla Ania" would need the genitive; en/de/sv
+"For / Für / För {name}") / "Dla osoby, która mnie zraniła" / "Dla wszystkich ze złamanym sercem"). Nothing of it goes
+into `result()`; the letter is never in the progress (a test types one and reads every save).
+
+#### Na ten tydzień (after the session)
+
+`weekOf(prep, day, walked)` is what a session leaves (A keeps it as the progress' `week`): the boundary when the gate
+was walked, the friends when the lanterns were, the seeds (as words) when the seeds were; `cleanWeek` repairs a save.
+The lobby card shows it for seven days: "Na ten tydzień · Z ogrodu, środa, 25 listopada" — the boundary, "Napisz albo
+zadzwoń do: Ania, Kuba." (without names still "Napisz albo zadzwoń do kogoś bliskiego." — always a real person), "Zrób
+coś małego dla tego, co zasiane: czułość, muzyka.", and "Zacznij od jednej rzeczy."
+
+#### The garden's sound (`audio.ts`)
+
+Live Web Audio on the kit's context into its master bus (the player's volume, the sound switch, the runner's fade; no
+files; nothing with the sound off). It never uses the kit's pad (the meditation's `padLevel` is null).
+
+* **The pad**: slow chords in F major (a sine, a quiet triangle a few cents apart, a soft octave; 3.6-s rise, long
+  fall, a slow drift of cents), a low root; the sky picks the progression — night vi–IV–I–V (Dm9, B♭maj9, Fadd9,
+  Csus2, ~12 s a chord), the blue hour IV–I–ii–V (~10 s), the morning I–V/E–vi–IV–I–V (~9 s); a low-pass that opens
+  with the dawn (320 Hz at night to ~1 800 Hz at sunrise) and a little with the focus light, and a faint high glow over
+  the chord that rises with the light — focus is heard, never metered. A short room reverb made from shaped noise.
+* **The night**: the rain's last drips (thinning over the first minute, gone before the blue hour), crickets (a few
+  pulses every 2–5 s, left and right, gone by the blue hour), the pond's water (band-passed noise lapping slowly).
+* **The dawn**: birds from the blue hour's end — two kinds of short phrases (a warble, a "ti-ta"), every few seconds at
+  sunrise, sparser in the close.
+* **Rest**: the breath's soft air, rising on the in-breath, falling on the out-breath, still on a hold.
+* **Cues** (`SoundCue`, mapped by A from the sim's events): wave (a soft swell), drop (a glassy drip into the vessel),
+  warm (a low warm tone), kind (a small rising bell motif), fold (paper), sail (a push of water), gate (a soft wooden
+  close and its latch), rose (a petal-like shimmer), stone (a plop), ring (the rings as soft bell harmonics), lantern (a
+  small flame), bless (a bell and its fifth), seed (soil), sprout (rising plucks), bird, sun (a warm swell), bloom (a
+  cascade of bells), call (one clear bell, F5), grace (a soft rolled chord — never a failure sound), step (quiet steps).
+  Each has its own gap (0.6–6 s) and all together at most 8 in any 3 s.
+* `pause(true)` schedules nothing (the runner suspends the context too) and comes back softly; `finish()` fades the
+  whole garden over 3 s and stops it; `destroy()` is safe twice. Reduced motion halves the bed's random events.
+
+### 23.5 How the round was finished, checked, and what waits for the founder
+
+The builders' session ended before their work was committed (round 20 found it so, §24.14); the lead finished it on
+2026-11-26: the meditation's tests (a helper agent, 35 — seven bugs found and fixed, listed in the commit), the review of
+the picture in 3-, 10- and 15-minute sessions (all seven stations and the dawn, a desk and a phone), and the fixes the
+review asked for (§23.3: the desk hero, the lantern tags, the name in a short call, the week through a short way).
+
+Checks: vitest 97 files / 3468 tests; tsc; the 15-minute session walks all seven stations to the dawn (15 flowers with
+the simulator's toggling focus), the 10- and 3-minute ones their recommended ways; the mobile audit on six devices
+passes (60 fps at 4× slowed CPU on the small phone, the game 1.6 ms a frame — the sky needs no cache; one small text,
+the verse reference at 11 px, as allowed).
+
+For the founder:
+* **Look and listen** on a real phone and with the band: the garden's sound was rendered offline and measured, not
+  heard by a person.
+* **Jn 20:15-16 without a name given** stays on screen 12 s at 15–30 minutes and less in shorter sessions (§23.3, left
+  open): giving a name in the lobby keeps it to the end of the call.
+* **de/sv** by a native reader, as every round.
+* Lengths of 61–110 s (only through `?trainingSec`) squeeze the dawn: a test length, not a real one.
+
 ## 24. Round 20: health visualisations on one engine (2026-11-26)
 
 (§23 is round 19's Ogród o świcie, on its own branch.)
@@ -10018,6 +10387,6 @@ meditation that pictures renewal cannot be read as a promise of youth.  Closers 
   the founder's.
 * **Ja jestem… with a strong newcomer** (§24.4b): the first long sessions end in a long light pass until the pace
   has learnt the player.
-* **Round 19** (Ogród o świcie) was found unfinished in its own worktree (the builders' work uncommitted); it was not
-  touched.  Both rounds touch the registry, the arcade texts, styles.css, the title pins and scripture.ts: merging both
-  is a careful hand-merge (re-run `npm run scripture` after it).
+* **Round 19** (Ogród o świcie) was found unfinished in its own worktree (the builders' work uncommitted); it was
+  finished the same day (§23.5) and merged into this round's branch (the registry, the arcade texts, styles.css, the
+  title pins and scripture.ts by hand; `npm run scripture` run again).
