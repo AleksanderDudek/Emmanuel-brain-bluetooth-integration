@@ -14,7 +14,7 @@
 import { translator, type Catalog, type Lang, type Msg } from '../../i18n';
 
 /** a no-break space (between a number and its unit, and before "%" in German and Swedish) */
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   'unit': { one: `{n}${N}komórka`, few: `{n}${N}komórki`, many: `{n}${N}komórek`, other: `{n}${N}komórki` },

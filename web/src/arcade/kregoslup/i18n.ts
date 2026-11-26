@@ -13,7 +13,7 @@
 import { lang, translator, type Catalog, type Lang } from '../../i18n';
 
 /** a no-break space (a number and its unit stay together) */
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   'unit': { one: `{n}${N}łyk`, few: `{n}${N}łyki`, many: `{n}${N}łyków`, other: `{n}${N}łyku` },
