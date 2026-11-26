@@ -1,2 +1,5 @@
-/** Placeholder until the round 20 builder wires the game to kit/healthlib (DESIGN §24). */
-export { default } from '../wlosy/index';
+/** Mocne zęby (DESIGN.md §24.4): a library of the health visualisations' engine (kit/healthlib). */
+import { makeHealthModule } from '../kit/healthlib';
+import { LIBRARY } from './library';
+
+export default makeHealthModule(LIBRARY);
