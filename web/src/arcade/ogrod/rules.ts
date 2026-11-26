@@ -70,6 +70,11 @@ export const RULES = {
   testOpen: 0.08,
   /** the settle: at most one breath, at most this share of the station */
   testRest: 0.34,
+  /**
+   * the act asks this share of the average player's need (app:smoke plays 40 s with the simulator's focus on about
+   * half the time and wants a flower — as Złote serce's `testPour`; a real session is never a test)
+   */
+  testNeed: 0.4,
 
   // ── the acts ───────────────────────────────────────────────────
   /** waves on the pond: each feeling once, and a longer session lets feelings come back, up to this many waves */

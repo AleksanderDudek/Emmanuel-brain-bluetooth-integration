@@ -252,7 +252,7 @@ export class GardenSim {
         const rb = P.blocks.find(b => b.what === 'settle' && b.station === si && b.act === k);
         const d = list[k] ?? { kind: 'wave' as ActKind, word: '', item: 0 };
         this.acts.push({
-          station: si, id: st.id, i: k, kind: d.kind, word: d.word, item: d.item, need: needFor(a.push, P.lead), p: 0, done: null, doneAt: -1,
+          station: si, id: st.id, i: k, kind: d.kind, word: d.word, item: d.item, need: needFor(a.push, P.lead) * (P.test ? RULES.testNeed : 1), p: 0, done: null, doneAt: -1,
           abide: 0, flowers: 0, t0: pb.t0, t1: pb.t1, r1: rb ? rb.t1 : pb.t1,
         });
       });

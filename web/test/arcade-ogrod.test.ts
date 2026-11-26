@@ -357,7 +357,9 @@ describe('Ogród o świcie — the session', () => {
   });
 
   it('a test session (≤ 60 s; app:smoke plays 40 s) reaches the dawn with a flower when focus is held — first-ever and returning, Mendi and HALO', () => {
-    for (const T of [40, 60]) for (const eeg of [false, true]) for (const first of [true, false]) for (const f of [HIGH, player(HIGH), player(AVG)]) {
+    // app:smoke's simulator: focus on about half the time (2 s on, 2 s off)
+    const half: FrameFn = (t, s) => (s.pushBlock && Math.floor(t / 2) % 2 === 0 ? AVG : LOW);
+    for (const T of [40, 60]) for (const eeg of [false, true]) for (const first of [true, false]) for (const f of [HIGH, player(HIGH), player(AVG), half]) {
       const sim = makeSim({ planned: T, seed: T, eeg, first });
       const name = `${T} s ${eeg ? 'eeg' : 'fnirs'} ${first ? 'first' : 'returning'}`;
       const clock = { t: 0 };
