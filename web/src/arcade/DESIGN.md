@@ -10390,3 +10390,48 @@ meditation that pictures renewal cannot be read as a promise of youth.  Closers 
 * **Round 19** (Ogród o świcie) was found unfinished in its own worktree (the builders' work uncommitted); it was
   finished the same day (§23.5) and merged into this round's branch (the registry, the arcade texts, styles.css, the
   title pins and scripture.ts by hand; `npm run scripture` run again).
+
+## 25. Round 21: Dobry bój — the good fight in the ring (2026-11-26)
+
+### 25.1 The founder's request
+
+*"zrób też nową grę. MMA / boxing simulator. tutaj lecą różne symulacje popularnych sekwencji ciosów. ta gra jest
+miksem quick time events z mechanizmami koncentracji. Leci jakaś sekwencja i w pewnym momencie aplikacja spowalnia
+czas — masz 10–30 sekund, żeby koncentracją nabić energię. Jak ją nabijesz, to wtedy wyprowadzasz skuteczny atak,
+obronę lub kontratak. postać ma określoną ilość życia. żeby wygrać, musi przetrwać albo pokonać przeciwnika. w
+przypadku utraty żyć kończy grę."* — with a free hand, away from the machine (the same message asked for the app's
+guard against bots: `web/DESIGN.md` §17).
+
+### 25.2 What the round decided
+
+* **"Dobry bój"** (`boj`, kind `arcade`, root 2 Tm 4,7 "Bojowałem dobry bój"; The Good Fight · Der gute Kampf · Den
+  goda kampen). Boxing or MMA, chosen in the lobby (a ring with ropes, or a cage); the player's division (ona / on)
+  and skin tone; the opponent of the same division.
+* **The founder's loop as the app's blocks**: the *read* (a rest — circling, the guard, whole breaths; calm restores a
+  little) → the *sequence* (real time: a popular combination thrown, or an opening shown) → **the slow motion** (a push
+  of the rhythm's focus dial, 10–30 s, 20 by design: focus charges the energy; the quick-time part is the choice —
+  defence, counter, or which combination — so the hand chooses *what* and the brain gives the *power*) → the move goes
+  the moment the energy is full (at the window's end with what was charged) → the *resolve*. Between rounds the corner
+  (a longer rest). Taps never charge.
+* **Real technique, taught as it goes** (`moves.ts`, the lead's contract): the boxer's numbers 1–6, which defence
+  answers which strike (slip, roll, parry, the high guard, the step back, the check, the catch, the sprawl), the
+  counters a defence opens, the popular combinations (1-2, 1-1-2, 1-2-3, 1-2-3-2, 2-3-2, 1-6-3-2, 1-2-5-2, the body
+  hook to the head; in the cage 1-2-low kick, 1-2-body kick, teep-2, 1-2-takedown…) and the openings a fighter gives
+  (the dropped hand, the head leaning in, wide hooks, a squared stance, a heavy lead leg, tiredness). A one-line "why"
+  explains the right answer.
+* **Life and the end**: a health bar per life and three lives (the three-knockdown rule). A knockdown brings the
+  referee's count — a push in which focus helps the player rise (never out from one weak count while lives remain); the
+  third knockdown ends the fight (the founder's game over). Win: the opponent's third knockdown, or **still standing at
+  the final bell** (the founder: "przetrwać albo pokonać"). A fight that ends with a minute or more of the session
+  left is followed, after the corner, by a rematch or the next opponent: the session is training time and runs to its
+  planned end; the summary counts the fights.
+* **A sport, with respect** (a Christian app): touching gloves before, the embrace after, the winner's hand to the one
+  on the canvas; a knockout drawn gently (the fighter sits down, the referee waves it off); no blood, no injuries, no
+  humiliation, no trash talk; the coach speaks calmly. Scripture (new this round: 1 Kor 9,26-27 — Paul's boxer "not as
+  one beating the air"; Ps 144,1 and Ps 18,35 — He trains my hands; Prz 24,16 — the righteous falls seven times and
+  rises; 1 Tm 6,12) with 2 Tm 4,7, Mi 7,8, Ef 6,10-11, Iz 40,31, Hbr 12,1, Flp 4,13, Joz 1,9.
+* **Our own look**, not a copy of any boxing game: a side view in profile, a dark hall under one warm light; the slow
+  motion as light and silence.
+* **Two builders** — A "fight" (rules, sim, content, meta, talk, words, lobby card, index, tests) and B "ring" (the
+  fighters' rig and poses, the ring and the cage, the slow motion's look, the canvas HUD, layouts, preview, card art,
+  sound) — on the lead's contract (`moves.ts`, `view.ts`, the ring's stubs).
