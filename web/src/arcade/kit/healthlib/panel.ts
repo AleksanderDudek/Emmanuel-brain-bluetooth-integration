@@ -9,6 +9,8 @@
  *                  stopped), with how many of its scenes have grown and how often it was completed; the chosen one's
  *                  line and its "Na co dzień"
  *   the mode       in order · just this one · repeat (a radio row; saved at once)
+ *   the body       "Ciało słucha" (round 23, kit/innerpanel.ts): the word on the out-breath, the intention, the word
+ *                  of peace, before sleep — shared by every health visualisation, kept on this device
  *   the look       the library's looks as chips (when it has any)
  *   the music      the quiet tune's switch (when the game has a tune)
  *
@@ -16,6 +18,7 @@
  */
 import { fmtNum } from '../../../i18n';
 import { h } from '../../../ui/dom';
+import { innerPanel } from '../innerpanel';
 import { MODES, libOf } from './lib';
 import { bestOf, choose, medsDone, scenesGrown, setLook, setMode, type HealthProgress } from './meta';
 import { drawTile } from './preview';
@@ -96,6 +99,9 @@ function build(spec: HealthLibrary, p: HealthProgress, changed: () => void): HTM
   out.push(h('div', { class: 'arcade-sub' }, t('panel.mode')),
     h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.mode') }, MODES.map(modeBtn)),
     h('p', { class: 'muted' }, t(`panel.modeNote.${p.mode}`)));
+
+  // ── the body listens (round 23): its own section, saved on this device for every health visualisation ──
+  out.push(innerPanel());
 
   // ── the look ──
   if (spec.looks.length) {

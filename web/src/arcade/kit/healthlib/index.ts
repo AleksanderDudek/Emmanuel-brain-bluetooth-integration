@@ -18,6 +18,7 @@
  * (testing.ts).
  */
 import type { FocusFrame } from '../focus';
+import { nightLevel } from '../inner';
 import { breathDial, secDial, type RhythmSpec } from '../rhythm';
 import { buzz } from '../juice';
 import { coarsePointer } from '../mobile';
@@ -54,6 +55,8 @@ class HealthGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a little apart) */
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 1.5;
+  /** the player's game volume at the start ("Przed snem" lowers it and fades it out; null: not touched) */
+  private volume: number | null = null;
 
   constructor(private readonly spec: HealthLibrary, private readonly env: GameEnv<HealthProgress>) {
     this.lib = libOf(spec);
@@ -105,6 +108,7 @@ class HealthGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt);
+    this.nightSound();
     this.hintCool -= dt;
     // a coach mark still on screen when the picker or a card opens would cover its buttons: it goes at once
     if ((this.sim.story || this.sim.picker) && this.now < this.sim.hintUntil) {
@@ -116,6 +120,15 @@ class HealthGame implements ArcadeGame {
 
   draw(): void {
     if (this.sim.started) this.view.draw(this.sim);
+  }
+
+  /** Before sleep: the whole sound at NIGHT.level, fading to silence over the session's last NIGHT.fadeSec. */
+  private nightSound(): void {
+    const a = this.env.audio;
+    if (!this.sim.inner.night || !a.on) return;
+    if (this.volume === null) this.volume = a.level;
+    const v = this.volume * nightLevel(this.now, this.sim.plannedSec);
+    if (Math.abs(v - a.level) > 0.004) a.setVolume(v);
   }
 
   /**

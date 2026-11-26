@@ -9,7 +9,12 @@
  * zooms into the library's portal point while the deeper picture opens from there, shallower it pulls out; worlds of
  * the same depth cross-fade.  Each world's still layer is baked per view, size, variant and look; a frame composes it
  * and draws what grows: no shadowBlur, no filters.
+ *
+ * Round 23, "Ciało słucha": a word received in calm dissolves into 12–18 gold motes that drift from the words band to
+ * the growing point (kit/innerdraw.ts; reduced motion: a soft fade); "Przed snem" lays a dark veil and a warm wash over
+ * the picture — under the words and the controls — with a small crescent in the picture's corner.
  */
+import { InnerFx, drawNightMark, drawNightVeil } from '../innerdraw';
 import { clamp, ease, Floaters, Particles } from '../juice';
 import type { Insets, TapTarget } from '../types';
 import { applyCam, camFor, camLerp, toScreen, type Cam, type Rect } from './camera';
@@ -53,6 +58,9 @@ export class HealthView {
   private captionK = 0;
   private lastCaption = '';
   private readonly labelK = new Map<string, number>();
+  /** the inner layer's effects (round 23): the word's dissolve and its motes; the night's veil fading in */
+  readonly fx: InnerFx;
+  private nightK = 0;
   /** the story card and the picker as last drawn (taps and the audit) */
   storyRect: Rect | null = null;
   pickRect: Rect | null = null;
@@ -63,6 +71,7 @@ export class HealthView {
   constructor(canvas: HTMLCanvasElement, private readonly o: ViewOpts) {
     this.ctx = canvas.getContext('2d');
     this.L = layout(360, 640, { top: 134, right: 0, bottom: 0, left: 0 }, o.touch);
+    this.fx = new InnerFx(o.reducedMotion);
   }
 
   resize(w: number, h: number, dpr: number, ins: Insets): void {
@@ -142,6 +151,10 @@ export class HealthView {
         if (e.gained > 0.005) this.floats.add(lib.t('hud.revealed', { pct: lib.t('pct', { n: Math.round(Math.min(1, e.gained) * 100) }) }), f.x, f.y - 24 * L.u, { color: '#eef0ff', size: 14 * L.u, dur: 2.4 });
         break;
       }
+      case 'received':
+        // the word goes into the picture as light (reduced motion: it fades with a soft glow)
+        this.fx.received(e.text, this.focusScreen(sim));
+        break;
       case 'gold':
         if (e.on) {
           const f = this.focusScreen(sim);
@@ -179,6 +192,8 @@ export class HealthView {
     this.lastDt = dt;
     this.parts.update(dt);
     this.floats.update(dt);
+    this.fx.update(dt);
+    this.nightK = sim.inner.night ? Math.min(1, this.nightK + dt / 2) : 0;
     this.pop = Math.max(0, this.pop - dt * 2.2);
     this.flash = Math.max(0, this.flash - dt * 0.6);
     const line = sim.talk.line;
@@ -292,9 +307,15 @@ export class HealthView {
       ctx.fillStyle = 'rgba(6,3,16,.36)';
       ctx.fillRect(P.x - 4, P.y - 4, P.w + 8, P.h + 8);
     }
+    // before sleep: darker and warmer — over the picture and its ground, under the words and the controls
+    if (this.nightK > 0) {
+      drawNightVeil(ctx, 0, 0, L.w, L.h, this.nightK);
+      if (!sim.story && !sim.picker) drawNightMark(ctx, sim.lib.t('hud.night'), P.x + P.w - 12, P.y + 16, 0.78 * this.nightK);
+    }
     const capK = sim.story || sim.picker ? 0 : this.captionK;
     drawCaption(ctx, L, this.lastCaption, capK);
-    drawWords(ctx, L, sim, this.lastDt, { text: this.lastCaption, k: capK });
+    drawWords(ctx, L, sim, this.lastDt, { text: this.lastCaption, k: capK }, this.fx);
+    this.fx.drawMotes(ctx);
     const ts = { story: null, picker: false, live: sim.canWalk, meds: sim.lib.meds };
     const hv = this.mouse && !sim.story && !sim.picker ? (hitAt(L, ts, this.mouse.x, this.mouse.y) as Control | null) : null;
     drawControls(ctx, L, sim, hv && (CONTROLS as readonly string[]).includes(hv) ? hv : null, this.time);

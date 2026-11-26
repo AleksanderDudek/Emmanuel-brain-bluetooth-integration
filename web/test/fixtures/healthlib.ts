@@ -76,13 +76,14 @@ const SCENES = Object.fromEntries(MEDS.flatMap(m => m.scenes).map((s, i) => [s, 
 type Words = Record<string, string | { one: string; few?: string; many?: string; other: string }>;
 
 function words(l: Lang): Words {
-  const W: Record<Lang, { unit: Words['unit']; med: string; line: string; care: string; scene: string; teach: string; tip: string; at: string; part: [string, string]; look: [string, string]; open: [string, string, string, string]; thanks: string; how: [string, string, string]; not: string; say: string }> = {
+  const W: Record<Lang, { unit: Words['unit']; med: string; line: string; care: string; scene: string; teach: string; tip: string; at: string; part: [string, string]; look: [string, string]; open: [string, string, string, string]; thanks: string; how: [string, string, string]; not: string; say: string; word: [string, string, string] }> = {
     pl: {
       unit: { one: `{n}${N}iskra`, few: `{n}${N}iskry`, many: `{n}${N}iskier`, other: `{n}${N}iskry` },
       med: 'Medytacja', line: 'Krótka droga przez obraz.', care: 'Śpij 7–9 godzin każdej nocy.', scene: 'Scena',
       teach: 'Komórki pracują spokojnie, dzień i noc.', tip: 'Wyobrażaj sobie, jak obraz rośnie.', at: 'Patrz na środek obrazu.',
       part: ['rdzeń', 'brzeg'], look: ['jasny', 'ciemny'], open: ['Próba', 'Krótkie medytacje o ciele.', 'Czym to jest', 'To wizualizacja i trening uwagi, nie leczenie.'],
       thanks: 'Dziękuję za każdą iskrę.', how: ['Wybierz medytację i przejdź przez jej obrazy.', 'Patrz na rosnącą część.', 'To nie jest leczenie.'], not: 'To wizualizacja, nie leczenie.', say: 'Spokojnie, obraz jest tutaj.',
+      word: ['Twoje komórki pracują spokojnie.', 'Każdej nocy Twoje ciało porządkuje i naprawia.', 'Twoje ciało wie, jak to robić.'],
     },
     en: {
       unit: { one: `{n}${N}spark`, other: `{n}${N}sparks` },
@@ -90,6 +91,7 @@ function words(l: Lang): Words {
       teach: 'Cells work calmly, day and night.', tip: 'Picture the image growing.', at: 'Look at the middle of the picture.',
       part: ['core', 'edge'], look: ['light', 'dark'], open: ['Trial', 'Short meditations about the body.', 'What this is', 'This is visualisation and attention training, not a treatment.'],
       thanks: 'Thank you for every spark.', how: ['Choose a meditation and walk through its pictures.', 'Look at the growing part.', 'This is not a treatment.'], not: 'This is visualisation, not a treatment.', say: 'Calmly, the picture is here.',
+      word: ['Your cells work calmly.', 'Every night your body tidies and repairs.', 'Your body knows how to do this.'],
     },
     de: {
       unit: { one: `{n}${N}Funke`, other: `{n}${N}Funken` },
@@ -97,6 +99,7 @@ function words(l: Lang): Words {
       teach: 'Zellen arbeiten ruhig, Tag und Nacht.', tip: 'Stell dir vor, wie das Bild wächst.', at: 'Schau in die Mitte des Bildes.',
       part: ['Kern', 'Rand'], look: ['hell', 'dunkel'], open: ['Probe', 'Kurze Meditationen über den Körper.', 'Was das ist', 'Das ist Visualisierung und Aufmerksamkeitstraining, keine Behandlung.'],
       thanks: 'Danke für jeden Funken.', how: ['Wähle eine Meditation und geh durch ihre Bilder.', 'Schau auf den wachsenden Teil.', 'Das ist keine Behandlung.'], not: 'Das ist Visualisierung, keine Behandlung.', say: 'Ruhig, das Bild ist hier.',
+      word: ['Deine Zellen arbeiten ruhig.', 'Jede Nacht räumt dein Körper auf und repariert.', 'Dein Körper weiß, wie das geht.'],
     },
     sv: {
       unit: { one: `{n}${N}gnista`, other: `{n}${N}gnistor` },
@@ -104,6 +107,7 @@ function words(l: Lang): Words {
       teach: 'Celler arbetar lugnt, dag och natt.', tip: 'Föreställ dig hur bilden växer.', at: 'Titta på bildens mitt.',
       part: ['kärna', 'kant'], look: ['ljus', 'mörk'], open: ['Prov', 'Korta meditationer om kroppen.', 'Vad detta är', 'Det här är visualisering och uppmärksamhetsträning, inte behandling.'],
       thanks: 'Tack för varje gnista.', how: ['Välj en meditation och gå genom dess bilder.', 'Titta på den del som växer.', 'Det här är inte behandling.'], not: 'Det här är visualisering, inte behandling.', say: 'Lugnt, bilden är här.',
+      word: ['Dina celler arbetar lugnt.', 'Varje natt städar och reparerar din kropp.', 'Din kropp vet hur den ska göra.'],
     },
   };
   const w = W[l];
@@ -117,6 +121,8 @@ function words(l: Lang): Words {
     out[`med.${m.id}`] = `${w.med} ${i + 1}`;
     out[`med.${m.id}.line`] = w.line;
     out[`med.${m.id}.care`] = w.care;
+    // round 23: three words for the body per meditation
+    w.word.forEach((x, k) => { out[`word.${m.id}.${k + 1}`] = x; });
     for (const s of m.scenes) {
       out[`scene.${s}`] = `${w.scene} ${s.toUpperCase()}`;
       out[`teach.${s}`] = w.teach;
