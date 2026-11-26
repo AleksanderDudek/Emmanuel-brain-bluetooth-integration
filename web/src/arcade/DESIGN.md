@@ -10733,3 +10733,39 @@ For the founder:
   to see in profile).
 * **Feel on a real phone with the band**: the slow motion's length (20 s by design) and the pace of the read (one
   breath by design) are the two dials to tune.
+
+## 26. Round 22: Złota passa — a day of wins (2026-11-26)
+
+### 26.1 The founder's request
+
+The founder watched a reel and asked: *"czy jesteś w stanie wymyślić grę albo wizualizację albo coś innego, co byłoby w
+stanie z wykorzystaniem Mendi uchwycić ten aspekt, o którym mówił autor"* (free hand, away). The reel: a man diagnosed
+with a brain tumour plays "the winning streak" with himself — two dollars for a coffee that makes him happy is a win,
+a green light is a win, the far parking spot is a win (more steps); once he *identifies* as someone on a winning
+streak he keeps finding the evidence, until he says he is grateful even for the hard things: "everything I'm not is
+going to make me everything I am".
+
+### 26.2 What the round decided
+
+* **"Złota passa"** (`passa`, kind `vision`, root Rz 8,28 "wszystko współdziała ku dobremu"). One day walked down one
+  street, morning to evening; the day's moments come one after another as cards; each card turned by focus is a win —
+  a light that flies up into a garland strung over the street (the streak). At the evening the garland of the day's
+  wins lights the street, and the identity is said: *"Jestem na złotej passie — wszystko współdziała ku dobremu."*
+* **What it keeps from the reel**: noticing small goods (a *joy* card: see it, give thanks), reframing small troubles
+  (a *snag* card with a grey side and a gold one: the far parking spot → more steps), the identity that seeks the
+  evidence (the streak grows and is said), the streak as a habit (days in a row, with a grace day), and — only when the
+  player asks for it — the hard things (a *heavy* card).
+* **Where a Christian stands**: not "the universe conspires for me" but Rom 8:28; never "nothing bad has ever happened
+  to me" but Gen 50:20 — the evil named, the good God brings out of it hoped for, not pretended. A heavy card rests
+  first (the hurt is said; Ps 34:18), then asks "what can God bring out of this?" with humble hopes, and *"Jeszcze tego
+  nie widzę — ufam"* is always a choice and a win of its own. No prosperity promise; the reel's "Nike will sign me"
+  becomes "my story may one day give someone courage". Help lines and "not therapy" as the heart series; the source
+  named once (the research on gratitude and on positive reappraisal / benefit finding).
+* **Honest neurofeedback**: the hand picks the reframe, only focus turns the card; a card focus did not turn goes into
+  the pocket ("idzie ze mną") — no false win, no blame, it may come back tomorrow. Rests are receptive (savouring the
+  win, naming a hurt).
+* **The player's own day** ("Mój dzień" in the lobby): own moments typed in come first; kept only on the device, never
+  in a result.
+* **Two builders** on the lead's contract (`passa/moments.ts`, `view.ts`, the street's stubs): A "day" (rules, sim, the
+  moment sets in four languages, meta with the day-streak, the lobby card, tests), B "street" (the street through the
+  day, the turning card, the garland, layouts, preview, card art, sound).
