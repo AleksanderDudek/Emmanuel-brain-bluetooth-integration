@@ -10733,3 +10733,48 @@ For the founder:
   to see in profile).
 * **Feel on a real phone with the band**: the slow motion's length (20 s by design) and the pace of the read (one
   breath by design) are the two dials to tune.
+
+## 27. Round 23: Ciało słucha — the health meditations speak to the body (2026-11-26)
+
+(§26 is round 22's Złota passa, on its own branch.)
+
+### 27.1 The founder's request
+
+In English, with the usual Polish hand-off (*"przeanalizuj to co napisałem… jeśli masz lepszy pomysł… zrób to. Masz
+wolną rękę"*, away): *"I would want these meditations to work in a way that they would activate, increase and
+strengthen the processes of healing, regeneration and making body younger, stronger, fitter, more beautiful, rested,
+happy. The intention is that I want to use subconscious processes to help the body."*
+
+"These meditations" are the section **Wizualizacje zdrowotne** — Każdy włos (§15) and the eight libraries on the
+engine (§24). Until now they were built as *attention training with a true picture*: focus grows the picture of a
+real process, calm deepens it, the verse rests under the breath guide, "Na co dzień" bridges to life. They did not yet
+use, on purpose, the paths by which the mind demonstrably reaches the body.
+
+### 27.2 What the round decided
+
+**Keep the honesty, change the method.** §24.3 stays: no word promises that focus or imagination heals, cures,
+rejuvenates or regrows — such promises are untrue, unsafe for the ill, and (for the founder's goal) they work *against*
+the effect: a statement the listener cannot believe makes those who most need it feel worse (Wood, Perunovic & Lee
+2009). What research does support is that **calm, expectation, a repeated believable word, imagery felt from inside,
+a cue paired with deep calm, and sleep** change the body's state — stress hormones, vagal tone, inflammation, the
+pace of wound healing, strength gained by imagined training, the night's repair. So the meditations now do those
+things deliberately, and say only what is true. The founder's "activate" becomes "support the body's own work" —
+honest, and closer to how it actually works (the evidence table: §27.x from `research-23.md`).
+
+**The inner layer "Ciało słucha"** (contract `src/arcade/kit/inner.ts`; shared by all nine health visualisations):
+
+| part | what the player meets | why (research) |
+|---|---|---|
+| **Słowo na wydech** | every rest: one short word for the body, bright on each out-breath, dim on the in-breath, repeated; the meditation's verse opens its first rest | repetition in a relaxed state is the oldest form of suggestion; believable, present-tense, second-person words (self-talk in the second person regulates better) |
+| **Odebrane w spokoju** | the band's calm on an out-breath (≥ 0.5) lets the word dissolve into light that drifts into the picture; counted in the summary, never in the score | neurofeedback on the state the words need — the relaxed, absorbed state — instead of on effort |
+| **Twoja intencja** | up to 3 of Gojenie · Odnowa · Młodość · Siła · Sprawność · Piękno · Wypoczynek · Radość (the founder's list) + an own sentence; their words join the meditation's | expectation and mindset change outcomes (Crum & Langer 2007; age beliefs: Levy 2002); own words are kept on the device |
+| **Słowo pokoju** | Pokój · Abba · Jezus · Maranatha · own — the last out-breath of every rest and the session's last line ("Twoje słowo na dzień") | cue-controlled relaxation: a word paired with deep calm brings it back in the day; the Christian prayer word (Jesus Prayer, *maranatha*) |
+| **Wejście w spokój** | sessions ≥ 3 min open with 2 breaths of autogenic words (heavy and warm, the breath by itself, the heart calm) | autogenic training (Stetter & Kupper 2002) |
+| **Poczuj od środka** | a push tip every 4th push: feel the place from inside, warmth, movement, light | imagined training strengthens muscle (Ranganathan 2004); imagery felt from inside works best |
+| **Przed snem** | darker, warmer picture (less blue light), quieter sound fading to silence, the night's words, a goodnight ending, closing verse Ps 4:8 / Ps 127:2 / Prov 3:24 | most repair runs in deep sleep; bright evening screens delay melatonin (Chang 2015) |
+| **Skąd to wiadomo** | the first session's third page, a one-time card for returning players, the lobby's two lines and the Wiedza section „Umysł, który pomaga ciału” (`#wiedza/body`) | an honest explanation keeps expectation real (open-label placebo still works) |
+
+The words: each meditation has three (`word.<med>.1–3`): the process now, its daily or nightly continuity, trust or
+thanks — true to that meditation's physiology (its `teach.*` lines and sources). The intentions, the night and the
+settling-in have the engine's (`kit/inner-i18n.ts`). The rhythm, the scoring and the focus rule are unchanged; the
+settling rest is an extra block at the start (never in a ≤ 60 s test session, which must still score).
