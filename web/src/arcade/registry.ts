@@ -62,7 +62,7 @@ export interface ArcadeEntry {
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
   | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi'
-  | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup';
+  | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup' | 'ksztalt' | 'radosc' | 'rozkwit';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -383,6 +383,33 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'psa145.14',
     brain: brain('kregoslup'),
     load: () => import('./kregoslup/index').then(m => m.default),
+  },
+  {
+    id: 'ksztalt', kind: 'health', title: t('ksztalt.title'), tagline: t('ksztalt.tagline'), text: t('ksztalt.text'),
+    how: [t('ksztalt.how1'), t('ksztalt.how2'), t('ksztalt.how3')],
+    tips: [t('ksztalt.tip1'), t('ksztalt.tip2'), t('ksztalt.tip3'), t('ksztalt.tip4'), t('ksztalt.tip5')],
+    unit: t('ksztalt.unit'), art: 'art-ksztalt', fill: ['#fff4e8', '#ffcfa8', '#e0807a', '#170c1e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '1co6.19-20',
+    brain: brain('ksztalt'),
+    load: () => import('./ksztalt/index').then(m => m.default),
+  },
+  {
+    id: 'radosc', kind: 'health', title: t('radosc.title'), tagline: t('radosc.tagline'), text: t('radosc.text'),
+    how: [t('radosc.how1'), t('radosc.how2'), t('radosc.how3')],
+    tips: [t('radosc.tip1'), t('radosc.tip2'), t('radosc.tip3'), t('radosc.tip4'), t('radosc.tip5')],
+    unit: t('radosc.unit'), art: 'art-radosc', fill: ['#fff4dc', '#ffc9a0', '#e07a9a', '#1c0e26'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa16.11',
+    brain: brain('radosc'),
+    load: () => import('./radosc/index').then(m => m.default),
+  },
+  {
+    id: 'rozkwit', kind: 'health', title: t('rozkwit.title'), tagline: t('rozkwit.tagline'), text: t('rozkwit.text'),
+    how: [t('rozkwit.how1'), t('rozkwit.how2'), t('rozkwit.how3')],
+    tips: [t('rozkwit.tip1'), t('rozkwit.tip2'), t('rozkwit.tip3'), t('rozkwit.tip4'), t('rozkwit.tip5')],
+    unit: t('rozkwit.unit'), art: 'art-rozkwit', fill: ['#fff4e4', '#ffd2b0', '#d88aa8', '#170c22'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa139.13-14',
+    brain: brain('rozkwit'),
+    load: () => import('./rozkwit/index').then(m => m.default),
   },
   {
     id: 'serce', kind: 'heart', title: t('serce.title'), tagline: t('serce.tagline'), text: t('serce.text'),
