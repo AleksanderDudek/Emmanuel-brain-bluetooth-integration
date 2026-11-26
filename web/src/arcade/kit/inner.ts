@@ -4,7 +4,7 @@
  * The founder asked (2026-11-26) that the health meditations work so that they "activate, increase and strengthen the
  * processes of healing, regeneration and making the body younger, stronger, fitter, more beautiful, rested, happy",
  * using subconscious processes to help the body.  What research says reaches the body from the mind — and what the
- * meditations now do on purpose (the sources: <scratch>/research-23.md, the Wiedza section `#wiedza/body`):
+ * meditations now do on purpose (the sources: src/content/wiedza/research-body.md, the Wiedza section `#wiedza/body`):
  *
  *   calm            stress slows wound healing and calm supports it; slow breathing (6 a minute) raises vagal tone
  *                   → every rest is a guided relaxation, and the band's calm decides how deep the word goes

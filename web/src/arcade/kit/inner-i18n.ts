@@ -6,7 +6,7 @@
  * health game's translator looks a key up in the game's catalog, then the engine's (healthlib/i18n.ts), then here;
  * Każdy włos reads these directly.  The meditations' own three words (`word.<med>.1–3`) are each game's.
  *
- * The tone (§24.3, round 23): never a promise.  A word for the body says what the body truly does (research-23.md,
+ * The tone (§24.3, round 23): never a promise.  A word for the body says what the body truly does (src/content/wiedza/research-body.md,
  * "What we may say": stress slows repair and calm supports it; about 330 billion new cells a day; deep sleep goes
  * with repair and immune balance; imagined movement helps muscle a little; a kind view of one's own age goes with
  * health; a rested face looks healthier), in the present tense, to the person, kindly — never an order to an organ.
