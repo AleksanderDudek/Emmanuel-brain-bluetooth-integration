@@ -8938,3 +8938,1059 @@ tail after the last picture 3–21 s of light (mostly 7–13); a 13th session of
 pictures of ~35 tiles instead of 73 % of one of 72; long sessions keep design-size pictures while the time allows.
 Tests: `test/arcade-rozswietl.test.ts` "the picture fits the time" (fitPicture, the pace, sizing, the bright end) and
 the reworked pacing test.
+### 24.5 The engine (`src/arcade/kit/healthlib/`)
+
+**The request in one line:** make Każdy włos's form (§15) an engine, so that each game of "Wizualizacje zdrowotne" is
+only a `HealthLibrary` — its meditations, its pictures, its words, its tune — and its module is one line:
+`export default makeHealthModule(LIBRARY)`.
+
+**Generalised, not reinvented.**  Każdy włos's sim, rules, meta, narrator, layout, HUD, view, pictures, preview, lobby
+card, sound and generic words were copied into `kit/healthlib/` and every hair-specific thing was replaced by the
+library (wlosy itself is untouched):
+
+| file | what it is | from wlosy |
+|---|---|---|
+| `spec.ts` (lead) | the contract: `HealthLibrary`, `MedSpec`, `SceneSpec`, `LabelSpec`, `WorldPainter`, `WorldState` | content.ts, world.ts |
+| `camera.ts`, `paint.ts` (lead) | the camera that fits a view into a box; the luminous palette, glows, lens, ground | world.ts, paint.ts |
+| `lib.ts` | the library as the engine reads it (`libOf(spec)`, cached per library and language): meds and scenes in order, the walk round the library, the game's translator, names, the narrator's lines, the push strategies | content.ts |
+| `rules.ts` | every number (growth, light, rest, the way, blocks, cards, voice) | rules.ts (`hairsPerScene` → `lib.perScene`; `closeSec` 9 → 12 s for "Na co dzień") |
+| `sim.ts` | `HealthSim`: blocks, growth only from focus, blind pushes, rest's depth, the walk, modes, cards, coach marks, the tally, result | sim.ts (hairs → units, `MED/SCENE` → lib, the root and closers from the library) |
+| `meta.ts` | `HealthProgress`, `freshProgress(lib)`, `migrate(p, lib)`, choose/mode/look, counts | meta.ts (colour → look, hairs → units) |
+| `talk.ts` | the narrator | talk.ts |
+| `layout.ts` | tall / side / wide / desk, the picker for 4–6 meditations, tap targets | layout.ts (`MEDS` → the library's count) |
+| `hud.ts` | words band, breath guide, verse pages, caption, controls, picker, story cards (with "Na co dzień"), labels, counter | hud.ts (the cycle's dial and the mosaic's legend dropped: a world draws its own) |
+| `render.ts` | `HealthView`: ground, camera glide and dive, lens, gauge, sparkles, labels, a world's counter | render.ts (per-world code → `WorldPainter.bake/draw/focusAt/counter`, the head's lift and strand layers gone) |
+| `picture.ts`, `preview.ts` | a scene painted alone; the hero, the calibration intro, the lobby tiles | picture.ts, preview.ts |
+| `panel.ts` | the lobby card | panel.ts (looks as chips, the music switch only with a tune) |
+| `audio.ts` | bells, glass, chimes, breath wind, page turns; a warm pad without a tune | audio.ts (bells by meditation index) |
+| `i18n.ts` | the engine's catalog in pl/en/de/sv | the generic half of wlosy's i18n, rewritten without hair |
+| `index.ts` | `makeHealthModule(lib)`: the `ArcadeGame` and the `ArcadeModule` | index.ts |
+| `check.ts` | `checkLibrary(lib, { allow })` for each game's test | — new |
+| `testing.ts` | `simSession(lib, opts)` for each game's test | — new |
+
+Every rule of §15.5–15.10 holds unchanged: growth only in a sighted push past its lead-in with `frame.focused` and a
+reliable signal; the first-ever warm-up at half rate; blind pushes from the third session, every fourth push, growing
+unseen (carry ≤ 0.6 into the next scene) and shown at their end; rest deepens (τ 3 s) and never advances; the modes in
+order · just this one · repeat; ◀ ↻ ▶ ≡ and ← → R M (1–9 in the picker); hover on a desk; the words band with pages; the
+rhythm dials (40 s of Wzrost, 3 breaths of Głębia); `ownBreath`; the layouts and their sizes.
+
+**What a world does.**  `bake(ctx, variant, look)` draws the still parts once per view, size, variant and look (world
+units under the camera's transform); `draw(ctx, st)` draws what grows each frame from `WorldState` (g, deep, light,
+growing, time, after, breath, blind, reduced, px, look); `focusAt(scene, g)` moves the growing point (the gauge, the
+sparkles, the coach mark); `counter(scene, g)` writes a short count in the picture's corner; `depth` and `lens` choose
+the dive and the plate.  Between worlds of different depth the camera dives into `lib.portal(shallow, deep)` (or the
+picture's centre); worlds of the same depth cross-fade (new — wlosy had only dives).
+
+**Words.**  A game's translator looks a key up in the game's catalog, then the engine's (game[lang] → engine[lang] →
+game.pl → engine.pl), so a game may override any generic key (e.g. `panel.look` "Odcień skóry", `tip.count`).  The
+unit comes as `{units}` (the game's `unit` plural with its number); the engine names no part of the body.  The keys a
+game must give (spec.ts's header, `REQUIRED_KEYS` + those its library implies): `unit`; `med.<m>`, `.line`, `.care`;
+`scene.<s>`, `teach.<s>`, `tip.<s>`, `say.at.<s>.1` (.2, .3 used when present); `part.<p>`; `look.<l>`;
+`story.open.*`, `story.open2.*`, `story.whole.text`; `howto.goal`, `howto.tip1`, `howto.tip2`, `panel.not`;
+`say.open|grown|whole|end.1–3`.  The every-third-push counting strategy is now generic: counting down from 200 in
+sevens while watching the picture (mental arithmetic, a classic prefrontal task).
+
+**"Na co dzień"** (new).  The closing card of a meditation: its title, the thanks, its verse, then a soft gilded panel —
+the heading "Na co dzień" / "Every day" / "Im Alltag" / "I vardagen" (13 px, bold, gold) over the meditation's
+`med.<m>.care` (≥ 13 px, wrapped, never cut) — then what comes next and "tap to go on"; 12 s before it closes itself.
+On a short band (a phone on its side) a verse that would be cut is left out of the closing card (it is whole in rest's
+words band) and the title and text step down a size; the care line always stays.  The lobby card repeats the chosen
+meditation's step ("Na co dzień: …").
+
+**The lobby card** (`panel.ts`): where the next session resumes; best session, sessions, meditations completed, all
+from focus; how it works and `panel.not`; the library as picture tiles (each meditation's telling picture — its last
+scene grown — dimmed until one of its scenes grew; ✓ n× once completed); the chosen meditation's line, its count and
+its everyday step; the mode; the looks as chips (when the library has any); the longest calm; the music switch (when
+the game has a tune).  The hero and the calibration intro show the resume scene (before the first session the last
+scene of the last meditation — the whole walk), on the ground with a soft glow of `tint.light`.
+
+**The progress.**  `HealthProgress` v1 (game, sessions, pushes, mode, chosen, look, pos, grown, whole, best, units,
+abideBest, abideAll, song, seen, lastLen).  `migrate(p, lib)` repairs every field against the library (a scene or a
+meditation that no longer exists is dropped; a place outside it starts its meditation over).  The runner merges a save
+onto `freshProgress` (`kit/progress mergeSaved`), so no marker key can tell a foreign save: a save with a key outside
+this shape (the placeholder that loaded Każdy włos carries `colour`, `hairs`), another `game` or another `ver` starts
+fresh, keeping its sessions and pushes.
+
+**checkLibrary** (`check.ts`, pure): 4–6 meditations of 2–4 scenes; scene ids unique, each in exactly one meditation,
+every scene record used; worlds exist (with `bake`, `draw`, a numeric `depth`); the growing point, `focusAt(s, 0 | 0.5
+| 1)` and every label's anchor inside the scene's view; `perScene` > 0; every verse, the root and the closers in all
+four editions of scripture.ts; every required key in all four languages and no key in en/de/sv that pl lacks; the
+kit's placeholder and plural checks; `unit` a Polish plural with `{n}`; lengths (`say.*` ≤ 90, `part.*` ≤ 22,
+`teach.*` ≤ 220, `tip.*` ≤ 120, `med.*.care` ≤ 140); §24.3's forbidden words per language with letter-aware word
+boundaries (heal you / uleczy / heilt dich / läker dig, cure, reverse ageing / odmłodzi / verjüngt / föryngra, regrow /
+odrośnie / wächst nach / återväxt, energy field, vibration, activate, manifest, detox) and no gendered Polish second
+person (`…łeś`, `…łaś`, `…/a`, `gotowy`, `gotowa`).  `allow: [{ text, why }]` lets a game keep a true sentence with its
+reason ("Szkliwo nie odrasta" — the myth corrected).
+
+**simSession** (`testing.ts`, pure): one session of the engine's sim with scripted focus — by default the app smoke's
+40 s (`?trainingSec=40`), the band reading focus (calm in rest), a tap every 0.65 s and Space every 2 s — returning
+`{ score, grownSec, scenes, meds, outcome, progress, sim, events, said }`.  Each game's test: `checkLibrary(LIBRARY)`
+is empty; `simSession(LIBRARY)` and `simSession(LIBRARY, { returning: true })` score; `simSession(LIBRARY, { focus:
+'none' })` grows nothing.
+
+**Layout, measured** (the same shapes and sizes as §15.10; tested at every `CHECK_SIZES` entry with a fake canvas that
+records every string drawn): the four controls ≥ 48 px in the thumb zone (87 px on QHD), never at the canvas's middle;
+the picker's parts (close, 3 modes, 4–6 meditation tiles — 2 columns upright and on a desk, 3–4 on a phone on its side,
+an odd last tile spanning its row) all ≥ 44 px, inside the insets, apart; the story card inside the band.  Text: every
+string drawn in a push (with the parts' names), a rest (with the kit's breath guide), the picker, the opening card and
+the closing card is ≥ 13 px at every size and hand, the verse's reference line 11 (the kit's); the desk's key caps
+were raised from 12 to 13 px.
+
+**Measured in the app** (the first wired game, Sprężysty kręgosłup; `scripts/arcade-shot.mjs --sec 40` and
+`scripts/arcade-mobile.mjs`, all six devices ✓): 0 strings under 11 px, only the kit's verse references at 11–12 px
+under 13; every target valid; 60 fps with the CPU slowed 2–4×, the game's update + draw 0.8 ms on a desktop, 1.2–1.9 ms
+on phones and a tablet at 2–3×, 3.4 ms on the small phone at 4× (with the game's own spine drawn each frame); a 40 s
+session pays 57 of its units at the simulator's focus.
+
+**Tests:** `test/arcade-healthlib.test.ts` (43) on the fixture `test/fixtures/healthlib.ts` (four meditations in two
+worlds of different depth, two looks, no tune): the library runtime and the translator's fallback; `checkLibrary`
+catching each kind of problem; the engine's catalog (complete, in tone, no part of the body, the narrator within a
+caption); growth only from focus, blind carry and reveal, the warm-up's half rate, the 40 s session first-ever and
+returning and nothing without focus; the walk, the picker, the three modes, 30 minutes in order; resume across
+sessions through the runner's merge; migrate on garbage and on the placeholder's save; the module; the rhythm; the
+layout and the text audit.  `test/arcade-wlosy.test.ts` stays green (60).
+
+**Dev tools** (`web/.gallery/`, not in the build): `play.html?game=<id|fixture>` plays a library through the engine
+with a mock runner env and scripted focus (`&at=30` freezes there; `&returning=1`, `&picker=1`, `&story=1`,
+`&panel=1` the lobby card, `&preview=1` the hero); `node .gallery/playshot.mjs --port <p> --game <id> --out <png>`.
+
+**Porting Każdy włos onto the engine (a later round)** would take: a `LIBRARY` from content.ts (8 meditations — over
+the engine's 4–6, so either the check's range widens for it or two meditations merge); five `WorldPainter`s wrapping
+world-head/above/skin/section/follicle (the follicle's two layers — dermis under, epidermis over the growing hair —
+need a second bake pass, e.g. an optional `bakeOver`; the head's lift becomes a transform inside `draw`; the strand
+layers stay the world's own cache); the cycle's dial and the mosaic's legend move into the worlds' `draw` (or an
+optional `overlay(ctx, box, scene, g)` in screen space); hair colour → `looks` (with `look.<colour>` words and the
+swatches as an optional `lookSwatch`); the 'grey' moment → an optional per-look narrator line; `migrate` from
+WlosyProgress (colour → look, hairs → units) under the same storage key; and its words split into the game's catalog.
+
+**After the builders (the lead):** a coach mark still on screen goes when the picker or a card opens (it covered the
+picker's "Po kolei"); a label may fade once it no longer fits (`LabelSpec.to` — Każda komórka's "uszkodzenie" after
+the letter is mended); the headline's line says the scene's place first ("3/3 · Melanina i światło"), so a small
+phone's clamp cuts the name's end, never the place.  Pitfall found in five games: the editor tool writes a typed
+no-break space as a plain one — `const N = '\u00a0'` is the safe spelling (fixed in Czujna straż, Sprężysty
+kręgosłup, Żywa skóra, Lekkość i siła; Rozkwit's test enforces it).
+
+### 24.6 Czujna straż — the watch that never sleeps (Ever Watchful · Immer wachsam · Alltid vaksam)
+
+**The request in one line:** "pokonywanie raka … jak zrobiłby to układ odpornościowy, zgodnie z tym, co nauka wie o
+ciele" — the founder's first example; the game pictures **immune surveillance** (Burnet, Thomas; immunoediting —
+Dunn, Old & Schreiber 2002; Schreiber, Old & Smyth 2011) as it truly happens, in six short meditations rooted in
+**Ps 121:4** — the watch that never sleeps belongs to God; the cells are His gift.  Code: `src/arcade/straz/`
+(library.ts the library, geo.ts the four worlds' geometry, cells.ts the cells, world-tissue/node/synapse/body.ts the
+pictures, i18n.ts the words, tune.ts the music); test/arcade-straz.test.ts.
+
+**One line:** NK cells on patrol, a dendritic cell carrying the news to a lymph node, a T cell that leaves the blood,
+reads the cells' signs and forms a synapse with the one cell that has changed, the PD-1 brake and the medicine that
+lifts it, the memory that stays — each a picture that grows only from real focus.
+
+#### The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| NK cells are 5–20 % of the lymphocytes in blood | Abel et al., Front Immunol 2018;9:1869 (PMID 30150991: "5–20 %"); StatPearls "Histology, Natural Killer Cells" (5–15 %) |
+| A healthy cell shows its "self" sign (MHC class I); the NK cell spares it and moves on; missing self lets it act | Kärre et al., Nature 1986 (PMID 3951539); Abel 2018 |
+| A changed cell often loses the sign or shows stress signals (NKG2D ligands, raised by the DNA-damage response) | Gasser, Orsulic, Brown & Raulet, Nature 2005 (PMID 15995699) |
+| Perforin opens pores in about 30 s, granzymes pass in, the cell rounds (apoptosis) within about 2 min | Lopez et al., Blood 2013;121:2659 (PMID 23377437, human killer cells) |
+| The apoptotic cell shows phosphatidylserine ("eat me"); a macrophage takes it in without inflammation | Fadok et al., J Immunol 1992 (PMID 1545126); Fadok et al., J Clin Invest 1998 (PMID 9466984); Kerr, Wyllie & Currie 1972 (PMID 4561027) |
+| "Like hundreds of billions of worn-out cells a day" (≈ 330 billion turned over daily, ~90 % blood cells) | Sender & Milo, Nat Med 2021 (PMID 33432173) |
+| The dendritic cell, discovered by Ralph Steinman in 1973 (Nobel Prize 2011), takes up pieces and carries them in lymph to a node (in mice it arrives in 24–72 h — not on screen) | Steinman & Cohn, J Exp Med 1973 (PMID 4573839); nobelprize.org 2011; Miller et al., PNAS 2004 (PMID 14722354) |
+| The body has several hundred lymph nodes ("kilkaset": estimates run ≈ 450–800, so no single number is shown) | Willard-Mack, Toxicol Pathol 2006 (PMID 17067937); StatPearls "Anatomy, Lymph Nodes" |
+| One dendritic cell touches hundreds, even thousands of T cells an hour (≥ 500/h; up to ~5000/h, contacts ~3 min) | Bousso & Robey, Nat Immunol 2003 (PMID 12730692); Miller et al. 2004 |
+| A rare T cell fits: one in tens of thousands to a million (human naive CD8: 0.6 × 10⁻⁶ – 1.3 × 10⁻⁴) | Alanio et al., Blood 2010 (PMID 20200354); Blattman 2002 (1 in 2 × 10⁵, mice) |
+| Signal 1 (TCR–peptide·MHC) and signal 2 (CD28–B7) wake it | Chen & Flies, Nat Rev Immunol 2013 (PMID 23470321) |
+| More than 14 divisions in a week; tens of thousands of copies from one | Blattman et al., J Exp Med 2002 (PMID 11877489); Kaech & Ahmed 2001 (PMID 11323695) |
+| Leaving the blood: rolling (selectins), arrest (integrins), crossing between the wall's cells | Ley et al., Nat Rev Immunol 2007 (PMID 17717539) |
+| It stops only at a neoantigen on MHC I | Schreiber, Old & Smyth 2011 (PMID 21436444); textbook |
+| The synapse: receptors in the middle, a ring of adhesion; the centrosome brings the granules to the face | Monks et al., Nature 1998 (PMID 9738502); Grakoui et al., Science 1999 (PMID 10398592); Stinchcombe et al., Nature 2006 (PMID 17006514) |
+| "In studies, 2 to 16 cells a day" (one CTL in vivo, virus-infected cells, mice; with cooperation) | Halle et al., Immunity 2016 (PMID 26872694) |
+| PD-1 is a brake that keeps healthy tissue safe (self-tolerance); some cancer cells show PD-L1 and slow the watch | Ishida et al., EMBO J 1992 (PMID 1396582); Nishimura et al., Immunity 1999 (PMID 10485649); Dong et al., Nat Med 2002 (PMID 12091876); Iwai et al., PNAS 2002 (PMID 12218188) |
+| Antibodies against PD-1 or PD-L1 lift the brake; Allison and Honjo, Nobel Prize 2018; they help some patients, a doctor chooses them | nobelprize.org 2018 ("for their discovery of cancer therapy by inhibition of negative immune regulation"); NIH release 2018 |
+| About 95 % of the clones go; a few stay as memory | Blattman 2002 (≈ 5 % survive); Badovinac, Porter & Harty 2002 (PMID 12055624) |
+| After smallpox vaccination T-cell memory fell by half only in 8–15 years | Hammarlund et al., Nat Med 2003 (PMID 12925846) |
+| (behind the words "for years": yellow-fever memory CD8 cells persist > 25 years and divide less than once a year) | Fuertes Marraco et al. 2015 (PMID 25855494); Akondy et al., Nature 2017 (PMID 29236685) |
+| The skin holds about 20 billion T cells — nearly twice the blood's — about a million per cm² | Clark et al., J Immunol 2006 (PMID 16547281) |
+| Resident memory stays in skin, lungs, gut | Gebhardt et al., Nature 2011 (PMID 21841802); Mueller & Mackay, Nat Rev Immunol 2016 (PMID 26688350) |
+| Relaxation can ease anxiety in people with cancer | SIO–ASCO guideline, Carlson et al., J Clin Oncol 2023 (PMID 37582238) |
+| No evidence that imagery shrinks a tumour; guided imagery may be supportive | Roffe, Schmidt & Ernst, Psychooncology 2005 (PMID 15651053); Coyne, Stefanek & Palmer, Psychol Bull 2007 (PMID 17469983) |
+| The course of an illness does not depend on focus or attitude | Petticrew, Bell & Hunter, BMJ 2002 (PMID 12424165: "people with cancer should not feel pressured into adopting particular coping styles") |
+
+**A myth corrected, not repeated:** the popular "everyone makes cancer cells every day and the immune system kills
+them" has no measurement behind it.  The game says what is known: the watch keeps checking the cells and *can*
+remove those that have begun to change (immunosurveillance; the transplant data — Engels et al., JAMA 2011, PMID
+22045767, 2.1× cancer risk under immunosuppression — and the mouse models).  The registry's draft tagline ("każdego
+dnia wyszukuje i usuwa komórki nowotworowe") was softened to that.
+
+#### The library
+
+| # | Meditation | Scenes (world) | Verse | Na co dzień (source) |
+|---|---|---|---|---|
+| 1 | Patrol | Patrol NK — the NK cell walks between the cells, each it checks shows its self sign and keeps a thin gold ring (tissue) · Brak znaku — few self signs, violet stress flags; the NK cell docks, granules gather, perforin (tissue) · Cichy porządek — the cell folds into small bodies with "eat me" signs, a macrophage takes them in, the place left tidy (tissue) | Ps 121:4 | No tobacco or vaping, a smoke-free home and car (ECAC5 #1–2) |
+| 2 | Rozpoznanie | Próbka — the dendritic cell reaches out, pieces travel along its arm, it matures and slips into the lymphatic (tissue) · Droga do węzła — along an afferent vessel, the sinus, into the T-cell zone (node) · Dopasowanie — T cells wander past its arms, one fits: signal 1, signal 2, it wakes gold (node, close) · Klony — a gold ring of clones, generation by generation, some leaving by the medulla (node, close) | Prov 2:6 | HPV and hepatitis B vaccination at the recommended age (ECAC5 #12) |
+| 3 | Precyzja | Wyjście z naczynia — rolling, arrest, crossing the wall (tissue, the capillary) · Czytanie znaków — the T cell reads each cell's MHC, stops at the neoantigen (tissue) · Synapsa — ring, centrosome, granules, pores, granzymes, blebs, it lets go (synapse) | Ps 121:7–8 | Move every day, sit less; WHO 150–300 min a week (ECAC5 #4; Bull 2020, PMID 33239350) |
+| 4 | Hamulec i lek | Hamulec PD-1 — PD-1 meets PD-L1, the granules draw back (synapse, close) · Zdjęty hamulec — antibodies hold PD-1, the pairs part, the granules return (synapse, close) | Isa 41:10 | Organised screening when invited: bowel, breast, cervix, lung (ECAC5 #14) |
+| 5 | Pamięć | Komórki pamięci — the great ring of clones goes quiet, one in twenty stays (node, close) · Straż w skórze — the skin of the whole body fills with fine lights, fewer in lungs and gut (body) | Ps 103:2 | Sleep 7–9 h (NSF, Hirshkowitz 2015, PMID 29073412); sleep after vaccination doubled antigen-specific T cells (Lange 2011, PMID 21632713) |
+| 6 | Cała straż | Patrol i porządek (tissue) · Węzeł się uczy (node) · Jedna komórka (synapse) · Całe ciało — lymph flows, node after node lights, thymus and spleen glow (body) | Ps 127:1 | Sun protection, no sunbeds (ECAC5 #8) |
+
+Closers after the first session: Ps 127:1, Ps 91:4, Isa 41:10, Ps 139:14, Lam 3:22–23, Ps 121:7–8.  Headline unit:
+**komórek** (cells the watch checked in the pictures; 120 a scene, only from focused growth) — the registry pin unchanged.
+
+#### The pictures
+
+Four worlds in the body series' family, drawn in code (kit/healthlib/paint.ts): **watchful blues and violets**, gold
+for growth and attention, warm red for blood, aqua-green for lymph, the changed cell a muted rose-grey with violet
+flags — never ugly.
+
+* **tissue** (lens, depth 1): a capillary across the top with red cells flowing and its pearl lining; ~250 tissue cells
+  (each a little bluer or more violet, nearer or deeper) with soft aqua "self" pegs; a blind-started lymphatic with
+  overlapping flaps at the lower left; one changed cell.  The NK cell is aqua with a kidney nucleus and gold
+  granules that gather towards the contact; the T cell pearl-blue with a fringe of receptors; the dendritic cell a
+  pale star whose arms sway and later fold into veils; the macrophage warm amber, its vacuoles turning honey as it
+  is fed.  Checked cells keep a thin gold ring — the headline's count made visible ("sprawdzone: 12").
+* **node** (lens, depth 1): a bean with a gentle hilum, capsule, the sinus of lymph, nine follicles (some with
+  germinal centres), the warm T-cell zone with ~1700 small cells and high endothelial venules, the medulla's cords
+  converging on the hilum; afferent vessels with valves, the efferent vessel, artery and vein.  Crowds of T cells are
+  baked sprites (one drawImage each); clones grow on a loose sunflower spiral, warmer gold as they wake.
+* **synapse** (lens, depth 2): the T cell and the cancer cell, faces pressed, both drawn live: receptors gathering,
+  the adhesion ring, the centrosome with its microtubules, gold granules gliding to the face; pores, granzyme
+  sparks; round blebs, a nucleus coming apart, "eat me" points; PD-1 (teal) and PD-L1 (rose) knobs that pair; gold
+  antibody Ys.  The brake scenes zoom on the contact.
+* **body** (free picture, depth 0): a featureless figure in pearl light, lymph nodes, trunks, thymus and spleen;
+  ~1000 skin points and 160 in lungs and gut light by growth (barrier sites first).
+
+Portals: body → node at the armpit, body → tissue at the upper belly, tissue → synapse at the T cell's contact, node →
+synapse at the dendritic cell.  Corner counts: cells checked (patrol, scan), "14. pokolenie · 16 384 komórki" (clones),
+"pasuje 1 na 10⁴–10⁶" (match), "zostaje 5%" (memory), "≈ 20 mld · w skórze" (skin).  Card art (`.art-straz`): an NK cell
+with gold granules docked at a rose-grey cell with violet flags, a gold contact, tissue cells, a capillary — CSS
+gradients only.
+
+#### The words
+
+Calm precision, not war: the watch *recognises, removes, tidies, keeps watch*; the test keeps "walczy, zabija,
+niszczy, wróg, atak" and their en/de/sv kin out of all four catalogs, never spells "natural killer", never says
+"activate" (the T cell *wakes*).  The narrator thanks ("Dziękuję za straż, która czuwa we mnie dzień i noc") and
+never promises; God's watch is named only as the One who does not slumber.  **Not a treatment**, plainly: the
+registry tip5, the opening card's second page, the how-to's second tip and the lobby's `panel.not` — "może towarzyszyć
+leczeniu, nigdy go nie zastępuje; powiedz o niej zespołowi, który Cię leczy"; relaxation can ease anxiety (SIO–ASCO
+2023); no evidence imagery shrinks a tumour; "przebieg choroby nie zależy od siły skupienia ani nastawienia" (no
+blame — people living with cancer are the first users); any scene may be skipped (▶).  Polish without gendered
+second person; NBSP between every number and what it counts; de/sv say du.
+
+#### Measured
+
+**scripts/arcade-mobile.mjs** (pl, Mendi): all six devices ✓ — 0 strings under 11 px; under 13 px only the kit's
+verse references (11–12 px); 16 targets valid on each; 60 fps with the CPU slowed: small phone @4× game 3.06 ms,
+iPhone @2× 1.67 ms, large Android @3× 2.19 ms, phone on its side @2× 1.49 ms, tablet @2× 1.32 ms, desktop 0.77 ms;
+the play's share of the screen's height 61 / 65 / 70 / 81 / 73 / 60 %.  scripts/arcade-shot.mjs: pl 60 s (117
+komórek in the first session's warm-up and push), en/de/sv and HALO EEG on a 390 × 844 phone (see the status file).
+The pictures were checked in the gallery at 360 × 260 and 344 × 178 (every scene at growth 0, ½, 1): the crowds
+of T cells and clones are baked sprites, the stills baked per view, a frame draws ≤ ~200 small sprites (clones).
+Tests: test/arcade-straz.test.ts (14): checkLibrary clean; 40 s sessions score (first ever, returning); nothing
+grows without a signal or without focus; a 30-minute session walks the whole library; every scene bakes and draws at
+nine growths, pushed and resting, on a strict fake canvas (no NaN, no broken colour); the corner counts (14
+divisions → 16 384, 5 % memory); no words of war in any language, never "killer", never "activate"; "not a
+treatment", "alongside treatment", the no-blame line, "no evidence imagery shrinks a tumour" and "skip a scene"
+in all four languages; every number on screen appears exactly as sourced, and no other number sneaks into a
+teaching line.
+
+### 24.7 Każda komórka — energy, clean-up, repair, renewal (Every Cell · Jede Zelle · Varje cell)
+
+**The request in one line:** the founder asked for visualisations of "odmładzanie komórek ciała… wzbudzenie procesów
+odpowiedzialnych za doskonałe zdrowie, wysoką energię, dobre samopoczucie, młody wygląd"; the game shows, true to cell
+biology, the processes that keep a body supplied with energy and renewed — and offers them in thanks, rooted in
+**Ps 103:5** ("odnawia jako orła młodość twoję"): renewal as God's gift, never a promise of growing younger.  Code:
+`src/arcade/komorki/` (library.ts the library, ten worlds in world-*.ts, draw.ts shared strokes, i18n.ts the words,
+tune.ts the music); index.ts is `makeHealthModule(LIBRARY)`.
+
+**One line:** six short guided meditations inside the cell — the mitochondrion and its rotor, autophagy, DNA repair,
+the renewal of tissues, the night, the whole — each picture growing only from real focus, deepened by calm.
+
+#### The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| Mitochondria use ≈ 90 % of the oxygen we breathe (≈ 80 % of that coupled to making ATP) | Rolfe & Brown, Physiol Rev 1997;77:731 (PMID 9234964) — mammals, standard state |
+| Electrons from food pass four complexes to oxygen, forming water; the complexes pump protons; ATP synthase uses their flow | StatPearls "Biochemistry, Electron Transport Chain" (NBK526105); Alberts, *Molecular Biology of the Cell*, ch. 14 |
+| ATP synthase is a real rotary motor; ≈ 100 turns a second; 3 ATP a turn; a ring of 8 c-subunits in animals (drawn: 8) | Watt et al., PNAS 2010;107:16823 (PMID 20847295); Noji et al., Nature 1997;386:299 (PMID 9069291, the rotation seen); Nobel Chemistry 1997 (Boyer, Walker) |
+| In a day a body turns over roughly its own weight in ATP | Törnroth-Horsefield & Neutze, PNAS 2008;105:19565 (PMID 19073922: "On any given day you turn over your body weight equivalent in ATP") |
+| Regular endurance work builds more mitochondria in human muscle, over weeks; PGC-1α is one of the signals (exercise switches its gene on in human muscle) | Granata, Jamnick & Bishop, Sports Med 2018 (PMID 29934848); Pilegaard et al., J Physiol 2003 (PMID 12563009) |
+| Care: 150–300 min of moderate (or 75–150 vigorous) activity a week | WHO 2020 guidelines — Bull et al., Br J Sports Med 2020;54:1451 (PMID 33239350) |
+| Autophagy: worn parts (old proteins, a tired mitochondrion) wrapped by a double membrane → autophagosome → fused with a lysosome → broken down → the building blocks reused; Ohsumi found its genes (yeast), Nobel 2016 | Tsukada & Ohsumi, FEBS Lett 1993 (PMID 8224160); Nobel Physiology or Medicine 2016; Ballabio & Bonifacino, Nat Rev Mol Cell Biol 2020 (PMID 31768005) |
+| Lysosome: pH 4.5–5.0; more than 60 kinds of hydrolases | Mindell, Annu Rev Physiol 2012 (PMID 22335796); Xu & Ren, Annu Rev Physiol 2015 (PMID 25668017) |
+| Most of what we know comes from yeast, cells and mice; in people autophagy is hard to measure | Bonam et al., Cells 2020 (PMID 32466347); Gottlieb et al., Circ Res 2015 (PMID 25634973) |
+| Care: effort that quickens the breath — in human muscle autophagy flux rose after high-intensity (not low-intensity) exercise | Schwalm et al., FASEB J 2015;29:3515 (PMID 25957282; trained cyclists — the care line says "na miarę sił") |
+| A cell's nucleus holds ≈ 2 m of DNA (205–208 cm), ≈ 6 billion letters (6.27–6.37 Gbp diploid) | Piovesan et al., BMC Res Notes 2019 (PMID 30813969) |
+| By estimate DNA is damaged tens of thousands of times a day in each cell (≈ 70 000) and mended | Tubbs & Nussenzweig, Cell 2017 (PMID 28187286, citing Lindahl & Barnes 2000); Lindahl, Nature 1993 (PMID 8469282) |
+| Base excision repair (Lindahl), nucleotide excision repair (Sancar), mismatch repair (Modrich): Nobel Chemistry 2015; UV joins two neighbouring thymines, removed in humans by nucleotide excision | Nobel Chemistry 2015; Sancar, Nobel lecture, Angew Chem 2016 (PMID 27337655); Rastogi et al., J Nucleic Acids 2010 (PMID 21209706) |
+| Care: no smoking, shade from strong sun — fewer lesions | Hecht, Nat Rev Cancer 2003 (PMID 14570033); Rastogi et al. 2010 |
+| ≈ 330 billion cells replaced a day, ≈ 90 % of them blood cells (≈ 80 g a day); ≈ 3.8 million a second (0.33·10¹² ÷ 86 400) | Sender & Milo, Nat Med 2021;27:45 (PMID 33432173) |
+| The gut's lining renewed in a few days — in humans 3.48 ± 1.55 days | Darwich et al., Drug Metab Dispos 2014 (PMID 25233858) |
+| Stem cells at the crypt base (Lgr5) make all the lining's cells; shed at the villus tip | Barker et al., Nature 2007 (PMID 17934449; mice, LGR5 marks human crypt cells too) |
+| Red cells live ≈ 115–120 days | Franco, Transfus Med Hemother 2012 (PMID 23801920: mean 115 d, range 70–140) |
+| Myth corrected: not "every cell every 7 years" — cortex neurons are as old as we are; heart muscle cells ≈ 1 %/yr at 25, 0.45 % at 75 | Spalding et al., Cell 2005 (PMID 16009139); Bergmann et al., Science 2009 (PMID 19342590) |
+| Skin "in weeks" (label only) | §15.2 (Weinstein et al. 1984; Iizuka 1994) |
+| Care: vegetables and fibre — gut bacteria make butyrate, ≈ 70 % of the colonocytes' oxygen use | Roediger, Gut 1980 (PMID 7429343) |
+| Sleep in cycles of ≈ 90 min, several a night; deep sleep mostly early | StatPearls "Physiology, Sleep Stages" (NBK526132) |
+| Soon after sleep onset, with the first slow-wave sleep, the most reliable GH pulse of the day (in men often the only one) | Van Cauter & Plat, J Pediatr 1996 (PMID 8627466); Van Cauter & Copinschi, Growth Horm IGF Res 2000 (PMID 10984255) |
+| In mice, sleep widens the interstitial space ≈ 60 % and clearance speeds up; a later mouse study found the opposite; in people less is known | Xie et al., Science 2013 (PMID 24136970); Miao et al., Nat Neurosci 2024 (PMID 38741022) |
+| Care: 7–9 h for adults | Hirshkowitz et al., Sleep Health 2015 (PMID 29073412) |
+| ≈ 30 trillion human cells in a 70 kg body, most of them red blood cells | Sender, Fuchs & Milo, PLoS Biol 2016 (PMID 27541692) |
+| Care: morning daylight sets the circadian clock that most of the body's cells carry | Mohawk, Green & Takahashi, Annu Rev Neurosci 2012 (PMID 22483041); Khalsa et al., J Physiol 2003 (PMID 12717008); Nobel 2017 |
+
+Not shown: "36–38 ATP per glucose" (outdated), any number of mitochondria per cell (varies too widely), fasting-
+induced autophagy in humans (not established), "the night when all of it speeds up" (the lead's draft; no source —
+replaced by "the night of sleep").  The test `test/arcade-komorki.test.ts` pins every number per key in all four
+languages and forbids any other number in what the game teaches, tells or counts.
+
+#### The library
+
+| # | Meditation | Scenes (world) | Verse | Na co dzień |
+|---|---|---|---|---|
+| 1 | Energia | Mitochondrium (mito) · Łańcuch oddechowy (membrane) · Syntaza ATP (membrane, close) · Nowe mitochondria (muscle) | Iz 40,29 | 150–300 min ruchu w tygodniu (WHO) |
+| 2 | Sprzątanie | Autofagosom · Lizosom · Odzysk (cell, close) | Ap 21,5 | wysiłek, przy którym oddech przyspiesza |
+| 3 | Naprawa | Księga DNA · Wymiana litery · Nowy odcinek (dna) | Ps 139,16 | nie palić, chronić skórę przed słońcem |
+| 4 | Odnowa tkanek | Nabłonek jelita (gut) · Szpik kostny (marrow) · Każda w swoim tempie (body) | Lm 3,22–23 | warzywa i błonnik |
+| 5 | Noc odnowy | Fale snu · Hormon wzrostu (night) · Płyn w mózgu (brain) | Ps 127,2 | sen 7–9 h o stałych porach |
+| 6 | Cała komórka | Cała komórka (cell) · Całe ciało (body) | Ps 139,13–14 | poranne światło dzienne |
+
+Root Ps 103:5; closers in turn 2 Cor 4:16, Isa 40:31, Ps 104:24, Ps 16:9.  Unit `komórek` (one/few/many/other),
+120 a scene grown by focus — a symbolic count, like Każdy włos's hairs, never "cells made by your focus".  No looks.
+
+#### The pictures (beauty first)
+
+Ten worlds, drawn in code on kit/healthlib/paint.ts (glow sprites, baked still layers, nothing blurred per frame):
+
+* **cell** (depth 1, lens): one cell with neighbours half seen — the membrane a pearl rim, warm plum cytoplasm, the
+  violet nucleus (nucleolus, pores, chromatin), rough ER with ribosomes, the Golgi stack, eleven mitochondria, five
+  lysosomes.  *Autofagosom*: a double membrane grows round a worn grey mitochondrion and a protein clump and closes;
+  *Lizosom*: a lysosome comes and fuses, inside acid light and enzyme sparks, the old crumbles; *Odzysk*: gold
+  amino-acid beads stream to ribosomes on the ER and grow into new chains; *Cała komórka*: mitochondria light in turn,
+  lysosomes take fire, repair sparks in the nucleus.
+* **mito** (2, lens): the mitochondrion in section in its cytoplasm (neighbours dimmed), outer membrane, inner membrane
+  folded into thirteen cristae, matrix with its own DNA rings; the cristae light gold one by one, ATP sparks leave,
+  oxygen drifts in.
+* **membrane** (3, lens): the bilayer with complexes I–IV (I with its matrix arm, III a pair), cytochrome c, ATP
+  synthase (8-subunit ring, stalk, three α + three β head).  *Łańcuch*: electrons walk the chain to O₂ → water,
+  pumps lift protons that gather above; *Syntaza*: protons flow down the ring, it turns (pace rising with growth;
+  an integrator keeps the turn smooth), each third of a turn a β glows and lets an ATP go.
+* **muscle** (1, lens): a fibre with five myofibrils and their sarcomeres, peripheral nuclei, mitochondria in pairs by
+  the Z lines, capillaries with red cells; PGC-1α rings from the nuclei, new mitochondria appear and a few divide.
+* **dna** (2, lens): a double helix (major/minor groove, A–T and G–C rungs, depth shading) in the nucleus' glow.
+  *Księga*: eight red, broken letters mended one by one by an aqua crew; *Wymiana litery*: glycosylase slides in, the
+  base flips out, polymerase sets a gold one, ligase seals; *Nowy odcinek*: a UV dimer, the crew opens a bubble, two
+  cuts, the stretch lifts away, a polymerase writes it gold.
+* **gut** (1, lens): four villi of different heights and five crypts lined by tall cells (brush border, nuclei low),
+  capillary loops and lacteals, aqua stem cells between gold-grained Paneth cells; a gold wave of new cells climbs to
+  the tips, the oldest drift off into the lumen.
+* **marrow** (1, lens): bone struts with lamellae and osteocytes, crowded young blood cells, fat cells, a
+  megakaryocyte, a sinusoid; two aqua stem cells divide, their daughters ripen aqua → lilac → rose → red disc (the
+  nucleus let go) into the stream, which thickens with growth.
+* **body** (0, free): a standing figure without features, translucent, skin rim, vessels, gut coils, heart, brain,
+  femurs.  *Każda w swoim tempie*: gut quick sparks (days), blood pulses (months), a slow wave up the skin (weeks), a
+  slow heart glow (years), a steady cortex (a lifetime); *Całe ciało*: 900 lights fill it from the heart out, four in
+  five warm red (most cells are red blood cells).
+* **night** (0, free): a night sky, a thin moon, a sleeper on their back under a breathing blanket; a hypnogram of
+  ≈ 5 cycles drawn as a line of light (deep sleep aqua, early).  *Fale*: it draws itself; *Hormon*: the first deep
+  trough gold, a thread down to the pituitary, gold spreading under the blanket.
+* **brain** (1, lens): neurons, astrocytes with end-feet on an arteriole and a venule in their fluid sleeves; aqua
+  fluid runs down, across between the cells and out with grey motes of waste.
+
+Portals: cell → mito/membrane (a mitochondrion), cell → dna (the nucleus), mito → membrane (a crista), muscle → mito,
+body → gut/marrow/brain/cell, night → brain (the head).  Every tissue world fills far beyond its view so a tall box
+(946 × 1158) or a wide one (344 × 178) shows tissue, never an empty lens.  The card art `.art-komorki`: a cell with a
+violet nucleus, gold mitochondria and a lysosome, CSS gradients only.
+
+#### The words
+
+pl first; en/de/sv natural.  Energy is ATP; "młodość" only in the verse; renewal thanked ("Dziękuję za każdą
+komórkę").  "Not a treatment" plainly in the registry tip5, the second opening card ("nie leczenie i nie obietnica
+młodości… porozmawiaj z lekarzem") and the lobby card.  The mouse data is said as mouse data and as contested; the
+seven-year myth is corrected.  The lead's drafts changed: `komorki.text` (no "the night when all of it speeds up"),
+`komorki.tip5` (the engine's tone check forbids "odmłodzenie" even negated; now "nie obietnica młodości" + see a
+doctor), `komorki.brainRest` (describes the picture, not the cells' work).
+
+#### Measured
+
+* `scripts/arcade-mobile.mjs` (pl, Mendi): small 360×600, iPhone 390×664, Android 412×780, phone on its side 812×360,
+  tablet 820×1180, desktop 1280×800 — all ✓, 0 problems, 0 page errors; 0 strings under 11 px, under 13 px only the
+  kit's verse references (11 px; 12 px on the tablet); 16 targets audited (story, the four controls, the picker's
+  close, 3 modes, 6 meditation tiles) all valid; 60 fps everywhere with the CPU slowed (small phone 4×: game 3.75 ms;
+  iPhone 1.96, Android 2.16, side 1.0, tablet 1.43, desktop 0.77 ms); a 50 s session scores 25–45 komórek.
+* `scripts/arcade-shot.mjs`: pl + Mendi 60 s → 117 komórek; en + HALO 40 s → 73 cells; no page errors; lobby, cards,
+  picker, summary in both languages.
+* The gallery (`.gallery/health.html?game=komorki`): every scene at 0/0.2/0.6/1 in 360×260 and at the smallest box
+  344×178 — each picture reads at both.
+* Tests: `test/arcade-komorki.test.ts` 17 — checkLibrary [] (all keys in 4 languages, lengths, anchors in views,
+  verses, tone), 40 s first-ever and returning sessions score, 0 growth with no focus (300 s) or unfocused (120 s),
+  every cited number per key in all four languages and no other number in teach/say/tip/count/med, NBSP between
+  number and unit, no promise words (heal/cure/rejuvenate/younger/energy field/detox/activate in 4 languages), "not a
+  treatment" in panel.not, story.open2 and the registry's tip5, the mouse data said and contested, the 7-year myth
+  corrected, the closing thanks, each world bakes and draws all 18 scenes at 7 growths × 3 states with only finite
+  numbers, portals inside the shallower view.  `test/i18n-arcade.test.ts` 7 ✓ (pins unchanged: unit `komórek`,
+  titles).
+
+### 24.8 Żywa skóra — the skin renewed (Living Skin · Lebendige Haut · Levande hud)
+
+**The request in one line:** "regeneracja skóry… młody wygląd" — how skin really renews, guards, weaves, warms and
+heals itself, in the player's own skin tone; "young look" only as healthy, cared-for skin. Rooted in **Job 10:11**
+("Skórą i ciałem przyoblokłeś mię"). Code: `src/arcade/skora/` (library.ts, i18n.ts, tone.ts, tune.ts, seven worlds
+in world-*.ts), test `test/arcade-skora.test.ts`.
+
+**One line:** six short guided meditations about the skin; in each, the player's real concentration makes the picture
+grow — cells dividing and rising, bricks and mortar laid, collagen spun, vessels filling, a wound closing, DNA
+repaired — while rest deepens it with the breath. Unit: **nowe komórki** (nowa komórka / nowe komórki / nowych
+komórek; new cells; neue Zellen; nya celler), 120 a scene grown by focus — distinct from Czujna straż's and Każda
+komórka's "komórek".
+
+#### The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| Basal cells divide on the basement membrane; ≈ 1200 new cells a day per mm² of skin (counter ends at 1200); some stay, the rest rise | Weinstein, McCullough & Ross, J Invest Dermatol 1984;82:623 (PMID 6725985): birth/transit/loss 1246, 1417, 1490 cells/day/mm² |
+| From the base to the flake ≈ 39 days on average — **not 28** (the popular figure has no primary source) | Weinstein et al. 1984 ("mean epidermal turnover time of the entire tissue is 39 days") |
+| Spinous → granular → horny layer: the cell flattens, loses its nucleus, fills with keratin | standard histology; Évora et al., Skin Pharmacol Physiol 2021 (PMID 33780956) |
+| ≈ 2–3 weeks in the horny layer; enzymes loosen the corneodesmosomes; about as many shed as are born | Hoath & Leahy, J Invest Dermatol 2003 (PMID 14675195: 14 d); Wilhelm, Saunders & Maibach, Br J Dermatol 1990 (PMID 2369560: 19.3 d); Ishida-Yamamoto & Igawa, Cell Tissue Res 2015 (PMID 25407522: kallikreins); Weinstein 1984 (equal compartment rates) |
+| Horny layer usually 10–20 layers, ≈ 10–20 µm (thinner than paper); corneodesmosomes as "rivets" (the brief's 15–20 layers corrected: face ≈ 9, trunk ≈ 13, limbs ≈ 15) | Ya-Xian, Suetake & Tagami, Arch Dermatol Res 1999 (PMID 10552214); Sandby-Møller et al., Acta Derm Venereol 2003 (PMID 14690333) |
+| Bricks and mortar: lipids from the lamellar bodies of the granular layer, ≈ 50 % ceramides, 25 % cholesterol, 15 % free fatty acids by weight (≈ 1:1:1 molar) | Feingold, J Lipid Res 2007 (PMID 17872588); Bouwstra et al., Prog Lipid Res 2023 (PMID 37666282) |
+| Natural moisturising factor made inside corneocytes from filaggrin (amino acids, PCA, urocanic acid) binds water (lactate and urea come from sweat — not said to come from filaggrin) | Rawlings & Harding, Dermatol Ther 2004 (PMID 14728698) |
+| Skin surface mildly acidic, pH ≈ 4.7 on average; good for the resident flora | Lambers et al., Int J Cosmet Sci 2006 (PMID 18489300) |
+| Fibroblasts make collagen: three chains → helix → fibrils → bundles; collagen ≈ ¾ of the skin's dry weight, mostly type I (80–90 %; type III ≈ 10 %) | Shin et al., Int J Mol Sci 2019 (PMID 31036793); Wilkinson & Hardman, Open Biol 2020 (PMID 32993416) |
+| Elastin ≈ 2–4 % of the dermis's dry weight; stretches and recoils | Makvandi et al., Nano-Micro Lett 2021 (PMID 34138349); Jeon et al. 2022 (PMID 36466337) |
+| Hyaluronic acid binds water; the skin holds about half of the body's HA (no "1000× its weight" myth) | Papakonstantinou, Roth & Karakiulakis, Dermatoendocrinol 2012 (PMID 23467280); Reed et al. 1988 (PMID 3227957, measured in rats) |
+| Skin collagen half-life ≈ 15 years | Verzijl et al., J Biol Chem 2000 (PMID 10976109) |
+| With age ≈ 1 % less collagen a year (per area of skin); UV speeds its breakdown — shade and sunscreen protect it | Shuster, Black & McVitie, Br J Dermatol 1975 (PMID 1220811), via Marucci et al. 2022 (PMID 35979986); Fisher et al., N Engl J Med 1997;337:1419 (PMID 9358139: UV raises the collagen-degrading metalloproteinases, type I collagen breakdown +58 %) |
+| Two flat vascular networks: deep at the dermis–fat junction, shallow ≈ 1–1.5 mm under the surface, joined by vertical vessels; a capillary loop in each papilla; the epidermis has no vessels and is fed by diffusion | Braverman, J Investig Dermatol Symp Proc 2000;5:3 (PMID 11147672) |
+| Skin blood flow ≈ 250 ml/min at rest, up to 6–8 l/min in heat | Charkoudian, Mayo Clin Proc 2003 (PMID 12744548); Charkoudian, J Appl Physiol 2010 (PMID 20448028) |
+| Four overlapping phases: haemostasis (right after injury: vessels narrow, platelets, fibrin clot), inflammation (neutrophils within hours, monocytes/macrophages from ≈ day 2), proliferation (weeks: granulation tissue, new vessels, the epidermis from the edges), remodelling (≈ 3 weeks to a year or more) | Wilkinson & Hardman 2020; StatPearls "Wound Healing Phases" (PMID 29262065); Gonzalez et al., An Bras Dermatol 2016 (PMID 27828635) |
+| At 3 weeks a scar has ≈ 20 % of its final strength; at most ≈ 80 % of unbroken skin (counter 20 → 80 %) | Levenson et al., Ann Surg 1965 (PMID 14260029, rats) via Ireton et al. 2013 (PMID 25289204); Hosseini et al. 2022 (PMID 36017082, citing Singer & Clark 1999) |
+| One melanocyte hands melanin to ≈ 36 keratinocytes (counter 1 : 36); melanocyte numbers are about the same in all skin colours — what differs is how much melanin, what kind, the melanosomes' size and spread | Hoath & Leahy 2003 (1:36); Thingnes et al., PLoS One 2012 (PMID 22792296); Alaluf et al., Pigment Cell Res 2002 (PMID 11936268: pheomelanin minor even in the lightest skin) |
+| Supranuclear melanin caps reduce UV DNA photoproducts | Kobayashi et al., J Invest Dermatol 1998 (PMID 9579550) |
+| Nucleotide excision repair cuts out the damaged stretch and rewrites it; some lesions within hours (6-4PP t½ ≈ 2.3 h), others over a day or more (CPD t½ ≈ 33 h) | Young et al., J Invest Dermatol 1996 (PMID 8752675); Moriwaki & Takahashi 2008 (PMID 17920816) |
+| Skin makes vitamin D3 under UVB | Holick, Am J Clin Nutr 2004 (PMID 15585788) |
+| Smoking reduces skin blood flow (care line) | Monfrecola et al., Dermatology 1998 (PMID 9732157); AAD "Reduce premature aging" |
+| Care lines: wash gently, warm not hot, no hard scrubbing; moisturise while still damp; broad-spectrum SPF 30+, shade, clothing; minor cut: mild soap and water, petroleum jelly, cover, doctor if it won't heal; regular skin self-exam, a changing mole to a doctor | aad.org: dry-skin tips, skin-cancer prevention ("how"), wound care, ABCDEs, check-skin pages |
+
+Not shown (no traceable source or too uncertain): "we shed N cells a minute", "HA holds 1000× its weight",
+"80 % of facial ageing is the sun", any 1-week wound strength (said: "very little"). StatPearls pages were not
+readable in the research pass (a bot check), so every line rests on the papers above.
+
+#### The library
+
+| # | Meditation | Scenes (each grows with focus) | World | Verse | Na co dzień |
+|---|---|---|---|---|---|
+| 1 | Odnowa naskórka | Komórki u podstawy (divisions, newborns rimmed in gold, counter to 1200/mm²/day) · Wędrówka w górę (one golden cell's journey, "dzień 0 → 39") · Łagodne złuszczanie (enzyme glints, flakes leave) | epi | Lam 3:22–23 | wash gently, warm not hot |
+| 2 | Bariera | Cegły (rows laid bottom-up, riveted, "n warstw" to 10) · Zaprawa (golden mortar flows from the lamellar bodies; four stripes ≈ the shares) · Woda i kwaśny płaszcz (water in every brick, the mantle, friendly bacteria, "pH ≈ 4,7") | barrier | Ps 91:4 | moisturise on damp skin |
+| 3 | Kolagen i elastyna | Fibroblast tka (three chains twist, gold fibrils spun) · Sprężystość i woda (elastin curls breathe, water gathers) · Splot przez lata (half the bundles renewed in gold, "15 lat") | dermis | Ps 139:13–14 | sun protection SPF 30+ |
+| 4 | Gojenie | Skrzep · Sprzątanie (neutrophils, then macrophages; debris cleared) · Nowa tkanka (granulation fills from below, loops sprout, the skin creeps in from the edges) · Blizna dojrzewa (collagen lines up, vessels fewer, "siła ≈ 20 → 80 %") | wound | Ps 147:3 | small cut care; doctor if not healing |
+| 5 | Melanina i światło | Melanocyty (dendrites reach, granules travel, "1 : 36") · Parasolki melaniny (caps form on the sun's side, light meets them) · Naprawa DNA (four kinks repaired: enzymes, cut, gold rewritten, "naprawione 4/4") | epi, nucleus | Ps 121:6 | regular self-exam; changing mole → doctor |
+| 6 | Krążenie i ciepło | Dwa sploty (deep network → vertical vessels → shallow network → a loop in every papilla) · Ciepło (a resting hand warms from wrist to fingertips) | section, hand | Ps 36:10 | move daily, no smoking |
+
+Root Job 10:11 (opening card, first closing verse); closers in turn: 2 Cor 4:16, Ps 139:16, Ps 103:5, Ps 16:9,
+Isa 40:31. Six meditations, eighteen scenes (3·3·3·4·3·2); no "Cała skóra" (the brief allows six at most): Krążenie i ciepło
+comes last, so the library closes on the whole hand in light (also the lobby's picture before a first session). The
+camera's walk is one body: the epidermis → the barrier above it (dive) → out to the dermis → out to a small cut → the
+epidermis at its edge → one cell's nucleus → out to the skin in section → out to the hand → into the epidermis again.
+
+#### The pictures
+
+Seven worlds (luminous plate, `kit/healthlib/paint.ts`; still parts baked per view/size/variant/look, only what grows
+drawn each frame; worlds cull to what the canvas shows via its transform):
+
+* **hand** (depth 0, free): the back of a resting right hand — palm, four tapered fingers with nails, the thumb above,
+  faint tendons and knuckles, a rim of light, lit from above — in the player's tone; warmth travels from the wrist to
+  the fingertips, the dorsal veins glow, a little heat rises.
+* **section** (1): epidermis in the tone with melanin at its base (more and higher in darker skin), papillary and
+  reticular dermis, a slanted hair follicle with its gland, a sweat gland's coil and duct, fat lobules; the vessels
+  grow in order with blood moving through them only as the scene grows.
+* **wound** (1): the same skin with a U-shaped cut; clot (blood, platelets on the edges, golden fibrin net, crust),
+  neutrophils (lobed nuclei) and macrophages (reaching, lilac), granulation with new loops and fibroblasts, the
+  epidermal tongues meeting, the scar (collagen turning from random to aligned, the epidermis bridging flatter,
+  joined seamlessly to the skin on both sides).
+* **epi** (2): columns of cells on the basement membrane over the papillae (capillary loops rising from a shallow
+  network) — columnar aqua-rimmed basal cells, spinous, granular (keratohyalin grains), thin horny plates; melanocytes
+  every five columns with five dendrites; caps of melanin over the nuclei (a soft crescent plus granules; more,
+  larger and carried higher in darker skin); the air above lit by `airLight` (haze, shafts, motes) so a tall box
+  reads as skin in light.
+* **dermis** (2): a loose basket weave of collagen bundles (three families of direction, near and far, each a soft
+  body with three fibrils and fine banding), a luminous fibroblast spindle, elastin curls, water as aqua motes.
+* **barrier** (3): ten staggered rows of tapered corneocytes (pearl to the tone's warmth, each slightly different,
+  keratin threads, an upper highlight) with rivets; mortar as a golden glow with four stripes; living cells below;
+  the mantle a shimmering film with small green-gold bacteria.
+* **nucleus** (3): a keratinocyte in the tone, its lilac nucleus with chromatin, the melanin cap on the sun's side
+  (denser and larger with the tone), UV rays above; a DNA double helix with coloured rungs and four kinks; the repair
+  drawn as it happens.
+
+Skin tones (`tone.ts`, lobby chips "Odcień skóry"): jasna, średnia, oliwkowa, brązowa, ciemna (light, medium, olive,
+brown, dark; hell, mittel, oliv, braun, dunkel; ljus, mellan, oliv, brun, mörk); default the first. Each tone has its
+own body, light, depth, melanin amount, granule colour and size; every tone carries its own warm rim light so the
+darkest skin glows bronze-gold as the lightest glows peach-pearl (checked in the gallery for light, brown, dark).
+
+#### The words
+
+Every number above stands in all four languages (test: `CITED`), the counters end at the cited numbers, "28" appears
+only as the myth corrected beside 39, no word promises a younger look (test bans wrinkle/younger/anti-age words in four
+languages), "not a treatment" with the right doctor and a changing mole / a wound that will not heal in the registry
+tip5, the opening card's second page and `panel.not`. The narrator thanks ("Dziękuję za każdą komórkę skóry.").
+Inclusive: "Każdy odcień skóry jest tak samo dobrze utkany." in the melanocytes scene.
+
+#### Measured
+
+scripts/arcade-mobile.mjs (final run, all ✓, exit 0): small Android 60 fps @4× (game 2.7 ms), picture 61 % of the
+screen's height; iPhone Safari 60 fps @2× (1.32 ms), 65 %; large Android 60 fps @3× (2.01 ms), 70 %; phone on its
+side 60 fps @2× (1.29 ms), 81 %; tablet 60 fps @2× (1.56 ms), 73 %; desktop 60 fps @1× (0.75 ms), 60 %. 0 strings
+under 11 px anywhere; the only ones under 13 px are the kit's verse references (11–12 px). 16 targets per device, all
+valid. arcade-shot: pl/Mendi 60 s (117 new cells), en/HALO 40 s (73) — plays, scores, lobby card with the tone chips
+and "Na co dzień". Tests: test/arcade-skora.test.ts 28/28 (checkLibrary empty; 40 s session scores first-ever and
+returning; nothing grows without focus or unfocused; every cited number in four languages; counters end at the cited
+numbers; tone bans; five tones; every scene paints in every tone at every growth without NaN; portals in view);
+test/i18n-arcade.test.ts and test/arcade-healthlib.test.ts green.
+
+### 24.9 Mocne zęby — saliva, minerals, living dentine, the root and the gum (`zeby`, B4)
+
+**The request in one line:** the founder asked for *"regeneracja zębów"*; the truth told kindly is that enamel cannot
+regrow — its ameloblasts are gone once the tooth erupts — but it **remineralises every day** from the saliva (fluoride
+helps), dentine is alive and laid down all through life, and the ligament and the gum's attachment renew themselves
+fast.  Root **Song 4:2** ("…a flock … coming up from the washing; each has its twin"): the washing is the saliva, the
+twins the mirror pairs of the teeth.  Code: `src/arcade/zeby/` (library.ts, seven worlds in `world-*.ts`, words in
+`i18n.ts`, the tune in `tune.ts`, shared shapes in `geo.ts`, small painting helpers in `ink.ts`); tests
+`test/arcade-zeby.test.ts`.
+
+#### The physiology (every number on screen, and its source)
+
+A research pass read the open full texts (PMC), the Dawes 2003 PDF, the UK "Delivering better oral health" (DBOH, v4,
+2021) chapters, NHS, NICE CG19 and ADA pages; every quote with its number was checked.  StatPearls was not reachable
+(captcha), so open reviews stand in for it.
+
+| What the game says | Source |
+|---|---|
+| Saliva 0.5–1.5 l a day; at rest ≈ 0.3–0.4 ml/min, in sleep ≈ 0.1 ml/min | Iorgulescu, J Med Life 2009 (PMID 20112475, PMC5052503); Proctor & Shaalan, J Dent Res 2021 (PMID 33870742) |
+| About 99 % water | Iorgulescu 2009 |
+| Three pairs of major glands + 600–1000 minor; at rest ≈ ⅔ from the submandibular | Iorgulescu 2009; Ok et al., J Clin Med 2020 (PMID 33396602) |
+| Bicarbonate the main buffer; more of it the faster saliva flows | Kubala et al., Biomed Res Int 2018 (PMID 29854777) |
+| The acquired pellicle forms on a clean tooth within seconds to minutes and partly shields enamel from acid | Chawhuaveang et al., J Dent Sci 2021 (PMID 33384841); Enax et al., Front Oral Health 2023 (PMC10600522) |
+| Saliva's guard: IgA, lysozyme, lactoferrin, histatins | Iorgulescu 2009; Kubala 2018 |
+| After sugar plaque pH falls within a minute; saliva brings it back usually in ≈ 20–40 min (the brief's "30–60" corrected) | DBOH ch. 10 ("within one minute"; "20 to 40 minutes"); Bowen, Odontology 2013 (PMID 23224410) |
+| Critical pH ≈ 5.5 for enamel — "not a fixed line" (5.1–6.5 with the Ca/P of saliva and plaque); fluorapatite ≈ 4.5 | Dawes, J Can Dent Assoc 2003 (PMID 14653937, PDF read); Epple et al., Dent J 2022 (PMID 35049604) |
+| How often sugar comes matters; keep it to mealtimes | DBOH ch. 10; Abou Neel et al., Int J Nanomedicine 2016 (PMID 27695330) |
+| Enamel ≈ 96 % mineral, the hardest tissue; rods ≈ 5 µm; crystals ≈ 68 × 26 nm, tens of thousands a rod (not "millions") | Smith et al., Front Physiol 2017 (PMID 28694781); Simmer et al., Int J Oral Sci 2012 (PMID 22996272) |
+| Enamel does not grow back (ameloblasts lost at eruption) | Smith 2017 ("enamel lacks any capacity for cellular repair") |
+| Ca and phosphate from saliva rebuild nibbled crystals; fluoride helps; an early white spot with an intact surface can remineralise (erosion cannot) | Dawes 2003; DBOH ch. 9 |
+| Dentine ≈ 70 % mineral; ≈ 45 000 tubules/mm² near the pulp, ≈ 20 000 near the enamel; one odontoblast process a tubule | Garberoglio & Brännström, Arch Oral Biol 1976 (PMID 1066114) via Perdigão, Jpn Dent Sci Rev 2020 (PMC8216299); Lee et al., IJMS 2019 (PMC6539952) |
+| Odontoblasts live as long as the tooth; secondary dentine all through life narrows the pulp chamber | Maeda, Front Cell Dev Biol 2020 (PMID 33330507) |
+| Reactionary dentine from surviving odontoblasts; reparative from new odontoblast-like cells of the pulp's stem cells | Andrei et al., Molecules 2021 (PMID 34066444); Gronthos et al., PNAS 2000 (PMID 11087820) |
+| Periodontal ligament ≈ 0.15–0.35 mm (drawn 0.2), Sharpey's fibres into cementum and bone, a shock absorber, collagen renewed very fast (half-life of days) | Fidyawati et al., Dent J 2024 (PMC11674970); Wen et al., Stem Cell Res Ther 2024 (PMC11526537) |
+| Vessels and nerve enter the pulp at the apical foramina | standard anatomy (Maeda 2020) |
+| Junctional epithelium renews in ≈ 4–6 days (measured in monkeys — said so); neutrophils pass through it into the sulcus | Kato et al., Sci Rep 2019 (PMID 31113965); Bosshardt & Lang, J Dent Res 2005 (PMID 15615869) |
+| 32 permanent teeth (not everyone has four wisdom teeth), 20 primary | MSD Manual (Home), "Biology of the teeth"; ADA MouthHealthy |
+| Care: brush 2×/day ≈ 2 min, 1350–1500 ppm fluoride, spit don't rinse; clean between teeth daily; sugar at mealtimes; check-ups 3–24 months (adults); last brush before sleep; sugar-free gum after meals boosts saliva | NHS "How to keep your teeth clean"; DBOH ch. 2, 4, 9, 10; NICE CG19; ADA MouthHealthy (gum: worded as saliva only — DBOH calls the caries evidence tentative) |
+
+Molecules and ions are drawn as schematic glints, far larger than they are (said in the world's header).
+
+#### The library (6 × 3 = 18 scenes, 7 worlds)
+
+| # | Meditation | Scenes | Picture | Verse | Na co dzień |
+|---|---|---|---|---|---|
+| 1 | Ślina | Źródła śliny (the glands light, ducts carry drops) · Obmycie (waves wash food away, bicarbonate quenches acid) · Błonka i straż (the pellicle spreads; IgA, lysozyme, lactoferrin drift) | face, surface ×2 | Isa 58:11 | water; sugar-free gum after meals |
+| 2 | Po posiłku | Spadek i odpowiedź (the pH line falls under ≈ 5.5, minerals leave, the plaque glows, saliva's currents rise) · Powrót (back to rest, minerals settle back with sparks) · Rytm dnia (three meals vs a faint day of eight snacks; the hours over the line glow gold) | surface (curve, day) | Ps 30:5 | sweets at mealtimes |
+| 3 | Kryształy szkliwa | Pryzmaty (rods cut across light from the middle, gold sheaths) · Minerały wracają (Ca and phosphate close the crystals' nicks) · Fluor (a bright rim grows round every crystal) | rods, lattice ×2 | Isa 54:11–12 ("crystal windows") | brush 2×, fluoride, spit |
+| 4 | Żywa zębina | Kanaliki (each odontoblast's process lights its tubule) · Przez całe życie (gold layers of secondary dentine; the row steps back) · Odpowiedź zębiny (a stimulus above; a gold tertiary layer; stem cells rise where cells were lost) | dentine | Isa 46:4 | check-ups |
+| 5 | Korzeń i dziąsła | Miazga (vessels and nerve climb from the foramina) · Ozębna (the fibres light, swaying like a hammock) · Szczelne dziąsło (JE cells stream to the sulcus, white cells pass) | tooth (whole, root side, gum margin) | Eph 4:16 ("every supporting ligament") | clean between the teeth |
+| 6 | Cały uśmiech | Kąpiel (all glands flow; a wave washes tooth after tooth) · Każdy ma parę (the upper arch, pairs lit front to back, a gold thread to each twin) · Cały ząb (enamel, dentine, pulp, ligament, gum light in turn) | face, arch, tooth | Song 4:2 | last brush before sleep |
+
+Root Song 4:2; closers Ps 103:5, Ps 139:13–14, Neh 8:10, Lam 3:22–23, Isa 58:11.  Unit: **kryształów** (crystal(s),
+Kristall(e), kristall(er)), 120 a scene grown by focus.  The counting push (every third) is the game's own: count the
+teeth, one to eight in each quarter.
+
+#### The pictures
+
+A luminous plate on the deep ground, pearl for enamel with a cool aqua rim, warm ivory dentine, rose pulp and gums,
+lilac bone, aqua saliva, gold for what grows.  Seven worlds of different depth, so the camera dives: **face** (0; the
+profile shared with Każdy włos, no features, through the lens; the three glands lobulated, their ducts, the teeth faint
+through the cheek) and **arch** (0; the sixteen upper crowns from below in typical sizes, the palate's rugae, the gum)
+→ **tooth** (1; a lower first molar cut mesiodistally in mm: enamel with rods and Retzius lines, dentine with S-curved
+tubules, rose pulp with horns and two canals, cementum, the ligament 0.2 mm, the lamina dura and spongy bone, the gum
+with its sulcus; views whole / root side / gum margin, glided within) → **surface** (2; enamel rods' ends, the pellicle,
+plaque clusters, saliva with currents, the pH chart as a line of light with a dashed "≈ 5.5") and **dentine** (2;
+dentine with tubules ≈ 5 µm apart, predentine, a row of odontoblasts, pulp with fibroblasts, a capillary and stem
+cells) → **rods** (3; keyholes ≈ 5 µm) → **lattice** (4; crystals ≈ 68 × 26 nm in nm units — a separate world so the
+glow sprites keep a sane radius; the camera dives from the middle rod).  Still parts baked per view; only what grows
+draws each frame; detail follows `st.px`.  Small chart text (pH 7, minutes, hours) is drawn at a true 13 px
+(`ink.screenText`).
+
+#### The words
+
+Polish without gendered forms, capitalised address; the narrator thanks ("Dziękuję za każdy ząb").  "Szkliwo nie
+odrasta" is said plainly (story card 2 and "Minerały wracają") — the one whitelisted phrase in `checkLibrary` (and its
+en/de/sv twins), with the reason in the test.  Never "regenerate", never "a cavity closes"; the critical pH is "not a
+fixed line"; the monkeys' 4–6 days are said to be monkeys'.  Not a treatment, with the dentist, in tip5, the opening
+card's second page and the lobby (`panel.not`: toothache, swelling, bleeding gums, a loose tooth).  A no-break space
+keeps every number with its unit (`' '` — a typed NBSP becomes a plain space in the editor; a test checks).
+
+#### Measured
+
+`scripts/arcade-mobile.mjs` (final run) — all ✓: small Android 60 fps at 4× CPU (game 2.73 ms, picture 61 % of the
+screen's height), iPhone Safari 60 fps @2× (1.3 ms, 65 %), large Android 60 fps @3× (1.86 ms, 70 %), phone on its side
+60 fps @2× (1.36 ms, 81 %), tablet 60 fps @2× (1.59 ms, 73 %), desktop 60 fps (0.69 ms, 60 %); 0 strings under 11 px,
+the only ones under 13 px the kit's verse references (11–12 px); 16 targets valid on every device.
+`scripts/arcade-shot.mjs`: pl 60 s (117 kryształów in a first session), de 40 s (57 Kristalle), en, sv and HALO EEG
+40 s — no page errors.  Gallery checked at 360 × 260 and 344 × 178 (every scene reads; chart text a true 13 px).
+Tests: `test/arcade-zeby.test.ts` 29 ✓ (checkLibrary with the whitelist, and without it only the negated truth is
+caught; 40 s first/returning score; 0 growth for none/unfocused; the numbers as cited ×4 languages; NBSP with units;
+the drawn pH curve vs the text; the ligament's drawn width; tone; care steps; a strict canvas at every growth; portals).
+
+### 24.10 Sprężysty kręgosłup — discs that drink, movement that stirs them, muscles that hold (round 20, B5)
+
+**The request in one line:** the founder asked for "regeneracja dysków w kręgosłupie"; the game tells the truth
+kindly — the intervertebral disc is the body's largest structure without blood vessels, its few cells renew its matrix
+slowly (over years), and what feeds it every day is **diffusion through the end plates** and the **water that returns
+at night** when we lie down. Code: `src/arcade/kregoslup/` (library.ts the library; geo.ts and bones.ts the spine in
+profile; world-spine/core/segment/disc/matrix.ts the five pictures; i18n.ts the words; tune.ts the music), root
+**Ps 145:14** ("lifts up all who are bowed down"), unit **łyki** (łyk/łyki/łyków; sips; Schlucke; klunkar) — the discs
+"drink"; Rzeki already counts drops.
+
+#### The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| 33 vertebrae develop: 7 cervical, 12 thoracic, 5 lumbar; 5 sacral fuse into the sacrum, 4 coccygeal into the coccyx | OpenStax *Anatomy & Physiology 2e* §7.3 (text checked) |
+| 23 discs, from C2–C3 to L5–S1; none between C1 and C2 | StatPearls "Anatomy, Back, Intervertebral Discs" (NBK470583) |
+| The discs ≈ ¼–⅓ of the spine's height (the picture: 25 % of the presacral axis) | StatPearls NBK470583 (25–33 %); Urban & Roberts, Arthritis Res Ther 2003;5:120 (PMID 12723977: "one-third"); OpenStax (≈ 25 %) |
+| The four curves: thoracic and sacral kept from the fetus; the neck's forms as the baby holds its head up, the low back's as it stands and walks | OpenStax §7.3 |
+| A lumbar disc 7–10 mm thick, ≈ 4 cm across | Urban & Roberts 2003 |
+| Nucleus ≈ 80 % water (StatPearls 66–86 %); aggrecan holds the water by the osmotic pressure of its sulphated chains | Urban & Roberts 2003; StatPearls NBK470583 |
+| Annulus 15–25 lamellae; collagen fibres ≈ 60° to the vertical, alternating left and right layer to layer | Marchand & Ahmed, Spine 1990 (PMID 2363068); Urban & Roberts 2003 |
+| Cartilage end plate < 1 mm (hyaline) | Urban & Roberts 2003 |
+| The disc: the largest structure of the body without blood vessels | Song et al., Pharmacol Res 2024 (PMID 38417775); Urban & Roberts 2003 ("large and avascular") |
+| Capillaries from the vertebral bodies end at the end plate; oxygen and glucose diffuse up to ≈ 8 mm to the nucleus's cells; lactic acid leaves the same way | Urban & Roberts 2003; Grunhagen et al., JBJS Am 2006 (PMID 16595440) |
+| Small molecules travel by diffusion, not on the current of water (load-driven flow has virtually no direct effect on them) | Urban, Smith & Fairbank, Spine 2004 (PMID 15564919) |
+| Few cells: ≈ 5000 per mm³ of nucleus, with long thin processes | Urban & Roberts 2003 |
+| Slow renewal: half of the nucleus's aggrecan replaced in ≈ 12 years; disc collagen far slower (half-life ≈ 95 years at 20–40) | Sivan et al., J Biol Chem 2006 (PMID 16537531); 2008 (PMID 18250164) |
+| L4–L5 pressure: relaxed standing ≈ 0.5 MPa, lying ≈ 0.1 MPa ("five times less"); overnight 0.10 → 0.24 MPa as the disc takes up fluid; changing position helps fluid flow; lifting 20 kg with a round back 2.3 MPa, close to the body 1.1 MPa (the Na co dzień "about half") | Wilke et al., Spine 1999 (PMID 10222525; one volunteer) |
+| Evening vs morning: 19.3 mm on average (1.1 % of stature); 54 % of the day's loss in the first hour after rising; ≈ 70 % regained in the first half of the night | Tyrrell, Reilly & Troup, Spine 1985 (PMID 4002039) |
+| (the picture) the evening's discs ≈ 12 % thinner, the crown 4.8 units (19.3 mm) lower; height loss is mostly volume (fluid) loss | Tyrrell 1985; Botsford et al., Spine 1994 (PMID 8009352: ≈ 16 % lumbar disc volume) |
+| Runners and brisk walkers (≈ 2 m/s) have better-hydrated discs (cross-sectional) | Belavý et al., Sci Rep 2017 (PMID 28422125) |
+| Multifidus: short fibres, large cross-section — built as a stabiliser | Ward et al., JBJS Am 2009 (PMID 19122093) |
+| Transversus abdominis tightens first, just before a leg or an arm moves | Hodges & Richardson, Phys Ther 1997 (PMID 9037214); Exp Brain Res 1997 (PMID 9166925) |
+| Diaphragm and transversus together hold intra-abdominal pressure; the breath shapes it | Hodges & Gandevia, J Appl Physiol 2000 (PMID 10956340); pelvic floor: Hodges, Sapsford & Pengel 2007 (PMID 17304528) |
+| Diaphragm and pelvic floor move down together breathing in, up breathing out; the diaphragm ≈ 1–1.5 cm in quiet breathing | Talasz et al., Int Urogynecol J 2011 (PMID 20809211) |
+| No single perfect posture; the spine likes change | Slater et al., JOSPT 2019 (PMID 31366294); O'Sullivan et al., BJSM 2020 (PMID 31892534) |
+| Na co dzień: 150–300 min moderate activity a week; strengthening twice a week; reduce and break up sitting | WHO 2020 — Bull et al., BJSM 2020 (PMID 33239350); Diaz et al., Ann Intern Med 2017 (PMID 28892811); Wilke 1999 |
+| Na co dzień: sleep 7–9 h | Hirshkowitz et al., Sleep Health 2015 (PMID 29073412); Watson et al., JCSM 2015 (PMID 25979105) |
+| Red flags: numbness, leg weakness, bladder or bowel changes, after an injury → a doctor urgently | NICE NG59 (low back pain and sciatica, red flags / cauda equina) |
+
+**Myths corrected, not repeated:** movement does not "pump food" into a disc (it moves water; oxygen and glucose
+diffuse — the registry's draft tagline and text said "ruch, który je karmi / jak pompa karmi", now "ruch, który
+porusza w nich wodą, pokarm, który przenika przez płytki graniczne"); "sit up straight" (no single correct posture);
+"discs regenerate" (never said: fed, drinking, renewed slowly — a test keeps "regener-/rebuild/odbud-" out of all four
+catalogs). The S-curves' "spring" is not claimed; springiness is the disc's (its water-filled nucleus, its layers).
+Not shown: the popular "the curves make the spine 10× stronger" (no primary source); intradiscal pressures while
+sitting (Wilke and Nachemson disagree).
+
+#### The library
+
+| # | Meditation | Scenes (world) | Verse | Na co dzień |
+|---|---|---|---|---|
+| 1 | Oś | Trzydzieści trzy kręgi (the 33 light from the atlas down) · Dwadzieścia trzy dyski (the 23 fill with water, C2–C3 → L5–S1) · Cztery łuki (the curves traced: aqua forward, rose back) — spine | Ps 139:13–14 | walk: 150–300 min a week |
+| 2 | Dysk | Jądro miażdżyste (the nucleus fills, aggrecan's brushes appear, "0→80 % wody") · Pierścień włóknisty (18 lamellae light outside in, fibres crossing in the cut-away steps) — disc · Płytki graniczne (the end plates light, the capillary loops fill, motes pass through) — segment | Eph 4:16 | lift with the load close |
+| 3 | Woda nocą | Dzień (body weight from above, the nucleus spreads it in rings, water leaves; "0,5 MPa") · Noc (blue night, water drawn back, the disc swells; "0,1 → 0,24 MPa") — segment · Poranek (every disc drinks, the crown rises on a ruler, "+19 mm") — spine | Ps 4:8 | sleep 7–9 h |
+| 4 | Pompa ruchu | Pompa (a walker in a round window; the discs load and unload, water out and in) · Dyfuzja (glucose gold, oxygen white from the loops to the cells, lactic acid violet back; an 8 mm measure) — segment · Powolna odnowa (few cells wake, new aggrecan and collagen around them, water gathering) — matrix | Isa 40:31 | stand and walk every 30–60 min of sitting |
+| 5 | Mięśnie głębokie | Mięsień wielodzielny (its bundles light L1 → sacrum) · Mięsień poprzeczny (the transversus wraps the waist from the spine to the front) · Oddech (diaphragm and pelvic floor move together with the breath; the pressure between them glows) — core | Ps 18:32 ("opasuje mocą") | strengthening twice a week |
+| 6 | Prosto | Wszystkie dyski (all 23 drink, a wave from the low back up) — spine · Żywy gorset (all four muscles, breathing) — core · Prosto i lekko (the figure lit, the crown lifted toward a soft light) — spine | Ps 145:14 | change position often |
+
+Closers after the first session: Ps 34:20, Isa 46:4, Ps 16:9, Ps 3:3, Isa 40:29. Every third push the counting tip:
+"Licz w myślach kręgi od szyi w dół: 7, 12, 5 — i trzymaj sumę".
+
+#### The pictures
+
+Five worlds in the body series' family (kit/healthlib/paint.ts): pearl bone lit from within, aqua water, warm red
+blood (the capillary loops), rose muscle, gold for growth.
+* **spine** (depth 0, free): the spine in profile along a Catmull-Rom axis with its four curves; every vertebra and disc
+  placed at its true share of the length (disc : body ≈ 2:5 neck, 1:5 chest, 1:3 low back — discs 25 % of the
+  presacral axis), bodies waisted in front, arches with their spinous processes (steep in the chest, square in the low
+  back), the atlas's ring and the axis's dens, the sacrum's fused wedge, the coccyx's beads; inside a body with no
+  features but its outline (head, nape, back, belly; the hips fade). In the spine views the head is out of frame, so
+  the baked figure fades at the view's edges (destination-out); "Poranek" and "Prosto" draw the figure per frame (the
+  evening's discs 12 % thinner, everything above slid down the axis by 4.8 units = 19.3 mm).
+* **core** (depth 0, free): the same body; the diaphragm's dome from the costal margin over to the crura on the lumbar
+  spine, the pelvic floor's hammock pubis → coccyx, the transversus as a rose sheet of horizontal fibres from the
+  front of the spine to the belly (a seam of gold at the linea alba), the multifidus's 21 spindles from T11–L5 down
+  2–4 levels onto the laminae and the sacrum; the pelvis faint. The breath is rest's own (sim.breath) or a calm 4/6.
+* **segment** (depth 1, lens, mm): L3–L5 cut lengthwise — trabecular lattice (upright struts tied across), cortical
+  rim, concave end plates, cartilage plates 0.7 mm, 16 capillary loops behind each bony plate over the nucleus, the
+  annulus in nine arcs front and back, the nucleus a gel oval, the canal with the cauda equina, the arches; variant
+  'night' (blue).
+* **disc** (depth 2, lens, mm): one lumbar disc 50 × 34 × 9 mm seen from above-front, kidney-shaped; 18 lamellae as tree
+  rings on its cut top, the outer six cut away in steps at the front-right so each layer's fibres show slanting the
+  other way (fibres drawn at 60° to the vertical on each wall); the nucleus behind the middle; the cartilage plate and
+  the vertebral body below.
+* **matrix** (depth 3, lens, µm, ≈ 300 × 200 µm): the gel, a loose net of collagen, long elastin fibres, old aggrecan,
+  five cells far apart (one in a capsule) with processes 30–50 µm.
+
+Dives: spine/core → segment at L4–L5, segment → disc at the disc, disc/segment → matrix at the nucleus. Counters on the
+picture: "n z 33 kręgów", "n z 23 dysków", "n % wody", "n warstw", "0,5 / 0,1 → 0,24 MPa", "+n mm", "≈ 8 mm",
+"przepona ≈ 1–1,5 cm". Card art (.art-kregoslup): a column of pearl vertebrae and aqua discs on teal.
+
+#### The words
+
+Polish without gendered forms (the registry's draft "rano jesteś wyższy" → "rano ciało jest wyższe"); the narrator
+thanks ("Dziękuję za każdy kręg i każdy dysk"); "not a treatment" with the red flags in tip5, the opening card's second
+page and the lobby's panel.not (numbness, weak legs, bladder or bowel, an injury → a doctor urgently). checkLibrary
+needs no allow-list.
+
+#### Measured
+
+`scripts/arcade-mobile.mjs` (pl, Mendi): small Android 360×600, iPhone Safari 390×664, large Android 412×780, phone
+on its side 812×360, tablet 820×1180, desktop 1280×800 — all ✓: 0 strings under 11 px; under 13 px only the kit's
+verse references (11–12 px); 16 targets valid on every device; 60 fps with the CPU slowed 2–4× (game 1.25–3.39 ms;
+3.39 ms on the small phone at 4×); the play area 60–81 % of the screen's height. `scripts/arcade-shot.mjs` 60 s pl/Mendi
+(116 łyków) and 40 s de/HALO (74 Schlucke): no page errors. The gallery at 344 × 178 and 360 × 260: every scene reads.
+Tests: `test/arcade-kregoslup.test.ts` (27: checkLibrary = [], 40 s scoring first and returning, 0 growth without
+focus, every cited number in all four languages, the geometry agrees with the text, tone, NaN-free painting at every
+growth, portals in view); `test/i18n-arcade.test.ts` unit pin 'łyków'.
+
+### 24.11 Lekkość i siła — the body made lighter and stronger, for a woman or a man (`ksztalt`, B6)
+
+**The request (2026-11-26, second message):** *"piękny wizualnie proces chudnięcia, proces idealnego ukształtowania
+piersi, figury, atrakcyjnego ciała dla kobiet i proces kształtowania atrakcyjnego ciała dla mężczyzn"* — a beautiful
+visualisation of losing weight, of shaping the breasts and the figure, an attractive body for women and for men.
+**The reading:** honour the wish — a beautiful, fit, strong body — with what the body truly does, and with care for
+anyone for whom food, weight or the body's look is hard.  Title **„Lekkość i siła”** (Light and Strong · Leicht und
+stark · Lätt och stark), root **1 Cor 6:19–20** ("your body is a temple… glorify God in your body"), unit
+**wydechów** (breaths · Atemzüge · andetag; 12 a scene ≈ a minute of resting breaths), looks **`ona` / `on`** (the
+lobby's "Sylwetka": Kobieta / Mężczyzna).  Code: `src/arcade/ksztalt/` (library.ts, i18n.ts, tune.ts, geo.ts the two
+silhouettes front and profile, draw.ts and palette.ts, world-body / world-profile / world-tissue / world-fibre /
+world-mito), test `test/arcade-ksztalt.test.ts` (31).
+
+#### The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| Of fat fully oxidised, ≈ 84 % of its mass leaves as CO₂ through the lungs, ≈ 16 % as water; breathing more than the body needs does not burn more | Meerman & Brown, BMJ 2014;349:g7257 (PMID 25516540); UNSW release, 16 Dec 2014 |
+| Lipolysis: triglycerides → glycerol + 3 fatty acids (ATGL, HSL, MGL); catecholamines stimulate, insulin suppresses | StatPearls "Biochemistry, Lipolysis" (PMID 32809399); Frühbeck et al., Nutr Res Rev 2014 (PMID 24872083) |
+| Fatty acids ride albumin in the blood, ≈ 7 binding sites | StatPearls Lipolysis; van der Vusse, Drug Metab Pharmacokinet 2009 (PMID 19745557) |
+| β-oxidation in the mitochondrion: two carbons a cycle as acetyl-CoA → citric acid cycle (CO₂) and electron transport (water), ATP | Houten & Wanders, J Inherit Metab Dis 2010 (PMID 20195903); StatPearls "Fatty Acid Oxidation" (PMID 32310462) |
+| ≈ 480 million alveoli | Ochs et al., Am J Respir Crit Care Med 2004 (PMID 14512270: mean 480 M, 274–790 M) |
+| Fat-cell number steady in adults, even after marked weight loss (the cells shrink); ≈ 10 % renewed a year at every adult age | Spalding et al., Nature 2008;453:783 (PMID 18454136) |
+| Fat-cell progenitors lie along the vessels ("przy naczyniach") | Tang et al., Science 2008 (PMID 18801968, mice) |
+| Leptin from fat tissue (fullness), ghrelin (hunger) to the hypothalamus | StatPearls "Physiology, Leptin" (PMID 30725723), "Biochemistry, Ghrelin" (PMID 31613472) |
+| Two short nights: leptin −18 %, ghrelin +28 % (12 young men) | Spiegel et al., Ann Intern Med 2004 (PMID 15583226) |
+| After short nights people eat more (care line) | Al Khatib et al., Eur J Clin Nutr 2017 (PMID 27804960, meta-analysis) |
+| Muscle protein synthesis after resistance exercise +112 % at 3 h, +65 % at 24 h, +34 % at 48 h | Phillips et al., Am J Physiol 1997 (PMID 9252485) |
+| Satellite cells between the fibre's membrane and its basal lamina; with loading they fuse and give new myonuclei | Mauro 1961 (PMID 13768451); Murach et al., FASEB J 2021 (PMID 34480776); Conceição et al., MSSE 2018 (PMID 29509639) |
+| Protein spread through the day beat fewer large or many small doses for MPS (care line) | Areta et al., J Physiol 2013 (PMID 23459753) |
+| One night without sleep: muscle protein synthesis −18 % | Lamon et al., Physiol Rep 2021 (PMID 33400856) |
+| > 400 skeletal muscles, ≈ 40 % of body mass | StatPearls "Histology, Muscle" (PMID 30725880) |
+| Pectoralis major: a thick fan from the clavicle and sternum to the humerus, under the breast tissue | StatPearls "Pectoralis Major" (PMID 30252247) |
+| The breast: glandular and adipose tissue over the pectoralis major; Cooper ligaments; no muscle of its own (so training does not change it) | StatPearls "Anatomy, Thorax, Breast" (PMID 30137859); Rehnke et al., PRS Glob Open 2018 (PMC6211786) |
+| Rhomboids and the middle trapezius retract the shoulder blades | StatPearls "Rhomboid Muscles" (PMID 30521277), "Trapezius" (PMID 30085536) |
+| 8 weeks of strengthening + stretching reduced forward head and rounded shoulders | Lynch et al., Br J Sports Med 2010 (PMID 20371564, RCT) |
+| Abdominal wall: external and internal oblique, transversus abdominis (deepest) | StatPearls "Anterolateral Abdominal Wall" (PMID 30247850) |
+| Transversus abdominis contracts before the arm moves, in any direction | Hodges & Richardson, Exp Brain Res 1997 (PMID 9166925) |
+| 6 weeks of abdominal exercise did not reduce abdominal fat (no spot reduction) | Vispute et al., J Strength Cond Res 2011 (PMID 21804427, RCT) |
+| Exercise reduces visceral fat, ≈ 6 % even without weight change (diet ≈ 1 %) | Verheggen et al., Obes Rev 2016 (PMID 27213481); Vissers et al., PLoS One 2013 (PMID 23409182) |
+| WHO: 150–300 min moderate a week; muscle strengthening on 2+ days; replacing sitting with any movement helps | Bull et al., Br J Sports Med 2020 (PMID 33239350, full text PMC7719906) |
+| Adults 7–9 h of sleep | Hirshkowitz et al., Sleep Health 2015 (PMID 29073412) |
+| Eating more slowly → less eaten, hunger unchanged (care line) | Robinson et al., Am J Clin Nutr 2014 (PMID 24847856, meta-analysis) |
+
+Corrected or left out: "spot reduction" (said kindly as not true); the fat "burned away" by breathing (breathing
+faster does not do it — said on screen); "exercise lifts the breast" (it strengthens the muscle beneath — said on
+screen); any calorie or kilogram number (none); the brief's "10 kg → 8.4 kg" given as 84 %/16 % (no kilos).
+
+#### The library
+
+| # | Meditation | Scenes (world) | Verse | Na co dzień |
+|---|---|---|---|---|
+| 1 | Lekki wydech | sygnał (tissue: a fat cell) · albumina niesie (tissue: capillary → fibre) · w mitochondrium (mito) · wydech (body: lungs, CO₂ out) | Ps 150:6 | 150–300 min a week (WHO) |
+| 2 | Komórka tłuszczowa | kropla maleje (tissue: the lobule shrinks, the cells stay) · odnowa tkanki (tissue: ~10 %/yr) · sen i sytość (body lying at night) | Ps 127:2 | sleep 7–9 h |
+| 3 | Mięsień rośnie | znak wysiłku (fibre + the 48 h curve) · komórki satelitarne · budowa w odpoczynku (fibre) | Isa 40:29 | strength 2+ days, protein through the day |
+| 4 | Pierś i postawa | mięsień piersiowy (profile) · łopatki (body from behind) · wyprost (profile, slumped → upright) | Ps 145:14 | sit less, open the chest |
+| 5 | Talia i rdzeń | gorset z mięśni · z całego ciała · wokół narządów (body) | Ps 18:32 | eat slowly, vegetables at every meal |
+| 6 | Całe ciało | lekkość i siła · świątynia (body) | Ps 139:13–14 | movement you enjoy |
+
+Closers: Ps 16:9, Rom 12:1, Isa 40:31, Eph 2:10.  Avoided: Neh 8:10 (the Polish "jedzcie rzeczy tłuste" reads
+ironically here) and Song 4:7 (a lover's words, not for a body-shape meditation).
+
+#### The pictures
+
+Five worlds in the section's luminous family (warm gold for strength, coral for living muscle, pearl for breath,
+honey for stored fat — a store of energy, never drawn as something ugly, aqua for stem cells and water):
+
+* **body** (depth 0): the figure of light (kit/figure's hands and feet, this game's own outline) in the chosen
+  silhouette — `ona` narrower shoulders, a waist, fuller hips; `on` broader shoulders, a straighter waist; featureless,
+  never sexualised, no anatomy of breasts or genitals.  Variants: front (faint breastbone and ribs), back (the spine as
+  beads; the shoulder blades and their muscles drawn per frame), night (lying asleep, seen from above, under stars).
+  The lungs fill and bubbles of CO₂ leave at the mouth, stronger on the out-breath (rest's own breath, else a 5 s
+  cycle); the corset's fibres wrap the waist from the sides; the honey store lightens evenly over the whole body;
+  visceral lobules shrink round the gut's loops; light rises from the soles to the crown into a quiet aura.
+* **profile** (depth 0): the figure facing left, a posture parameter from slumped (head forward, upper back rounded,
+  chest sunk) to upright; the pectoral fan under the chest line (for `ona` beneath the soft outline of the bust); the
+  plumb line with rings at shoulder, hip and ankle (no mark on the featureless head: a dot there read as an eye).
+* **tissue** (depth 1, lens): a Voronoi lobule of ~40 fat cells (each a luminous honey droplet with a sheen, its
+  nucleus flat at the edge), a capillary with red cells, a sympathetic fibre with beads, a striated muscle edge.
+* **fibre** (depth 1, lens): a muscle fibre with sarcomeres (Z lines, A bands), edge nuclei, membrane and the dashed
+  basal lamina, aqua satellite cells, capillaries; the study's 48-hour curve drawn under it as a line of gold.
+* **mito** (depth 2, lens): a mitochondrion with long cristae; a fatty-acid chain through the gate, the β-oxidation
+  spiral, the eight-step cycle, CO₂ bubbles leaving up toward the blood, water and ATP sparks at the cristae.
+
+Dives: body → tissue at the hip, body → fibre/mito at the thigh, profile → at the chest muscle, tissue → mito at the
+fibre; every portal is clamped inside the shallower scene's view (tested).  Counters on the corner: "84% · CO₂ z
+wydechem", the curve's "+112% · 3 h" → "+65% · 24 h" → "+34% · 48 h", "≈ 10% komórek na rok".
+
+#### The words and the care
+
+Never a promise, never a diet, never a comparison.  No number about the player (no weight, BMI, calories, kilos), no
+"ideal", no before/after, no "fat burning" from focus; a test bans these words in all four languages and lets "diet"
+appear only as "nie dieta / not a diet / keine Diät / ingen diet".  The same words for both silhouettes, written true
+for a woman and a man ("leży pod piersią" — beneath the breast/chest).  The narrator thanks ("Dziękuję za moje ciało —
+lekkie i silne, piękne na swój sposób").  The opening card's second page and the lobby's line: visualisation and
+attention training — not a treatment and not a diet; if eating, weight or the body's look is a struggle, this
+meditation is not for now — a doctor and a help line: pl 116 123 (adults, 24 h) / 116 111 (children and young people)
+— no Polish eating-disorder-only national line could be verified (findahelpline lists general lines); de the BIÖG
+Infotelefon zu Essstörungen 0221 892031 (verified on the federal health ministry's page, Oct 2025); sv 1177 and Frisk &
+Fri (no verified number, so none printed); en "a doctor or an eating-disorder helpline" (international).
+
+#### Measured
+
+Engine check `checkLibrary` = []; simSession: first-ever 40 s and returning score > 0; no focus → 0 s grown, 0.
+Gallery at 360×260 and 344×178 for both looks; play harness (every scene, 360×640) and the app (arcade-shot, Mendi,
+pl) at 1280×800, phone 390×844 portrait and landscape.  scripts/arcade-mobile.mjs ✓ on all six devices: 0 strings
+under 11 px, under 13 only the kit's verse references; 16 targets valid; 60 fps (game 2.46 ms on the small phone at
+4× slowdown, 0.86 ms desktop); the picture 61–81 % of the screen's height.  Tests: test/arcade-ksztalt.test.ts (31).
+
+### 24.12 Pełnia radości — creating, growing and multiplying great joy (Fullness of Joy · Fülle der Freude · Glädje till fyllest)
+
+**The request (the founder, 2026-11-26, second message):** *"Wizualizacja — piękny wizualnie proces tworzenia,
+powiększania i pomnażania wielkiego szczęścia człowieka"* — a beautiful visualisation of creating, enlarging and
+multiplying a person's great happiness.  **Reading:** joy as Scripture and the science of well-being both describe it —
+received, practised, shared and multiplied through people — pictured as a light that is born at the heart, grows into a
+garden, is handed on and comes back, spreads ring by ring through a network of people, and fills the whole person.
+Rooted in **Psalm 16:11** (*"obfitość wesela jest przed obliczem twojem"*): joy is a gift received, tended and shared;
+never a promise of happiness, never something focus manufactures.  Code: `src/arcade/radosc/` (library.ts, six worlds
+in world-*.ts, shared strokes in draw.ts, words in i18n.ts, the tune in tune.ts); the engine is `kit/healthlib`.
+
+**One line:** six short guided meditations on joy — the seed, gratitude, kindness, bonds, the upward spiral, fullness —
+whose pictures grow only from real focus and deepen with calm; every number on screen sourced and said as modestly as
+the studies allow.
+
+#### The science (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| Savouring — staying with a good moment — helps people feel more joy: 20 RCTs, 4805 people (moderate, g 0.51) | Chen et al., Appl Psychol Health Well Being 2026;18:e70134 (PMID 41797412) |
+| Dopamine flows from the VTA in the midbrain to the ventral striatum and the prefrontal cortex | Russo & Nestler, Nat Rev Neurosci 2013 (PMID 23942470) |
+| It carries anticipation and "wanting" more than pleasure itself; "liking" comes from small hedonic hot spots (the popular "dopamine = pleasure" corrected) | Schultz, Dayan & Montague, Science 1997 (PMID 9054347); Berridge & Kringelbach, Neuron 2015 (PMID 25950633) |
+| People whose striatum and (dorsolateral) prefrontal cortex kept responding to good pictures longer had higher well-being (N = 64) | Heller et al., Psychol Sci 2013;24:2191 (PMID 24058063; N and regions from PMC3866962); Heller et al., PNAS 2009 (PMID 20080793) |
+| "Three good things" each evening for a week; in that trial it raised happiness for a lasting while | Seligman, Steen, Park & Peterson, Am Psychol 2005 (PMID 16045394) |
+| Gratitude practice: small but reliable rise in well-being, g 0.19 — 145 papers, 24 804 people, 28 countries; larger when its forms are combined | Choi, Cha, McCullough, Coles & Oishi, PNAS 2025 (PMID 40627390) |
+| (behind the roots) weekly gratitude lists: positive affect the most robust finding | Emmons & McCullough, JPSP 2003 (PMID 12585811) |
+| Letter writers underestimate how glad the reader will be and overestimate the awkwardness (three experiments) | Kumar & Epley, Psychol Sci 2018 (PMID 29949445) |
+| $5 or $20 spent on someone else → happier that evening than spent on oneself; a large registered replication (2020) kept the direction with often small effects | Dunn, Aknin & Norton, Science 2008 (PMID 18356530); Aknin et al., JPSP 2020 (PMID 32250135) |
+| Acts of kindness raise the doer's well-being, modestly but clearly: 27 studies, 4045 people (δ 0.28) | Curry et al., J Exp Soc Psychol 2018;76:320 (doi 10.1016/j.jesp.2018.02.014); Rowland & Curry, J Soc Psychol 2019 (PMID 29702043) |
+| Harvard Study of Adult Development, since 1938, 724 people then their families; warm close relationships went with happiness and health later in life | Harvard Gazette 2023 (R. Waldinger); Waldinger & Schulz, *The Good Life* (2023); Waldinger & Schulz, Psychol Aging 2010 (PMID 20545426); context: Holt-Lunstad et al., PLoS Med 2010 (PMID 20668659) |
+| In a 20-year study of 4739 people, happiness formed clusters up to three degrees (an association; told as "clusters") | Fowler & Christakis, BMJ 2008;337:a2338 (PMID 19056788) |
+| We laugh about 30× more often with others than alone | Provine & Fischer, Ethology 1989;83:295 (diaries); Provine, Psychology Today 2000 |
+| Laughing with friends releases the brain's own opioids (PET, 2017) | Manninen et al., J Neurosci 2017 (PMID 28536272) |
+| Joy widens attention and the repertoire of things one wants to do (films of amusement/contentment; 104 students, 2 experiments) | Fredrickson & Branigan, Cogn Emot 2005 (PMID 21852891); Fredrickson, Am Psychol 2001 (PMID 11315248) |
+| Good emotions and broad-minded coping fed each other over 5 weeks — an upward spiral (138 students); they build lasting resources | Fredrickson & Joiner, Psychol Sci 2002 (PMID 11934003); Fredrickson 2001 |
+| Happiness, alone among the emotions studied, felt all over the body (701 people, body maps) | Nummenmaa et al., PNAS 2014 (PMID 24379370: "in contrast with all of the other emotions…") |
+| Good passed on: each extra contribution was tripled through others, up to three degrees (a lab public-goods game) | Fowler & Christakis, PNAS 2010 (PMID 20212120) |
+| Care lines: savouring a moment; three good things tonight; one small kindness / thank in person; call a friend; ≈ 2 h a week in green places go with better well-being; tell someone close about a good thing (sharing good news adds to joy) | the above; White et al., Sci Rep 2019 (PMID 31197192); Bratman et al., PNAS 2015 (PMID 26124129); Gable et al., JPSP 2004 (PMID 15301629) |
+| Low mood or loss of joy for more than two weeks → a doctor | NHS "Depression in adults — diagnosis" and "Low mood" pages |
+
+Not used: the "40 % of happiness is under your control" pie (Lyubomirsky 2005, criticised by Brown & Rohrer 2019), the
+retracted "positivity ratio 2.9", Salimpoor's music study (kept for a later scene), "helper's high", any claim that
+focus or imagery changes mood disorders.
+
+#### The library
+
+| # | Meditation | Scenes (each grows with focus) | Picture | Verse | Na co dzień |
+|---|---|---|---|---|---|
+| 1 | Ziarno radości | one good thing: attention from the brow rests on a small light, the seed at the heart wakes ring by ring · the reward circuit: VTA → ventral striatum → PFC, the rose "hot spots" last · staying with the good: a loop PFC ⇄ striatum, a trace held longer | figure · brain ×2 | Ps 118:24 | a few calm breaths at one good thing |
+| 2 | Wdzięczność | three good things: three blossoms open in an evening garden, a line from each down to "why it happened" · roots of light spread, new leaves · a letter of thanks crosses; the reader's joy grows past the dashed "expected" | garden ×2 · two figures | Ps 103:2 | three good things tonight, and why |
+| 3 | Dobroć | the gift: heart → hand → across → the other's heart · the light returns above them, warmer; a rose bond | two figures ×2 | 2 Cor 9:7 | one small kindness, or thank someone in person |
+| 4 | Więzi | close ones lit one by one (Harvard) · three degrees, ring by ring (Framingham) · laughing together: ripples, a glow in each head | constellation ×3 | Eccl 4:9–10 | call a friend, walk together |
+| 5 | Spirala w górę | the fan of attention widens and the possibilities in it wake · the spiral rises, waking bonds, skills, resilience | sky · spiral | Rom 15:13 | a walk outdoors (≈ 2 h a week in green) |
+| 6 | Pełnia | the whole body fills from the heart and flows out · the garden in bloom: attention, gratitude, kindness, closeness · good passed on, multiplied, in warm light | figure · garden · constellation | John 15:11 | tell someone close about something good |
+
+Closing verses in turn after the first session: Neh 8:10, Phil 4:4, Zeph 3:17, Gal 5:22–23, Ps 126:2–3 (Ps 16:11 the first
+time).  Headline unit: **iskra/iskry/iskier** (spark · Funke · gnista), 120 a scene — a symbolic count of sparks, never
+"joy produced by focus".  Tune: original, D major, 66 bpm, I–IV–vi–V…, brighter than the section's lullabies.
+
+#### The pictures
+
+Six worlds drawn in code in dawn's palette on the section's plum ground: gold and peach for joy received, rose for
+warmth between people, sky blue for open space, pearl rims.  **postac** (depth 0): kit/figure's featureless person,
+its rim baked, the inner light clipped to the silhouette each frame; a dawn horizon.  **mozg** (depth 1, lens): one
+hemisphere in mid-sagittal section, forehead left with the band on it, gyri as wavy arcs, corpus callosum, thalamus,
+brainstem, cerebellum with its arbor vitae; dopamine as threads with travelling pulses.  **ogrod** (depth 1, free): an
+evening garden (young moon, stars) or a dawn garden; stems, leaves and blossoms that open from buds; roots as a
+deterministic branching tree; fireflies.  **dwoje** (depth 0): two figures (no gender, "kto daje · kto przyjmuje");
+light along the arm, across the hands, back above; a small envelope of light; a dashed ring of the expected.
+**siec** (depth 0): 1 + 6 + 12 + 20 people (and a dim fourth ring) as head-and-shoulders glyphs joined by threads,
+lit ring by ring; in close views the outer rings fade back.  **spirala** (depth 0): a fan of attention from a person's
+head over a field of 80 points; a perspective helix widening as it rises with three resource lights.  Dives: the
+figure's brow into the brain, the heart into the garden (also from the giver's heart and the network's middle).  Labels
+are short (≤ 22), placed so they don't collide at 344 × 178 and 360 × 260 (gallery-checked); each scene's corner count
+carries its study's numbers ("4739 osób · 20 lat").
+
+#### The words
+
+Polish first, second person without gendered forms ("kto pisze", "kto czyta"), the address capitalised; the narrator
+thanks ("Dziękuję za każdą bliską osobę"); effects told as they are ("mały, ale pewny", "skromnie, ale wyraźnie",
+"choć efekt bywał mały"); the dopamine myth corrected on screen.  **Not therapy** in the registry's tip5, the opening's
+second page and the lobby card: more than two weeks of sadness or no joy → a doctor; pl 116 123 / 112, de
+TelefonSeelsorge 0800 111 0 111 / 112, sv 1177 and Mind Självmordslinjen 90101 / 112, en a doctor / local emergency
+number or a crisis line.  Tests (test/arcade-radosc.test.ts, 39): checkLibrary = []; 40 s sessions score first and
+returning; nothing grows without focus; 24 cited-number pins in four languages; NBSP; no promise of happiness; the
+modest effects and the dopamine correction present; the help lines; Polish people-labels without gender; every scene
+paints at every growth on a strict fake canvas; dives land inside the shallower view.
+
+#### Measured (scripts/arcade-mobile.mjs)
+
+Final run, pl, Mendi on the simulator, all six devices ✓ (exit 0): small Android 360×500 canvas (61 % of the screen's
+height), iPhone Safari 390×564 (65 %), large Android 412×680 (70 %), phone on its side 601×360 (81 %), tablet 820×1052
+(73 %), desktop 1280×672 (60 %).  Text: 0 strings under 11 px on every device; under 13 px only the kit's verse
+references ("Ps 16,11 · Biblia Gdańska", 11–12 px).  16 targets (the four controls, the picker, the story card) valid
+everywhere.  60 fps with the CPU slowed 2–4×; game 3.06 ms (small @4×), 1.5 (iPhone @2×), 2.24 (Android @3×), 1.13 (side),
+1.3 (tablet), 0.89 ms (desktop).  arcade-shot: pl desk 60 s (117 iskier), de at 390×844 (57 Funken), no page errors.
+Gallery: every scene at 360×260 and 344×178 (labels inside the box, no collisions after two passes).
+
+### 24.13 Rozkwit — the whole person, all at once (`rozkwit`, builder B8)
+
+**The request, in one line:** *"naraz piękny wizualnie proces upiększenia ciała człowieka — naprawa komórek,
+wyprostowanie postawy, odmłodzenie, poprawienie jakości włosów, atrakcyjna, piękna figura, sylwetka, zdrowy wygląd"*
+and the great happiness — one visualisation of the whole person made beautiful together.
+
+**The reading.** The capstone of the section: one library that walks the whole person **in the other games' own
+pictures** — the same body, seen whole — and ends in one picture of its own where everything shines at once.  Beauty
+is told as health and as the work God made, offered in thanks: never a comparison, never a promise of youth or of a
+figure.  Root **Ps 139:13–14** ("I am fearfully and wonderfully made").  Titles: pl „Rozkwit”, en *Flourishing*,
+de *Aufblühen*, sv *Blomstring*.  Unit **płatków** (płatek/płatki/płatków · petals · Blütenblätter · kronblad): the
+petals of the bloom, a symbolic count (perScene 120); the finale draws petals of light rising.
+
+#### Reuse, not redraw (`rozkwit/borrow.ts`, `sources.ts`, `world-hair.ts`)
+
+* A borrowed scene is built from the source game's exported `LIBRARY` (never its world files): the same world, view,
+  growing point, variant and (a chosen few of) its labels — so a source's later polish reaches Rozkwit by itself.
+  Keys: the world `<game>.<world>` ("komorki.membrane"), the part `<game>_<part>` with its words **copied** from the
+  source's four catalogs (`part.komorki_rotor` = komorki's `part.rotor`).
+* A borrowed world is wrapped (`borrowedWorld`): it is told the source's own scene id (its `draw`, `focusAt` and
+  `counter` switch on it) and a look it knows — Lekkość i siła gets the figure (`ona`/`on`), Żywa skóra its middle skin
+  tone (`medium`; Rozkwit asks only for the figure), the rest ''.
+* Each meditation's everyday step ("Na co dzień") is a source game's own line, word for word; the figure's words
+  (`look.ona/on`, `panel.look`, `panel.lookNote`) are Lekkość i siła's.
+* **Każdy włos** is not on the engine: `world-hair.ts` adapts its follicle (depth 2, through the engine's lens: the
+  dermis baked as the still layer; what grows; the epidermis laid over it) and its head in profile (depth 0; its still
+  layer kept by the adapter so it turns with the head as it lifts).  Not wlosy's `paintScene` into the view's box (the
+  brief's first idea): a world is never told the picture's box, so that would put the follicle in a lens narrower than
+  every other scene's; calling wlosy's world functions under the engine's camera gives the same full-box lens as all
+  tissue.  The adapter's own layers (`OwnLayer`) cover only their content on the canvas (≤ ~6 MP), redrawn only when
+  the camera needs more (a closer zoom than +15 %, or a part they do not cover).  Hair colour: brown (its sheen golden
+  on the dark ground).
+* Dives: within one game's pictures, that game's own portal; from the whole figure (and from Lekkość i siła's front
+  figure, drawn in the same units) the camera opens where each picture lies in the body — cells at the chest, the
+  watch and the skin at the forearm, the spine at the lumbar discs, the breath at the lung, muscle at the thigh, the
+  hair at the scalp, joy at the heart; from the head into the follicle at the crown.
+
+#### The library (6 meditations · 18 scenes)
+
+| # | Meditation | Scenes (source) | Verse | Na co dzień (copied from) |
+|---|---|---|---|---|
+| 1 | Komórki | Energia (komorki `wirnik`) · Naprawa (komorki `litera`) · Czujna straż (straz `patrol`) | Lam 3:22–23 | sleep 7–9 h at regular times (komorki `noc`) |
+| 2 | Postawa | Dyski piją nocą (kregoslup `noc`) · Żywy gorset (kregoslup `gorset`) · Wyprost (kregoslup `wyprost`) | Ps 145:14 | every 30–60 min of sitting, get up and walk (kregoslup `ruch`) |
+| 3 | Sylwetka | Lekki wydech (ksztalt `oddech`) · Mięsień rośnie (ksztalt `budowa`) · Sylwetka w świetle (ksztalt `postac`) | 1 Cor 6:19–20 | strength 2+ days a week, protein with every meal (ksztalt `miesien`) |
+| 4 | Skóra i włosy | Nowa skóra (skora `wedrowka`) · Kolagen (skora `fibroblast`) · Kolor od korzenia (wlosy `barwa`) · Głowa wysoko (wlosy `glowa`) | Job 10:11 | shade, clothing, SPF 30+ broad spectrum (skora `kolagen`) |
+| 5 | Radość | Dostrzec dobro (radosc `dostrzec`) · Trzy dobre rzeczy (radosc `trzy`) · Radość płynie (radosc `plynie`) | Ps 16:11 | tonight three good things and why (radosc `wdziecznosc`) |
+| 6 | Cały człowiek | Całe ciało · Rozkwit (its own picture) | Isa 58:11 („jako ogród wilgotny”) | movement that brings joy — every move counts (ksztalt `cale`) |
+
+Komórki's verse is Lam 3:22–23 (mercies new every morning), not Ps 103:5 ("youth renewed like the eagle's"), so the
+meditation that pictures renewal cannot be read as a promise of youth.  Closers after the first session: Ps 16:9, 2 Cor 4:16, Ps 139:16, John 15:11, Ps 1:3.
+
+#### What the game says | source (the borrowed pictures keep their games' own sources and counters)
+
+| Says | Source (checked: PubMed metadata/abstracts unless noted) |
+|---|---|
+| ATP synthase's rotor ≈ 100 turns a second; the body turns over ≈ its own weight in ATP a day | Watt et al., PNAS 2010 (PMID 20847295); Törnroth-Horsefield & Neutze, PNAS 2008 (PMID 19073922; komorki checked the sentence in the full text) |
+| DNA in each cell damaged by estimates tens of thousands of times a day; a wrong letter recognised, cut out, replaced | Tubbs & Nussenzweig, Cell 2017 (PMID 28187286); Lindahl, Nature 1993 (PMID 8469282); Nobel Chemistry 2015 |
+| NK cells 5–20 % of blood lymphocytes; healthy cells left alone, a changed cell can be removed | Abel et al., Front Immunol 2018 (PMID 30150991; straz: full text "5–20%"); Kärre et al., Nature 1986 (PMID 3951539) |
+| Lying down, disc pressure ≈ a fifth (0.1 vs 0.5 MPa); the discs take water back overnight | Wilke et al., Spine 1999 (PMID 10222525) |
+| Morning stature higher by ≈ 1 % (19.3 mm, 1.1 %) | Tyrrell, Reilly & Troup, Spine 1985 (PMID 4002039) |
+| Transversus abdominis contracts before the arm moves; with diaphragm, pelvic floor, multifidus a living corset | Hodges & Richardson, Exp Brain Res 1997 (PMID 9166925); Hodges & Gandevia, J Appl Physiol 2000 (PMID 10956340) |
+| No single correct posture; the spine likes change | Slater et al., JOSPT 2019 (PMID 31366294); O'Sullivan et al., BJSM 2020 (PMID 31892534) |
+| Fat burned: ≈ 84 % of its mass leaves through the lungs as CO₂, ≈ 16 % as water; faster breathing burns no more | Meerman & Brown, BMJ 2014 (PMID 25516540) |
+| After resistance exercise muscle protein synthesis +112 % at 3 h, still raised at 24 and 48 h | Phillips et al., Am J Physiol 1997 (PMID 9252485) |
+| > 400 muscles, ≈ 40 % of body mass | StatPearls "Histology, Muscle" (PMID 30725880; via ksztalt) |
+| Epidermis: born in the basal layer, up, flattened, shed — ≈ 39 days on average | Weinstein, McCullough & Ross, J Invest Dermatol 1984 (PMID 6725985: "mean epidermal turnover time … 39 days") |
+| Collagen ≈ ¾ of the skin's dry mass; skin collagen half-life ≈ 15 years; UV speeds its breakdown | Shin et al., Int J Mol Sci 2019 (PMID 31036793) and Wilkinson & Hardman 2020 (PMID 32993416) via skora; Verzijl et al., J Biol Chem 2000 (PMID 10976109: "skin collagen 15 years"); Fisher et al., NEJM 1997 (PMID 9358139) |
+| A hair grows only from the root, ≈ 0.35 mm a day (≈ 1 cm a month); pigment received in the bulb, carried in the cortex | StatPearls "Anatomy, Hair" (NBK513312); Loussouarn 2001 (PMID 11531795); Slominski et al. 2005 (PMC1201498) — DESIGN §15.2 |
+| ≈ 100 000 hairs, each in its own cycle; anagen 2–7 years | Oh et al., J Invest Dermatol 2016 (PMID 26763421); StatPearls NBK470321 — §15.2 |
+| Savouring helps people feel more joy (20 RCTs, 4805 people) | Chen et al., Appl Psychol Health Well Being 2026 (PMID 41797412: g 0.51) |
+| Three good things for a week raised happiness lastingly | Seligman, Steen, Park & Peterson, Am Psychol 2005 (PMID 16045394) |
+| Generosity passed on up to three degrees; each contribution tripled in all (lab game) | Fowler & Christakis, PNAS 2010 (PMID 20212120) |
+| (counter) Joy: up to 3 degrees apart (clusters in a network of 4739 people over 20 years) | Fowler & Christakis, BMJ 2008 (PMID 19056788) |
+| ≈ 30 trillion cells; ≈ 330 billion replaced a day | Sender, Fuchs & Milo, PLoS Biol 2016 (PMID 27541692); Sender & Milo, Nat Med 2021 (PMID 33432173) |
+| Happiness, alone among the feelings studied, felt all over the body (701 people) | Nummenmaa et al., PNAS 2014 (PMID 24379370; radosc checked the full text) |
+| Care: sleep 7–9 h (adults) | Hirshkowitz et al., Sleep Health 2015 (PMID 29073412) |
+| Care: break up sitting; strength 2+ days; 150–300 min a week; every move counts | WHO 2020, Bull et al., BJSM 2020 (PMID 33239350) — via kregoslup/ksztalt; protein spread through the day: Areta et al. 2013 (PMID 23459753) via ksztalt |
+| Care: sun protection | AAD; Fisher 1997 (above) — via skora |
+
+#### The pictures
+
+* **Borrowed:** the eighteen scenes but two are the source games' pictures exactly as they draw them (their counters
+  too, in the page's language); the follicle and the head through the adapter.
+* **Its own (`world-whole.ts`, depth 0, free on the ground):** Lekkość i siła's front silhouette (`ksztalt/geo.ts
+  frontPath`, the figure light of `ksztalt/draw.ts` in the bake only), in the player's look, featureless.
+  *Całe ciało* lights the parts in order as it grows (labels as each comes): **cells** — 150 small lights of gold,
+  pearl, aqua and rose filling the body from the heart outward; the **spine** — 24 vertebrae and the sacrum lit from
+  below, aqua discs between, and at the end a thread of light rising from the crown (upright, lightly); the **hair** —
+  growing from the root in its brown with a golden sheen gliding down (a woman's to the shoulders, a man's short);
+  the **skin** — the outline warm and alive, small lights travelling round it; **strength** — soft coral light in the
+  great muscles.  The growing point travels the same way (chest → sacrum → up the spine → scalp → skin → thigh).
+  *Rozkwit* starts with all of that at half (no step back after the scene before) and raises it together, while joy
+  rises from the **heart** in rings and runs as light to the crown, the hands and the feet; a meadow of fourteen
+  **flowers of light** opens on stems round the feet; petals of light rise; and four **people** near and far
+  (featureless, smaller with distance) are lit as the light reaches them.  Reduced motion: still rings, petals and
+  sheen.  It is the hero before the first session (the last scene of the last meditation) and the sixth tile.
+* Card art `.art-rozkwit`: a golden heart with two faint rings on a soft column of light, a glowing head, a row of
+  small flowers of light, the deep plum ground.
+
+#### The words
+
+* Polish without gendered forms ("Wyprost", "Sylwetka w świetle"), capitalised address; de/sv du; NBSP between a
+  number and its unit (a test); every scene's narrator line begins with thanks ("Dziękuję za…").
+* "Not a treatment" in the registry's tip5, the opening card's second page and the lobby card — *nie leczenie, nie
+  dieta i nie obietnica młodości*; a doctor for any health worry; the eating-disorder note where the figure appears
+  (pl 116 123; de BIÖG 0221 892031; sv 1177 / Frisk & Fri; en an eating-disorder helpline).  A test: youth is named
+  only to say it is not promised; no "ideal body".
+* checkLibrary passes with **no allow-list**.
+
+#### Checks
+
+* `test/arcade-rozkwit.test.ts` (17): the engine check; 40 s sessions first-ever and returning score, none and
+  unfocused grow nothing; reuse (each borrowed scene = its source's world/view/focus/variant, depth and lens; part words
+  = the sources' in four languages; care lines and look words copied word for word; a wrapped world told its source's
+  scene id and look); portals inside the picture; the numbers as cited in four languages and in agreement with the
+  source games; NBSP; tone; the registry entry; every picture paints in both silhouettes at every growth without NaN;
+  the whole person lights in order, then all at once.
+* `test/i18n-arcade.test.ts` pins: title Rozkwit/Flourishing/Aufblühen/Blomstring, unit płatków.
+* arcade-shot (pl, Mendi, 60 s): plays and scores (117 płatków), lobby with six picture tiles, silhouette chips,
+  "Na co dzień"; the follicle, the section-free skin scenes and the finale checked in the play harness at 390 × 844.
+* arcade-mobile ✓ on all six devices: 0 strings under 11 px; under 13 px only the kit's verse references (11–12 px);
+  16 targets valid; 60 fps — game 4.75 ms on the small phone at 4× CPU, 1.38 ms iPhone (2×), 2.23 ms large Android
+  (3×), 1.14 ms on its side, 2.03 ms tablet, 1.1 ms desktop; the picture 61 % (small) – 81 % (side) of the screen's
+  height.  arcade-shot de on a 390 × 844 phone: "57 Blütenblätter" fits the headline.
+
+### 24.14 What waits for the founder
+
+* **Każdy włos on the engine.** The engine began as Każdy włos generalised; Każdy włos itself was left as it was this
+  round.  Porting it (§24.5 says what that takes) would give all nine health visualisations one code and let the
+  capstone use its worlds without an adapter.
+* **Help lines.** The Polish lines are the app's general ones (116 123, 116 111, 112); no Polish line for eating
+  disorders could be verified; Sweden's Frisk & Fri is named without a number.  A local line the founder trusts can
+  replace them in one place each.
+* **Native readers** for de/sv of the eight libraries (written carefully, not by native speakers).
+* **Shared units**: "iskier" (Pełnia radości) is also Ogień's; "komórek" is both Czujna straż's and Każda komórka's.
+* **Real devices**: the mobile audit passed on six emulated devices for every game; a real phone and a real band are
+  the founder's.
+* **Round 19** (Ogród o świcie) was found unfinished in its own worktree (the builders' work uncommitted); it was not
+  touched.  Both rounds touch the registry, the arcade texts, styles.css, the title pins and scripture.ts: merging both
+  is a careful hand-merge (re-run `npm run scripture` after it).
