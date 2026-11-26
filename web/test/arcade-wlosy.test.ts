@@ -975,3 +975,28 @@ describe('the rest’s rhythm and the breath guide (round 15)', () => {
     }
   });
 });
+
+describe('Każdy włos — the words for the body (round 23, "Słowo na wydech")', () => {
+  // each meditation's three words (kit/inner.ts): in all four languages, one out-breath long, the address kept and no
+  // number; the tone tests above (no regrowth, no healing, no disease) read every key, these included
+  it('gives every meditation three words in pl, en, de and sv, each ≤ 80 characters', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Readonly<Record<string, unknown>>;
+      for (const m of MEDS) {
+        for (const i of [1, 2, 3]) {
+          const s = cat[`word.${m}.${i}`];
+          expect(typeof s, `${l}.word.${m}.${i}`).toBe('string');
+          expect((s as string).length, `${l}.word.${m}.${i}`).toBeGreaterThan(20);
+          expect((s as string).length, `${l}.word.${m}.${i}`).toBeLessThanOrEqual(80);
+          expect(s as string, `${l}.word.${m}.${i}`).not.toMatch(/\d/);
+        }
+      }
+    }
+    // Polish speaks to the person (capitalised address) without gendered forms
+    for (const m of MEDS) {
+      const three = [1, 2, 3].map(i => String((CATALOGS.pl as Readonly<Record<string, unknown>>)[`word.${m}.${i}`]));
+      expect(three.some(s => /(?<!\p{L})(Twoj|Twój|Tob|Ci|Cię)/u.test(s)), m).toBe(true);
+      for (const s of three) expect(s, m).not.toMatch(/\p{L}+(łeś|łaś)(?!\p{L})|(?<!\p{L})gotow[ya](?!\p{L})|\p{L}\/a(?!\p{L})/u);
+    }
+  });
+});
