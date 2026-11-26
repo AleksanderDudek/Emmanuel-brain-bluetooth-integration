@@ -61,7 +61,7 @@ export interface ArcadeEntry {
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
-  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi';
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi' | 'ogrod';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -400,6 +400,15 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'psa147.3',
     brain: brain('kintsugi'),
     load: () => import('./kintsugi/index').then(m => m.default),
+  },
+  {
+    id: 'ogrod', kind: 'heart', title: t('ogrod.title'), tagline: t('ogrod.tagline'), text: t('ogrod.text'),
+    how: [t('ogrod.how1'), t('ogrod.how2'), t('ogrod.how3')],
+    tips: [t('ogrod.tip1'), t('ogrod.tip2'), t('ogrod.tip3'), t('ogrod.tip4'), t('ogrod.tip5')],
+    unit: t('ogrod.unit'), art: 'art-ogrod', fill: ['#fff1d6', '#f2b8a8', '#4a5a8c', '#0a1230'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa30.5',
+    brain: brain('ogrod'),
+    load: () => import('./ogrod/index').then(m => m.default),
   },
 ];
 
