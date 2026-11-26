@@ -228,7 +228,8 @@ class HealthGame implements ArcadeGame {
     const best = bestOf(s.p);
     const left = best !== null ? best - s.score : 0;
     if (best !== null && left > 0 && left <= Math.max(60, best * 0.2)) return { value: s.score, sub: this.lib.t('hud.subBest', { left: this.lib.unitsText(left) }) };
-    return { value: s.score, sub: `${this.lib.medName(s.med)} · ${s.idx + 1}/${s.count}` };
+    // the scene's place first: on a small phone the line is clamped, and a long name loses its end, not the place
+    return { value: s.score, sub: `${s.idx + 1}/${s.count} · ${this.lib.medName(s.med)}` };
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
