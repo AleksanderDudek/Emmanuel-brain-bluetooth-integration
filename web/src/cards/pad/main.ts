@@ -7,6 +7,7 @@
  * The room and the link come in the URL's fragment (#r=K7QM&v=relay); opened without one, the page
  * asks for the room code the board shows.
  */
+import '../../gate';
 import '../cards.css';
 import { lang } from '../../i18n';
 import { ChannelLink, newPeerId, parsePadHash, RelayLink, isRoom, type DuoLink } from '../duo/link';

@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { markSelfTest } from './selftest.mjs';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB, 'dist');
@@ -77,6 +78,7 @@ let failed = false;
 try {
   const ctx = await browser.createBrowserContext();
   const page = await ctx.newPage();
+  await markSelfTest(page);
   page.setDefaultTimeout(90_000);
   page.on('pageerror', e => errors.push(`page error: ${e.message}`));
   page.on('dialog', d => void d.accept());

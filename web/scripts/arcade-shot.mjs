@@ -14,6 +14,7 @@ import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { markSelfTest } from './selftest.mjs';
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -53,6 +54,7 @@ const errors = [];
 let code = 0;
 try {
   const page = await (await browser.createBrowserContext()).newPage();
+  await markSelfTest(page);
   page.setDefaultTimeout(60_000);
   page.on('pageerror', e => errors.push(`page error: ${e.message}`));
   // other games in the same tree may be mid-edit: hide vite's error overlay so it does not block clicks,

@@ -13,6 +13,7 @@ import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { markSelfTest } from './selftest.mjs';
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -35,6 +36,7 @@ const browser = await puppeteer.launch({ executablePath: chrome, headless: true,
 const problems = [];
 try {
   const page = await (await browser.createBrowserContext()).newPage();
+  await markSelfTest(page);
   page.setDefaultTimeout(45_000);
   let lang = langs[0];
   page.on('pageerror', e => problems.push(`[${lang}] page error: ${e.message}`));

@@ -1,4 +1,5 @@
 /** HolyHolyHoly — game controller: screen flow, the fixed-step loop, audio and the band. */
+import '../../src/gate';
 import './styles.css';
 import { toast } from '../../src/ui/dom';
 import { createAudio } from './audio';

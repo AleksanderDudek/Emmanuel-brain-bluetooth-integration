@@ -1,4 +1,5 @@
 /** Emmanuel — Progressive Web App entry point (layout and flows: DESIGN.md). */
+import './gate';
 import './styles.css';
 import { ArcadeLobby } from './arcade/lobby';
 import { gameOfDay, KINDS } from './arcade/registry';

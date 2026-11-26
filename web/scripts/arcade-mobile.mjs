@@ -25,6 +25,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { markSelfTest } from './selftest.mjs';
 
 const arg = (name, def) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -117,6 +118,7 @@ try {
     report.devices[key] = r;
     const ctx = await browser.createBrowserContext();
     const page = await ctx.newPage();
+    await markSelfTest(page);
     page.setDefaultTimeout(60_000);
     try {
       if (dev.ua) await page.setUserAgent(dev.ua);

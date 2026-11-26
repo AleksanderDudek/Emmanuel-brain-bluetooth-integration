@@ -645,3 +645,63 @@ exercise cards' **4K images** (~10 MB).
 
 Bluetooth needs no network, so a band works offline as well; the sessions are stored in the browser (or a chosen
 folder) as before.
+
+## 17. The guard — bots, crawlers and agents (2026-11-26)
+
+The founder: *"protect the app from bots, robots, agents scanning website."* The app is a static site on GitHub Pages
+under a project path, so what a page can do is all there is — no server to turn a client away, no response headers,
+and a `robots.txt` in this project would sit at `/Emmanuel-brain-bluetooth-integration/robots.txt`, where no crawler
+looks (it must be at the host's root).
+
+* **Asked not to be mined** — every HTML entry (`index.html`, `pad.html`, `game/index.html`) carries
+  `<meta name="robots" content="noai, noimageai">`, `<meta name="CCBot" content="nofollow">` and the W3C TDM
+  reservation `<meta name="tdm-reservation" content="1">` (the EU's machine-readable opt-out from text and data
+  mining). Crawlers that honour them stay away from training on the app; search engines may still index it, so people
+  find a free app.
+* **Automated browsers are turned away** — `src/guard.ts`, imported first by every entry through `src/gate.ts`: a
+  browser driven by automation (`navigator.webdriver` — WebDriver, Puppeteer, Playwright, browser agents), a client
+  whose user agent names an AI crawler or agent, a scraper, an SEO crawler, an HTTP library or a headless browser, or a
+  page framing the app from another site, gets a short notice in its language instead of the app — no content, no
+  service worker, no Bluetooth (the gate throws, so nothing after it in the module graph runs). Search engines
+  (Googlebot, Bingbot, DuckDuckBot, Applebot, Yandex, Baidu, Qwant, Seznam, Ecosia) pass unless driven by automation;
+  Apple's and Google's AI-training tokens do not. Our own frames (the games' iframes) are the same origin and pass.
+* **Our checks** drive headless Chrome: `scripts/selftest.mjs` marks every page they open (`globalThis.__emmanuelSelfTest`
+  before any script of the page runs); `test/guard.test.ts` checks the verdicts on ordinary browsers (in-app ones too),
+  bots and agents, the notice, that the gate is the first import of each entry, the meta tags, and that every page the
+  scripts open is marked.
+* **Honestly a deterrent, not a lock**: a determined scraper can fetch the files, and an agent can hide the WebDriver
+  flag. The repository is public, so the source maps reveal nothing that is not already public. There are no secrets in
+  the bundle (the app has no back end).
+* **What would make it a lock** (the founder's decision — it touches accounts and DNS): a custom domain behind an edge
+  (e.g. Cloudflare's free plan: "Block AI bots", Bot Fight Mode, rate limits, a real `robots.txt` and real headers such
+  as `X-Frame-Options`); or, on github.io, a `robots.txt` in the user site's repository (`aleksanderdudek.github.io`),
+  which governs every page on the host — that repository also serves the founder's other pages and `ads.txt`, so it was
+  not changed here. A ready text for it:
+
+  ```
+  # AI training and scraping crawlers: no (search engines below stay welcome)
+  User-agent: GPTBot
+  User-agent: ChatGPT-User
+  User-agent: OAI-SearchBot
+  User-agent: ClaudeBot
+  User-agent: Claude-Web
+  User-agent: anthropic-ai
+  User-agent: CCBot
+  User-agent: PerplexityBot
+  User-agent: Bytespider
+  User-agent: Amazonbot
+  User-agent: Applebot-Extended
+  User-agent: Google-Extended
+  User-agent: meta-externalagent
+  User-agent: FacebookBot
+  User-agent: cohere-ai
+  User-agent: Diffbot
+  User-agent: ImagesiftBot
+  User-agent: Omgili
+  User-agent: Timpibot
+  User-agent: AI2Bot
+  Disallow: /
+
+  User-agent: *
+  Allow: /
+  ```

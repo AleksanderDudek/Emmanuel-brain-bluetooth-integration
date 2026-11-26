@@ -21,6 +21,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer-core';
+import { markSelfTest } from './selftest.mjs';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB, 'dist');
@@ -114,6 +115,7 @@ const stopRobot = page => page.evaluate(() => clearInterval(window.__robot));
 try {
   const ctx = await browser.createBrowserContext();
   const page = await ctx.newPage();
+  await markSelfTest(page);
   watch(page, 'board');
   const shot = (name, fullPage = false, p = page) => p.screenshot({ path: join(SHOTS, `${name}.png`), fullPage });
   const clickText = (sel, label, p = page) => p.evaluate((s, l) => {
@@ -251,6 +253,7 @@ try {
   console.log(`  room ${room}: ${padUrl}`);
   await shot('10-pairing');
   const pad = await ctx.newPage();
+  await markSelfTest(pad);
   watch(pad, 'pad');
   await pad.setViewport(PHONE);
   await pad.goto(padUrl, { waitUntil: 'networkidle0' });
@@ -275,6 +278,7 @@ try {
 
   step('the pad page asks for a room when opened without one');
   const lone = await ctx.newPage();
+  await markSelfTest(lone);
   watch(lone, 'pad-join');
   await lone.setViewport(PHONE);
   await lone.goto(`${origin}${BASE}pad.html`, { waitUntil: 'networkidle0' });
@@ -313,6 +317,7 @@ try {
   if (RELAY) {
     step(`relay: ${RELAY}`);
     const relayPage = await ctx.newPage();
+    await markSelfTest(relayPage);
     watch(relayPage, 'relay-board');
     await relayPage.goto(`${RELAY}?trainingSec=20&lang=pl#karty/gra/znaki`, { waitUntil: 'networkidle0' });
     await relayPage.waitForSelector('.k-start');
@@ -327,6 +332,7 @@ try {
     console.log(`  pad url: ${rUrl}`);
     await relayPage.screenshot({ path: join(SHOTS, '18-relay-pairing.png') });
     const rPad = await ctx.newPage();
+    await markSelfTest(rPad);
     watch(rPad, 'relay-pad');
     await rPad.setViewport(PHONE);
     // the LAN address may not be reachable from here: open the same path on the relay's own host
@@ -347,6 +353,7 @@ try {
   step('other languages: home at phone width');
   for (const lang of ['en', 'de', 'sv']) {
     const p = await ctx.newPage();
+    await markSelfTest(p);
     watch(p, lang);
     await p.setViewport(PHONE);
     await p.goto(`${origin}${BASE}?lang=${lang}#karty`, { waitUntil: 'networkidle0' });
