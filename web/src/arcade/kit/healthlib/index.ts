@@ -106,6 +106,11 @@ class HealthGame implements ArcadeGame {
     this.view.update(dt, this.sim);
     this.sound.update(dt);
     this.hintCool -= dt;
+    // a coach mark still on screen when the picker or a card opens would cover its buttons: it goes at once
+    if ((this.sim.story || this.sim.picker) && this.now < this.sim.hintUntil) {
+      this.sim.hintUntil = 0;
+      this.env.hint('', null, 0);
+    }
     this.flushHints();
   }
 
