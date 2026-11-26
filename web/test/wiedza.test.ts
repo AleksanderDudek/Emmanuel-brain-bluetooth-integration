@@ -113,6 +113,30 @@ describe('Wiedza: the article in four languages', () => {
   });
 });
 
+describe('Wiedza: a mind that helps the body (round 23, #wiedza/body)', () => {
+  const body = (a: Article) => a.sections.find(s => s.id === 'body')!;
+  const words = (a: Article) => { const s = body(a); return [s.title, s.short, s.forYou, ...s.body.map(p => p.text), ...s.points.map(p => p.text)].join(' '); };
+
+  it('follows prayer, meditation and breath, opens at #wiedza/body and leads to the games', () => {
+    expect(SECTION_IDS.indexOf('body')).toBe(SECTION_IDS.indexOf('prayer') + 1);
+    expect(parseRoute('#wiedza/body')).toMatchObject({ view: 'wiedza', wiedza: 'body', hash: 'wiedza/body' });
+    for (const a of Object.values(ARTICLES)) expect(body(a).link).toBe('#gry');
+  });
+
+  it('never promises: it says "never instead of treatment" and none of the words §24.3 keeps out', () => {
+    const treatment: Record<string, RegExp> = { pl: /nigdy nie zastępują leczenia/, en: /never replace treatment/, de: /ersetzen nie eine Behandlung/, sv: /ersätter aldrig behandling/ };
+    const never = /odmł|rejuvenat|verjüng|föryng|aktyw|activat|aktivier|aktiver|energ(y|ie)[- ]?(field|feld)|pole energ|vibrat|wibrac|schwingung|manifest|deto(x|ks)|entgift|wszechświat|universe|universum|programuj|subconscious|podświadom|unterbewusst|undermedvet/i;
+    for (const [l, a] of Object.entries(ARTICLES)) {
+      expect(body(a).forYou, l).toMatch(treatment[l]);
+      expect(words(a).match(never), l).toBeNull();
+    }
+  });
+
+  it('speaks Polish without gendered forms', () => {
+    expect(words(pl).match(/łeś|łaś|\bgotow[ya]\b|\w\/a\b/)).toBeNull();
+  });
+});
+
 describe('Wiedza: the view', () => {
   it('numbers sources by first citation and lists each once', () => {
     const order = citeOrder(pl);
