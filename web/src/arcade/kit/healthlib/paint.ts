@@ -7,6 +7,9 @@
  */
 import { MIN_TEXT } from '../mobile';
 
+/** The camera's point and rectangle, here too for a world that only imports paint (round 20, engine E: an addition). */
+export type { Pt, Rect } from './camera';
+
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const GOLD = '#ffd98a';
