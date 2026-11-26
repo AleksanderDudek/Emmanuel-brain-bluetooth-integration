@@ -1,2 +1,5 @@
-/** Placeholder until the round 20 builder wires the game to kit/healthlib (DESIGN §24). */
-export { default } from '../wlosy/index';
+/** Żywa skóra (DESIGN.md §24.3): a library of the health visualisations' engine. */
+import { makeHealthModule } from '../kit/healthlib';
+import { LIBRARY } from './library';
+
+export default makeHealthModule(LIBRARY);
