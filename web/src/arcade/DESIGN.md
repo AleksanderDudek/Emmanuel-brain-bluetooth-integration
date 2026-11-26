@@ -10759,22 +10759,478 @@ the effect: a statement the listener cannot believe makes those who most need it
 a cue paired with deep calm, and sleep** change the body's state — stress hormones, vagal tone, inflammation, the
 pace of wound healing, strength gained by imagined training, the night's repair. So the meditations now do those
 things deliberately, and say only what is true. The founder's "activate" becomes "support the body's own work" —
-honest, and closer to how it actually works (the evidence table: §27.x from `research-23.md`).
+honest, and closer to how it actually works (the evidence table: §27.3; every note in `src/content/wiedza/research-body.md`).
 
 **The inner layer "Ciało słucha"** (contract `src/arcade/kit/inner.ts`; shared by all nine health visualisations):
 
 | part | what the player meets | why (research) |
 |---|---|---|
-| **Słowo na wydech** | every rest: one short word for the body, bright on each out-breath, dim on the in-breath, repeated; the meditation's verse opens its first rest | repetition in a relaxed state is the oldest form of suggestion; believable, present-tense, second-person words (self-talk in the second person regulates better) |
+| **Słowo na wydech** | every rest: one short word for the body, bright on each out-breath, dim on the in-breath, repeated; the meditation's verse opens its first rest | repetition in a relaxed state (as autogenic training's formulas); believable, present-tense, second-person words (self-talk in the second person regulates better) |
 | **Odebrane w spokoju** | the band's calm on an out-breath (≥ 0.5) lets the word dissolve into light that drifts into the picture; counted in the summary, never in the score | neurofeedback on the state the words need — the relaxed, absorbed state — instead of on effort |
 | **Twoja intencja** | up to 3 of Gojenie · Odnowa · Młodość · Siła · Sprawność · Piękno · Wypoczynek · Radość (the founder's list) + an own sentence; their words join the meditation's | expectation and mindset change outcomes (Crum & Langer 2007; age beliefs: Levy 2002); own words are kept on the device |
-| **Słowo pokoju** | Pokój · Abba · Jezus · Maranatha · own — the last out-breath of every rest and the session's last line ("Twoje słowo na dzień") | cue-controlled relaxation: a word paired with deep calm brings it back in the day; the Christian prayer word (Jesus Prayer, *maranatha*) |
+| **Słowo pokoju** | Pokój · Abba · Jezus · Maranatha · own — the last out-breath of every rest and the session's last line ("Twoje słowo na dzień") | cue-controlled relaxation: a word paired with deep calm can help bring it back in the day (old, small studies); the Christian prayer word (Jesus Prayer, *maranatha*) |
 | **Wejście w spokój** | sessions ≥ 3 min open with 2 breaths of autogenic words (heavy and warm, the breath by itself, the heart calm) | autogenic training (Stetter & Kupper 2002) |
-| **Poczuj od środka** | a push tip every 4th push: feel the place from inside, warmth, movement, light | imagined training strengthens muscle (Ranganathan 2004); imagery felt from inside works best |
-| **Przed snem** | darker, warmer picture (less blue light), quieter sound fading to silence, the night's words, a goodnight ending, closing verse Ps 4:8 / Ps 127:2 / Prov 3:24 | most repair runs in deep sleep; bright evening screens delay melatonin (Chang 2015) |
+| **Poczuj od środka** | a push tip every 4th push: feel the place from inside, warmth, movement, light | imagined training strengthens muscle a little (Paravlic 2018, meta-analysis); felt from inside it engages the motor cortex more (one small study) — a tip, not a claim |
+| **Przed snem** | darker, warmer picture (less blue light), quieter sound fading to silence, the night's words, a goodnight ending, closing verse Ps 4:8 / Ps 127:2 / Prov 3:24 | sleep supports repair and immune balance (Besedovsky 2019); bright evening screens delay melatonin (Chang 2015) |
 | **Skąd to wiadomo** | the first session's third page, a one-time card for returning players, the lobby's two lines and the Wiedza section „Umysł, który pomaga ciału” (`#wiedza/body`) | an honest explanation keeps expectation real (open-label placebo still works) |
 
 The words: each meditation has three (`word.<med>.1–3`): the process now, its daily or nightly continuity, trust or
 thanks — true to that meditation's physiology (its `teach.*` lines and sources). The intentions, the night and the
 settling-in have the engine's (`kit/inner-i18n.ts`). The rhythm, the scoring and the focus rule are unchanged; the
 settling rest is an extra block at the start (never in a ≤ 60 s test session, which must still score).
+
+### 27.3 What reaches the body from the mind — the evidence, and the Wiedza section „Umysł, który pomaga ciału” (builder C)
+
+Every source was fetched from PubMed on 2026-11-26 and checked against its record (authors, year, title, journal,
+PMID, DOI, type, abstract); nothing is cited from memory. 60 records were checked; the full notes (sizes, limits,
+the dropped ones, a checklist for the words) are in the round's research file (`src/content/wiedza/research-body.md`). Strength: **strong** = several meta-analyses or a large consistent body; **moderate** = a
+meta-analysis or systematic review with real limits; **early** = small or single studies, mixed results.
+
+#### The evidence table
+
+| what research says | strength | sources (PubMed) | what the app does with it |
+|---|---|---|---|
+| Stress slows wound healing (22 studies; meta-analysis of 11: r = −0.42); directly through the body's stress responses, indirectly through habits | strong (association) | Walburn 2009 (19686881), Gouin & Kiecolt-Glaser 2011 (21094925); classic: Kiecolt-Glaser 1995 (7475659: 48.7 vs 39.3 days) | every rest is a guided relaxation |
+| Psychological help — most clearly relaxation, in surgical patients — aided healing in RCTs; preparation for surgery: a little less pain, a shorter stay | moderate / early (heterogeneous, publication bias; Cochrane: low quality) | Robinson 2017 (28670818), Powell 2016 (27228096) | calm as the body's ally, never a cure |
+| Slow breathing (~6/min) raises vagally-mediated HRV — during, right after, and after training (223 studies) | strong | Laborde 2022 (35623448), Zaccaro 2018 (30245619) | the breath guide 4 in / 6 out; the word on the out-breath |
+| A repeated prayer paces breathing near 6/min (the rosary; baroreflex up) | early (23 people) | Bernardi 2001 (11751348) | the word of peace said with the breath |
+| Mind-body practices for 7–16 weeks lower CRP moderately (ES 0.58); IL-6, TNF-α small/none; inflammatory gene expression down more consistently | moderate | Morgan 2014 (24988414), Bower & Irwin 2016 (26116436); tentative: Black & Slavich 2016 (26799456), Bhasin 2013 (23650531) | — (never claimed in the app's words) |
+| Autogenic training (heavy, warm, calm heart): medium effects for tension headache, mild hypertension, anxiety, functional sleep disorders | moderate (old studies) | Stetter & Kupper 2002 (12001885) | "Wejście w spokój" |
+| Relaxation training lowers anxiety (d ≈ 0.5); the cue word's *own* effect is old and small (one trial: a placebo as good) | moderate (relaxation), early (the cue) | Manzoni 2008 (18518981), Öst 1987 (3318800), McGlynn 1978 (357451), Spoth & Meade 1981 (7019253) | "Słowo pokoju" — "can help bring calm back", nothing more; its deeper reason is prayer |
+| Expectation changes symptoms (placebo is a brain response to context) | strong | Wager & Atlas 2015 (26087681) | the words say what the body truly does, so expecting it is true |
+| Placebo given openly still helps symptoms (11 RCTs, SMD 0.72; I² 76 %) | moderate | von Wernsdorff 2021 (33594150); classic: Kaptchuk 2010 (21203519) | "Skąd to wiadomo": honesty does not weaken it |
+| Expecting relief raises PFC activity (dorsolateral, ventromedial, orbitofrontal) and quietens pain regions; disrupting the DLPFC with rTMS abolished placebo analgesia | moderate | Atlas & Wager 2014 (25304525), Krummenacher 2010 (19875233); also Amanzio 2013 (22125184), Spisak 2026 (42469238) | the band's honest part: it sees where expectation is made |
+| vmPFC activity goes with HRV — top-down appraisal shapes the body's stress answer; the medial PFC coordinates autonomic and hormonal stress responses | moderate | Thayer 2012 (22178086), McKlveen 2015 (25737097) | — |
+| A kinder view of one's own ageing goes with better later health and longevity (107 studies, small, robust) | moderate (observational) | Westerhof 2023 (36972091); classic: Levy 2002 (12150226, +7.5 years) | the intentions Młodość / Piękno say true, kind things about the body |
+| Imagined training raises strength moderately (13 studies, 370 people), less than real training; kinaesthetic (felt) imagery engages the motor cortex, visual alone did not | moderate / early | Paravlic 2018 (29541965), Ranganathan 2004 (14998709), Stinear 2006 (16078024) | "Poczuj od środka" |
+| Unbelievable self-statements make people with low self-esteem feel worse; second-person self-talk regulates stress better | early–moderate | Wood 2009 (19493324), Kross 2014 (24467424) | words true, believable, "Ty / Twoje", never "I am fully healthy" |
+| Sleep supports immune defence (vaccine response) and inflammatory balance; deep sleep goes with growth hormone; < 6 h sleep → ~4× the odds of a cold | strong (sleep matters) | Besedovsky 2019 (30920354), Van Cauter 2000 (10938176), Prather 2015 (26118561) | "Przed snem" |
+| Evening light-emitting screens delay melatonin and sleep; an absorbing imagery task shortens sleep onset in insomnia | moderate / early | Chang 2015 (25535358), Harvey & Payne 2002 (11863237) | darker, warmer picture; calm, absorbing night pictures |
+| Guided imagery in cancer: comfort and anxiety, **no** compelling evidence for physical symptoms; relaxation: short-term relief of distress | early / moderate | Roffe 2005 (15651053), Faller 2013 (23319686) | Czujna straż: accompanies treatment, says nothing about tumours |
+| Telomerase/telomeres with meditation: d = 0.46 (4 RCTs); telomere length g = 0.16 without an outlier | early | Schutte & Malouff 2014 (24636500), Schutte 2020 (31903785) | **never** claimed |
+| Hypnosis around surgery: less distress and pain (34 RCTs); one tiny trial of faster wound healing | moderate (comfort) / early (healing) | Tefikow 2013 (23628907), Ginandes 2003 (12722936, 6 per group) | **never** "hypnosis heals" |
+
+**Dropped:** Holmes & Collins 2001 (PETTLEP) — not in PubMed; Kok 2013 as support — its claim is disputed by a
+reanalysis (Heathers 2015, 26025022); Ginandes 2003 as support — 6 per group; the Van Cauter 2000 JAMA letter
+(11105165) — the 2000 study is the one to cite.
+
+**Notes on the contract's wording** (inner.ts header, for the lead): "most repair runs in deep sleep" is too strong
+(wounds heal day and night) — true is "much of the night's work goes with deep sleep / sleep supports repair";
+"a word paired with deep calm brings calm back" — say "can help"; "imagery felt from inside works best" — the
+evidence is that felt imagery engages the motor system (small study), not that it gives more strength; "the oldest
+form of suggestion" is a historical aside, not checked — keep it out of the app's words.
+
+#### The Wiedza section `body` — „Umysł, który pomaga ciału” (A mind that helps the body · Ein Geist, der dem Körper hilft · När sinnet hjälper kroppen)
+
+Section 13 of the prefrontal-cortex article, between "Modlitwa, medytacja i oddech" and "Od dzieciństwa do starości"
+(the breath and prayer come first; what calm does for the body follows). `#wiedza/body` opens and scrolls to it
+(the lobby links there); strength **moderate**; link `#gry`.
+
+* **In short:** calm, expectation, imagined movement and sleep really reach the body: they support its own work —
+  modestly, and never instead of treatment.
+* **Four paragraphs:** (1) the body repairs itself all the time, stress slows it (Walburn, Gouin); (2) the paths from
+  the mind: calm (slow breath → vagus; autogenic training), expectation (placebo), outlook (one's view of ageing),
+  imagery (imagined training → strength) (Laborde, Stetter, Wager & Atlas, Westerhof, Paravlic); (3) where the
+  prefrontal cortex is: expectation is made there — disrupting the DLPFC abolished placebo analgesia; the vmPFC works
+  with the heart's rhythm; so the band sees a real part of the path, not the healing (Atlas & Wager, Krummenacher,
+  Thayer); (4) support, not medicine: modest effects, small studies, no evidence that imagery shrinks tumours —
+  for people with cancer it eases anxiety and brings comfort; never instead of treatment (Roffe).
+* **Six research points:** stress and healing + psychological help (Walburn, Robinson); slow breathing and HRV +
+  mind-body practices and CRP (Laborde, Morgan); expectation and the PFC (Atlas & Wager, Krummenacher); open-label
+  placebo (von Wernsdorff); imagined training and strength (Paravlic); sleep and immunity (Besedovsky).
+* **What it means for you:** Emmanuel's health visualisations use these paths — calm and the breath, a believable
+  word on the out-breath, an imagined process felt from inside, a word of peace, and sleep. They support your body's
+  own work — and never replace treatment. → Gry treningowe.
+
+**Sources:** 15 new in `refs.ts` (group "a mind that helps the body"): 9 meta-analyses (walburn2009, laborde2022,
+morgan2014, stetter2002, westerhof2023, paravlic2018, atlas2014, thayer2012, vonwernsdorff2021), 2 systematic reviews
+(robinson2017, roffe2005), 3 reviews (gouin2011, wager2015, besedovsky2019) and one single study (krummenacher2010 —
+the classic that shows the PFC is *needed* for placebo analgesia; the list's limit of five single studies now reached);
+zaccaro2018 cited again. The article now lists 64 sources, 38 of them meta-analyses or systematic reviews.
+
+**Checks:** `test/wiedza.test.ts` (17 tests; 3 new: the section follows `prayer`, opens at `#wiedza/body` and leads to
+`#gry`; it says "never instead of treatment" in each language and holds none of §24.3's words — rejuvenate,
+activate, energy field, vibration, manifest, detox, universe, subconscious — in any language; Polish without
+gendered forms); `tsc` clean in these files; a puppeteer pass (marked as a self-test) opened `#wiedza/body` in all
+four languages at 390×844, 360×640 and 1440×900: the section lands just under the top bar with focus on its heading,
+no sideways scroll, all 20 citations resolve. The effect size is written `r = −0,42` so it never breaks.
+
+### 27.4 The inner layer in the engine and in Każdy włos (builder A)
+
+**The request in one line:** every health visualisation — the eight on `kit/healthlib` and Każdy włos in its own code —
+gets "Ciało słucha" (`kit/inner.ts`, the lead's contract): words for the body on the rest's out-breaths, the player's
+intention and word of peace, a settling-in rest, "Przed snem", the honest why, and a felt push strategy. One code for
+all nine wherever it can be shared.
+
+#### Where it lives
+
+| file | what it is |
+|---|---|
+| `kit/inner.ts` (additions under the lead's contract) | `NIGHT_CLOSERS` (Ps 4:8, Ps 127:2, Prov 3:24), `innerSource(prefs, lookup, session)` (the words through a game's translator), `cueText`, `InnerTrack` (one session's rests: the plan of shows, `at(t)`, received words), `nightLevel(t, end)`, `SETTLE_HOLD_MAX` (45 s), `absorbHold(plan, from, sec, floor)` |
+| `kit/inner-i18n.ts` (new) | `INNER`: the generic words in pl/en/de/sv — the lobby's section, 8 intentions × (name + 3 words), the four words of peace, settle.1–3 and settle.night.1–3, night.1–6, the labels, the story pages, say.night/settle, hl.received/night, finale.cue/night |
+| `kit/innerdraw.ts` (new) | `InnerFx` (the word drawn under the guide, its dissolve, the motes), `fitWord`, `wordNeed`, `wordLum`, `drawNightVeil`, `drawNightMark` |
+| `kit/innerpanel.ts` (new) | `innerPanel()`: the lobby's section, one code for all nine games; `inner-*` rules at the end of `styles.css` |
+| `kit/healthlib/*` | lib (translator game → engine → inner, `TIPS.feel`, the moments `settle`/`night`), rules (`feelEvery` 4), i18n (`tip.feel` ×4), sim, hud, render, audio, index, panel, talk, check, testing |
+| `wlosy/inner.ts` (new) + `wlosy/*` | the same layer in Każdy włos's own code: `wt()` looks a key up in its catalog, then `INNER`, then `ENGINE` |
+
+#### The words in a rest
+
+* **What each breath shows** comes from `InnerWords` (the contract): the settling-in rest its autogenic words; the
+  first rest in a meditation its verse (as before) then the word of peace; every later rest one word repeated on every
+  out-breath but the last, then the word of peace.  The meditation's own `word.<med>.1–3` (B1/B2) alternate with the
+  player's sources (the night's words first before sleep, the chosen intentions' words, the own sentence).  "Słowo na
+  wydech" off: the verse in every rest, no cue — as before round 23.
+* **Drawn under the breath guide** (`InnerFx.drawWord`): the serif, centred, whole in ≤ 3 lines; on a phone 20 → 15 px,
+  on a desk 23u → 17u px; settling-in words in italic with a lilac tint and the small label "Wejście w spokój"; the word
+  of peace larger (26 → 18 px, a desk 32u) and quieter (86 %), letter-spaced 0.12 em, gold-tinted, the label "Twoje
+  słowo pokoju" over it in the session's first rest that carries it.  Brightness follows the breath: 45 % on the
+  in-breath, rising to 100 % over the out-breath's first 14 % and settling back over its last 10 % (`wordLum`); the
+  fill warms from pearl towards gold and a soft glow (the paint kit's sprite, no shadowBlur) grows with the band's calm
+  (`calmShown`).
+* **Never cut.** The guide sizes itself for the rest's longest word: the design's 62 % of the band, else 52 %, 44 %,
+  and the gap under it closes 11 → 3 px — chosen once per rest, so the guide never jumps.  On the smallest band
+  (360 × 500 with the 134 px HUD: the words band is 110 px and the ring cannot go under 26 px) a word may step on down
+  to 13 px with closer lines (1.22), like the verse there, and the label steps aside before the word does.  Everywhere
+  else a word is ≥ 15 px.
+* **The narrator and the word share the phone's band.**  In a rest whose breath carries a word, a new narrator line
+  may begin only in the first 0.6 s of an in-breath (`Talk.update(…, hold)`), and on the out-breath the word wins over
+  a caption: the narrator speaks on the in-breath, the word has the out-breath (found looking at the first
+  screenshots: the rest's line hid the first word of every rest).
+* **Received.**  `InnerTrack` judges each out-breath of a word or the word of peace when it ends (at the turn to the
+  in-breath, or with the rest): it counts when it ran ≥ 85 % of its 6 s, the signal was reliable ≥ 75 % of it, and the
+  calm averaged over it held `RECEIVED_CALM` (0.5).  Verses and settling-in words are never "received".  The event
+  `{ type: 'received', from, text }`: the word dissolves into light (0.9 s) and comes back as the breath's dim word;
+  12–18 gold motes bow from where it was drawn to the picture's growing point over 1.15–1.6 s (reduced motion: the
+  fade and the glow only); a soft low bell and its octave (gain 0.03 / 0.012, at most one in 4 s).  The count goes to
+  the summary — "Słowa przyjęte w spokoju: n." — never into the score; the score of a session is the same with or
+  without calm in rest (tested).
+
+#### The settling-in rest (`SETTLE`: 2 breaths, from 180 s)
+
+`planBlocks(…, settle)` opens a session of 3 minutes and more with a rest of `SETTLE.breaths` × 10 s whatever the rest
+dial says, taken from the session's time like any block (the plan's sum stays the session's length; the first-ever
+order is settle → warm-up → pushes, as the lead decided); the smoke's 40 s session (≤ 60 s) never gets it and still
+scores.  Its words are settle.1–3 (or settle.night.1–3) — three words, two breaths: the list turns with the session
+(1–2, 2–3, 3–1) so each comes in turn.  **It waits under an opening card:** the first-ever session's three pages and a
+returning player's one-time card would otherwise hide it, so while a card is up the settling-in rest holds (its clock
+and its breath stand, at most 45 s); when it ends the held seconds are given back by the following blocks — the
+warm-up first (down to 6 s), then the pushes evenly (down to 12 s).  Measured: a first-ever 5-minute session whose
+player reads the three pages to their end (≈ 33 s) still ends on time (≤ planned + 4 s).  The narrator says one of
+say.settle.1–3; after the rest the scene's own line comes if it had not been said.
+
+#### Before sleep, the end, the why
+
+* **"Przed snem"**: a dark veil (α 0.28) and a warm amber wash (multiply, α 0.16 — less blue) fade in over 2 s over the
+  picture and its ground, under the words and the controls (they stay as legible as by day); a small crescent and
+  "Przed snem" in the picture's top corner; the whole sound × 0.7, fading to silence over the last 25 s (the session's
+  own `ArcadeAudio.setVolume`, the tune included); the night's words join the rests, the settling-in words are the
+  night's, the narrator's end line is say.night.1–3, the closing passage Ps 4:8 / Ps 127:2 / Prov 3:24 in turn, the
+  summary says "Przed snem — spokojnej nocy."
+* **The finale** (the last 12 s) shows in the words band "Twoje słowo na dzień: Pokój — powiedz je w myślach, gdy
+  poczujesz napięcie." (before sleep: "Twoje słowo na noc: … — powtarzaj je w myślach, aż przyjdzie sen.").  With the
+  word off, no line.  The cue word — built-in or own — is never in `result()` (nor the own sentence; tested).
+* **The why**: the first-ever opening card has a third page (story.body: calm reaches the body, stress slows healing,
+  rest and sleep support repair, the word on the out-breath, "nie zastępuje leczenia"), and marks `s.inner` seen; a
+  returning player who has not seen `s.inner` gets a one-page card (story.inner) once.
+* **"Poczuj od środka"**: `tip.feel` ("Poczuj to miejsce od środka: ciepło, ruch, światło.") is every 4th push's
+  strategy (`RULES.feelEvery`), the counting one stays every 3rd (the 12th counts); Każdy włos the same.
+
+#### The lobby's section (`innerPanel`, after the mode; Każdy włos: after the hair colour, before the music)
+
+"Ciało słucha" (an `.arcade-sub`), the two-line lead, the link "Skąd to wiadomo — Wiedza" → `#wiedza/body`; the switch
+"Słowo na wydech" and its note; with it on: "Twoja intencja" — eight chips in a `role="group"`, `aria-pressed`, at most
+three (a fourth drops the oldest; the note then says so), the own sentence (`maxlength=80`, a placeholder in the
+second person, the note: present tense, kind, believable, on this device only — saved as typed, without a redraw), the
+word of peace as a radio row (Pokój · Abba · Jezus · Maranatha · Własne — "Własne" opens a 20-character field and is
+the choice only once a word is typed); the switch "Przed snem" and its note.  Taps ≥ 44 px (chips and fields), shared
+by all nine games through `loadInner`/`saveInner`.
+
+#### Checks (`check.ts`)
+
+`requiredKeys` adds `word.<med>.1–3` for every meditation (all four languages); `maxLen` is 80 for word.\*,
+intent.\*.n, night.n, settle(.night).n; the forbidden words and the gendered Polish run over them like every key.  The
+inner catalog passes the same tone check plus a stricter one in its test (no universe/subconscious/energy/odmład…).
+
+#### Tests
+
+* `test/arcade-inner.test.ts` (new, 18): the catalog complete and in tone, the intentions' and cues' names; prefs round
+  trip and garbage, three intentions at most; the source, the settling-in rotation, the rest plans (verse first, med
+  and player's words alternating, the cue last, the night's words, the word off); received only on calm, reliable
+  out-breaths (and never verses or settling-in words); `absorbHold`; `nightLevel`; `wordLum`, the longest word whole in
+  ≤ 3 lines at ≥ 15 px on the narrowest phone; the motes (none with reduced motion); the panel in happy-dom (the link,
+  the switches, the chips, the own sentence, the own cue).
+* `test/arcade-healthlib.test.ts` (43 → 54): the settling-in in every plan ≥ 180 s and none in 40/60/150 s; the hold
+  under the opening card given back and the session on time; the returning player's card once; the rests' plan in a
+  session; received only with calm and the score unchanged; never the own words in the result; the finale's line, the
+  night's narrator, closers and highlight; `tip.feel`; the new required keys; the narrator on the in-breath; the
+  longest German word and "Maranatha" drawn whole at every `CHECK_SIZES` entry, ≥ 13 px everywhere (≥ 15 px but on the
+  smallest band).  Changed on purpose: the warm-up test and the narrator test use 150 s (no settling-in), the opening
+  card has three pages.
+* `test/arcade-wlosy.test.ts` (61 → 66, B1's word test kept): the same layer — settling-in and its hold, the one-time
+  card, `tip.feel`, the moments settle/night, the rests' plan with Każdy włos's own words, received, before sleep,
+  never the own words in the result, the longest word and the cue drawn whole at every size.  Changed on purpose:
+  `ALL_SEEN` has `s.inner`; the blind and block tests skip the settling-in rest; the warm-up and narrator tests use 150 s;
+  the opening card has three pages.
+
+#### Measured in the app
+
+* **Screenshots** (`<scratch>/shots23-engine`, a 200 s session on the simulator with the prefs preset, every state
+  waited for through `?debug`): Sprężysty kręgosłup in Polish on 390 × 844 (the lobby's section, the three-page opening
+  card, the settling-in rest's out- and in-breath, the first rest's verse and "Pokój" with its label, a word's in- and
+  out-breath, the motes of a received word, the finale's "Twoje słowo na dzień", the summary with "Słowa przyjęte w
+  spokoju: 3."), in German before sleep on a 1440 × 900 desk (the settling-in night words, the crescent, a two-line
+  word, "Friede", the motes, "Dein Wort für die Nacht", the summary with Ps 4,9 and "Vor dem Schlafen — eine friedliche
+  Nacht."), Każdy włos in Polish on 360 × 640 with "Młodość" and "Abba" (its own words, the cue, the finale).  The
+  simulator's calm in rest was 0.6–0.7: 2–3 words received a session.  Found and fixed by looking: the narrator's rest
+  line hid the first word of every rest on a phone (now the narrator speaks on the in-breath), the motes were faint
+  (now a little larger and brighter).
+* **`scripts/arcade-mobile.mjs`** (6 devices, the default 50 s session): Sprężysty kręgosłup ✓ and Każdy włos ✓ — 0
+  strings under 11 px, under 13 px only the kit's verse references (11–12 px), every target valid, 60 fps with the CPU
+  slowed 1–4×, the game's update + draw 0.65–3.4 ms (the small phone at 4×).
+* **The same audit over a 200 s session** (so the settling-in, a rest's words and the cue are on screen; small phone,
+  phone on its side, desktop): Sprężysty kręgosłup ✓ — 0 strings under 11 px, under 13 px only the verse references,
+  60 fps (the small phone at 4× 4.2 ms with the whole test suite running beside it), the summary with "Słowa przyjęte
+  w spokoju: 1." from the simulator's calm.
+* **Tests**: the three files above 138 ✓; the eight games' and Każdy włos's tests with B1/B2's words 346 ✓; the whole
+  suite 110 files, 3832 ✓ (2 skipped); `npx tsc --noEmit -p .` clean.
+
+#### What waits
+
+* The settling-in rest's runner tip is the ordinary rest tip ("Oddychaj powoli…"); a tip of its own could name the
+  settling-in words.
+* The night's veil (0.28 / 0.16, the contract's numbers) is gentle by design; on a bright phone it may want a little
+  more — to try in the evening on a real device.
+* Received words depend on the band's calm; on a real Mendi the share of out-breaths received is not yet measured
+  (the simulator gives 1–3 a 200 s session).
+
+### 27.5 Words for the body, meditation by meditation (builders B1, B2)
+
+#### Words for the body: Czujna straż, Każda komórka, Żywa skóra, Mocne zęby, Każdy włos (builder B1)
+
+Every one of the 32 meditations (6 + 6 + 6 + 6 + 8) has three words, `word.<med>.1–3`, in pl, en, de and sv. That
+is 96 words and 384 strings. Each is one breath long: at most 80 characters, most 40–65 (mean 55; the longest is German, 75).
+They sit in one block, "Słowo na wydech", right after each catalog's last `med.<m>.care` line. Każdy włos has no
+care lines, so its block follows `med.cala.line`.
+
+**The rules followed**
+
+* **Rhythm.** 1 is the process now ("Teraz Twoje limfocyty T uważnie czytają znaki komórek."). 2 is what carries on
+  day by day, night by night or year by year ("We śnie Twoja straż utrwala to, czego się nauczyła."). 3 is trust or
+  thanks ("Ta precyzja nie potrzebuje Twojego wysiłku — dzieje się sama."). No line appears twice in the five games.
+  A scratch test also flags near-twins, both within the games and against A's generic words in kit/inner-i18n.ts
+  (`intent.*`, `night.*`, `settle.*`), because both kinds alternate in one rest. Six of my lines were rewritten after
+  A's intent.renew, beauty, young and heal words landed.
+* **Truth, for everyone, today.** Every word restates what the meditation already teaches (its `teach.*`,
+  `say.at.*`, `med.*.line` and the sourced tables of §24.6–24.9 and §15.2), with no new number and no digit. No line
+  presumes a wound, every tooth or a full head of hair:
+  * the cut is conditional: "Przy drobnej ranie…"
+  * hair colour is "każdy rosnący włos dostaje swój kolor", which holds for grey and white hair too
+  * the cycle is "każdy Twój mieszek ma swój własny rytm", not "most are growing"
+  * growth is "W Twoich mieszkach włos rośnie od korzenia"
+  * shedding is "zwykły rytm odnowy" and the follicle's rest "nie koniec, tylko część drogi"
+* **Address.** Second person: capitalised in Polish with no gendered forms, lower-case du/dein/din in German and
+  Swedish (as every catalog writes it), "your" in English, and English apostrophes as ’. None of the words commands an
+  organ.
+* **Never a promise.** I followed check.ts FORBIDDEN, each game test's own bans and the research file's "must not say":
+  * straz: no word of war, never "killer" or "activate"
+  * komorki: no "heal", "younger" or "energy field"
+  * skora: no wrinkles, no "younger", no "Falte" (even inside a word), no "28"
+  * zeby: no "regener" or "grow back"
+  * wlosy: no regrowth, no "heals" or "cures", no disease named
+* **God, at most once per meditation, in practice once per game:** straz *pamiec* ("Bóg dał Ci straż, która pamięta
+  latami."), komorki *sprzatanie*, skora *melanina*, zeby *usmiech*, wlosy *cala* ("W tej ciszy możesz odpocząć w
+  Bogu."). God is never named in a meditation whose verse says the same thing. A scratch regex also keeps every
+  meditation's own verse vocabulary out of its words:
+  * no "utkać" or "cudownie" in kolagen and kolor (Ps 139:13–14)
+  * no "policzone" in wir (Lk 12:7)
+  * no "podnosi głowę" in cala (Ps 3:4)
+  * no "ma swój czas" in cykl (Eccl 3:1)
+  * no "rośnie, gdy śpisz" or "samo z siebie" in wzrost (Mk 4:27–28)
+  * no "źródło" in slina (Isa 58:11)
+  * no "stado", "kąpiel" or "bliźnięta" in usmiech (Song 4:2)
+  * no "strzeże" in straz *cala* (Ps 127:1)
+  * no God beside "zapis" in komorki *naprawa* (Ps 139:16's book)
+
+**What each game's words rest on**
+
+* **Czujna straż**: the patrol checks and tidies; the dendritic cell carries the news and the nodes learn; the T cell
+  reads signs with precision; the PD-1 brake guards healthy tissue; memory stays for years and sleep firms it
+  (Lange 2011; Besedovsky 2019). Medicine and body "mogą działać razem", which is modest. No line speaks of an
+  illness's course.
+* **Każda komórka**:
+  * mitochondria make energy from oxygen and food, and the ATP rotor turns
+  * muscles can build new mitochondria
+  * autophagy wraps what is worn and builds new proteins from it
+  * enzymes mend DNA thousands of times a day
+  * new blood cells ripen in the marrow; the gut renews in days, the blood in months
+  * a growth-hormone pulse comes soon after falling asleep, and sleep flows in cycles
+  * trillions of cells work together
+
+  There is no youth, no "the night when all speeds up", and nothing from the contested mouse brain-clearance study.
+* **Żywa skóra**:
+  * cells are born at the base and travel up week by week
+  * as many leave as arrive
+  * a layer thinner than paper keeps the water in
+  * fibroblasts spin collagen, which renews slowly year by year
+  * blood carries warmth, and the body knows how much to give or keep
+  * a clot closes a small cut, then order comes before building
+  * melanin caps shade the nuclei, and cells mend their DNA after a sunny day
+  * "Twój odcień skóry jest piękny — taki, jakim stworzył go Bóg" (inclusive, as §24.8)
+* **Mocne zęby**:
+  * saliva flows from the glands, the pellicle shields enamel, and saliva is a quiet guard
+  * after a meal saliva dilutes the acid, then a short dip and a calm return
+  * minerals come back to enamel daily (never "grows back")
+  * dentine lives and is laid down all through life
+  * the ligament holds the tooth like a hammock, and the gum renews its sealed edge (no monkey number)
+  * saliva rests at night
+* **Każdy włos**:
+  * the scalp softens and blood comes from five sides; the scalp is richly supplied
+  * the papillae signal and the loops of vessels feed the roots
+  * matrix cells divide one into two
+  * the whorl and the streams; the hair's order is "w Tobie od początku" (the pattern forms before birth)
+  * the follicle keeps its own rhythm
+  * the barrier closes brick by brick and sebum oils hair and skin
+  * tens of thousands of roots work in quiet
+
+**Checks**
+
+* checkLibrary (A's check.ts, which now requires `word.*` ≤ 80) passes through the game tests: straz, komorki, skora,
+  zeby and wlosy, 5 files, 149 tests ✓.
+* test/arcade-wlosy.test.ts has one new test, because wlosy is not on checkLibrary: three words per meditation in four
+  languages, 21–80 characters, no digits, the Polish address present and no gendered forms.
+* test/i18n-arcade.test.ts and test/arcade-healthlib.test.ts pass, 50 ✓, and `tsc --noEmit` is clean.
+* A scratch check (`<scratch>/b1check/words.test.ts`) adds the verse-vocabulary echoes, the duplicates and
+  near-twins, the God count and the game bans applied to the new keys.
+
+#### Words for the body: Sprężysty kręgosłup, Lekkość i siła, Pełnia radości, Rozkwit (builder B2)
+
+Each of the 24 meditations has three words, `word.<med>.1–3`, in pl, en, de and sv: 72 words, 288 strings, each one
+breath long (≤ 80 characters, most 45–70).
+
+**The rules followed**
+
+* **Rhythm.** 1 is the process now ("Teraz tlen i glukoza przenikają powoli do komórek Twoich dysków."). 2 is what
+  carries on day by day or night by night ("Każdej nocy, gdy leżysz, Twoje dyski piją wodę z powrotem."). 3 is trust
+  or thanks ("Nie musisz nic robić — dyski nabierają wody same."). No line is used twice: a script checks for
+  duplicates across all 288 strings and every catalog in `src/arcade`. Lines that echoed the generic intention words
+  in kit/inner-i18n.ts were changed: "Możesz odpocząć —…" and the two "miliardy komórek" / "skóra odnawia się" lines.
+* **Truth.** Every word restates something the game already teaches, from its `teach.*`, `say.at.*`, `med.*.line`
+  or its own DESIGN §24.10–24.13 sources. No new numbers. The words only say what the body does today in everyone.
+  None of them presumes a full head of hair, an absence of pain or a particular body. Rozkwit's skin and hair word
+  says "włosy rosną od korzenia" (how hair grows), not "Twoje włosy rosną".
+* **Address.** Second person, capitalised in Polish (Twój/Ci/Tobie), with no gendered forms ("byś mógł",
+  "gotowy" and "sam/sama" were avoided). German and Swedish use lower-case du/dein/din, as the catalogs do. English
+  apostrophes are ’.
+* **No commands to an organ** and no promises. Besides checkLibrary's FORBIDDEN list, each game's own test bans
+  were respected:
+  * kregoslup: regener/odbud/rebuil/new disc
+  * ksztalt: kg/kilo/ideal/chud/slim/thin/dünn/schlank/smal/diet, plus no weight, size or measurement at all
+  * radosc: no promise of happiness
+  * rozkwit: no młod/young/jung, no Swedish word ending in "-ung" such as "tung", no ideal body, no digit followed
+    by a plain space
+  
+  Research-23's "must not say" list was respected too. There is no "build health", sleep never "rebuilds", and
+  effects are not claimed beyond their studies (laughter → the brain's own opioids; close bonds *go with* joy and
+  health; a thank-you *usually* gladdens; savouring makes joy *easier* to feel).
+* **God, at most once per meditation**, and in practice once per game: kregoslup *os* ("Bóg stworzył Twój kręgosłup
+  do ruchu — możesz mu ufać."), ksztalt *cale*, radosc *wdziecznosc*, rozkwit *cale*. God is never named in a
+  meditation whose verse speaks of the same thing, so no line reads as a paraphrase. For example:
+  * no "Bóg prostuje" in *prosto* or *postawa* (Ps 145:14)
+  * no "opasuje mocą" in *talia* (Ps 18:32)
+  * no "dzieło / cudownie" in ksztalt *cale* (Ps 139:14)
+  * no "wierność / nowe każdego ranka" in rozkwit *komorki* (Lam 3:22–23)
+  * no "dający z radością" in *dobroc* (2 Cor 9:7)
+  * no "radość i pokój" in *spirala* (Rom 15:13)
+  * no "każdy włos policzony" in rozkwit *skora* (Lk 12:7)
+
+**What each game's words rest on**
+
+* **Sprężysty kręgosłup.** The words follow §24.10's table:
+  * *os*: the vertebrae, their bending and turning, and the spine liking movement and change (Slater 2019,
+    O'Sullivan 2020)
+  * *dysk*: the nucleus holding water like a sponge, food diffusing through the end plates, the annulus's crossed
+    layers
+  * *nocna*: the nucleus spreading pressure evenly, the overnight intake of water (Wilke 1999, Tyrrell 1985), which
+    is osmotic and so happens "by itself"
+  * *ruch*: diffusion now, movement moving the water, the few cells' slow renewal (Sivan 2006)
+  * *miesnie*: the diaphragm and pelvic floor moving together (Talasz 2011), multifidus as a stabiliser, the breath
+    tuning the corset (Hodges & Gandevia 2000)
+  * *prosto*: each disc's share of the load, no single posture, and "upright and soft" rather than "straight"
+  
+  The words never say "regenerate" (the game's test bans it).
+* **Lekkość i siła.** The words are about strength, breath, posture and ease, the same for a woman and a man:
+  * *wydech*: CO₂ leaving with the breath, the blood carrying fuel, and the calm breath being enough (faster
+    breathing burns no more)
+  * *komorka*: fat tissue as a living store that signals fullness (leptin) and the night setting hunger and fullness
+    (Spiegel 2004), looked at kindly. It never says the store shrinks.
+  * *miesien*: protein made steadily, faster for a day or two after effort (Phillips 1997), even a small effort a
+    signal
+  * *postawa*: the shoulder blades opening the chest, posture learnt (Lynch 2010)
+  * *talia*: transversus as a belt that tightens before the arm moves (Hodges & Richardson 1997), the body one whole
+    (no spot reduction)
+  * *cale*: lungs, heart and muscles together, movement you enjoy and rest, beauty "in its own way"
+* **Pełnia radości.** The words are about joy, gratitude and kindness, said modestly:
+  * savouring (Chen 2026)
+  * three good things and why (Seligman 2005)
+  * kindness warming the giver (Curry 2018)
+  * a small kindness gladdening both sides, "usually" (Dunn 2008, Aknin 2020)
+  * laughter with friends releasing the brain's own opioids (Manninen 2017)
+  * bonds *going with* joy and health (Harvard)
+  * joy widening attention and good moments building resources over time (Fredrickson 2005, 2002)
+  * joy felt in the whole body (Nummenmaa 2014)
+  * shared good news adding to joy (Gable 2004)
+* **Rozkwit.** These are its own words, gathered for the whole person. They are not copied from the source games,
+  and no line equals theirs:
+  * *komorki*: cells at work now, DNA letters corrected day and night, the work going on in sleep
+  * *postawa*: the spine carrying, discs drinking each night and the morning's height (Tyrrell 1985), uprightness
+    coming lightly
+  * *sylwetka*: the out-breath letting go of what was used, muscle added in rest, the figure seen with gratitude
+    and without comparison
+  * *skora*: new cells rising (39 days), collagen holding and hair growing from the root, the skin protecting you
+  * *radosc*: savouring, three good things, the good passed on reaching strangers (Fowler & Christakis 2010)
+  * *cale*: everything working together, thirty trillion cells as one body (Sender 2016), body and joy as God's gift
+
+**Decisions**
+
+* **Where the keys sit.** kregoslup and ksztalt group all `med.*.line` and `med.*.care` lines together, so the
+  words are one block right after the last care line. radosc interleaves its keys per meditation, so each
+  meditation's words follow its own `med.<m>.care`. Rozkwit copies its `med.*.care` lines from the source games, so
+  its block follows its `med.*.line` group.
+* **A claim dropped.** "Twój kręgosłup jest mocny" (O'Sullivan, BJSM 2020) was dropped because the full text could
+  not be checked (no abstract in PubMed, the publisher's page refused). The line now rests on what DESIGN §24.10
+  already sources: the spine likes movement and change.
+* **ksztalt's fat-tissue word is about care, not loss.** "Ten zapas to troska Twojego ciała — możesz patrzeć na nie
+  życzliwie." This follows the game's own rule: fat is a store, never drawn as ugly.
+
+### 27.6 The lead's review and the checks
+
+* **Review** (an independent reviewer over the engine's diff): two real faults, fixed — (1) the settling rest held
+  under the opening card counted the card's seconds as calm abiding (the summary's "longest calm" could gain ~45 s)
+  and as the rest's reliable seconds: `updateAbide` now skips a held rest and any story card, `relSec` does not run
+  while holding (both sims; asserted in "waits under the opening card…"); (2) the lobby section lost the keyboard's
+  focus on every switch and chip (it rebuilds itself): each control carries `data-k` and gets its focus back after the
+  rebuild (test "keeps the keyboard on the control just used"). Checked and correct: the plan's sums with the settle
+  and its hold, a word received at most once and never on an in-breath, the own sentence and cue never in
+  `result()`, canvas state balanced, the night's sound per session.
+* **Claims matched to the research** (builder C's notes): the contract and §27.2 no longer say "the oldest form of
+  suggestion", "imagery felt from inside works best" or "most repair runs in deep sleep"; the cue word "can help"
+  bring calm back (old, small studies). The research file moved into the repo
+  (`src/content/wiedza/research-body.md`).
+* **Words off** keeps the settling-in rest (it is the session's way in, not a word for the body) and gives the rests
+  their verse, as before round 23.
+* **Measured:** vitest 110 files, 3833 passed (an `eeg.test.ts` timing test failed once under the full suite's load
+  and passed 3 of 3 alone — untouched code); `tsc` clean; build (main chunk 923 kB); `app:smoke` all games ✓ (the nine
+  health games score at 40 s, 59–60 fps); `cards:smoke`, `offline:smoke`, `game3d:check` ✓; `arcade-mobile.mjs` ✓ for
+  Sprężysty kręgosłup, Każdy włos (builder A) and Rozkwit (the lead), six devices each.
+
+### 27.7 What waits for the founder
+
+* **Feel it on a real band**: how many words a Mendi user receives in calm (the simulator: 1–3 in 200 s); whether the
+  word on every out-breath feels like a gift or too much (the rest dial gives 1–6 breaths; the switch turns words
+  off).
+* **The night on a real phone in the evening**: the veil (0.28 dark + 0.16 amber) is gentle by design.
+* **The words in de/sv** want a native reader, like the libraries' own.
+* **The heart series** (Serce i światło, Złote serce, Ogród…) could take the same layer — the word of peace and
+  "Przed snem" especially; it was left out to keep this round to the founder's list (the body's processes).
+* **A spoken voice** (eyes closed in rest) would deepen the words further; the app has no narration voice yet — a
+  recorded voice per language would be a round of its own.
