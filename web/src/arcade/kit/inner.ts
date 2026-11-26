@@ -9,15 +9,16 @@
  *   calm            stress slows wound healing and calm supports it; slow breathing (6 a minute) raises vagal tone
  *                   → every rest is a guided relaxation, and the band's calm decides how deep the word goes
  *   the word        repeated, short, present-tense, believable words (believable: unbelievable affirmations backfire)
- *                   said on the out-breath in a relaxed state — the oldest form of suggestion
+ *                   said on the out-breath in a relaxed state (relaxation with repeated words: autogenic training)
  *                   → "Słowo na wydech": each rest's out-breaths carry one word for the body, repeated
  *   expectation     what we expect of the body changes it (mindset, open-label placebo: honest and still working)
  *                   → the words say what the body truly does, so expecting it is simply true
- *   imagery         imagined movement strengthens muscle; vivid imagery felt from inside works best
+ *   imagery         imagined movement strengthens muscle a little (meta-analysis); imagery felt from inside engages
+ *                   the motor cortex more (one small study) — a gentle tip, not a claim
  *                   → the push's picture (unchanged) and a new "feel it" tip: from inside, with warmth and movement
- *   a cue           a word paired with deep calm brings calm back later (cue-controlled relaxation)
+ *   a cue           a word paired with deep calm can help bring calm back later (cue-controlled relaxation; old, small studies)
  *                   → "Słowo pokoju": the last out-breath of each rest is the player's word (Pokój, Abba, Jezus…)
- *   sleep           most repair runs in deep sleep
+ *   sleep           sleep supports repair and immune balance; much of the night's work goes with deep sleep
  *                   → "Przed snem": darker, warmer, quieter, words about the night, an ending that lets sleep come
  *
  * Never a promise (§24.3 holds): no word claims that focus or imagination heals, cures, rejuvenates or regrows; the
@@ -46,6 +47,7 @@
  *   say.night.1–3, say.settle.1–3                  the narrator before sleep / settling in
  *   hl.received, hl.night, finale.cue, finale.night   the summary's highlights and the finale's line
  */
+import type { PassageId } from './scripture';
 
 /** What the player wishes the body (up to three; their words join the meditation's in the rests). */
 export const INTENTS = ['heal', 'renew', 'young', 'strong', 'fit', 'beauty', 'rest', 'joy'] as const;
@@ -265,3 +267,163 @@ export const NIGHT = {
   level: 0.7,
   fadeSec: 25,
 } as const;
+
+// ── round 23, the engines' side (builder A; additions to the lead's contract) ───────────────────────────────────────
+// One session's rests (InnerTrack), the words from a translator (innerSource), the night's closing passages and its
+// sound, and how a settling-in rest held under an opening card gives its seconds back.  Pure: no DOM, no canvas.
+
+/** The night's closing passages (Ps 4:8, Ps 127:2, Prov 3:24 — all four editions in scripture.ts). */
+export const NIGHT_CLOSERS: readonly PassageId[] = ['psa4.8', 'psa127.2', 'pro3.24'];
+
+/** The rest's words through a game's translator (its catalog, then the generic ones). */
+export interface InnerLookup {
+  has(key: string): boolean;
+  t(key: string): string;
+}
+
+/** The word of peace as said: the player's own, or the built-in word in the page's language. */
+export const cueText = (p: InnerPrefs, look: InnerLookup): string => (p.cue === 'own' ? p.cueOwn : look.t(`cue.${p.cue}`));
+
+/**
+ * A session's source of words through a translator.  The settling-in rest has two breaths and three words: the
+ * list turns with the session (1–2, 2–3, 3–1, …) so every word comes in turn, in its cyclic order.
+ */
+export function innerSource(p: InnerPrefs, look: InnerLookup, session = 1): InnerSource {
+  const list = (prefix: string, n: number): string[] => {
+    const out: string[] = [];
+    for (let i = 1; i <= n; i++) if (look.has(`${prefix}.${i}`)) out.push(look.t(`${prefix}.${i}`));
+    return out;
+  };
+  return {
+    med: m => list(`word.${m}`, 3),
+    intent: i => list(`intent.${i}`, 3),
+    night: () => list('night', 6),
+    settle(night) {
+      const s = list(night ? 'settle.night' : 'settle', 3);
+      const k = s.length ? (Math.max(1, Math.floor(session)) - 1) % s.length : 0;
+      return [...s.slice(k), ...s.slice(0, k)];
+    },
+    cue: () => cueText(p, look),
+  };
+}
+
+/** Where a received word came from (the meditation, the player's sources) or the word of peace. */
+export type ReceivedFrom = WordFrom | 'cue';
+
+/** What the rest shows now: the breath's show, whether it is the out-breath, how far through its half (0..1). */
+export interface InnerNow { show: InnerShow; out: boolean; p: number; i: number; n: number }
+
+/** A breath of a rest: in 4 s, out 6 s (the kit's guide, kit/breath BREATH_DEFAULT). */
+export interface InnerBreath { in: number; out: number }
+
+/** An out-breath held at least this share of its length counts (a rest cut short at its end, a frame's rounding). */
+const OUT_SHARE = 0.85;
+/** …with a reliable signal at least this share of it. */
+const REL_SHARE = 0.75;
+
+/**
+ * One session's inner layer, rest by rest (each engine drives it): `begin` a rest (its plan of shows from
+ * InnerWords), `at` what a moment of it shows, `update` each frame of it, `end` it.  A word — or the word of peace —
+ * is received when its out-breath ran (≥ 85 % of it), the signal was reliable through most of it (≥ 75 %) and the
+ * band's calm averaged over it held RECEIVED_CALM.  The count goes to the summary's highlights, never to the score.
+ */
+export class InnerTrack {
+  plan: InnerShow[] | null = null;
+  received = 0;
+  readonly receivedBy: Record<ReceivedFrom, number> = { med: 0, intent: 0, own: 0, night: 0, cue: 0 };
+  /** rests begun this session that carry the word of peace (the first one names it in the words band) */
+  cueRests = 0;
+  private cur: { i: number; t: number; rel: number; calm: number } | null = null;
+
+  constructor(readonly words: InnerWords, readonly breath: InnerBreath = { in: 4, out: 6 }) {}
+
+  get cycle(): number { return this.breath.in + this.breath.out; }
+
+  begin(med: string, breaths: number, settle = false): InnerShow[] {
+    this.plan = this.words.rest(med, breaths, settle);
+    this.cur = null;
+    if (this.plan.some(s => s.kind === 'cue')) this.cueRests++;
+    return this.plan;
+  }
+
+  /** What `t` seconds into the rest shows (null outside a rest). */
+  at(t: number): InnerNow | null {
+    const plan = this.plan;
+    if (!plan || !plan.length) return null;
+    const x = Math.max(0, t);
+    const i = Math.min(plan.length - 1, Math.floor(x / this.cycle));
+    const k = x - i * this.cycle;
+    const out = k >= this.breath.in;
+    const p = out ? (k - this.breath.in) / this.breath.out : k / this.breath.in;
+    return { show: plan[i], out, p: Math.max(0, Math.min(1, p)), i, n: plan.length };
+  }
+
+  /** A frame of the rest at `t` s into it: returns what an out-breath that has just ended received, else null. */
+  update(t: number, dt: number, calm: number, reliable: boolean): { from: ReceivedFrom; text: string } | null {
+    const now = this.at(t);
+    if (!now) return null;
+    let got: { from: ReceivedFrom; text: string } | null = null;
+    if (this.cur && (!now.out || now.i !== this.cur.i)) got = this.judge();
+    if (now.out) {
+      if (!this.cur) this.cur = { i: now.i, t: 0, rel: 0, calm: 0 };
+      this.cur.t += dt;
+      if (reliable) this.cur.rel += dt;
+      this.cur.calm += Math.max(0, Math.min(1, calm)) * dt;
+    }
+    return got;
+  }
+
+  /** The rest ends: its last out-breath is judged (it ends with the rest). */
+  end(): { from: ReceivedFrom; text: string } | null {
+    const got = this.cur ? this.judge() : null;
+    this.plan = null;
+    this.cur = null;
+    return got;
+  }
+
+  private judge(): { from: ReceivedFrom; text: string } | null {
+    const c = this.cur, plan = this.plan;
+    this.cur = null;
+    if (!c || !plan) return null;
+    const s = plan[c.i];
+    if (!s || (s.kind !== 'word' && s.kind !== 'cue')) return null;
+    if (c.t < OUT_SHARE * this.breath.out || c.rel < REL_SHARE * c.t || c.calm / c.t < RECEIVED_CALM) return null;
+    const from: ReceivedFrom = s.kind === 'cue' ? 'cue' : s.from;
+    this.received++;
+    this.receivedBy[from]++;
+    return { from, text: s.text };
+  }
+}
+
+/** "Przed snem": the sound's level — NIGHT.level, fading to silence over the last NIGHT.fadeSec before `end`. */
+export const nightLevel = (t: number, end: number): number => NIGHT.level * Math.max(0, Math.min(1, (end - t) / NIGHT.fadeSec));
+
+/** The longest a settling-in rest waits under an opening card (s); past it the rest goes on under the card. */
+export const SETTLE_HOLD_MAX = 45;
+
+/**
+ * A settling-in rest waited `sec` under an opening card: the blocks after `from` give those seconds back — the
+ * warm-up first (down to its floor), then the pushes evenly (down to theirs) — so the plan still fills the session's
+ * length.  Rests keep their whole breaths.  Returns what could not be given back (0 normally).
+ */
+export function absorbHold<B extends { kind: string; dur: number }>(plan: B[], from: number, sec: number, floor: (b: B) => number): number {
+  let left = Math.max(0, sec);
+  const after = plan.slice(from);
+  for (const b of after.filter(x => x.kind === 'warmup')) {
+    const take = Math.min(left, Math.max(0, b.dur - floor(b)));
+    b.dur -= take;
+    left -= take;
+  }
+  const pushes = after.filter(x => x.kind === 'push');
+  for (let guard = 0; left > 1e-9 && guard < 8; guard++) {
+    const room = pushes.filter(b => b.dur - floor(b) > 1e-9);
+    if (!room.length) break;
+    const each = left / room.length;
+    for (const b of room) {
+      const take = Math.min(each, b.dur - floor(b), left);
+      b.dur -= take;
+      left -= take;
+    }
+  }
+  return left;
+}
