@@ -59,7 +59,7 @@ export interface ArcadeEntry {
   load: () => Promise<ArcadeModule<any>>;
 }
 
-type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
+type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty' | 'boj'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
   | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi' | 'ogrod'
   | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup' | 'ksztalt' | 'radosc' | 'rozkwit';
@@ -256,6 +256,16 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'sng2.15',
     brain: brain('koty'),
     load: () => import('./koty/index').then(m => m.default),
+  },
+  // ── round 21 (DESIGN.md §25): a boxing / MMA fight of quick-time moments and focus
+  {
+    id: 'boj', kind: 'arcade', title: t('boj.title'), tagline: t('boj.tagline'), text: t('boj.text'),
+    how: [t('boj.how1'), t('boj.how2'), t('boj.how3')],
+    tips: [t('boj.tip1'), t('boj.tip2'), t('boj.tip3'), t('boj.tip4'), t('boj.tip5')],
+    unit: t('boj.unit'), art: 'art-boj', fill: ['#ffe2b0', '#e8a04a', '#a8443a', '#1e1418'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '2ti4.7',
+    brain: brain('boj'),
+    load: () => import('./boj/index').then(m => m.default),
   },
   // ── version 4 (DESIGN.md §13): three visualisation games and the series "Weź moc, obudź się"
   {
