@@ -242,8 +242,12 @@ export class JestemSim {
   private halfSaid = false;
   private lastSaid = false;
   private paneSeen = false;
-  /** seconds of push and rest this session (for the pace) */
+  /** seconds of push and rest this session */
   playT = 0;
+  /** the seconds of push and rest when the player lit the window's last cell (−1: not yet) — the pace's yardstick */
+  playDone = -1;
+  /** the first-ever session's warm-up seconds played (its cells count for the pace, so its time does too) */
+  warmT = 0;
   /** the best share of a night's window in focus (%), −1 without a night */
   nightShare = -1;
   private settled = false;
@@ -292,6 +296,11 @@ export class JestemSim {
   /** the light pass: every cell lit, a push pours light */
   get lighting(): boolean { return this.playing && !this.story && this.complete && this.block.kind === 'push'; }
   get cells(): number { return this.vision?.geo.cells.length ?? 0; }
+  /**
+   * The seconds the pace is measured over (round 20): the warm-up's (its cells count too) and push and rest up to the
+   * last cell the player lit — not the light pass after it — else all of them.
+   */
+  get paceSec(): number { return this.warmT + (this.playDone > 0 ? this.playDone : this.playT); }
   get score(): number { return this.litPlayer; }
   get word(): string { return this.vision?.word ?? ''; }
   /** the vision is the player's own photo (its words a continuation after "ja") */
@@ -544,6 +553,7 @@ export class JestemSim {
     if (done >= n && !this.complete) {
       this.complete = true;
       this.completeAt = this.t;
+      if (this.phase === 'play') this.playDone = this.playT;
       this.path = [];
       this.emit({ type: 'complete' });
       if (this.phase === 'play') {
@@ -572,7 +582,8 @@ export class JestemSim {
     const b = this.block, R = RULES;
     if (this.story) return;   // the opening card holds the first block's clock (it is the warm-up's)
     this.blockT += dt;
-    if (b.kind !== 'warmup') {
+    if (b.kind === 'warmup') this.warmT += dt;
+    else {
       this.playT += dt;
       const want = b.kind === 'push' ? 'focus' : 'rest';
       this.judge.push(want, f, dt);
@@ -827,7 +838,7 @@ export class JestemSim {
       const decl = keyDecl(v.key);
       this.newDecl = !!decl && !(p.album[decl]?.n);
       this.times = receive(p, { key: v.key, lit: this.litPlayer, rays: this.rays, rings: this.rings, day: this.dayOf() });
-      p.pace = nextPace(p.pace, this.litPlayer, this.playT);
+      p.pace = nextPace(p.pace, this.litPlayer, this.paceSec);
       p.cells = this.cells;
       p.last = v.key;
       if (p.next === v.key) p.next = null;

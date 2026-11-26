@@ -23,8 +23,11 @@ export const RULES = {
   aspectMax: 16 / 9,
 
   // ── the mosaic ───────────────────────────────────────────────
-  /** cells in a window: at least, at most (round 11: "more pieces of the mosaic") */
-  cellsMin: 48,
+  /**
+   * cells in a window: at least, at most (round 11: "more pieces of the mosaic"; round 20: the least down from 48 —
+   * a 3- or 5-minute session holds only what it can light, a 10-pane window at the least)
+   */
+  cellsMin: 10,
   cellsMax: 144,
   /**
    * sessions over 15 minutes (round 12: up to 30) may take finer windows, up to this many cells — reached at
@@ -41,10 +44,11 @@ export const RULES = {
   /** how much of a session's pace goes into the next plan (exponential average) */
   paceMix: 0.4,
   /**
-   * the window holds this many times the cells a session is expected to light: the player's focus colours the
-   * picture from its heart outward, and the finale's light completes the rest
+   * the window holds this share of the cells the player is expected to light (round 20, the founder: "I can do at
+   * most 50–60 % of the pieces"): at their own pace they light the whole picture with a little of the session left
+   * for the light pass; round 11–19 held 1.4 × (the finale's light completed the rest)
    */
-  planSpread: 1.4,
+  planSpread: 0.9,
   /** Lloyd relaxation steps for the mosaic */
   relax: 2,
   /** a cell's capacity (units): capUnit × (0.55 + 0.45 × its area / the mean area, clamped) */

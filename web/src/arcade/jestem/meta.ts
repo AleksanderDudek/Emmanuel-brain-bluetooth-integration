@@ -202,16 +202,19 @@ export function cellsMaxFor(playSec: number): number {
 }
 
 /**
- * How many cells the next window gets (round 11: "more pieces"): the cells the player is expected to light — their
- * pace × the minutes of push and rest the session holds — times `planSpread` (the light completes the rest at the
- * finale), within 48…144 (…216 in sessions over 15 minutes, `cellsMaxFor`).
+ * How many cells the next window gets: the cells the player is expected to light — their pace × the minutes of push
+ * and rest the session holds — times `planSpread` (round 20: 0.9, so the player's own focus lights the whole picture;
+ * a little time is left for the light pass), within 10…144 (…216 in sessions over 15 minutes, `cellsMaxFor`).
  */
 export function planCells(pace: number, playSec: number): number {
   const p = clamp(Number.isFinite(pace) ? pace : RULES.pace0, RULES.paceMin, RULES.paceMax);
   return Math.round(clamp(p * (Math.max(0, playSec) / 60) * RULES.planSpread, RULES.cellsMin, cellsMaxFor(playSec)));
 }
 
-/** The pace after a session that lit `lit` cells in `playSec` seconds of push and rest (short sessions barely move it). */
+/**
+ * The pace after a session that lit `lit` cells in `playSec` seconds of push and rest (short sessions barely move it).
+ * A window the player finished early passes the seconds up to its last cell (sim.ts `paceSec`), not the light pass after.
+ */
 export function nextPace(pace: number, lit: number, playSec: number): number {
   if (!(playSec > 0) || lit < 0) return pace;
   const now = clamp(lit / (Math.max(30, playSec) / 60), RULES.paceMin, RULES.paceMax);

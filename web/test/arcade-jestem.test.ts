@@ -321,13 +321,14 @@ describe('sessions of 15–30 minutes (round 12)', () => {
       expect(cellsMaxFor(ps)).toBe(RULES.cellsMax);
       // round 11's formula, unchanged
       for (const pace of [RULES.paceMin, RULES.pace0, 9, RULES.paceMax]) {
-        expect(planCells(pace, ps)).toBe(Math.round(Math.min(144, Math.max(48, ((pace * ps) / 60) * RULES.planSpread))));
+        expect(planCells(pace, ps)).toBe(Math.round(Math.min(144, Math.max(RULES.cellsMin, ((pace * ps) / 60) * RULES.planSpread))));
       }
     }
-    expect(planCells(RULES.pace0, playSecOf(1200, false))).toBeGreaterThan(144);
-    expect(planCells(RULES.pace0, playSecOf(1800, false))).toBe(RULES.cellsLongMax);
+    // a strong player's pace takes a finer window past 15 minutes (round 20: the window holds what the pace lights)
+    expect(planCells(9, playSecOf(1200, false))).toBeGreaterThan(144);
+    expect(planCells(9, playSecOf(1800, false))).toBe(RULES.cellsLongMax);
     expect(planCells(RULES.paceMax, 99_999)).toBe(RULES.cellsLongMax);
-    expect(later({ planned: 1800 }).cellsWanted).toBe(RULES.cellsLongMax);
+    expect(later({ planned: 1800, progress: { pace: 9 } }).cellsWanted).toBe(RULES.cellsLongMax);
     // the progress keeps a long window's count
     expect(migrate({ ...freshProgress(), cells: 200 }).cells).toBe(200);
   });
@@ -357,20 +358,23 @@ describe('sessions of 15–30 minutes (round 12)', () => {
   });
 });
 
-describe('more pieces (48–144)', () => {
-  it('cuts a window into what the player is expected to light, ×1.4 — 48 at least, 144 at most', () => {
+describe('the window fits the session (round 20: "I can do at most 50–60 % of the pieces")', () => {
+  it('cuts a window into what the player is expected to light at their pace (×0.9) — 10 at least, 144 at most', () => {
+    expect(RULES.planSpread).toBeLessThan(1);
     expect(planCells(RULES.pace0, 10)).toBe(RULES.cellsMin);
     expect(planCells(RULES.paceMax, 9999)).toBe(RULES.cellsLongMax);
-    expect(planCells(RULES.paceMax, playSecOf(600, false))).toBe(RULES.cellsMax);
+    expect(planCells(RULES.paceMax, playSecOf(900, false))).toBe(RULES.cellsMax);
     const p3 = planCells(RULES.pace0, playSecOf(180, false));
     const p5 = planCells(RULES.pace0, playSecOf(300, false));
     const p10 = planCells(RULES.pace0, playSecOf(600, false));
-    expect(p3).toBe(48);
-    expect(p5).toBe(48);
-    expect(p10).toBeGreaterThan(64);
-    expect(p10).toBeLessThanOrEqual(144);
+    // a 3- and a 5-minute session no longer take 48: only what the pace lights in them
+    expect(p3).toBeGreaterThanOrEqual(RULES.cellsMin);
+    expect(p3).toBeLessThan(16);
+    expect(p5).toBeGreaterThan(p3);
+    expect(p5).toBeLessThan(26);
+    expect(p10).toBeGreaterThan(40);
+    expect(p10).toBeLessThan(52);
     expect(planCells(RULES.pace0 * 1.6, playSecOf(600, false))).toBeGreaterThan(p10);
-    expect(RULES.cellsMin).toBeGreaterThanOrEqual(48);
     // the pace follows the sessions (cells per minute of push and rest), a short one barely
     expect(nextPace(RULES.pace0, 40, 280)).toBeGreaterThan(RULES.pace0);
     expect(nextPace(RULES.pace0, 5, 280)).toBeLessThan(RULES.pace0);
@@ -380,17 +384,49 @@ describe('more pieces (48–144)', () => {
     // forced (tests, the frame-time audit), within the bounds only
     const at = (cells: number) => new JestemSim({ progress: freshProgress(), rng: mulberry32(1), day: DAY, plannedSec: 60, eeg: false, tuning: TUNING, askForm: false, cells }).cellsWanted;
     expect(at(144)).toBe(144);
-    expect(at(500)).toBe(48);
+    expect(at(500)).toBe(RULES.cellsMin);
   });
 
-  it('a session at threshold focus colours the heart of the picture; the finale’s light completes it', () => {
-    const sim = later({ planned: 300, vision: visionOf('zdrowy', 48) });
-    playOut(sim, good(MID));
-    expect(sim.score).toBeGreaterThan(16);
-    expect(sim.score).toBeLessThan(sim.cells);
-    expect(sim.score + sim.graced).toBe(sim.cells);
-    // the pace moves toward what the player did
-    expect(sim.p.pace).toBeGreaterThan(RULES.paceMin);
+  /** A returning player at `pace` plays a session of `planned` s on a window cut as the game cuts it. */
+  const fitted = (planned: number, pace: number, feed: Feed) => {
+    const p = { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN], form: 'm' as const, pace };
+    const probe = new JestemSim({ progress: { ...p }, rng: mulberry32(1), day: DAY, plannedSec: planned, eeg: false, tuning: TUNING, askForm: false });
+    const sim = later({ planned, progress: { pace }, vision: visionOf('zdrowy', probe.cellsWanted) });
+    // (playOut stops at 1000 s: a 30-minute session plays on to its end)
+    const clock = { t: 0 };
+    let guard = 0;
+    while (sim.phase !== 'done' && guard++ < 1000) drive(sim, 5, feed, clock);
+    expect(sim.phase).toBe('done');
+    return sim;
+  };
+
+  it('a player at their own pace lights the whole picture by focus, at every length', () => {
+    for (const planned of [180, 300, 600, 900, 1800]) {
+      // the threshold player at the pace the sessions taught them (≈ 5.6 cells a minute: the round's sim grid)
+      const sim = fitted(planned, 5.6, good(MID));
+      expect(sim.score / sim.cells).toBeGreaterThan(0.9);
+      expect(sim.score + sim.graced).toBe(sim.cells);
+    }
+  });
+
+  it('a weaker player (focus 6 s of every 10) at their pace lights most of it — before round 20 about half', () => {
+    const weak = (sim: JestemSim, t: number) => (sim.block.kind === 'rest' ? CALM : t % 10 < 6 ? MID : LOW);
+    for (const planned of [180, 300, 600]) {
+      const sim = fitted(planned, 3.6, weak);
+      expect(sim.score / sim.cells).toBeGreaterThan(0.8);
+    }
+  });
+
+  it('measures the pace up to the last cell lit — the light pass after it does not lower it', () => {
+    const sim = later({ planned: 600, vision: visionOf('zdrowy', 24) });
+    playOut(sim, good(HIGH));
+    expect(sim.complete).toBe(true);
+    expect(sim.playDone).toBeGreaterThan(0);
+    expect(sim.playDone).toBeLessThan(sim.playT * 0.7);
+    expect(sim.paceSec).toBeCloseTo(sim.playDone, 5);
+    // the pace rises toward what the player really lit per minute, not 24 cells over the whole session
+    expect(sim.p.pace).toBeGreaterThan(RULES.pace0);
+    expect(sim.p.pace).toBeGreaterThan(nextPace(RULES.pace0, 24, sim.playT));
   });
 
   it('scales each cell’s capacity so a mean cell holds about 5 s of threshold focus', () => {

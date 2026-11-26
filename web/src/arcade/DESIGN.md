@@ -4525,7 +4525,8 @@ threshold focus. Measured with the sim (5-minute sessions, calm rests): a push o
 over sessions; a version-1 save's pace starts again), within **48–144**: 48 in 3- and 5-minute sessions, ≈ 72 in 10
 minutes. A 5-minute session at the threshold lights ≈ 25 of 49 (at full focus ≈ 32–36): the colour flows from the
 heart outward, so the subject is the player's, and the finale's light completes the rest (the headline counts only
-the player's pieces). Thinner lead as the cells grow finer.
+the player's pieces). Thinner lead as the cells grow finer. *(Round 20, §24.4b: the window now holds 0.9 × what the pace lights, 10–144 —
+the founder lit only 50–60 % of 1.4 ×.)*
 
 **Clarity.** One "what to do now" line under the window where two lines fit, else a subtitle over its lower edge: a
 drawn icon (a sun of focus that turns while colour flows, a breathing ring, a moon, a tap's ripple, a band without
@@ -8938,6 +8939,30 @@ tail after the last picture 3–21 s of light (mostly 7–13); a 13th session of
 pictures of ~35 tiles instead of 73 % of one of 72; long sessions keep design-size pictures while the time allows.
 Tests: `test/arcade-rozswietl.test.ts` "the picture fits the time" (fitPicture, the pace, sizing, the bright end) and
 the reworked pacing test.
+### 24.4b Ja jestem…: the window fits the session (`jestem/rules.ts`, `meta.ts planCells`, `sim.ts paceSec`)
+
+The founder, the same day, of Ja jestem…: *"generuje się teraz za dużo kafelków względem długości sesji; jestem w
+stanie zrobić maksymalnie 50–60 %"*. The cause was by design: since round 11 (*"more pieces"*) the window held
+**1.4 ×** the cells the player was expected to light (the finale's light completed the rest), and never fewer than
+**48** — a 3-minute session expects ~13, a 5-minute ~25. Measured with the sim (a threshold player, a weaker one
+who focuses 6 s of every 10, a strong one; 3–30 minutes; sessions 1, 2, 5, 13 with the pace learnt): the threshold
+player lit **27–71 %** (27 % in 3 minutes, 47 % in 5), the weaker one **18–71 %**.
+
+* **`planSpread` 1.4 → 0.9:** the window holds what the player's pace lights in the session's push and rest, a
+  little less — their own focus lights the whole picture with a short light pass left before the finale.
+* **`cellsMin` 48 → 10:** a short session holds only what it can light (a 3-minute window of 10–14 large panes
+  still reads as stained glass — looked at in the app); 144 at most, 216 past 15 minutes, as round 12 set.
+* **The pace is measured up to the last cell** (`playDone`, `paceSec`): a window finished early no longer counts the
+  light pass after it (that lowered a strong player's pace, so the next window shrank and finished earlier still),
+  and the first session's warm-up counts its seconds as well as its cells (its cells alone over-stated the pace).
+* The block rhythm is untouched: a cell still holds ≈ 5 s of threshold focus, a push still ends after its 3–5
+  cells (round 11), the rest is still whole breaths.
+
+After: the threshold player lights **75–100 %** (92–100 % once the pace is learnt), the weaker one **76–100 %**
+(90–100 % learnt), the strong one 89–100 %. What remains: a strong newcomer finishes the first long window early
+(30 minutes: at ~60 %, then the light pass) until the pace has learnt them (2–5 sessions). Tests: "the window fits
+the session" in `test/arcade-jestem.test.ts`.
+
 ### 24.5 The engine (`src/arcade/kit/healthlib/`)
 
 **The request in one line:** make Każdy włos's form (§15) an engine, so that each game of "Wizualizacje zdrowotne" is
@@ -9991,6 +10016,8 @@ meditation that pictures renewal cannot be read as a promise of youth.  Closers 
 * **Shared units**: "iskier" (Pełnia radości) is also Ogień's; "komórek" is both Czujna straż's and Każda komórka's.
 * **Real devices**: the mobile audit passed on six emulated devices for every game; a real phone and a real band are
   the founder's.
+* **Ja jestem… with a strong newcomer** (§24.4b): the first long sessions end in a long light pass until the pace
+  has learnt the player.
 * **Round 19** (Ogród o świcie) was found unfinished in its own worktree (the builders' work uncommitted); it was not
   touched.  Both rounds touch the registry, the arcade texts, styles.css, the title pins and scripture.ts: merging both
   is a careful hand-merge (re-run `npm run scripture` after it).
