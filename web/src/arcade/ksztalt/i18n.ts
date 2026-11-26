@@ -206,7 +206,7 @@ const pl = {
   'howto.goal': 'Wybierz medytację i przejdź przez jej obrazy: Twoje skupienie sprawia, że rosną.',
   'howto.tip1': 'Patrz na to, co rośnie, i wyobrażaj to sobie w swoim ciele: lekki wydech, mocne mięśnie, prostą postawę.',
   'howto.tip2': 'Opaska mierzy uwagę, nie ciało. To nie leczenie i nie dieta.',
-  'panel.not': 'To wizualizacja i trening uwagi — nie leczenie i nie dieta. Jeśli jedzenie, waga lub wygląd ciała są trudne, porozmawiaj z lekarzem; całą dobę: 116 123.',
+  'panel.not': 'To wizualizacja i trening uwagi — nie leczenie i nie dieta. Jeśli jedzenie, waga lub wygląd ciała są trudne, porozmawiaj z lekarzem albo zadzwoń: 116 123.',
 
   // the narrator's flavour
   'say.open.1': 'Zacznijmy spokojnie. Twoje ciało jest tu, takie, jakie jest.',
