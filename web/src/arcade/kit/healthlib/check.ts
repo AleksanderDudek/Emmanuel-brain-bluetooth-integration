@@ -188,6 +188,7 @@ export function checkLibrary(lib: HealthLibrary, opts: { allow?: readonly Allowe
     for (const lb of sc.labels) {
       if (!inside(sc.view, lb.at)) out.push(`scene.${s}: label “${lb.part}” at [${lb.at.join(', ')}] is outside the view`);
       if (lb.from < 0 || lb.from > 1) out.push(`scene.${s}: label “${lb.part}” shows from ${lb.from} (0..1)`);
+      if (lb.to !== undefined && !(lb.to > lb.from && lb.to <= 1)) out.push(`scene.${s}: label “${lb.part}” fades at ${lb.to} (after from, ≤ 1)`);
       if (parts.has(`${lb.part}|${lb.at.join(',')}`)) out.push(`scene.${s}: label “${lb.part}” twice at one place`);
       parts.add(`${lb.part}|${lb.at.join(',')}`);
     }

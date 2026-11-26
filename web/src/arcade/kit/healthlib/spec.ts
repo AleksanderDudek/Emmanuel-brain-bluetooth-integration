@@ -51,6 +51,8 @@ export interface LabelSpec {
   dy?: number;
   /** the scene's growth (0..1) from which the name shows */
   from: number;
+  /** the growth from which it no longer fits and fades (a damage mended…); absent: it stays, also once grown */
+  to?: number;
 }
 
 export interface SceneSpec {

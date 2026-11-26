@@ -193,7 +193,7 @@ export class HealthView {
     const sc = sim.lib.scene(sim.scene);
     for (const lb of sc.labels) {
       const key = `${sim.scene}|${lb.part}|${lb.at[0]}`;
-      const want = sim.shown >= lb.from || sim.stage === 'after' ? 1 : 0;
+      const want = (sim.shown >= lb.from && (lb.to === undefined || sim.shown < lb.to)) || (sim.stage === 'after' && lb.to === undefined) ? 1 : 0;
       const k = this.labelK.get(key) ?? 0;
       this.labelK.set(key, want > k ? Math.min(1, k + dt * 1.6) : Math.max(0, k - dt * 2));
     }
