@@ -109,6 +109,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "EPH": ("Ephesians", "Ef", "Epheser", "epheser", "Efesierbrevet", "Ef"),
     "PHP": ("Philippians", "Flp", "Philipper", "philipper", "Filipperbrevet", "Fil"),
     "COL": ("Colossians", "Kol", "Kolosser", "kolosser", "Kolosserbrevet", "Kol"),
+    "1TH": ("1 Thessalonians", "1 Tes", "1. Thessalonicher", "1_thessalonicher", "Första Thessalonikerbrevet", "1 Tess"),
     "2TH": ("2 Thessalonians", "2 Tes", "2. Thessalonicher", "2_thessalonicher", "Andra Thessalonikerbrevet", "2 Tess"),
     "1TI": ("1 Timothy", "1 Tm", "1. Timotheus", "1_timotheus", "Första Timoteusbrevet", "1 Tim"),
     "2TI": ("2 Timothy", "2 Tm", "2. Timotheus", "2_timotheus", "Andra Timoteusbrevet", "2 Tim"),
@@ -308,6 +309,10 @@ PASSAGES: list[tuple[str, str]] = [
     # round 21 — Dobry bój: the good fight in the ring (Paul's boxer, the hands trained, rising after a fall)
     ("1co9.26-27", "1 Corinthians 9:26-27"), ("psa144.1", "Psalm 144:1"), ("pro24.16", "Proverbs 24:16"),
     ("psa18.34", "Psalm 18:34"), ("1ti6.12", "1 Timothy 6:12"),
+    # round 22 — Złota passa: every day's wins, and the good God brings out of what hurts
+    ("1th5.18", "1 Thessalonians 5:18"), ("gen50.20", "Genesis 50:20"), ("jas1.2-4", "James 1:2-4"),
+    ("rom5.3-5", "Romans 5:3-5"), ("psa23.6", "Psalm 23:6"), ("psa16.6", "Psalm 16:6"), ("eph5.20", "Ephesians 5:20"),
+    ("2co4.17", "2 Corinthians 4:17"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
