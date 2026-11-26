@@ -320,10 +320,19 @@ try {
   step('switch to EEG, simulator, signal view');
   await page.click('.toolswitch [data-tool="eeg"]');
   await page.waitForFunction(() => document.body.dataset.tool === 'eeg');
+  // the hub switches its tool a moment after the page does: open the sheet only then (a click on the simulator during
+  // the switch could leave its card hidden — the run failed so now and then after a game that keeps the CPU busy)
+  await page.waitForFunction(() => globalThis.brainlink?.hub?.status?.tool === 'eeg', { timeout: 20_000 });
   await page.click('#devChip');
   await page.waitForSelector('#deviceSheet[open]');
   await page.click('#sourcePick [data-src="simulator"]');
-  await page.waitForSelector('#simCard:not([hidden]) [data-sim="focus"]');
+  try {
+    await page.waitForSelector('#simCard:not([hidden]) [data-sim="focus"]', { timeout: 8_000 });
+  } catch {
+    console.log('  the simulator card did not show at once — picking the simulator again');
+    await page.click('#sourcePick [data-src="simulator"]');
+    await page.waitForSelector('#simCard:not([hidden]) [data-sim="focus"]');
+  }
   await page.click('#simStates [data-sim="focus"]');
   await page.click('#sheetClose');
   await go('sygnal');

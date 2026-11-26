@@ -10769,3 +10769,285 @@ going to make me everything I am".
 * **Two builders** on the lead's contract (`passa/moments.ts`, `view.ts`, the street's stubs): A "day" (rules, sim, the
   moment sets in four languages, meta with the day-streak, the lobby card, tests), B "street" (the street through the
   day, the turning card, the garland, layouts, preview, card art, sound).
+
+### 26.3 Złota passa — the day: rules, the moments, the words, the habit (builder A)
+
+**Files.** `src/arcade/passa/`: `rules.ts` (every number, the plan, the day-streak's arithmetic — pure), `content.ts`
+(the passages by id, the moment sets' structure: id, kind, motif, part of the day; the narrator's moments), `sets.ts`
+(the moments' words in pl/en/de/sv, typed so every language has every moment; "not yet — I trust"; the wins an own
+moment gets), `meta.ts` (the progress, "Mój dzień", the switch for the hard things), `sim.ts` (the day without the
+canvas: the blocks, the moments, the `PassaView` every frame, the result), `talk.ts` (the narrator), `i18n.ts`,
+`hud.ts` (the story and verse cards over the street, the choices' tap targets), `intro.ts` (the calibration scene:
+B's `drawPreview`), `panel.ts` (the lobby card), `index.ts` (the wiring). The registry entry after Rzeki (kind
+`vision`, root `rom8.28`, Mendi and HALO, `tuning.adapt` 0.08, no focus chip, art `art-passa`); `passa.*` in
+`i18n/arcade.ts` (title, tagline, text, how 1–3, tips 1–5 — tip 5 the help lines exactly as Złote serce's —, unit,
+brain, meters "Złoto" / "Spokój"), the mouse twin of `passa.how3`, the title/unit pins; `test/arcade-passa.test.ts`
+(29 tests). Titles: Złota passa · Winning Streak (the reel's own words) · Siegesserie · Vinnarsvit; the unit
+zwycięstwo/-a/zwycięstw · win(s) · Sieg(e) · seger/segrar.
+
+#### The day (rules.ts `planFor`: a fixed schedule of blocks from 0 to T, 3–30 min or a ≤ 60 s test)
+
+| Part | Length | What happens | Block |
+|---|---|---|---|
+| intro | 5 % of T, 12–30 s (+8 s on a first-ever day: the story card) | dawn on the street; "Nowy dzień"; the streak's day said ("Dzień passy: 5. Dobrze, że jesteś."); Rom 8:28 / Ps 118:24 / Lam 3:22-23 in turn (a first-ever day: the story card — "Gra w zauważanie: każde dobro, które dostrzegasz w skupieniu, zapala światło passy" — and Rom 8:28) | free |
+| arrive | 3 s of real time | the card comes down the street (`near` 0→1); a trouble's choices already open; the narrator names it ("Coś dobrego idzie ulicą", "Ta karta ma dwie strony", "Chwila z Twojego dnia", "Wczoraj ta karta poszła ze mną — dziś?") — the push's telegraph | free |
+| name (a heavy moment only) | max(2, the after-rest) whole breaths | the hurt said plainly ("To boli. I Bóg jest tu.", "Wolno nazwać to po imieniu. Nie trzeba udawać."), Ps 34:18; no choices yet | rest |
+| turn | the focus dial: 20 s by design (15–40 by 5), lead-in included | the hand picks the reframe; only focus turns the card grey → gold, its gold words writing themselves as focus holds | push |
+| after | the rest dial: 1 whole breath by design (1–4) | **savor** (a won card): the light flies up from the card into the garland (1.8 s), "Dziękuję", calm warms it — or **carry** (not turned): the card slides gently into the pocket (3.2 s), "Ta karta idzie ze mną — wrócę do niej" | rest |
+| garland | ~42 % of the evening, whole breaths | the street darkens, the garland of the day's wins lights it; the identity banner "Jestem na złotej passie — wszystko współdziała ku dobremu" (a day with no win: "Wszystko współdziała ku dobremu"); Ps 16:6 ("the lines are fallen unto me in pleasant places" — the garland's strings) / Ps 23:6 | rest |
+| prayer | ~26 %, whole breaths | „Ojcze, przez Jezusa, w Duchu Świętym: dziękuję Ci za ten dzień i za każde dobro w nim. To, co trudne, oddaję Tobie — Ty możesz wyprowadzić z tego dobro. Amen.”; 1 Thess 5:18 / Eph 5:20 | rest |
+| close | the rest, ≥ 14 s | with two wins or more, one tap: "Za co dziś dziękuję najbardziej?" among up to four of the day's wins (own ones first) → "Najbardziej dziękuję za: …" (shown, never kept or in the result) — open to 60 % of the close, then it closes quietly ("Dobranoc…"); the closing verse | free |
+
+The evening's frame is 12 % of T (36–120 s); what the moments leave (always less than one moment) goes to it. **By
+design** the push and the after-rest grow with the length (`RULES.design`): 3–5 min 20 s and 1 breath, 10–15 min 20 s
+and 2, 20 min 25 s and 2, 25–30 min 30 s and 3 — 4 moments at 3 min, 7 at 5, 11 at 10, 17 at 15, 21 at 20 and 25,
+26 at 30. A player who moved a dial keeps it (it always fits from 3 minutes up; `restIn` says so); the moments are as
+many as their rhythm allows. A heavy moment (asked for) needs three moments or more: it stands at 60 % of the day,
+never first, never last (3 min: joy · heavy · joy). **A test** (≤ 60 s, app:smoke's 40 s): intro 10 %, one moment
+(arrive 2 s, an after-rest of 20 % of the middle, the rest a push: 20 s at 40 s, 32 s at 60), evening 20 % (garland and
+close). The day's light (`day`) runs 0.02→0.05 over the intro, 0.06→0.78 over the moments (morning → noon → afternoon →
+evening, each moment's `part` from it), 0.78→1 over the garland.
+
+#### The energy (honest neurofeedback)
+
+`need` = 0.75 × (push − lead-in) × 0.85 focus-seconds — kintsugi's `focusRate` on the level averaged over 10 s, only
+while `focused`, with a reliable signal, past the band's lead-in (Mendi 5 s, HALO 2 s): the average player (level ~0.62,
+held) turns a card at ~85 % of the window, a strong one early. A first-ever day's first card asks half, a test 0.4
+(app:smoke's half focus turns it: tested at 40 and 60 s, first-ever and returning, Mendi and HALO). **Taps choose, never
+turn.** Turned early: the gold words finish writing and the rest of the push *abides* — the glow stays, and held focus
+gives a sparkle each 4 focus-seconds (≤ 4, no score; "Zostań w tym świetle"). No progress for 10 s: the narrator once,
+gently ("Spokojnie. Spójrz na kartę jeszcze raz."). A card not turned by the window's end is **never turned for the
+player**: it is carried (no false win, no blame) and the run of wins ends quietly — every light of the garland stays.
+`glow` in a push is the pace (0.5 = on course to turn by the window's end; 0.15 in the lead-in; ~0.82–1 once turned),
+calm in the after-rest; the runner's gauge shows the same ("Złoto"), null in the lead-in; calm in a rest ("Spokój").
+`padLevel()` is always null (the street's sound owns the soundscape).
+
+#### The moments (content.ts, sets.ts — each line ≤ 64, each win ≤ 52 characters in every language)
+
+* **16 joys** (one win each — the gold side from the start, no choice): the first sip of coffee ("Tyle radości za parę
+  groszy — dziękuję": the reel's two dollars), the green light, the sun on the face, a bird, a free seat on the bus, a
+  message ("Myślę o Tobie"), cold water, a stranger's smile, a good lunch (daily bread), "Dobra robota", a card from
+  someone dear, flowers by the road, five quiet minutes, a golden sunset, someone glad at home, a warm bed.
+* **16 troubles** (two or three reframes): the far parking spot ("Więcej kroków — dla zdrowia" — the reel's), rain
+  ("Ziemia pije — a ja mogę zwolnić"), the late train ("Niespodziewany czas na oddech"), spilled coffee, the missed bus,
+  lost keys, a queue ("Chwila na krótką modlitwę"), a stain before a talk, a long wait at the clinic, a tiring meeting,
+  a mistake at work ("Teraz wiem więcej niż rano"), a dead battery, a cancelled plan, a higher bill, a traffic jam, a cold.
+* **8 heavies** (only when asked; two or three humble hopes + "Jeszcze tego nie widzę — ufam"): a hard diagnosis
+  ("Uczę się prosić o pomoc", "Każdy dzień staje się cenniejszy", "Bóg jest blisko złamanych na duchu"), losing someone
+  dear ("Miłość nie znika — noszę ją dalej", "Łzy też są modlitwą"), losing a job ("Moja wartość nie zależy od
+  stanowiska"), the end of a relationship, a body that cannot do what it used to ("Bóg patrzy na serce"), loneliness
+  ("Mogę dziś do kogoś napisać"), a failed plan ("Moja historia może kiedyś dodać komuś odwagi" — the reel's "Nike will
+  sign me" as hope with humility), a long wait with no answer ("Bóg jest ze mną w czekaniu"). Never "that is why it
+  happened to you", never a promise of healing or of a reward.
+* **The order of a day**: the player's own moments first (in turn from where the last session stopped: `ownNext`),
+  the set cards carried last time (≤ 3, "Wczoraj…" / "Ostatnio ta karta poszła ze mną — dziś?"), then the sets — the
+  day's first a joy, a little more joys than troubles (55 %, the first three a little more likely), spread so three
+  troubles never come in a row, by the slot's part of the day where one fits, the ones played lately (≤ 24) last; at
+  most one heavy, its turn (own first, a carried one, else the set's next in rotation).
+* **The choice**: changeable until the card turns; with none the first goes (shown on the gold side from 45 % of the
+  turn); keys 1–4, Space/Enter the next. Trust picked and turned by focus is a win of its own (counted, said:
+  "Zaufanie to też zwycięstwo"; the card's gold side a small flame: `CardView.trust`).
+
+#### The player's own day, the hard things, the habit (meta.ts, panel.ts)
+
+* **"Mój dzień"** (the lobby): up to 8 moments — a line (≤ 64), its kind (Dobre / Drobny kłopot / Trudne), optionally
+  the player's own win (≤ 56); add, change, remove, "Zapomnij moje słowa". An own joy gets its own win or "Dziękuję za
+  to dobro"; an own trouble its own win + one of ours, or three of ours ("I w tym jest coś dobrego", "Uczę się w tym
+  cierpliwości", "Bóg jest i tutaj"); an own hard one ours + trust. Text is cleaned (no control, format or markup
+  characters, one line), kept only in this game's progress on this device, set as text in the DOM, **never in
+  `result()`** (a test feeds names and places in and reads the JSON). They stay until removed (a line says so).
+* **"Także to, co trudne"** (off by default): with it on, one heavy moment a day; an own "Trudne" moment waits while it
+  is off (the lobby says so). The forecast says when one comes ("Jedna z nich będzie trudna — najpierw odpoczynek i
+  nazwanie bólu").
+* **The day-streak**: a session on day D after one on D−1 adds a day; one missed day between (D−2) is forgiven at most
+  once in 7 days (Lam 3:22-23, "new every morning") and adds a day too; anything else begins again at 1; the same day
+  changes nothing. Calendar arithmetic on 'YYYY-MM-DD' in UTC (tested across month and year ends and the leap day;
+  2026-13-01 is no day). The lobby: "Passa zaczyna się od jednego dnia — choćby dziś." / "Passa trwa: 4 dni.
+  Dzisiejsza sesja doda kolejny dzień." / "Dziś już zagrane…" / "Wczoraj była przerwa — dzisiejsza sesja podtrzyma
+  passę…". The street's sign (`PassaView.sign`): "Dzień passy: 5" ("Pierwszy dzień passy").
+* **Records**: the most wins in a session, wins in all, the longest run in a session, trust in all, moments met,
+  the longest streak; the carried set cards (≤ 3), the lately played (≤ 24), the heavy set's turn. A broken save keeps
+  only its session count; a hostile one is repaired field by field (only the known fields stay).
+
+#### The result
+
+Score = wins; stats: "Zwycięstwa 6 z 7", "Najdłuższa passa 4 z rzędu", "Dzień passy 5", "Skupienie − odpoczynek";
+highlights: "Złota passa: 7 z rzędu" (a run of 3+), "Dzień passy: 5" (2+), trust, "To, co trudne, zostało nazwane —
+i oddane Bogu.", the cards in the pocket ("mogą wrócić następnym razem"), a quiet day ("Dziś karty poszły ze mną. Jutro
+nowy dzień — Jego miłosierdzie jest nowe każdego ranka."), a record. The closing verse in turn: Rom 8:28, 1 Thess 5:18,
+Eph 5:20, Ps 23:6, Ps 16:6, Ps 118:24, Lam 3:22-23 — and only after a day that met a heavy moment Gen 50:20, Rom 5:3-5,
+2 Cor 4:17, Jas 1:2-4.
+
+#### Words and care
+
+The narrator: ≤ 80 characters, ≥ 4.5 s on screen (2.5 s + 70 ms a character), no variant twice until its moment used
+them all; "Jestem na passie!", "To też się liczy.", "Dobro jest wszędzie, gdy się patrzy.", the run named at 3, 5, 7,
+10, 15, 20, 30 ("5 zwycięstw z rzędu!", with a short banner "5 z rzędu!"). Never: wszechświat / universe / Universum,
+przyciąganie / attraction, manifest, energia / energy / Energie / energi, wibracje / vibration, "Bóg ci da" / "God will
+give you", "nic złego" / "nothing bad", healing promises (a test over the catalog, the sets and the registry texts in
+four languages). Polish never genders the player (a test: past tenses, adjectives, y/a pairs). The source is named
+once, in the lobby text (`passa.text`): the research on gratitude (Emmons & McCullough 2003; Seligman et al. 2005) and
+on positive reappraisal in the psychology of coping, "here a prayer before God", "not therapy"; the lobby card adds
+where a Christian stands (Rom 8:28 and Gen 50:20 — "nie «wszystko jest dobrze»") and tip 5's help lines.
+
+#### Wiring and the lobby card
+
+`index.ts` builds the view every frame and draws B's `StreetView` on B's `layout()`, then the cards (`hud.ts`: the story
+card of a first-ever dawn, the verse cards in `layout.story`, moved under the runner's pacer in a rest — a heavy moment's Ps 34:18 stands above its card, `hud.ts aboveCard`, since B's story place is the card's own on most sizes); the choices
+hit-test and `targets()` use B's `choiceRects(l, n)` (only while open); `pacerAt()` is `layout.pacer`; `breath()` 4 · 0 ·
+6 · 0 from each rest's start; coach marks in the first two sessions (the turn — at the card, the choice — at the first
+button, the savor, the carry). The lobby card, mobile first: the streak's four numbers and its line, how it works, the
+forecast for the lobby's length ("Na 5 min: 7 chwil, każda z 20 s skupienia i odpoczynkiem 1 oddech."), "Mój dzień",
+"Także to, co trudne" (Nie / Tak), the source, the help lines.
+
+### 26.4 Złota passa — the street: the day, the card, the garland, the layouts and the sound (builder B)
+
+**The look (our own).** One small European street seen from the pavement, in one-point perspective, looking down it
+to a little square and a church tower (world.ts, metres: facades at x = ±5, the road between kerbs at ±3, the viewer
+a little left of the middle with eyes at 1.55 m). Fifteen tenements in warm plasters — sand, rose, sage, pale blue,
+ochre, white — each with its windows (frames, the wall's reveal, a cross bar, sills, flower boxes on some, shutters
+on others), a string course over the shop floor, a cornice seen from below, and its own top: a cornice, an attic with
+small vases, a curved gable with an oculus or a stepped one; chimneys behind. The shops: **the café** near on the right
+(a red-and-cream striped awning with a scalloped valance, pendant lamps over a counter, two tables with chairs on the
+pavement, the day-streak's hanging sign on its bracket), **the bakery** on the left (a burgundy-cream awning, loaves in
+the window, a gold pretzel hanging over the pavement), **the florist** on the right (a green awning, buckets of
+flowers), a grocer's crates under a red awning, a bookshop's spines, a pharmacy's green cross (lit at dusk). On the
+pavements: a bus stop with its glass and its round sign, a young linden, lamps on curved brackets, a bench; a zebra
+crossing with a traffic light (its lamp live, green most of the time — a green light is a small win); pigeons pecking
+by the crossing, a cat on a sill with its tail swaying, a few people as soft silhouettes walking the pavements (one at
+night), birds crossing the morning sky. At the far end the square: houses facing the viewer and the church — the
+nave's gabled front with a rose window, the tower with its clock, the belfry and a copper-green spire with a small
+cross. Never busy, never a city sim: no cars.
+
+**The day (`view.day` 0 dawn … 1 night, paint.ts `lightAt`).** Nine keyframes mixed smoothly: the sky's three colours,
+the ambient light, the sun's colour, strength and direction, the haze, the lamps, the stars and the evening's blue.
+The sun is behind the viewer in the morning (the church's tower catches the first pink light, the houses' long cool
+shadows point down the street, the dawn's mist lies in it, early risers' windows are lit and the bakery already is),
+high at noon (short shadows, saturated colours), ahead in the afternoon (the left facades golden, the right side's
+shadow climbing the walls) and it sets behind the church (the afterglow at the street's end); in the blue evening the
+windows light up one by one (each its own moment), the lamps and their pools on the pavement, the shops' warmth
+spilling out, the stars. Every surface's colour is its base × (ambient + sun × how squarely the sun falls on it),
+faded into the haze with distance; the houses' shadows on the street and on the facing walls follow the sun.
+
+**Performance.** The street is baked per size and per step of the day (40 steps, two offscreen canvases at ≤ 2×,
+crossfaded by the fraction between them; a step is re-baked only when the day passes it) — the live layer is the sky's
+gradient, the sun's glow, five clouds, the birds, the traffic light, the pigeons, the cat, the people, the mist, the
+garland, the card and the words. Without a DOM (tests) the street draws straight into the context.
+
+**The card (`card.ts`, motifs.ts).** A postcard held up close: a perforated stamp with the moment's motif and its
+words. The grey side says what happened in quiet greys — a joy's grey is only faded (unnoticed), a snag's cool, a
+heavy one's deep slate with light words; the gold side is warm cream to gold with a foil frame and corner diamonds,
+its words (`win`) **writing themselves** letter by letter in Fraunces italic with a warm nib's glint where the
+writing is (`write`), a small star when written. As `turn` grows the card **turns over** its vertical axis, drawn in
+20 slices with a little perspective (the near edge taller), lifting slightly, the edge catching the light at the
+middle. A heavy card's other side is a soft dawn (rose to pale gold, plum words) — no gold rush, the light comes
+softly; the **trust** card's other side is night-blue with a small candle flame in the stamp (`CardView.trust`). An
+own moment carries a small pen mark. `glow` is focus's warm light behind and on the card with small motes rising —
+never a meter (rosier and softer for a heavy card); in a rest the card rises and falls a hair with the breath.
+**Twenty motifs** drawn in code in a unit square (cup with steam, traffic light turning green, a car far from a
+door with the footsteps between, rain under a cloud, a queue at a counter, an alarm clock, a spilled cup, a phone
+with a message, a smile, the sun, a bird on a branch, a sealed letter, a bus, a medical card, an empty desk with its
+lamp and a chair pushed in, a scale, a heart in two halves with a light where they meet, a closed door, a seed
+sprouting, an open hand with a small light in it) — grey, heavy grey and gold palettes; a little life when motion is
+allowed (steam, rain, the light breathing, the bird hopping, the clock's hand).
+
+**The way a card moves.** `arrive`: it comes down the street from its far end — a world path from 40 m away to the
+place it is held at, projected, so it grows as a thing coming toward the viewer would. Held up close: over the
+choices while they are open (`cardFor(l, n)`), lower while none are (`cardFree`: the street and its garland in sight
+above it), gliding between the two. `carry`: the card slides gently into the pocket — the view's `near` 1 → 0 is the
+slide (an arc, shrinking, tilting, fading at the end), the pocket nods as it arrives; the pocket is a small linen bag
+with a warm glow in it (these cards are kept, not lost) and the count `carried`. A card that leaves (`card` null after
+a savor, or a new card) fades and lifts a little. Reduced motion: the card fades in and out in place.
+
+**The garland — the streak (`garland.ts`).** One string of warm festoon bulbs zig-zagging across the street from
+facade to facade — five spans of eight bulbs (GARLAND_MAX 40), the nearest first, small brackets on the walls. The
+street shows only the spans the day's wins need: a new span is strung across the street (the wire unrolling from its
+anchor) when the last bulb of the previous one is next — never a row of unearned dark bulbs ahead. Each win's light
+**flies up from the card's stamp** along an arc with a trail and shed sparks (over the card) and lights the next bulb
+(`flying` 0..1 to bulb `lights`), which flares with short rays and settles; the lit bulbs breathe a little, brighter
+with calm in a rest; past 40 the bulbs double up, brighter. The string sways gently (still with reduced motion, and
+the flight is then two still frames). In the **evening** the street darkens (the day's night, a vignette) and the lit
+garland lights it — halos, the warm light it throws on the street — with the identity over it.
+
+**Words on the canvas.** The **choices** (`choiceRects(l, n)`): dark warm glass buttons, the chosen one lit gold with
+dark words and a glow; trust's a deep night blue with a small flame, lit when chosen; a key's number on a desk; labels
+16 px down to 13, two lines (three only if a label must), never cut. The **narrator** (`say`): a cream paper bubble
+under the free card (or over the card / over the evening's pick when choices are open). The **banner**: Fraunces over
+the street with a soft dark ground and a warm glow; the evening identity "Jestem na złotej passie — wszystko
+współdziała ku dobremu" splits at " — " into a large first line and a smaller italic second. The **day-streak's
+sign** (`PassaView.sign`, "Dzień passy: 5" / "Pierwszy dzień passy"): a green enamel board with gold letters hanging
+on the café's bracket, at least 13 px (moved in from the edge on a narrow phone), lit by the lamps at night; the
+evening's banner takes its place. A heavy moment: the street grows quieter round the card (a soft dark veil).
+
+**Layouts (`layout.ts`, every `CHECK_SIZES` entry in a test).** `upright` (a phone held upright, a tablet, a narrow
+window): the street across the upper band; the choices a bottom-aligned column of full-width buttons in the thumb zone
+(≥ 52 px, 480 × k wide at most); the card just above the open choices; with none open the card sits lower, the
+narrator under it and the breath pacer at the foot (on a short band — a small phone — the ring alone at the foot's
+left with the narrator beside it). `side` (a phone on its side, a desk, a big screen): the street over the whole
+canvas, the card in the lower part left of centre, the choices in a column beside it (centred on the card's middle),
+the pacer and the narrator in that column while no choices are open. The street's camera (`street`: the vanishing
+point, the horizon a little above the free card, the focal length) is framed from the strip over the card, so the
+street's end, the tower and the garland's first span stand in sight above it (a test checks at least half of the
+first span's bulbs are visible under the HUD at every size). `story` (A's story and verse cards): the free card's
+place and the narrator's under it; `banner` over the street's strip; `pocket` at the strip's lower left.
+
+**The lobby (`preview.ts`) and the card (`.art-passa`).** The hero is the street at the golden hour turning to dusk —
+the sun just gone behind the church, the first windows warm — under the garland with the player's `lights` lit, the
+day-streak's number on the café's sign; a phone's hero and a card keep the street in the upper part (the title over
+the road), a desk's tall hero frames it at its top with the road running on below. The card art is a small SVG: two
+roofs at dusk (a stepped gable with a chimney, a curved one, lit windows), the church's spire between them, two
+strings of warm bulbs strung across.
+
+**The sound (`audio.ts StreetSound`).** On the kit's context into the app's master bus, no files. The street through
+the day: morning birds (short phrases of quick chirps, panned, more at dawn), a café's murmur on the right (two
+breathing bands of filtered noise under a low-pass), at noon a far city hum, in the afternoon a fountain's patter, in
+the evening crickets — all in a short street reverb. The moments: the card arriving (a paper's rustle), the turn
+beginning (a whisper), turned (a paper flap and the whisper warming into a chime), **the light flying up** (a rising
+shimmer, and as the bulb lights a small bell that **climbs the day's scale with each win** — a major pentatonic from
+C5 over an octave and a half, then round again: the streak you can hear), the pocket (a soft swish and a cloth thud as
+the card lands), trust (a single low warm note), a heavy moment (the street's sound thins to a third under a closing
+low-pass and a low soft tone holds while it is named and turned), the evening (a warm chord and the church's distant
+bell, three strokes), the dawn (an open chord rising, the first birds). In a turn a soft root-and-fifth chord under
+the street opens with the focus's glow (never a meter's beep). Every sound rises from silence and falls back to it;
+cues are throttled and budgeted; `finish()` fades over 2.5 s. Rendered offline (OfflineAudioContext, a day in 64 s at
+volume 0.8: `<scratch>/sound22.mjs`): rms 0.01–0.02 in play, ~0.03 at the evening chord, peaks ≤ 0.13, no clicks.
+
+**Files.** `src/arcade/passa/{world,scene,paint,motifs,card,garland,render,layout,preview,audio}.ts`, `.art-passa` in
+styles.css, `test/arcade-passa-street.test.ts`; optional view fields `CardView.trust`, `PassaView.sign`; a dev
+gallery (git-excluded) `web/.gallery/passa.html` (`?mode=day|motifs|cards|preview|fake`, the fake a scripted day on
+the real layout at any `CHECK_SIZES` entry with `at=` frames, `boxes=1` outlines the layout) and `shot.mjs`.
+
+**Checked.** `test/arcade-passa-street.test.ts` (33: the layout at every CHECK_SIZES entry with touch and mouse — one to
+four choices ≥ 50 px, inside the insets, under the HUD, clear of each other and of the card, in the thumb zone upright;
+the pacer, the narrator and the free card clear of each other; at least half of the garland's first span in sight
+over the free card — every motif drawn on three palettes, the garland's geometry and doubling, the day's light, the
+sound's safety/throttle/budget/thinning/fade, the street drawing every phase at every size with no text under 13 px
+and no label cut, cards at any turn and size, the lobby hero at any size); with A's test 62 pass, tsc clean. The dev
+gallery's street through the day, the twenty motifs, the cards, the hero and the scripted fake day (every check size,
+the evening with 14 lights) were looked at and fixed (the tree's crown out of the garland's way, the banner smaller
+and split, the sign giving way to the banner, the bulbs gold by day). arcade-shot pl 90 s (desktop, phone, side) and
+pl + en 60 s at 390 × 844 (the dawn's story card, a grey card turning gold and writing itself, the savor with the
+pacer clear below, the evening identity over the street, the summary); arcade-mobile **passed** on all six devices:
+60 fps everywhere, the game's update + draw 2.75 ms on the small phone at 4× slower CPU (0.55 ms on a desktop), no text
+under 11 px (the only one under 13 is the runner's verse reference on A's card).
+
+### 26.5 Checks, and what waits for the founder
+
+Checks: vitest 111 files / 3856 tests; tsc; the build; app:smoke (every game — Złota passa turns a card at the
+simulator's half focus in 40 s), cards:smoke, offline:smoke, game3d check and smoke; the mobile audit on six devices
+(60 fps, the game ≤ 2.75 ms a frame on the small phone at 4× slowed CPU); the builders' screenshots (pl, en, de, sv,
+phone and desk) and the lead's three minutes on a phone (three wins, the evening's identity fitting a 390 px screen) and
+a read of the heavy cards' words (humble, true, nothing pretends a hurt is good).
+
+The app smoke's step "switch to EEG, simulator" failed now and then after a game that keeps the CPU busy: it picked the
+simulator while the hub was still switching its tool, and the simulator's card stayed hidden. The step now waits for
+the hub's tool and picks the simulator again if its card does not show (a test-side race; a person is never that
+fast).
+
+For the founder:
+* **On a real phone with the band**: how hard a card is to turn (`fill` 0.85) and how often a joy comes (0.55) are the
+  two numbers to tune; the rest after a card is one breath by design (the lobby's short-rest note shows, as Dobry bój).
+* **The mobile audit sampled no open choices** (each day opens with a joy); the choices are checked at every screen size
+  by both builders' tests.
+* **Heavy cards** are off by default ("Także to, co trudne"); a player's own "Trudne" moments wait until it is on.
+* **Listened to by measurement only**: the street's sound was rendered offline and measured, not heard by a person.
