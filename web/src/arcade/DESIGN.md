@@ -10435,3 +10435,301 @@ guard against bots: `web/DESIGN.md` §17).
 * **Two builders** — A "fight" (rules, sim, content, meta, talk, words, lobby card, index, tests) and B "ring" (the
   fighters' rig and poses, the ring and the cage, the slow motion's look, the canvas HUD, layouts, preview, card art,
   sound) — on the lead's contract (`moves.ts`, `view.ts`, the ring's stubs).
+
+### 25.3 Dobry bój — the fight: rules, the plan, the words (builder A)
+
+**Files.** `src/arcade/boj/`: `rules.ts` (every number, the plan, the outcome of a move — pure), `content.ts` (the ladder
+of opponents, the player's kit and skin swatches, the passages by id, the coach's moments), `meta.ts` (the progress),
+`sim.ts` (the session without the canvas: stages, exchanges, knockdowns, the `FightView` every frame, the result),
+`talk.ts` (the coach), `i18n.ts` (pl source, en/de/sv), `hud.ts` (the story and verse cards over the ring, the
+options' tap targets), `intro.ts` (the calibration scene: B's `drawPreview` with the player's look), `panel.ts` (the
+lobby card), `index.ts` (the wiring). The registry entry sits after Kocia straż (kind `arcade`, root `2ti4.7`,
+`tuning.adapt` 0.08, no focus chip: the game shows its own energy); `boj.*` in `i18n/arcade.ts`, the mouse twin of
+`boj.how3`, the title/unit pins; `test/arcade-boj.test.ts` (30 tests).
+
+#### The session
+
+| Part | Length | Signal |
+|---|---|---|
+| intro: the walk-in, touching gloves, the bell | 6 s (first-ever 9 s: the story card; test 2.5 s; a later fight's walk-in 4 s) | free |
+| read: circling, the guard, breathing | the rest dial's whole breaths of 4 · 0 · 6 · 0 (1 by design, 1–3; test 3 s) | rest |
+| sequence: the combination or the opening, real time | 1–3 s (a step in, the tell, the lead-up strikes on the guard, the key strike's load) | free (telegraphs focus) |
+| slow motion: the push | the focus dial's window (20 s by design, 10–30 by 5; test ≤ 12 s) — ends the moment the energy is full | focus |
+| resolve: the move and its answer | 1.4–3.4 s | free |
+| corner between rounds | rest dial + 2 breaths (+ 1 under 10 min) | rest |
+| the player's count | 13 s (test 8 s) | focus |
+| the opponent's count | 7 s (test 4 s) | free |
+| a fight's result mid-session / the session's end | 9 s / 14 s (test 5 s) | free |
+
+**Rounds by length.** A fight is at most three rounds (the amateur rules). The round's designed length: 3 min → 70 s,
+5 min → 120 s, 10 min → 165 s, 15 min and more → 180 s. A fight is planned when it begins, with what is left: three
+rounds when another fight (its result, the corner, the walk-in, two rounds) still fits after it; else its rounds
+(1–4) stretched to end exactly at the session's last bell (T − 14 s). So 3 min = 2 × 70 s, 5 min = 2 × 130 s,
+10 min = 3 × ~173 s, 15 min = 4 × ~197 s, 20 min = two fights, 30 min = three. A fight that ends early (a knockout
+either way) with a minute or more left after its result, the corner and the walk-in: the next fight (won → the next
+opponent, lost or a thin win → the same one); less left: the result, the corner in whole breaths, the end. An
+exchange begins only if its read + sequence + window + resolve fit before the round's bell (the round's last window
+may shrink to 10 s; a test: the lead-in + 4 s); otherwise the read runs to the bell. The session always ends at T:
+`canStop()` is true from T in any rest or free stage (an exchange in play finishes first, ≤ 30 s).
+
+**A ≤ 60 s test** (app:smoke plays 40 s): the walk-in 2.5 s, a read of 3 s, the sequence → the first slow motion
+at ~6–7 s; the session's first exchange is always an opening (the player attacks first), so held focus lands at least
+the lead strike (tested: 40 and 60 s, first-ever and returning, Mendi and HALO, with and without a tap).
+
+#### The energy (honest neurofeedback)
+
+`need` = 0.75 × (window − lead-in) × 0.85 focus-seconds: the average player (level ~0.62, held) fills near 80 % of a
+20 s window, a strong one by ~11 s (the move then goes early and the round moves on). The rate is kintsugi's
+`focusRate` on the level averaged over 5 s — only while `focused`, with a reliable signal, past the band's lead-in
+(Mendi 5 s, HALO 2 s). A first-ever session's first window asks half. Full → `ready` for 0.3 s (the chime) → the
+move goes; at the window's end it goes with what was charged. Taps choose, never charge. The read and the corner are
+receptive: calm restores health (read ≤ 0.25 HP/s × calm; corner 0.9 HP/s × (0.35 + 0.65 calm)). The gauge in a push
+is the charge's pace (0.5 = on course to fill at the window's end), calm in a rest; null in the lead-in; `padLevel`
+always null (the ring's sound owns the slow motion). The panel's "W głowie" names what comes during the slow motion's
+lead-in ("Nadchodzi prawy sierpowy — skup uwagę", "Otwarcie: opuszczona ręka — skup uwagę"), then "Skup uwagę —
+energia rośnie", and "Pełna energia — ruch idzie" for the ready beat. Coach marks (first-ever): the first slow motion
+explains itself and the choice in one bubble pointed at the options; a first of the other kind explains its choice;
+the count, the read and the corner once each; a mark is taken down when its stage ends.
+
+#### The choice (quick time) and the outcome
+
+- **Against a strike**: the right answer (a counter on a right defence 70 % of the time, else the plain right
+  defence), a defence that answers in part (moves.ts 0.4–0.8), and a wrong one — a counter on a wrong defence when the
+  right answer is plain, so the player reads the strike, not the button's shape. **In an opening**: the combination
+  that fits (fit 1), one that fits in part, one that does not. Shuffled; 1/2/3 or ←/↓/→ choose, Space the coach's
+  pick. With no choice made: the coach's pick while it shows, else the first. The pick glows in the first 3 sessions
+  and after two wrong picks in a row (until a right one).
+- `q(e) = 0.2 + 0.8 e`. A defence saves `answer × q` of the key strike (the lead-up strikes hit the guard); the strikes
+  after the key land with 45 % of what was not saved. A **counter** lands only on the right defence with full charge
+  (×1.5, "Kontra!", the crowd rises) — with less it is only its defence. An **attack**: the lead strike lands at
+  charge ≥ 0.35 whatever the choice; strike i ≥ 1 when charge × fit ≥ 0.45 / 0.65 / 0.8; damage × (0.4 + 0.6 e) ×
+  (0.6 + 0.4 fit); nothing landed → a soft counter back. The headline counts the player's landed strikes.
+- The "why" (`why.<defence>.<strike>`, `why.open.<opening>`, ≤ 70 characters) shows in the slow motion while the hint
+  shows, in the resolve after a wrong pick, and the coach repeats it in the next read — the game teaches real
+  boxing as it goes (the slip for 1–2, the roll under hooks, the step back from uppercuts and kicks, the check, the
+  catch, the sprawl). The corner's note names what was missed most in the round (hooks, straights, uppercuts, kicks,
+  the shot, the openings), or a low charge (a strategy: one point, the breath), or praise.
+
+#### Knockdowns, the end of a fight
+
+Health 100 a life, 3 lives (the three-knockdown rule). Health 0 → a knockdown: a life lost; with lives left, **the
+count** (a push): full energy → up at once with 60 %; at the count's end → up with 30 % + 30 % × the charge — never out
+while lives remain; the read after it carries Prz 24,16 / Mi 7,8. The third knockdown: out — "Koniec walki", the
+opponent offers a hand, the embrace. The opponent: down → the referee counts to 8 (free) → up with 50 %; the third =
+"NOKAUT": the opponent sits down, the referee waves it off, the player's arms go up, then the embrace. The final bell
+on the feet = the win ("Do końca na nogach"). The ladder moves on after a knockout, or a win at the bell with ≥ 3
+landed strikes of the player's own (a survival with no output is a win in the summary, but the same opponent next).
+
+#### The opponents (one ladder for both divisions and styles)
+
+| Rung | pl / en / de / sv | Style | Power · chin · speed · leads |
+|---|---|---|---|
+| 1 | Iskra / Spark / Funke / Gnistan | the jabber: 1-2, 1-1-2, 1-2-3 (MMA: teep-2); the dropped hand, wide | 0.85 · 1.15 · 1.15 · 50 % |
+| 2 | Wir / Whirl / Wirbel / Virveln | the swarmer: 2-3-2, 1-2-3-2, 3↓-3 (MMA: 1-knee); wide, tired, squared | 0.95 · 1.08 · 1.1 · 60 % |
+| 3 | Cień / Shadow / Schatten / Skuggan | the counter-puncher: 2-3-2, 1-4, 1-2-5-2 (MMA: 1-2-bk); leaning in, the dropped hand | 1 · 1 · 1.2 · 42 % |
+| 4 | Skała / Rock / Fels / Klippan | power: 1-ov, 1-4, 1-6-3-2 (MMA: the takedown, the low kick); squared, tired | 1.15 · 0.92 · 0.9 · 55 % |
+| 5 | Strzała / Arrow / Pfeil / Pilen | the kicker (MMA: low, body, head kicks, teep); in boxing 1-2-5-2 | 1.05 · 0.95 · 1.15 · 55 % |
+| 6 | Mistrzyni·Mistrz / The Champion / Die Meisterin·Der Meister / Mästarinnan·Mästaren | all-round, the division's belt | 1.12 · 0.88 · 1.15 · 55 % |
+
+Each rung adds 5 % power and 4 % less damage taken. Ring names, no real people; the champion's title follows the
+player's division.
+
+#### Fairness (the sims in the tests, 3 / 10 / 30 min, boxing and MMA)
+
+| Player | Result |
+|---|---|
+| strong (high focus, the right pick) | never loses a life; a knockout within 10 min, three knockouts in 30 |
+| average (level ~0.62 held, 70 % right) | wins every fight (at the bell or by KO), no life lost in 10 min; still wins against the champion |
+| weak (focused half the time, 50 % right) | lands strikes, finishes 10 min on the feet; loses lives to the later rungs |
+| none (no focus) | lands nothing; the first life goes at ~4.5 min (never in the first minute; ~75–110 s against rung 4–6); loses the 10-min fight by its end, rematches in 30 min |
+
+#### Words
+
+The moves as a Polish coach calls them ("lewy prosty", "prawy sierpowy", "zamach z góry", "low kick", "obalenie";
+"Unik", "Rolka", "Odbicie", "Garda", "Odejście", "Blok goleniem", "Łapanie", "Sprawl"); a counter's button uses the
+short name ("Goleń + kontra"). Combinations by their numbers ("1-2", "3↓-3", "1-2 + obalenie") with a line of words.
+The coach: ≤ 80 characters, calm, 23 moments. Polish never genders the player (present tense, nouns: "Wygrana",
+"Do końca na nogach", "Wstań — jeszcze nie koniec"); the tests keep gore, injury, insult and killing words out in four
+languages. Passages only by id: 2ti4.7 (root, the story card), the corner’s (psa144.1, 1co9.26-27, psa18.34,
+isa40.31, heb12.1, eph6.10-11, php4.13, jos1.9 — the first corner and every second after), the win's (2ti4.7, 1ti6.12, 1co9.24), the
+fall's (pro24.16, mic7.8).
+
+#### The lobby card
+
+The numbers (fights won / fought, knockouts, the most strikes, all landed strikes, belts), the next opponent with a
+line on how they fight, the style (Boks / MMA and what it allows), the division (Zawodniczka / Zawodnik), five skin
+swatches (44 px, CSSOM colours), the hair (four), the forecast for the lobby's length ("Na 10 min: 3 rundy po ok. 173 s,
+narożnik 30 s."), "Jak to działa" in three lines, and "sport z zasadami i szacunkiem".
+
+#### The cards over the ring, the wiring, the checks
+
+`hud.ts` draws two cards over B's ring with kit/scripture's passage on a dark scrim: the **story card** of a first-ever
+session's walk-in ("Dobry bój — Trening skupienia w formie walki: ręka wybiera, skupienie daje siłę" and 2 Tm 4,7),
+and the **verse cards** (the first corner and every second after, the read after a knockdown, a fight's end, the
+session's end) in B's `Layout.card` — moved below the runner's breath pacer in a rest where the two would meet. The
+options' tap targets are B's `Layout.options` slots, listed in `targets()` only while the slow motion is open. The
+module gives the runner `breath()` (4 · 0 · 6 · 0 from each rest's start) and `pacerAt()` (B's `Layout.pacer`), and
+drives B's `RingSound` with the sim's cues. Checks (round 21): `test/arcade-boj.test.ts` 31 tests; the whole suite
+109 files / 3793 tests; `tsc` clean; arcade-shot in pl, en, de and sv on HALO; arcade-mobile passed on all six devices
+(no canvas text under 11 px, every target ≥ 44 px inside the insets, 60 fps with the CPU slowed 4×).
+
+**Open points.** A survival with no landed strike still reads "Do końca na nogach — wygrana" (the founder's rule:
+staying on the feet wins), but the ladder waits for a knockout or ≥ 3 strikes of the player's own. A session stopped
+early ("Zakończ i zapisz") counts only the fights that ended. The opponents share one ladder for boxing and MMA.
+
+### 25.4 Dobry bój — the ring: the fighters, the slow motion, the HUD and the sound (builder B)
+
+**The look (our own).** A side view in profile, never behind a fighter's back: the two fighters face each other
+across a dark hall under one warm light. The hall is baked once per size (`stage.ts Hall`): a warm dark, rows of
+soft crowd silhouettes on tiered seats with a rim of the ring's light, the light's cone from the rig with haze in it,
+the crowd's small lights (phones, warm and a few cool) twinkling live and more of them as the crowd's mood rises.
+Boxing: the back ropes (blue, white, white, red) with a slight sag and a lit top edge, padded corner posts (red left,
+blue right), the canvas with the light's pool and the apron's edge. The cage: a fine diamond mesh against the light
+between padded black posts, the top rail, the mat with a faint painted circle. The camera looks a little down: what
+is deeper stands higher and smaller (`proj`), so the floor reads as a plane and the near foot of a stance stands
+lower than the far one.
+
+**The fighters (`rig.ts`).** Drawn bodies, not sprites: a skeleton rig in the fighter's own frame (x toward the
+opponent, y up, z to the fighter's right; units of a standing height). Both fighters stand orthodox. Seen from one
+side the player (left, facing right) shows the chest with the lead arm and leg on the far side; the opponent (right,
+facing left) shows the back with the lead side near — the depth is the frame's z × facing, and each limb is drawn in
+its layer (far limbs of both, then the bodies, then the near limbs, then a striking limb once it is past its own face)
+so two fighters interleave and a cross from the far side lands visibly on the face it reaches.
+
+* A **pose** is a flat record of numbers — the pelvis, the spine's lean and the upper back's curl, the shoulders' and
+  the hips' turn (bladed 1 … squared 0 … the rear side through −1), the head's offset and pitch, the two gloves and the
+  two ankles as targets, the elbows' lift (tucked, a hook's level elbow, an uppercut's forward elbow), the knees' pole
+  and the feet's pitch — so blending is a plain mix. `solve` is a two-bone IK in 3-D for each limb with a pole.
+* **Every act of view.ts and every id of moves.ts has a pose** (the test walks them all): the guard with a light
+  bounce (boxing bladed and hands high with the rear heel up; the cage more upright, wider, hands lower and open);
+  the **tell** of each strike (the jab's tiny load, the cross's coil onto the rear leg, the lead shoulder dipping and the
+  elbow lifting before a hook, the knees dipping and the glove dropping before an uppercut, the level dropping before a
+  body hook and — deeper — before the shot, the rear shoulder rising before the overhand, the lead foot stepping out
+  and the hips opening before a kick, the knee chambering before the teep, the hands reaching for the head before the
+  knee); **each strike** over load → travel → back from moves.ts' own seconds, the fist or the foot on a curved path —
+  straights straight, hooks round in depth (out wide, in to the side of the head with the elbow level), uppercuts
+  rising tight under the chin, the overhand looping over the top, kicks swinging from the hip with the standing foot
+  pivoting and the body leaning away, the shin landing (the foot wraps past); the hips and the rear heel turn through
+  every power shot; **each defence** (the slip: the head off the line, dipping to the outside; the roll: the knees bend,
+  the head travels a U under the hook; the parry: the rear glove meets the jab and turns it; the high guard, the elbows
+  dropping to the ribs when the shot goes to the body; the step back out of range; the check: the lead shin up and
+  turned out; the catch: the lead arm trapping the kick at the ribs; the sprawl: the legs back, the hips down, the
+  gloves on the opponent's back); the **hit** by target (the head snaps back and the chin lifts, the body folds, the
+  lead leg buckles), the **knockdown** (to one knee, one glove on the canvas, the head bowed, breathing), **rising**,
+  **sitting out** gently (knees up, gloves on them), the **corner's stool**, the **cheer**, the **embrace** (the far arm
+  round the other's back behind both bodies, the near one over the shoulder), **touching gloves**, and the **openings**
+  (the dropped lead hand, the head leaning in low, wide looping arms, the squared stance with the elbows high, the
+  weight on the lead leg, tired hands and a heaving chest).
+* Blends of 0.12 world-seconds between acts (slowed with the world); `ok` makes a late defence smaller, `power` a
+  weaker strike less turned. A strike's end is where it lands, measured from the stance's root, so a step in never
+  overshoots; the test checks every strike lands at its target at contact and every defence moves the body off the
+  line.
+* **Bodies**: smooth tapered capsules with soft shading from the one light (a lit inner shape toward the light, a
+  highlight along the lit edge), the far limbs a shade darker. Athletic, never sexualised: a woman in a sports top
+  and trunks, a man in trunks; boxing: trunks to mid-thigh, boots, big gloves with a cuff band; the cage: shorts nearly
+  to the knee, bare feet, small open gloves. Five skin tones (the bases are A's lobby chips), hair 0 short, 1 tied (a
+  bun and a short tail), 2 braids, 3 shaved; kit and gloves from `Look`, a light trim from the kit. No blood, no marks.
+* **The referee** (white shirt, bow tie, dark trousers, bare hands) is always in the ring and out of the way: at the
+  ropes beyond the fighters while they work where the frame holds all of him (else just out of it — never a sliver at
+  an edge; he keeps his side and never crosses between them), a step behind them at the walk-in as they touch gloves,
+  beside a fallen fighter for the count (leaning in, one arm marking each number), waving it off beside a fighter the
+  fight is over for. He walks where he goes.
+
+**The ring's choreography (`render.ts`).** The spacing follows the acts (the corner apart on stools, the walk-in
+wide, touching gloves at arm's length, the read out of range, the exchange in range, the embrace close); the fighters
+step while it changes; the pair circles slowly in the read. The camera frames the two in the layout's stage (a wider,
+calmer shot in the read and the corner, so the breath's pill clears their heads on a tall stage) and eases in toward
+the point of contact in the slow motion (up to ×1.2 and never more than the stage holds, about a point between the
+contact and the floor: the heads stay under the bars, the feet over the why line);
+a clean hit shakes it by a few pixels. Reduced motion: no zoom, no shake, no flash, no pulses — still frames.
+
+**The slow motion.** The world drains of colour and darkens before the fighters are drawn (a 'saturation' blend, a
+veil), a lighter veil and a vignette lie over everything after — the fighters keep some colour under the light and
+the tell stays readable. Every glove and foot leaves a trail on the world's clock (so it hangs long while time nearly
+stops); the dust in the light hangs still. The **incoming strike** glows along its whole path, evaluated from the
+rig — soft red-gold from the fist to where it will land, the travelled part fading behind, a ring on the target. An
+**opening** glows gold where it can be used (the chin, the body, the lead leg). The **energy** gathers as warm light in
+the player's core and flows to the fists (on real time: the focus is the player's, never slowed), the rings round the
+fists fill with it and, when `ready`, brighten and pulse; at the release a flash of light from the core (not with
+reduced motion). A charged strike (power ≥ 0.7) leaves a warm light trail.
+
+**Impacts.** A ring of light at the target — cool and small for an answered shot (a glove's thud), warm, brighter
+and with short rays for a clean one — a puff of the gloves' chalk, the words of `Impact.text` rising and fading over
+the hit ("Kontra!" larger than a number). Never blood, never a mark on the body.
+
+**The HUD on the canvas (`overlay.ts`).** The two bars under the runner's HUD (a scrim, the name, the lives as small
+gloves in the fighter's colour, the health in gold warming toward coral as it empties with a pale trail that follows
+it down, the kit's colour as a thin line under it), the rounds as dots between them. The **options**: three big
+buttons in the thumb zone — a kind's small tab (a defence calm blue, a counter gold, an attack ember), the label (16 px,
+down to 14, else two lines) and its sub-line (13 px, two lines when one would cut it), the chosen one lit and filling
+from the bottom with the energy, the coach's pick glowing softly (still with reduced motion). Over them the **why**
+line on a scrim with the window's time as a gold line shrinking under it. The **coach** speaks from a warm paper
+bubble in the bottom band (or the column) while no options are open. The **banner** is a big word with a warm glow
+that fades in; the **count** a large numeral over the fallen fighter (clear of the referee beside them) that pulses at
+each new number. Text is never under 13 px (tested at
+every size, with the longest German/Swedish labels).
+
+**Layouts (`layout.ts`).** Two arrangements; the one that keeps the fighters larger wins, an upright touch phone
+always takes the first. `under`: the bars under the HUD band, the ring across the middle, the why line on the ring's
+front floor, the three options in a row at the foot of the safe area (74 px on a phone), the coach in the same bottom
+band. `column` (a phone on its side, a desktop, a laptop): the bars over the ring, the ring at the left, a column at
+the right with the why line at its top and the options stacked at its foot (beside the play for a mouse, §14.3), the
+coach under the breath's pill. The runner's breath pacer (`pacer`, read by A's `pacerAt()`): the stage's top centre on
+a tall stage (the read's camera frames the fighters below it), the ring alone at the bottom band's left with the coach
+beside it on a short stage (a small phone, Safari), the column's top in `column`. `card` is where A's story and verse
+cards stand. Measured fighter heights: 155 px on a 360 × 500 phone, 206 px on an iPhone, 197–220 px on a phone on its
+side, 370–490 px on a desktop, 576 px in a Full HD middle column.
+
+**The lobby (`preview.ts`) and the card (`.art-boj`).** The hero is the ring under its light with the player's
+fighter (their look, their style) in guard facing an opponent of the same division; a phone's hero and a card keep
+the fighters in the upper two thirds (the title sits over the canvas floor), a desk's tall hero frames them at its top
+with room round them. The card art is a small SVG: two gloves, red and blue, touching under a cone of warm light in
+front of the ropes, a spark of light where they meet.
+
+**The sound (`audio.ts RingSound`).** On the kit's context into the app's master bus, no files. The hall: the crowd's
+murmur (three bands of filtered noise, left, right and low, each breathing on its own slow swell, under a low-pass so
+it never hisses) in a short hall reverb — rising with the crowd's mood and in a cheer, hushing in the corner. The fight:
+the bell (two bright inharmonic strokes into the hall), gloves touching, the jab's snap, a punch's thump (to the body
+duller), a kick's slap, a blocked shot's muffled thud, the slip's swish, a choice's whoosh, the takedown's mat thud,
+the knockdown, the referee's count (a clear wooden tick per number), the rise, the KO (the bell three times and the
+crowd), the win (the bell, the crowd and a warm chord), the loss (a quiet chord, the crowd hushes). **The slow
+motion**: the world's sound sinks — a low-pass closes over the hall and the fight (16 kHz → ~650 Hz), the crowd's noise
+slows — while the player's own stays clear: a heartbeat (about 60 a minute, a little faster as the energy rises), the
+charge (a soft chord — root, fifth, octave — whose low-pass opens and whose pitch climbs a fifth with the energy,
+never a meter's beep), the ready chime, the release (a whoosh and the snap back). Each cue is throttled and all of
+them stay under a budget; every sound rises from silence and falls back to it. Rendered offline (OfflineAudioContext,
+56 s of a scripted fight at volume 0.8): rms 0.011–0.02 in play, ~0.045 for the few seconds of a KO or a win, peaks ≤
+0.19, no clicks.
+
+**Performance.** The hall and the crowd are baked per size; the ring's few lines, the two fighters (a few dozen
+fills each), the referee, the dust and the HUD are drawn live; gradients only on the torso and the head.
+
+**Files.** `src/arcade/boj/{rig,render,layout,overlay,stage,paint,preview,audio}.ts`, `.art-boj` in styles.css,
+`test/arcade-boj-ring.test.ts`; a dev gallery (git-excluded) `web/.gallery/boj.html` (`?mode=poses|looks|preview|
+fight`, a scripted fake fight with `at=` frames) and `bojshot.mjs`.
+
+**Checked.** `test/arcade-boj-ring.test.ts` (35: the layout at every CHECK_SIZES entry with touch and mouse, the rig's
+every act and id, strikes landing, defences off the line, blends, the sound's safety/throttle/budget/slow motion, the
+ring drawing every phase at every size with no text under 13 px and no cut option label); the full suite passes. The
+dev gallery's poses (both styles, both divisions, five skins, the opponent acting) and the scripted fight (every check
+size, reduced motion) were looked at and fixed frame by frame. arcade-shot pl 40 s (desktop, phone, side) and en 150 s
+at 390 × 844 (the walk-in with the referee and the story card, openings, the slow motion, the read under the pill,
+the corner, the summary); arcade-mobile **passed** on all six devices: 60 fps everywhere, the game's update + draw
+0.6 ms on a desktop and 2.5 ms on the small phone at 4× slower CPU, no text under 11 px (the only one under 13 is the
+runner's verse reference on A's card).
+
+### 25.5 Checks, and what waits for the founder
+
+Checks: vitest 109 files / 3794 tests; tsc; the build; both builders' screenshots (pl, en, de, sv on HALO, an upright
+phone, three minutes) and the lead's (boxing at a desk and on a phone; MMA in the women's division at a desk: the cage,
+the sport tops, the MMA options); the mobile audit on six devices (60 fps, the game 2.5 ms a frame on the small phone
+at 4× slowed CPU; no text under 11 px, the only one under 13 the 11 px verse reference).
+
+For the founder:
+* **A win at the bell with no strike landed** counts as a win (the founder's rule: survive or beat the opponent); the
+  ladder moves on only after a knockout or a win at the bell with at least three landed strikes.
+* **One ladder** for boxing and MMA and both divisions.
+* **The slip** reads mostly through the dip and the glowing path passing the head (a sideways move of the head is hard
+  to see in profile).
+* **Feel on a real phone with the band**: the slow motion's length (20 s by design) and the pace of the read (one
+  breath by design) are the two dials to tune.
