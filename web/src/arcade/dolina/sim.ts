@@ -54,7 +54,7 @@ import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
-import { Companion, type Moment } from './companion';
+import { Companion, roundFor, type Moment } from './companion';
 import {
   ANSWER, COMPS, ERAS, ERA_SHADOWS, GUARDS, GUARD_ERA, KEEPERS, POWER, SEQ, SHADOWS, TIPS, compName, eraName, eraOfLevel, floorName, gearName, guardLevel,
   guardName, lapOfLevel, lookName, powerOf, tierName,
@@ -578,7 +578,7 @@ export class DolinaSim {
     this.tier = startTier(this.ups.forge);
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.first, init.rng, init.rhythm);
-    this.talk = new Companion(init.rng);
+    this.talk = new Companion(init.rng, roundFor(init.plannedSec));
     this.slots = slotsFor(p.guards);
     for (const id of partyFor(p, this.slots)) this.party.push(this.mate(id));
     if (this.mode === 'tower') {

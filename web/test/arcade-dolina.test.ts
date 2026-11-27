@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { SAY, lineSec, speakerOf } from '../src/arcade/dolina/companion';
+import { ROUND_SEC, SAY, lineSec, roundFor, speakerOf } from '../src/arcade/dolina/companion';
 import {
   COMPS, ERAS, GEAR, KEEPERS, MISSIONS, SEQ, TRIALS, UPGRADES, compName, compText, eraName, eraOfLevel, guardLevel, missionText, powerName, powerOf, weaponName,
 } from '../src/arcade/dolina/content';
@@ -1801,5 +1801,115 @@ describe('Dolina: long sessions (15–30 min)', () => {
     expect(line.split(', ').length).toBeLessThanOrEqual(KEEPERS.length);
     expect(line.length).toBeLessThan(80);
     expect(sim.p.tower.night).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Dolina: 45–60 minutes', () => {
+  it('keeps a session of 30 minutes and less without a line said twice, and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('plans 45 and 60 minutes: push/rest pairs to the finale, every block of its usual length', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        const total = plan.reduce((s, b) => s + b.dur, 0) + finaleFor(sec);
+        expect(total).toBeCloseTo(sec, 5);
+        expect(finaleFor(sec)).toBe(RULES.finale.long);
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan[plan.length - 1].kind).toBe('rest');
+        for (const b of body) {
+          const [nom, jit] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(Math.max(RULES.minBlock, (nom - jit) * 0.95));
+          expect(b.dur).toBeLessThanOrEqual((nom + jit) * 1.05);
+        }
+        expect(body.length / 2).toBe(Math.round((sec - finaleFor(sec) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  });
+
+  /** An hour at a steady high focus, a player who jumps what is ahead: the run keeps giving, nothing grows; Ćma's lines with their times. */
+  function hourRun(sim: DolinaSim, sec: number): { evs: SimEvent[]; max: Record<string, number>; heard: { text: string; at: number }[]; levelsAt: { at: number; stars: number }[] } {
+    const max: Record<string, number> = {};
+    const note = (k: string, n: number) => { max[k] = Math.max(max[k] ?? 0, n); };
+    const evs: SimEvent[] = [];
+    const heard: { text: string; at: number }[] = [];
+    const levelsAt: { at: number; stars: number }[] = [];
+    let lastLine: unknown = null;
+    const clock = { t: 0 };
+    for (let k = 0; k < Math.ceil((sec + 100) / 100); k++) {
+      const chunk = drive(sim, 100, () => (sim.block?.kind === 'push' ? HIGH : CALM), clock, tt => {
+        if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+        else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+        const s = sim as unknown as { laid: unknown[] };
+        note('segs', sim.segs.length); note('laid', s.laid.length); note('stones', sim.stonesOnRoad.length); note('shadows', sim.shadows.length);
+        note('shots', sim.shots.length); note('steps', sim.steps.length); note('walls', sim.walls.length); note('gates', sim.gates.length);
+        note('posts', sim.posts.length); note('pends', sim.pends.length); note('lambs', sim.lambs.length);
+        const l = sim.talk.current;
+        if (l && l !== lastLine) { lastLine = l; heard.push({ text: l.text, at: tt }); }
+      });
+      evs.push(...chunk);
+      for (const e of chunk) if (e.type === 'level') levelsAt.push({ at: (k + 1) * 100, stars: e.stars });
+      for (const v of [sim.px, sim.py, sim.score, sim.sparks, sim.lampR]) expect(Number.isFinite(v)).toBe(true);
+    }
+    return { evs, max, heard, levelsAt };
+  }
+
+  const quarters = (heard: { at: number }[]) => [0, 900, 1800, 2700].map(q => heard.filter(h => h.at > q && h.at <= q + 900).length);
+  const soonest = (heard: { text: string; at: number }[]) => {
+    let s = Infinity;
+    const last = new Map<string, number>();
+    for (const h of heard) {
+      const was = last.get(h.text);
+      if (was !== undefined) s = Math.min(s, h.at - was);
+      last.set(h.text, h.at);
+    }
+    return s;
+  };
+
+  it('plays a full 60-minute valley run to its dawn: levels keep coming, collections stay bounded, Ćma talks all hour, the summary reads', () => {
+    const sim = later({ planned: 3600, seed: 3 });
+    const { evs, max, heard, levelsAt } = hourRun(sim, 3600);
+    expect(sim.phase).toBe('done');
+    expect(sim.canStop()).toBe(true);
+    const levels = ofType(evs, 'level').length;
+    expect(levels).toBeGreaterThanOrEqual(16);
+    // the second half hour keeps the first's pace and stars: the levels' growth stays fair
+    const late = levelsAt.filter(l => l.at > 1800), early = levelsAt.filter(l => l.at <= 1800);
+    expect(late.length).toBeGreaterThanOrEqual(early.length * 0.7);
+    expect(late.reduce((s, l) => s + l.stars, 0) / late.length).toBeGreaterThanOrEqual(2);
+    // Ćma and the companions talk in every quarter of the hour, a line again only after ten minutes (§17.1, §28)
+    for (const n of quarters(heard)) expect(n).toBeGreaterThan(30);
+    expect(soonest(heard)).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+    expect(sim.talk.said.length).toBeLessThan(1000);
+    expect(ofType(evs, 'blockEnd').length).toBe(sim.plan.length);
+    for (const [k, n] of Object.entries(max)) expect(n, k).toBeLessThan(60);
+    const r = sim.result();
+    expect(Number.isFinite(r.score) && r.score > 0).toBe(true);
+    expect(r.score).toBeLessThan(10_000_000);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
+    expect(r.highlights.length).toBeLessThanOrEqual(10);
+    expect(passage(r.verse!)).toBeTruthy();
+  });
+
+  it('climbs the clock tower for 60 minutes: past the dawn into darker nights, the keepers in one short line', () => {
+    const sim = later({ planned: 3600, seed: 3, progress: { mode: 'tower', guards: 1, tower: { floor: 1, best: 0, night: 0 } } });
+    const { max, heard } = hourRun(sim, 3600);
+    expect(sim.phase).toBe('done');
+    expect(sim.floor).toBeGreaterThan(RULES.tower.dawnFloor * 2);
+    expect(sim.p.tower.night).toBeGreaterThanOrEqual(2);
+    for (const [k, n] of Object.entries(max)) expect(n, k).toBeLessThan(60);
+    for (const n of quarters(heard)) expect(n).toBeGreaterThan(30);
+    expect(soonest(heard)).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+    const r = sim.result();
+    const line = r.stats.find(([k]) => k === t('stat.guards'))![1];
+    expect(line.split(', ').length).toBeLessThanOrEqual(KEEPERS.length);
+    expect(line.length).toBeLessThan(80);
+    expect(r.score).toBeLessThan(10_000_000);
+    expect(r.highlights.length).toBeLessThanOrEqual(10);
   });
 });

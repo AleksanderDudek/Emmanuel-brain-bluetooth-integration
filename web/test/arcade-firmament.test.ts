@@ -9,7 +9,7 @@ import { boardSpec, difficulty, layoutCounts, levelAt, starsFor, traySize } from
 import { bestOf, freshProgress, migrate, winLevel, type FirmamentProgress } from '../src/arcade/firmament/meta';
 import { SANS, font, fontPx } from '../src/arcade/firmament/paint';
 import { RULES } from '../src/arcade/firmament/rules';
-import { FirmamentSim, chargeRate, planBlocks, type SimEvent } from '../src/arcade/firmament/sim';
+import { FirmamentSim, ROUND_SEC, chargeRate, planBlocks, roundFor, type SimEvent } from '../src/arcade/firmament/sim';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
@@ -1279,6 +1279,141 @@ describe('Firmament — long sessions (15–30 minutes)', () => {
       expect(constName(l.constellation)).not.toMatch(/undefined/);
       const b = new Board(boardSpec(l, 3));
       expect(b.hasMove()).toBe(true);
+    }
+  });
+});
+
+describe('Firmament — long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes to the dawn: Obserwacja and Cisza nocy in turn, none too short or too long, ending in a night', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0), `${sec} s`).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'obs');
+        const work = plan.filter(b => b.kind !== 'warmup');
+        work.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'night' : 'obs'));
+        expect(plan.at(-1)!.kind).toBe('night');
+        for (const b of work) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 3);
+        }
+        // about a pair every 48 s: 56 pairs in 45 minutes, 75 in 60
+        expect(work.length / 2).toBeCloseTo((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]), -0.5);
+      }
+    }
+  });
+
+  it('keeps Bubo\'s lines in turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('a 60-minute session keeps giving levels to the dawn: bounded, a short summary, a score that fits, Bubo not looping', () => {
+    const deep = { sessions: 30, pushes: 400, level: 400, story: Array.from({ length: 51 }, (_, i) => i), seen: ['x'] };
+    for (const progress of [{}, deep] as Partial<FirmamentProgress>[]) {
+      const name = progress.level ? 'deep in the saga' : 'first ever';
+      const sim = makeSim({ progress, planned: 3600 });
+      let t = 0, hand = 0, stageSince = 0, longest = 0, last = sim.stage, finales = 0, won = 0, soonest = Infinity, stopAt = -1;
+      const heard = new Map<string, number>();
+      const quarters = [0, 0, 0, 0];
+      while (sim.phase !== 'done' && t < 3610) {
+        t += STEP;
+        const want = sim.signal().want;
+        sim.update(STEP, want === 'focus' ? HIGH : want === 'rest' ? LOW : frame({ level: 0.6 }), t);
+        if ((hand += STEP) >= 1) {
+          hand = 0;
+          if (sim.tray.length >= sim.traySize) {
+            sim.pickTool(0);
+            if (sim.armedTool) sim.tap(sim.board.at(4, 4));
+          }
+          sim.space();
+        }
+        for (const e of sim.take()) {
+          if (e.type === 'won') won++;
+          if (e.type === 'finale') finales++;
+          if (e.type !== 'say' || e.moment === 'end') continue;
+          expect(e.text, name).not.toMatch(/undefined/);
+          const was = heard.get(e.text);
+          if (was !== undefined) soonest = Math.min(soonest, t - was);
+          heard.set(e.text, t);
+          quarters[Math.min(3, Math.floor(t / 900))]++;
+        }
+        if (sim.stage !== last) { last = sim.stage; stageSince = t; }
+        longest = Math.max(longest, t - stageSince);
+        expect(sim.tray.length).toBeLessThanOrEqual(RULES.trayMax);
+        if (stopAt < 0 && sim.canStop()) stopAt = t;
+      }
+      expect(sim.phase, name).toBe('done');
+      expect(finales, name).toBe(1);
+      // the runner may stop by the hour and its settle (a level's last shower may hold the dawn's own end a few seconds)
+      expect(stopAt, name).toBeGreaterThan(3595);
+      expect(stopAt, name).toBeLessThanOrEqual(3600 + RULES.settle + 0.1);
+      // a level every minute or so all hour, none stuck for minutes
+      expect(won, name).toBeGreaterThanOrEqual(60);
+      expect(longest, name).toBeLessThan(180);
+      expect(sim.trace.samples.length, name).toBeLessThan(600);
+      expect(sim.threeStars.length, name).toBeLessThanOrEqual(won);
+      expect(sim.constsDone.length, name).toBeLessThanOrEqual(won);
+      // Bubo talks in every quarter of the hour, never a line twice within ten minutes
+      for (const q of quarters) expect(q, name).toBeGreaterThan(15);
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      // some two million points: the runner's and the HUD's long size (8+ characters) holds them, under ten million
+      expect(Number.isFinite(sim.score) && sim.score > 1_000_000, name).toBe(true);
+      expect(sim.score, name).toBeLessThan(10_000_000);
+      expect(sim.headline().sub, name).not.toMatch(/undefined|NaN/);
+      const res = sim.result();
+      expect(res.highlights.length, name).toBeLessThanOrEqual(6);
+      expect(res.stats.every(([k, v]) => k && v && v.length <= 10 && !/undefined|NaN/.test(k + v)), name).toBe(true);
+      expect(res.highlights.every(h => h && !/undefined|NaN/.test(h)), name).toBe(true);
+    }
+  });
+
+  it('the whole game runs 60 minutes on the runner\'s clock (Space every second, drawn every 2 s): the view\'s lists stay small', () => {
+    const sizes: { text: string; px: number }[] = [];
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+    const original = proto.getContext;
+    proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this, sizes); };
+    try {
+      const insets = { top: 48, right: 0, bottom: 0, left: 0 };
+      const env: GameEnv<FirmamentProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, level: 20, story: [0, 1, 2, 3, 4, 5, 6, 7], seen: ['x'] },
+        rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 3600, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+        tuning: TUNING, hint: () => undefined, hudTop: () => insets.top, insets: () => insets, touch: true,
+      };
+      const game = firmament.create(env);
+      game.resize(390, 844, 1);
+      game.start();
+      const inner = game as unknown as { sim: FirmamentSim; view: Record<'queue' | 'beams' | 'stars', unknown[]> };
+      const sim = inner.sim;
+      let t = 0, k = 0, most = 0, won = 0;
+      const dt = 0.1;
+      while (t < 3604) {
+        t += dt;
+        const want = sim.signal().want;
+        game.update(dt, want === 'focus' ? HIGH : want === 'rest' ? LOW : frame({ level: 0.6 }), t);
+        if (++k % 10 === 0) {
+          if (sim.tray.length >= sim.traySize) {
+            sim.pickTool(0);
+            if (sim.armedTool) sim.tap(sim.board.at(4, 4));
+          }
+          game.key!(' ', true);
+          game.key!(' ', false);
+        }
+        if (k % 20 === 0) { game.draw(); sizes.length = 0; }
+        const v = inner.view;
+        most = Math.max(most, v.queue.length, v.beams.length, v.stars.length);
+        won = sim.p.won;
+      }
+      expect(sim.phase).toBe('done');
+      expect(won).toBeGreaterThan(60);
+      expect(most).toBeLessThan(120);
+      expect(game.canStop()).toBe(true);
+      const r = game.result();
+      expect(r.score).toBeGreaterThan(1_000_000);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    } finally {
+      proto.getContext = original;
     }
   });
 });

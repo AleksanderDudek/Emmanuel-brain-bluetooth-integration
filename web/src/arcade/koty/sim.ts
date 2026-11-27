@@ -38,7 +38,7 @@ import {
   vintageGold, type BuyId, type KotyProgress, type Perks,
 } from './meta';
 import { RULES, span } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
 
@@ -369,7 +369,7 @@ export class KotySim {
     this.startMs = init.now;
     this.stageStart = p.stage;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
-    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng, roundFor(init.plannedSec));
     // the watch kept while away: modest and capped
     const pk = perks(p);
     const awaySec = p.lastSeen > 0 ? (init.now - p.lastSeen) / 1000 : 0;

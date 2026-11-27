@@ -32,7 +32,7 @@ import {
   F, beginSession, drawEggs, emerge, finishGarden, hatch, migrate, type EggOffer, type MothProgress,
 } from './meta';
 import { RULES, girthOf, reachFor, span } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 import { encodePath, type PathPoint } from './wing';
 
 export { RULES };
@@ -200,7 +200,7 @@ export class MothSim {
   readonly R = RULES;
   private readonly rng: () => number;
   private readonly events: SimEvent[] = [];
-  private readonly talkLines = new Talk(LINES, () => this.rng());
+  private readonly talkLines: Talk;
   readonly plannedSec: number;
   readonly eeg: boolean;
   started = false;
@@ -286,6 +286,7 @@ export class MothSim {
   private teachAt = -99;
 
   constructor(readonly o: SimInit) {
+    this.talkLines = new Talk(LINES, () => this.rng(), roundFor(o.plannedSec));
     this.p = migrate(o.progress);
     this.rng = o.rng;
     this.plannedSec = o.plannedSec;

@@ -8,6 +8,7 @@ import {
   affordablePerk, bestOf, buyPerk, freshProgress, heightOf, isOpen, jobs, maxHp, migrate, room, starsOf, stoneCap, type NehProgress,
 } from '../src/arcade/nehemiasz/meta';
 import { RULES } from '../src/arcade/nehemiasz/rules';
+import { ROUND_SEC } from '../src/arcade/nehemiasz/talk';
 import { NehSim, finaleFor, fireReach, planBlocks, type SimEvent } from '../src/arcade/nehemiasz/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -1248,5 +1249,102 @@ describe('long sessions (15–30 minutes)', () => {
     };
     expect(tonight(RULES.yearTop + 5)).toBe(tonight(RULES.yearTop));
     expect(tonight(RULES.yearTop)).toBeGreaterThan(tonight(1));
+  });
+});
+
+describe('long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes of days and nights to the next dawn, none past its nominal length', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + 1));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe((i % 2 === 0) === first ? 'push' : 'rest'));
+        expect(plan.at(-1)!.kind).toBe('push');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        const nights = body.filter(b => b.kind === 'push').length;
+        expect(Math.abs(nights - (planned - finaleFor(planned)) / (RULES.push[0] + RULES.rest[0]))).toBeLessThan(1);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('a 60-minute session builds day after day through the gates, ends on time, nothing piles up, Tirza never repeats within ten minutes', () => {
+    for (const [progress, f] of [
+      [{}, 'mixed'],
+      [{ sessions: 5, pushes: 1, gateDay: 1, day: 1, seen: SEEN, cards: ['horn', 'ono'] }, 'steady'],
+    ] as const) {
+      const sim = makeSim({ planned: 3600, progress: progress as Partial<NehProgress> });
+      const p = sim.p;
+      const gate0 = p.gate + p.year * GATES.length;
+      let maxRaiders = 0, maxPebbles = 0, maxRings = 0, maxJabs = 0, maxStories = 0;
+      let soonest = Infinity, lastLine: unknown = null;
+      const heard = new Map<string, number>();
+      const evs: SimEvent[] = [];
+      drive(sim, 3600 + RULES.settle, tt => (f === 'steady' ? (sim.block?.kind === 'rest' ? CALM : HIGH)
+        : Math.sin(tt / 7) > 0 ? frame({ level: 0.62, calm: 0.4, hold: 6 }) : frame({ level: 0.35, calm: 0.7 })), { t: 0 }, tt => {
+        through(sim)();
+        if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+        maxRaiders = Math.max(maxRaiders, sim.raiders.length);
+        maxPebbles = Math.max(maxPebbles, sim.pebbles.length);
+        maxRings = Math.max(maxRings, sim.rings.length);
+        maxJabs = Math.max(maxJabs, sim.jabs.length);
+        maxStories = Math.max(maxStories, (sim as unknown as { stories: unknown[] }).stories.length);
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          const was = heard.get(line.text);
+          if (was !== undefined) soonest = Math.min(soonest, tt - was);
+          heard.set(line.text, tt);
+        }
+        lastLine = line;
+        evs.push(...sim.take());
+      });
+      expect(sim.phase, f).toBe('done');
+      expect(ofType(evs, 'done'), f).toHaveLength(1);
+      expect(sim.canStop(), f).toBe(true);
+      expect(ofType(evs, 'dawn').length, f).toBe(sim.plan.filter(b => b.kind !== 'push').length);
+      expect(ofType(evs, 'gateDone').length, f).toBeGreaterThanOrEqual(8);
+      expect(p.gate + p.year * GATES.length, f).toBeGreaterThanOrEqual(gate0 + 8);
+      expect(sim.headlineValue, f).toBeGreaterThan(3000);
+      expect(sim.headlineValue, f).toBeLessThan(10_000_000);
+      for (const k of ['stone', 'timber', 'bread', 'people', 'strength'] as const) expect(Number.isFinite(p[k]), k).toBe(true);
+      expect(p.stone, f).toBeLessThanOrEqual(stoneCap(p));
+      expect(p.timber, f).toBeLessThan(100);
+      expect(maxRaiders, f).toBeLessThan(40);
+      expect(maxPebbles, f).toBeLessThan(40);
+      expect(maxRings, f).toBeLessThan(40);
+      expect(maxJabs, f).toBeLessThan(40);
+      expect(maxStories, f).toBeLessThanOrEqual(4);
+      expect(p.cards.length, f).toBeLessThanOrEqual(3);
+      expect(p.chronicle.length, f).toBeLessThanOrEqual(CHRONICLE_SIZE);
+      // Tirza talks all hour, and past half an hour a line comes back only after ten minutes (§17.1, §28)
+      expect(sim.talk.said.length, f).toBeGreaterThan(60);
+      expect(soonest, f).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      const r = sim.result();
+      expect(JSON.stringify(r), f).not.toMatch(/undefined|NaN|Infinity/);
+      expect(r.highlights!.length, f).toBeLessThanOrEqual(6);
+      for (const [, v] of r.stats!) if (/^[+−×]?[\d\s  ,.%]+$/.test(v)) expect(v.length, v).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('an hour can run the wall to its end and on: the days read across the turn, and twice round as the whole calendar', () => {
+    const sim = later({ planned: 3600, progress: { gate: 9, gateDay: 1, day: gateFirstDay(9), cards: ['horn', 'ono'] } });
+    const year0 = sim.p.year;
+    drive(sim, 3604, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, tt => {
+      through(sim)();
+      if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+      sim.take();
+    });
+    expect(sim.p.year).toBeGreaterThan(year0);
+    const days = () => sim.result().stats!.find(([k]) => k === t('stat.days'))![1];
+    expect(days()).toBe(t('stat.daysWrap', { from: gateFirstDay(9) + 1, to: sim.p.day }));
+    // a strong hour may finish the wall a second time: not "a few days", the whole calendar
+    sim.p.year = year0 + 2;
+    expect(days()).toBe(t('stat.daysV', { from: 1, to: 52 }));
   });
 });

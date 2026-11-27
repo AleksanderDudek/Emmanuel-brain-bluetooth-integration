@@ -27,7 +27,7 @@ import {
   standing, starsOf, stoneCap, type Jobs, type NehProgress,
 } from './meta';
 import { RULES } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
 
@@ -347,7 +347,7 @@ export class NehSim {
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(LINES, init.rng, roundFor(init.plannedSec));
     for (const id of FIRE_IDS) { this.fireR[id] = fireReach(p.stretch[id] ?? 0, 0); this.fireDim[id] = 0; }
   }
 
@@ -2044,10 +2044,13 @@ export class NehSim {
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const from = this.firstDay || p.day, to = Math.max(from, p.day);
-    // the wall finished mid-session: the days run to 52 and on from 1 of the next year
+    // the wall finished mid-session: the days run to 52 and on from 1 of the next year; an hour that finished it twice
+    // (§28) went through the whole calendar
     const wrapped = this.firstDay > 0 && p.year > this.firstYear;
+    const whole = this.firstDay > 0 && p.year > this.firstYear + 1;
     const stats: [string, string][] = [
-      [t('stat.days'), wrapped ? t('stat.daysWrap', { from: this.firstDay, to: p.day }) : t('stat.daysV', { from, to })],
+      [t('stat.days'), whole ? t('stat.daysV', { from: 1, to: gateFirstDay(GATES.length) - 1 })
+        : wrapped ? t('stat.daysWrap', { from: this.firstDay, to: p.day }) : t('stat.daysV', { from, to })],
       [t('stat.gate'), gateName(p.gate)],
       [t('stat.wall'), t('pct', { n: Math.round(standing(p) * 100) })],
       [t('stat.driven'), fmtNum(this.driven)],

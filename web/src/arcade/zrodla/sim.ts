@@ -34,7 +34,7 @@ import { autoSpot, bit, deal, isPool, makeValley, opp, specOf, type Kind, type P
 import { fmt, t } from './i18n';
 import { migrate, recordValley, roadDone, type ZrodlaProgress } from './meta';
 import { RULES, cellSecOf, countdownOf, paceOf, starsFor, stationOf } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -234,7 +234,7 @@ export class ZrodlaSim {
     this.valleyBefore = p.valley;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(LINES, init.rng, roundFor(init.plannedSec));
     this.v = p.valley;
     this.spec = specOf(this.v);
     this.valley = makeValley(this.v);

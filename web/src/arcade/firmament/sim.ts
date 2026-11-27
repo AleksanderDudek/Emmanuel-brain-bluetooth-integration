@@ -141,6 +141,13 @@ export interface SimInit {
   rhythm?: { focus: number; rest: number } | null;
 }
 
+/**
+ * Past half an hour a line of Bubo's comes round again only this long after it was said (s; DESIGN §17.1, §28): his
+ * lines go in turn, so when the next in turn is younger, he keeps quiet.  30 minutes and less: as before.
+ */
+export const ROUND_SEC = 600;
+export const roundFor = (plannedSec: number): number => (plannedSec > 1800 ? ROUND_SEC : 0);
+
 /** Moments that may wait for a free slot (the banner, the telegraph) and those that drop when late. */
 const URGENT: readonly Moment[] = ['open', 'tool', 'near', 'out', 'win', 'three', 'hard', 'end'];
 const TOOL_TURN: readonly ToolKind[] = ['hammer', 'ray', 'moves', 'hammer', 'ray', 'shuffle'];
@@ -223,6 +230,8 @@ export class FirmamentSim {
   private sayQ: { moment: Moment; at: number } | null = null;
   private lastSay = -99;
   private said: Record<string, number> = {};
+  /** when each line was last said, for the ten-minute rule past half an hour (`roundFor`) */
+  private readonly saidAt = new Map<string, number>();
   private coachQ: { key: Key; at: CoachAt }[] = [];
   private lastCoach = -99;
   private specialsTold = 0;
@@ -868,11 +877,17 @@ export class FirmamentSim {
       const urgent = URGENT.includes(q.moment);
       if (urgent || this.t - this.lastSay >= 7) {
         const n = this.said[q.moment] ?? 0;
-        this.said[q.moment] = n + 1;
         const text = line(q.moment, this.session + n);
+        const round = roundFor(this.plannedSec);
         this.sayQ = null;
-        this.lastSay = this.t;
-        if (text) this.emit({ type: 'say', text, moment: q.moment });
+        if (!round || !text || this.t - (this.saidAt.get(text) ?? -Infinity) >= round) {
+          this.said[q.moment] = n + 1;
+          this.lastSay = this.t;
+          if (text) {
+            this.saidAt.set(text, this.t);
+            this.emit({ type: 'say', text, moment: q.moment });
+          }
+        }
       } else if (this.t - q.at > 6) this.sayQ = null;
     } else if (q && this.t - q.at > 9) this.sayQ = null;
     // coach marks: one at a time, a few seconds apart, never in a card

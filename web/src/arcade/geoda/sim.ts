@@ -31,7 +31,7 @@ import { chamberName, LINES, MINERALS, TIERS, TIPS, type Moment } from './conten
 import { fmt, t } from './i18n';
 import { chamber, complete, found, migrate, nextMineral, shelve, starsFor, type ChamberSpec, type GeodaProgress, type Mode } from './meta';
 import { comboFactor, linePoints, multOf, RULES } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 
@@ -223,7 +223,7 @@ export class GeodaSim {
     this.foundBefore = found(p);
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(LINES, init.rng, roundFor(init.plannedSec));
     this.spec = chamber(p.level);
   }
 

@@ -13,6 +13,7 @@ import {
 import { CHOICE_GUARD, layout, slotAt, targetsFor } from '../src/arcade/dziewiatka/layout';
 import { font } from '../src/arcade/dziewiatka/paint';
 import { RULES } from '../src/arcade/dziewiatka/rules';
+import { ROUND_SEC } from '../src/arcade/dziewiatka/talk';
 import { DziewiatkaSim, autoTeam, finaleFor, multFor, planBlocks, starsFor, type SimEvent } from '../src/arcade/dziewiatka/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
@@ -1161,5 +1162,78 @@ describe('long sessions (15–30 minutes)', () => {
     expect(sim.battle.mods.speed).toBeCloseTo(RULES.boonCap.werbel, 9);
     expect(sim.battle.mods.dmg).toBeLessThanOrEqual(RULES.boonCap.pierniki + 0.2 + 1e-9);
     expect(offeredFull).toBe(0);
+  });
+});
+
+describe('long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes to the finale: push and rest alternate, none past its nominal length', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(body.length / 2).toBe(Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((b.kind === 'push' ? RULES.push[0] + RULES.push[1] : RULES.rest[0] + RULES.rest[1]) * 1.05);
+        }
+      }
+    }
+  });
+
+  it('a 60-minute session keeps giving: the Bell Tower climbs to the end, nothing piles up, a short summary, Klara never repeats within ten minutes', () => {
+    for (const progress of [{}, { sessions: 5, pushes: 1, seen: [...SEEN], mission: CAMPAIGN, floor: 1 }] as Partial<DziewiatkaProgress>[]) {
+      const sim = makeSim({ planned: 3600, progress });
+      const floor0 = sim.p.floor;
+      let maxDin = 0, maxShots = 0, frozen = 0, lastWon = 0, maxStories = 0;
+      let soonest = Infinity, lastLine: unknown = null;
+      const heard = new Map<string, number>();
+      const evs: SimEvent[] = [];
+      drive(sim, 3600 + RULES.settle, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, tt => {
+        if (sim.story && sim.story.t > 0.7) sim.tap();
+        if (sim.choice && sim.choice.t >= 0.3) sim.pick(0);
+        maxDin = Math.max(maxDin, sim.battle.din.length);
+        maxShots = Math.max(maxShots, sim.battle.shots.length);
+        maxStories = Math.max(maxStories, (sim as unknown as { stories: unknown[] }).stories.length);
+        if (sim.frozen) frozen += STEP;
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          const was = heard.get(line.text);
+          if (was !== undefined) soonest = Math.min(soonest, tt - was);
+          heard.set(line.text, tt);
+        }
+        lastLine = line;
+        const got = sim.take();
+        if (got.some(e => e.type === 'won')) lastWon = tt;
+        evs.push(...got);
+      });
+      const name = progress.mission ? 'in the tower' : 'first ever';
+      expect(sim.phase, name).toBe('done');
+      expect(ofType(evs, 'done'), name).toHaveLength(1);
+      expect(sim.canStop(), name).toBe(true);
+      expect(Number.isFinite(sim.score) && sim.score > 600, name).toBe(true);
+      expect(sim.score, name).toBeLessThan(10_000_000);
+      expect(sim.p.mission, name).toBe(CAMPAIGN);
+      expect(sim.p.floor, name).toBeGreaterThanOrEqual(floor0 + 4);
+      // missions are still won in the last minutes of the hour
+      expect(lastWon, name).toBeGreaterThan(3600 - 180);
+      expect(maxDin, name).toBeLessThanOrEqual(30);
+      expect(maxShots, name).toBeLessThanOrEqual(60);
+      expect(maxStories, name).toBeLessThanOrEqual(4);
+      expect(frozen, name).toBeLessThan(600);
+      // Klara talks all hour, and past half an hour a line comes back only after ten minutes (§17.1, §28)
+      expect(sim.talk.said.length, name).toBeGreaterThan(60);
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      for (const h of sim.battle.heroes) for (const v of [h.hp, h.max, h.atk, h.energy]) expect(Number.isFinite(v), name).toBe(true);
+      expect(sim.battle.mods.speed, name).toBeLessThanOrEqual(RULES.boonCap.werbel + 1e-9);
+      const r = sim.result();
+      expect(JSON.stringify(r), name).not.toMatch(/undefined|NaN|Infinity/);
+      expect(r.highlights!.length, name).toBeLessThanOrEqual(5);
+      for (const [, v] of r.stats) if (/^[+−×]?[\d\s  ,.%]+$/.test(v)) expect(v.length, v).toBeLessThanOrEqual(8);
+    }
   });
 });

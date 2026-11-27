@@ -34,7 +34,7 @@ import {
   neededKinds, nextToEquip, powerOf, recordStars, type DziewiatkaProgress,
 } from './meta';
 import { RULES, span } from './rules';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
 
@@ -288,7 +288,7 @@ export class DziewiatkaSim {
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
-    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng, roundFor(init.plannedSec));
     this.battle = new Battle(e => this.onBattle(e), init.rng);
     this.setTeam();
     this.mission = this.makeMission();

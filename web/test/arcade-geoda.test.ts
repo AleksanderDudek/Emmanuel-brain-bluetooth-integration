@@ -15,6 +15,7 @@ import { pacerBox, pacerProblems, pacerSize, pacerSizeAt } from '../src/arcade/k
 import { bestOf, chamber, freshProgress, migrate, nextMineral, shelve, starsFor, type GeodaProgress } from '../src/arcade/geoda/meta';
 import { comboFactor, linePoints, multOf, RULES } from '../src/arcade/geoda/rules';
 import { GeodaSim, planBlocks, type GeodaEvent } from '../src/arcade/geoda/sim';
+import { ROUND_SEC, roundFor } from '../src/arcade/geoda/talk';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems, LANGS } from '../src/i18n';
@@ -1162,6 +1163,106 @@ describe('Geoda at 15–30 minutes', () => {
       game.finish?.();
       const r = game.result();
       expect(Number.isFinite(r.score)).toBe(true);
+      expect(r.score).toBeGreaterThan(0);
+      expect(game.canStop()).toBe(true);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    } finally {
+      proto.getContext = original;
+    }
+  });
+});
+
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+
+describe('Geoda at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the end: push/rest pairs at their design length, ending on a Szlif', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec + (first ? 1 : 0)));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+        expect(core.length).toBeGreaterThanOrEqual(Math.floor(sec / 65) * 2);
+      }
+    }
+  });
+
+  it('keeps the pool\'s turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('plays a whole 60-min session headless in both modes: ends, bounded, a short summary, numbers that fit, Bazyl not looping', () => {
+    for (const mode of ['adventure', 'classic'] as const) {
+      const sim = newSim({ progress: returning({ mode }), plannedSec: 3600, seed: 11 });
+      sim.start();
+      let since = 0, events = 0;
+      const dt = 0.1;
+      const heard = new Map<string, number>();
+      let soonest = Infinity, lastLine: unknown = null;
+      for (let t = 0; t < 3600 + 1e-9; t += dt) {
+        sim.update(dt, sim.restBlock ? resting() : focusing(), t + dt);
+        if ((since += dt) >= 0.9) { since = 0; sim.auto(); }
+        events += sim.take().length;
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          const was = heard.get(line.text);
+          if (was !== undefined) soonest = Math.min(soonest, t - was);
+          heard.set(line.text, t);
+        }
+        lastLine = line;
+      }
+      expect(sim.ended, mode).toBe(true);
+      expect(Number.isFinite(sim.score), mode).toBe(true);
+      expect(sim.placements, mode).toBeGreaterThan(2000);
+      expect(events, mode).toBeGreaterThan(2000);
+      expect(sim.gems.length, mode).toBe(sim.plan.filter(b => b.kind === 'rest').length);
+      expect(sim.trace.samples.length, mode).toBeLessThan(400);
+      // Bazyl keeps talking all hour, and past half an hour a line comes back only after ten minutes (§17.1, §28)
+      expect(sim.talk.said.length, mode).toBeGreaterThan(100);
+      expect(sim.talk.said.length, mode).toBeLessThan(1000);
+      expect(soonest, mode).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      const r = sim.result();
+      expect(r.highlights.length, mode).toBeLessThanOrEqual(10);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s, mode).not.toMatch(/undefined|NaN|Infinity/);
+      // the score stays under ten million: at most the runner's and the HUD's long (8+) size
+      expect(r.score, mode).toBeLessThan(10_000_000);
+      for (const [, v] of r.stats) expect(v.length, mode).toBeLessThanOrEqual(12);
+      if (mode === 'adventure') expect(sim.levelsDone, mode).toBeGreaterThan(0);
+    }
+  });
+
+  it('the whole game runs 60 min on the runner\'s clock (Space every second, drawn now and then) and settles', () => {
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+    const original = proto.getContext;
+    proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); };
+    try {
+      const env: GameEnv<GeodaProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: returning(), rng: mulberry32(4), day: '2026-11-27', daySeed: 9, plannedSec: 3600, tool: 'fnirs', simulated: true,
+        reducedMotion: false, haptics: false, tuning: TUNING, hint: () => {}, hudTop: () => 120,
+        insets: () => ({ top: 120, right: 0, bottom: 0, left: 0 }), touch: false,
+      };
+      const game = geoda.create(env);
+      game.resize(1280, 720, 1);
+      game.start();
+      const dt = 0.1;
+      let t = 0, k = 0;
+      while (t < 3600) {
+        t += dt;
+        k++;
+        game.update(dt, k % 400 < 220 ? focusing() : resting(), t);
+        if (k % 10 === 0) { game.key!(' ', true); game.key!(' ', false); }
+        if (k % 60 === 0) game.draw();
+      }
+      expect(Number.isFinite(game.headline!().value)).toBe(true);
+      game.finish?.();
+      const r = game.result();
       expect(r.score).toBeGreaterThan(0);
       expect(game.canStop()).toBe(true);
       for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);

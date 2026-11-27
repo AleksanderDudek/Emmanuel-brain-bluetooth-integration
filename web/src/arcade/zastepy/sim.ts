@@ -204,6 +204,8 @@ export class ZastepySim {
   private pending: { m: Moment; at: number }[] = [];
   private readonly said: Partial<Record<Moment, number>> = {};
   private readonly lastSaid: Partial<Record<Moment, number>> = {};
+  /** past half an hour (45/60 min, §28): when each line was last said — a line comes back only RULES.talkRound s after it */
+  private readonly lineAt = new Map<string, number>();
   private readonly seenKinds = new Set<WaveId>();
 
   // the session's numbers
@@ -776,6 +778,12 @@ export class ZastepySim {
     // every line of the moment said: the next round only after RULES.talkRound s of the session
     if (k >= list.length && this.t < Math.floor(k / list.length) * RULES.talkRound) return false;
     const text = list[(this.session * 3 + k) % list.length];
+    if (this.plannedSec > 1800) {
+      // a round per ten minutes can bring a line back ~5 minutes after it was said; an hour keeps it ten minutes away
+      const at = this.lineAt.get(text);
+      if (at !== undefined && this.t - at < RULES.talkRound) return false;
+      this.lineAt.set(text, this.t);
+    }
     this.said[m] = k + 1;
     this.lastSaid[m] = this.t;
     const dur = sayDur(text);
