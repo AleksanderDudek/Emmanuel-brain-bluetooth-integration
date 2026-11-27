@@ -22,13 +22,14 @@
  * draws, and the shape of a story.  The stories themselves live in `stories-<age>.ts` (Polish, the source) with their
  * en/de/sv texts in `i18n-stories-<lang>.ts`, keyed by `<story id>.<field>`.
  */
+import type { Age } from '../kit/ages';
 import type { PassageId } from '../kit/scripture';
 
-/** The age groups the player picks at the start (the lobby; the first session asks on its opening card). */
-export const AGES = ['teen', 'young', 'adult', 'mid', 'senior'] as const;
-export type Age = (typeof AGES)[number];
-/** What each group spans (shown on its chip). */
-export const AGE_SPAN: Readonly<Record<Age, string>> = { teen: '11–19', young: '20–26', adult: '27–35', mid: '36–50', senior: '50+' };
+/**
+ * The age groups the player picks at the start (the lobby; the first session asks on its opening card) — shared with
+ * Złota passa since round 25 (kit/ages.ts: one choice on the device, the default in both games).
+ */
+export { AGES, AGE_SPAN, type Age } from '../kit/ages';
 
 /** Where a beat happens: each is a background the code draws, seen through the eyes (a first-person view). */
 export const PLACES = [

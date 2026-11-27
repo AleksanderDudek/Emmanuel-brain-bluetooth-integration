@@ -3,6 +3,7 @@
  * frame — builder A) and the street (render.ts, scene.ts, layout.ts, audio.ts — builder B).  Every string the street
  * draws comes in the view, already in the page's language.  Shapes change only by agreement; optional fields are fine.
  */
+import type { LifeView, Place } from './life';
 import type { DayPart, Motif, MomentKind } from './moments';
 
 export type Phase =
@@ -66,6 +67,10 @@ export interface PassaView {
   reduced: boolean;
   /** (optional, B) the hanging sign by the café in the page's language ("Dzień passy: 5"); absent: a sun and the number */
   sign?: string;
+  /** (round 25, life.ts) where the film is now — the place of the day the camera shows */
+  place?: Place;
+  /** (round 25) a sense or given moment's close-up, guide and greying; null for the other kinds */
+  life?: LifeView | null;
 }
 
 export interface Rect { x: number; y: number; w: number; h: number }

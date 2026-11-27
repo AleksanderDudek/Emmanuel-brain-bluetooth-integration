@@ -1589,3 +1589,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .inner-own input{min-height:44px;font-size:15px;width:100%}
 .inner-why{display:flex;align-items:center;min-height:32px}
 .inner-link{color:var(--tool);text-decoration:underline;text-underline-offset:3px;font-weight:600}
+/* the lobby's difficulty row (src/arcade/kit/difficultypanel.ts): four chips, what the level means, the training the same */
+.field.difficulty{gap:6px}
+.difficulty-chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;max-width:560px}
+.difficulty-chips .btn{min-width:0;min-height:44px;padding:6px 4px;font-size:13.5px;line-height:1.15;white-space:normal;hyphens:auto;overflow-wrap:break-word}
+@media (max-width:379px){.difficulty-chips{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.difficulty-line,.difficulty-same{margin:0;font-size:13px;line-height:1.4}

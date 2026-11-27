@@ -12846,3 +12846,51 @@ session-length pickers were measured at 320 and 390 px (two rows of five, every 
 * **Long-session notes**: Złota passa may lengthen a player's rhythm to fill an hour, unannounced in the lobby; Dawid's
   XP reaches 11+ digits only after many hours (the runner's long-number rule has one smaller size); Chleby's and
   Jerzy's late-game caps follow §17.1's precedent.
+
+## 29. Round 25: Rozkwit all at once, Złota passa as a film of life, Dawid's lands, difficulty levels, the boxer's eyes (2026-11-27)
+
+### 29.1 The request
+
+The founder, 2026-11-27 (Polish and English, away, "masz wolną rękę… pick recommended"), five asks:
+
+1. *"Wizualizacja — naraz piękny wizualnie proces upiększenia ciała człowieka — naprawa komórek, wyprostowanie
+   postawy, odmłodzenie, poprawienie jakości włosów, atrakcyjna, piękna figura, sylwetka, zdrowy wygląd; tworzenia,
+   powiększania i pomnażania wielkiego szczęścia człowieka. Chodzi o taką wizję wielkiego…"* — the same words as round
+   20's third ask, which became Rozkwit (§24.13); asked again.
+2. A better winning-streak (Złota passa): fitted to the everyday life of the age groups 11–19, 20–26, 27–35, 36–50,
+   50+; a more dynamic picture, "as if it were a film about life"; mindfulness of the senses (taste, smell, sight,
+   touch, hearing) woven into the everyday; the things we pass by because we got used to them and take for granted,
+   with mini sessions of concentration on them.
+3. Dawid: each level its own, with more and bigger areas, more quests, more storytelling.
+4. Difficulty levels for games like Dawid and Zastępy: STARTING, REGULAR, ADVANCED, HARDCORE.
+5. Dobry bój in a first-person version.
+
+### 29.2 The round's decisions
+
+* **Rozkwit, all at once.** Rozkwit (round 20) walks the whole person through the other games' pictures one after
+  another; the founder's word is *naraz* — at once. Now that Nowe siły (§28.3) has a person drawn in code who changes
+  parameter by parameter, Rozkwit opens with a new first meditation, **„Wszystko naraz”**: one person, whole, standing,
+  whose every aspect changes together as the session's focus gathers (the engine's `arc`, §28.3) — light through the
+  cells, the back straightening, a rested face, fuller shining hair, a lighter, stronger figure, a healthy colour — and
+  a light in the heart that grows and then **multiplies**: it passes to the people around, then to a whole city of
+  lights (joy spreads in a network: Fowler & Christakis 2008), "a vision of great happiness". The walk through the
+  pictures stays as the meditations after it. Words §24.3: never "odmłodzi", never a promise of a figure; beauty told
+  as health and as God's work, offered in thanks.
+* **Złota passa as a film of life** (contract `passa/life.ts`): the player's age group (`kit/ages.ts`, shared with
+  Stop-klatka — chosen once on the device); the day's moments drawn from sets written for that group's life; the camera
+  travels through the places of that day (waking, the kitchen, the way, the school / campus / office / counter /
+  nursery / garden, the evening table, the window at night) with moving shots; two new kinds of moment — **sense**, a
+  mini session of attention on one sense (a close-up that opens into colour and detail as focus holds: savouring), and
+  **given**, a thing taken for granted, first greyed away in a short rest ("imagine this morning without…": mental
+  subtraction, Koo et al. 2008), then brought back in gold by focus, with the thanks.
+* **Dawid's lands as levels**: each of the six lands its own level with more and bigger areas, more quests (chains per
+  area, new kinds), and storytelling — scenes with portraits and dialogue as David's road goes from the anointing to
+  Ziklag (1 Samuel 16–30, told in the game's own words; verses only from scripture.ts).
+* **Difficulty levels** (`kit/difficulty.ts`, `kit/difficultypanel.ts`): Na start · Zwykły · Zaawansowany · Hardcore
+  (Starting · Regular · Advanced · Hardcore) in the lobby of the games with foes — Dawid, Zastępy, Jerzy i smok,
+  Dziewiątka, Kocia straż, Nehemiasz, Dolina, Chleby i ryby, Anioł Stróż, Dobry bój. A level changes the game, never the
+  training: the threshold, the blocks and what focus is worth stay the same; REGULAR is each game as it was (the
+  default, so nobody's game changes unasked); records are kept per level.
+* **Dobry bój through the boxer's eyes**: a lobby choice of view — from the side (as now) or first-person: the opponent
+  facing the player, the player's own gloves at the bottom of the screen, slips and blocks as the head's movement, the
+  combinations as before, the slow motion of held focus; gentle camera (no heavy shake; reduced motion keeps it still).
