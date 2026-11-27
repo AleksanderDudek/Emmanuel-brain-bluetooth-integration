@@ -313,6 +313,13 @@ PASSAGES: list[tuple[str, str]] = [
     ("1th5.18", "1 Thessalonians 5:18"), ("gen50.20", "Genesis 50:20"), ("jas1.2-4", "James 1:2-4"),
     ("rom5.3-5", "Romans 5:3-5"), ("psa23.6", "Psalm 23:6"), ("psa16.6", "Psalm 16:6"), ("eph5.20", "Ephesians 5:20"),
     ("2co4.17", "2 Corinthians 4:17"),
+    # round 24 — Nowe siły (the tired figure renewed), Stop-klatka (the moment before anger), Warstwy światła (spirit,
+    # soul and body made clean), Koła światła (each part working, the whole body in love)
+    ("pro15.1", "Proverbs 15:1"), ("pro14.29", "Proverbs 14:29"),
+    ("pro19.11", "Proverbs 19:11"), ("mat5.9", "Matthew 5:9"), ("jas1.19-20", "James 1:19-20"),
+    ("1th5.23", "1 Thessalonians 5:23"), ("1jn1.7", "1 John 1:7"), ("psa116.16", "Psalm 116:16"),
+    ("psa129.4", "Psalm 129:4"), ("psa107.14", "Psalm 107:14"),
+    ("1co12.12", "1 Corinthians 12:12"), ("rom12.4-5", "Romans 12:4-5"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
