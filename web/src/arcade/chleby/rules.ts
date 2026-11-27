@@ -191,6 +191,9 @@ export const RULES = {
   hungerPerLevel: 28,
   hungerMax: 900,
   circleHunger: 0.3,
+  /** the rounds of the path that still grow the hunger and the bosses' pouches: from the 5th round (level 96) they hold
+   *  (hour-long sessions reach them in days; without the cap level 240 fed some 8 terraces an hour, level 960 four) */
+  circleTop: 4,
   /** a boss terrace is this much hungrier */
   bossHunger: 1.15,
   /** two tables (left and right) on a terrace from this level, on every other terrace */

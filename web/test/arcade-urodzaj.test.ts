@@ -15,6 +15,8 @@ import { Talk } from '../src/arcade/urodzaj/talk';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import urodzaj from '../src/arcade/urodzaj/index';
 import { catalogProblems } from '../src/i18n';
 
 const DAY = '2026-11-07';
@@ -1100,4 +1102,83 @@ describe('Urodzaj at 15–30 minutes', () => {
     expect(out.highlights.length).toBeLessThanOrEqual(7);
     for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
   });
+});
+
+// ── long sessions (45–60 min) ────────────────────────────────────
+
+describe('Urodzaj at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the evening: Wiatr/Pokłosie pairs at their design lengths, ending on a Pokłosie', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+        // a pair about every minute: an hour is some 60 pairs
+        expect(core.length).toBe(2 * Math.round((sec - finaleFor(sec) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  }, 300_000);
+
+  it.each([2700, 3600])('plays a whole %i s session: baskets keep coming, the heap and the lists stay bounded, a short summary at its evening', planned => {
+    const sim = later({ planned, seed: 7 });
+    const rnd = mulberry32(11);
+    const clock = { t: 0 };
+    let next = 0.8, evs = 0, maxBodies = 0, ended = 0;
+    const dt = 1 / 30;
+    for (let i = 0; i < (planned + 3) / dt; i++) {
+      clock.t += dt;
+      sim.update(dt, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+      if (clock.t >= next) {
+        next += 0.9;
+        const x = (rnd() - 0.5) * 0.8;
+        sim.pointerDown(x);
+        sim.pointerUp(x);
+      }
+      for (const e of sim.take()) { evs++; if (e.type === 'end') ended++; }
+      maxBodies = Math.max(maxBodies, sim.world.bodies.length);
+    }
+    expect(ended).toBe(1);
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(planned * 2);
+    expect(maxBodies).toBeLessThan(120);
+    expect(sim.basketsDone).toBeGreaterThan(planned / 300);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    const out = sim.result();
+    // the fruits made for the first time in one line, each feast once: a few lines however long the day
+    expect(out.highlights.filter(h => h.startsWith('Pierwszy raz')).length).toBeLessThanOrEqual(1);
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    for (const [, v] of out.stats) expect(v.length).toBeLessThan(14);
+  }, 300_000);
+});
+
+describe('Urodzaj at 45–60 minutes, drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: UrodzajSim }).sim;
+    const rnd = mulberry32(11);
+    let next = 0.8;
+    const { early, late } = hourFrames({
+      module: urodzaj, progress: { ...urodzaj.freshProgress(), sessions: 5, pushes: 1, dailyDay: '2026-11-27' }, tuning: TUNING,
+      setup: game => { simOf(game).story = null; },
+      frame: game => (simOf(game).block.kind === 'rest' ? CALM : HIGH),
+      each: (game, t) => {
+        if (t < next) return;
+        next += 0.9;
+        const x = (rnd() - 0.5) * 0.8;
+        simOf(game).pointerDown(x);
+        simOf(game).pointerUp(x);
+      },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

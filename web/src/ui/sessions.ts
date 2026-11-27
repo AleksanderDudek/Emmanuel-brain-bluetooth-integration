@@ -11,7 +11,7 @@ import type { SceneId } from '../settings';
 import { drawOverview } from './focus';
 import { folderSupported, type FolderStore } from '../storage/folder';
 import { download, type SessionLibrary } from '../storage/library';
-import { $, fmtDur, h, run, toast } from './dom';
+import { $, fmtDur, fmtMin, h, run, toast } from './dom';
 
 const where = (m: SessionMeta): string => {
   if (!m.in_browser) return t('ses.whereFolder');
@@ -37,7 +37,7 @@ export class SessionsView {
       // the game's name and unit in this language (the result keeps the ones it was saved with)
       const entry = g ? arcadeEntry(g.id) : undefined;
       const title = entry?.title ?? g?.title ?? '';
-      const meta = [date, fmtDur(r.played_sec) + ' min', t('ses.activity', { v: pct === null ? '—' : t('fmt.pct', { pct: fmtSigned(pct, 1) }) }),
+      const meta = [date, fmtMin(r.played_sec) + ' min', t('ses.activity', { v: pct === null ? '—' : t('fmt.pct', { pct: fmtSigned(pct, 1) }) }),
                     t('ses.control', { n: r.control_sec }), g ? t('ses.oxygen', { n: r.points }) : '',
                     r.source === 'simulator' ? t('ses.sim', { band: TOOL_INFO[r.tool].band }) : r.device,
                     r.mood ? `${t('ses.mood', { face: FACES[r.mood.face - 1] })}${r.mood.words.length ? ' ' + r.mood.words.map(feelingText).join(', ') : ''}` : '',

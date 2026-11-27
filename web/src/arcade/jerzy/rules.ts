@@ -235,8 +235,10 @@ export const RULES = {
    * The squire's, the knight's, the hero's and the legend's road: the dragon's scales (hp ×), the
    * brood's hp (×), the telegraphs (× their length), attacks in a row before he is dizzy, the bonus
    * of the session's scales paid into the treasury.  Past the fourth the legend's road grows by
-   * `circleUp` hp and 0.25 brood a road.
+   * `circleUp` hp and 0.25 brood a road, for `legendTop` roads: from the eighth road on they hold (hour-long
+   * sessions climb a road an hour; road 16 drove off two dragons in 30 minutes and felled the knight three times).
    */
+  legendTop: 4,
   roads: [
     { hp: 1, brood: 1, tele: 1, combo: 0, bank: 0 },
     { hp: 1.6, brood: 1.3, tele: 0.9, combo: 0, bank: 0.25 },

@@ -236,7 +236,7 @@ export const terracesOf = (level: number): number =>
 /** The level's hunger before it is split over its terraces. */
 export function levelHunger(level: number): number {
   const R = RULES, L = Math.max(0, Math.floor(level));
-  const { circle } = placeOf(L);
+  const circle = Math.min(placeOf(L).circle, R.circleTop);
   return Math.min(R.hungerMax, R.hunger + R.hungerPerLevel * L) * (1 + R.circleHunger * circle);
 }
 

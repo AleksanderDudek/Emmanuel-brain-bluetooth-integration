@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { makeBoss, munchSpots, stepBoss, stunBoss, type BossEvent } from '../src/arcade/chleby/boss';
+import { makeBoss, munchSpots, pouchOf, stepBoss, stunBoss, type BossEvent } from '../src/arcade/chleby/boss';
 import {
   CARDS, KINDS, MAX_LEVEL, PACK, copiesFor, evoOf, levelOf, oddsWith, rollPack, starterCards, type CardId, type Loadout,
 } from '../src/arcade/chleby/cards';
 import { HINTS, HINTS_KEYS, LINES, bossName, buildName, cardName, cardText, dayName, hintFor, missionText, tierName } from '../src/arcade/chleby/content';
 import {
-  Field, bossOf, isBoss, placeOf, planTerrace, terracesOf, type FieldCtl, type FieldEvent, type Runner, type Shot, type TerracePlan,
+  Field, bossOf, isBoss, levelHunger, placeOf, planTerrace, terracesOf, type FieldCtl, type FieldEvent, type Runner, type Shot, type TerracePlan,
 } from '../src/arcade/chleby/field';
 import { CATALOGS, t, unit } from '../src/arcade/chleby/i18n';
 import {
@@ -24,6 +24,8 @@ import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets 
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import chleby from '../src/arcade/chleby/index';
 import { catalogProblems } from '../src/i18n';
 
 const DAY = '2026-11-11';
@@ -1603,4 +1605,117 @@ describe('long sessions (15–30 min)', () => {
     for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
     expect(passage(r.verse!)).toBeTruthy();
   });
+});
+
+describe('long sessions (45–60 min)', () => {
+  it('plans 45 and 60 minutes: Rozdawanie / Na trawie pairs to the finale, every block of its usual length', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 5);
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const body = first ? plan.slice(1) : plan;
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan[plan.length - 1].kind).toBe('rest');
+        for (const b of body) {
+          const [nom, jit] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(Math.max(RULES.minBlock, (nom - jit) * 0.95));
+          expect(b.dur).toBeLessThanOrEqual((nom + jit) * 1.05);
+        }
+        expect(body.length / 2).toBe(Math.round((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  }, 300_000);
+
+  it('the hunger and the bosses\' pouches stop growing after the fourth round of the path (an hour a day reaches it in days)', () => {
+    const per = RULES.chapter * RULES.chapters;
+    // up to the fourth round: each round hungrier, as before
+    for (let c = 1; c <= RULES.circleTop; c++) expect(levelHunger(c * per + 5)).toBeGreaterThan(levelHunger((c - 1) * per + 5));
+    // from the fifth on: the same hunger and the same pouch at the same place on the path
+    for (const c of [5, 10, 40]) {
+      expect(levelHunger(c * per + 5)).toBe(levelHunger(RULES.circleTop * per + 5));
+      for (const kind of BOSSES) expect(pouchOf(kind, 3, c)).toBe(pouchOf(kind, 3, RULES.circleTop));
+    }
+  }, 300_000);
+
+  it('plays any rhythm the player sets to its evening at 45 and 60 minutes, from a new player and from level 400: the people fed still grow', () => {
+    for (const [planned, rhythm, level] of [[2700, undefined, 0], [3600, { focus: 120, rest: 10 }, 400], [3600, { focus: 20, rest: 40 }, 0]] as const) {
+      {
+        const name = `${planned} ${rhythm ? `${rhythm.focus}/${rhythm.rest}` : 'designed'} from ${level}`;
+        const sim = later({ planned, rhythm, progress: { bank: 20, level } });
+        const bank0 = sim.p.bank;
+        const clock = { t: 0 };
+        let tap = 0, at = 0;
+        drive(sim, planned + 12, () => (sim.block?.kind === 'rest' ? LOW : HIGH), clock, tt => {
+          if (tt >= tap) { sim.press(RULES.laneW / 2 + Math.sin(tt) * 3); tap += 0.65; }
+          if (tt >= tap - 0.3) sim.release();
+          if (!at && tt >= planned * 2 / 3) at = sim.score;
+        });
+        expect(sim.phase, name).toBe('done');
+        expect(sim.score, name).toBeGreaterThan(at);
+        // a level every few minutes even far round the path (level 400 fed ~4 an hour before the rounds held)
+        expect(sim.levelsNow, name).toBeGreaterThanOrEqual(Math.floor(planned / (level ? 300 : 120)));
+        expect(sim.p.bank - bank0, name).toBeGreaterThan(planned / 30);
+        for (const v of [sim.score, sim.p.bank, sim.charge]) expect(Number.isFinite(v), name).toBe(true);
+      }
+    }
+  }, 300_000);
+
+  it('plays a full 60-minute session to its evening: levels keep coming round the path, the lane stays bounded, the summary reads', () => {
+    const sim = later({ planned: 3600, progress: { bank: 20 } });
+    const clock = { t: 0 };
+    let tap = 0;
+    const max = { runners: 0, gulls: 0, gates: 0, carriers: 0 };
+    const lines: { text: string; t: number }[] = [];
+    for (let k = 0; k < 38; k++) {
+      const evs = drive(sim, 95, () => (sim.block?.kind === 'rest' ? LOW : HIGH), clock, tt => {
+        if (tt >= tap) { sim.press(RULES.laneW / 2 + Math.sin(tt) * 3); tap += 0.65; }
+        if (tt >= tap - 0.3) sim.release();
+        const f = sim.field;
+        max.runners = Math.max(max.runners, f.runners.length); max.gulls = Math.max(max.gulls, f.gulls.length);
+        max.gates = Math.max(max.gates, f.gates.length); max.carriers = Math.max(max.carriers, f.carriers.length);
+      });
+      for (const e of evs) if (e.type === 'say') lines.push({ text: e.text, t: clock.t });
+      expect(Number.isFinite(sim.score) && Number.isFinite(sim.p.bank) && Number.isFinite(sim.charge)).toBe(true);
+    }
+    expect(sim.phase).toBe('done');
+    // Mirka never repeats a line in a session (each moment's few lines once): an hour does not loop her, and the
+    // later moments (levels, bosses, the help) still bring her in now and then to the end
+    expect(new Set(lines.map(l => l.text)).size).toBe(lines.length);
+    expect(lines.filter(l => l.t > 2400).length).toBeGreaterThan(3);
+    expect(sim.canStop()).toBe(true);
+    expect(sim.levelsNow).toBeGreaterThanOrEqual(30);
+    expect(max.runners).toBeLessThanOrEqual(RULES.maxRunners + 20);
+    expect(max.gulls).toBeLessThan(250);
+    expect(max.gates).toBeLessThan(20);
+    expect(max.carriers).toBeLessThan(60);
+    const r = sim.result();
+    expect(r.score).toBeGreaterThan(0);
+    expect(r.highlights.length).toBeLessThanOrEqual(6);
+    for (const [k, v] of r.stats) {
+      expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      expect(v.length).toBeLessThan(14);
+    }
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
+    expect(passage(r.verse!)).toBeTruthy();
+  }, 300_000);
+});
+
+describe('long sessions (45–60 min), drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: ChlebySim }).sim;
+    let tap = 0;
+    const { early, late } = hourFrames({
+      module: chleby, progress: { ...chleby.freshProgress(), sessions: 5, giftDay: '2026-11-27', calls: 1, seen: 1, taught: 0xffffff, bank: 20 }, tuning: TUNING,
+      frame: game => (simOf(game).block?.kind === 'rest' ? LOW : HIGH),
+      each: (game, tt) => {
+        const sim = simOf(game);
+        if (tt >= tap) { sim.press(RULES.laneW / 2 + Math.sin(tt) * 3); tap += 0.65; }
+        if (tt >= tap - 0.3) sim.release();
+      },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

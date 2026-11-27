@@ -237,3 +237,22 @@ describe('the games follow their cards', () => {
     expect(wheel.layout().panels[0].items.map(i => i.color)).not.toContain('violet');
   });
 });
+
+describe('the games at 45–60 minutes', () => {
+  for (const g of GAMES) {
+    it(`${g.id}: an hour of trials keeps the level on its staircase, the numbers sane and the record a few hundred kB`, () => {
+      // an hour at the quickest pace a game allows: a trial at least every ~1.2 s (its pause and a fast answer)
+      const n = Math.ceil(3600 / 1.2);
+      const { eng, recs, levels } = play(g.id, n, i => i % 5 !== 4);
+      expect(recs).toHaveLength(n);
+      expect(Math.min(...levels)).toBeGreaterThanOrEqual(1);
+      expect(Math.max(...levels)).toBeLessThanOrEqual(eng.maxLevel);
+      const s = sessionStats(g.id, recs, 3600);
+      expect(s.trials).toBe(n);
+      for (const v of [s.accuracy, s.perMin, s.levelMax, s.levelEnd, s.medianRt ?? 0, s.iqrRt ?? 0]) expect(Number.isFinite(v), `${g.id}`).toBe(true);
+      expect(headline(g.id, s)).toBeGreaterThan(0);
+      // every trial is kept for analysis (IndexedDB): an hour stays well under a megabyte
+      expect(JSON.stringify(recs).length).toBeLessThan(1_000_000);
+    });
+  }
+});

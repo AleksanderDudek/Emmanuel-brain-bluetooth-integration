@@ -135,6 +135,8 @@ const GUARD: Act = { kind: 'guard' };
 /** Acts that return to the guard when they end. */
 const TRANSIENT = new Set<Act['kind']>(['tell', 'strike', 'defend', 'hit', 'rise', 'touch']);
 const LOOPS = new Set<Act['kind']>(['guard', 'corner']);
+/** The summary's lines for the fights: the last this many (a session of 30 minutes holds up to four fights). */
+const FIGHT_LINES = 4;
 
 /** The right defences of a style, the partial ones and the wrong ones against a strike. */
 function defensesFor(s: StrikeId, style: Style): { right: DefenseId[]; part: DefenseId[]; wrong: DefenseId[] } {
@@ -1232,11 +1234,10 @@ export class BojSim {
     if (this.defenses > 0) stats.push([t('stat.defense'), t('stat.ofV', { ok: this.defensesRight, n: this.defenses })]);
     if (this.slows > 0) stats.push([t('stat.charge'), t('stat.ofV', { ok: this.slowsFull, n: this.slows })]);
     if (this.downs > 0) stats.push([t('stat.down'), `${this.downs} (${this.rises})`]);
-    const highlights: string[] = [];
-    for (const f of this.fights) {
-      const name = foeName(LADDER.find(x => x.id === f.foe) ?? this.persona, sex);
-      highlights.push(t(f.how === 'ko' ? 'hl.ko' : f.how === 'bell' ? 'hl.survive' : 'hl.loss', { name }));
-    }
+    // a line a fight — the same line once, the last four fights (an hour holds seven; the stats keep the whole record)
+    const fought = this.fights.map(f => t(f.how === 'ko' ? 'hl.ko' : f.how === 'bell' ? 'hl.survive' : 'hl.loss',
+      { name: foeName(LADDER.find(x => x.id === f.foe) ?? this.persona, sex) }));
+    const highlights = fought.filter((l, i) => fought.lastIndexOf(l) === i).slice(-FIGHT_LINES);
     if (this.titlesNow > 0) highlights.push(t('hl.title'));
     if (this.rises > 0) highlights.push(t('hl.rose', { n: this.rises }));
     if (this.counters >= 3) highlights.push(t('hl.counters', { n: this.counters }));

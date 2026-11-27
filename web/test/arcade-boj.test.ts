@@ -18,6 +18,8 @@ import {
 } from '../src/arcade/boj/rules';
 import { BojSim, incomingOptions, openingOptions, optionWords, type SimEvent, type Stage } from '../src/arcade/boj/sim';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import boj from '../src/arcade/boj/index';
 import { catalogProblems, LANGS } from '../src/i18n';
 import { CATALOGS as ARCADE_TEXTS } from '../src/i18n/arcade';
 import { MOUSE_CATALOGS as MOUSE_TEXTS } from '../src/i18n/arcade-mouse';
@@ -678,4 +680,72 @@ describe('Dobry bój — the options on every screen', () => {
       if (p) expect(overlaps(c, pacerBox(p, pacerSizeAt(p, true))), size.name).toBe(false);
     }
   });
+});
+
+describe('Dobry bój — 45–60 minutes', () => {
+  it('plans 45 and 60 minutes: rounds of three minutes, room for six or seven fights, the last bell before the end', () => {
+    for (const T of [2700, 3600]) {
+      const p = planFor({ plannedSec: T, eeg: false });
+      expect(roundSecFor(T)).toBe(180);
+      expect(p.lastBell).toBeLessThan(T);
+      expect(T - p.lastBell).toBeLessThan(60);
+      const f = fightPlan(p, p.intro);
+      expect(f.rounds).toBeLessThanOrEqual(RULES.maxRoundsLast);
+      expect(f.last).toBe(false);
+    }
+  }, 300_000);
+
+  const play = (pl: Player, T: number, seed: number, style: Style = 'boks') => {
+    const sim = makeSim({ planned: T, seed, progress: { style } });
+    const run = drive(sim, T + 0.2, pl);
+    return { sim, run };
+  };
+
+  it('every player plays 45 and 60 minutes to the end: the strong never falls, the average wins, the one without focus loses steadily but is never stuck', () => {
+    for (const style of STYLES) for (const T of [2700, 3600]) {
+      const name = `${style} ${T}`;
+      const strong = play(STRONG, T, 3, style);
+      expect(strong.run.lifeLostAt, name).toEqual([]);
+      expect(strong.sim.tally.kos, name).toBeGreaterThanOrEqual(3);
+      expect(strong.sim.fights.length, name).toBeGreaterThanOrEqual(5);
+      const avg = play(AVERAGE, T, 2, style);
+      expect(avg.sim.tally.lost, name).toBe(0);
+      expect(avg.sim.tally.won, name).toBeGreaterThanOrEqual(4);
+      const weak = play(WEAK, T, 4, style);
+      expect(weak.sim.score, name).toBeGreaterThan(T / 100);
+      const none = play(NONE, T, 5, style);
+      expect(none.sim.score, name).toBe(0);
+      expect(none.sim.fights.length, name).toBeGreaterThanOrEqual(4);
+      for (const { sim } of [strong, avg, weak, none]) {
+        expect(sim.stage, name).toBe('end');
+        expect(sim.canStop(), name).toBe(true);
+        expect(sim.impacts.length, name).toBeLessThan(20);
+        expect(sim.talk.said.length, name).toBeLessThanOrEqual(120);
+        const r = sim.result();
+        // the summary: a line a fight for the last four (the same line once), the stats keep the whole record
+        expect(r.highlights.length, name).toBeLessThanOrEqual(9);
+        expect(new Set(r.highlights).size, name).toBe(r.highlights.length);
+        expect(r.stats[0][1], name).toBe(`${sim.tally.won}–${sim.tally.lost}`);
+        for (const h of [...r.highlights, ...r.stats.flat()]) expect(h, name).not.toMatch(/undefined|NaN|Infinity|\{/);
+      }
+    }
+  }, 300_000);
+});
+
+describe('Dobry bój — 45–60 minutes, drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: BojSim }).sim;
+    let lastEx: unknown = null;
+    const { early, late } = hourFrames({
+      module: boj, progress: { ...boj.freshProgress(), sessions: 5, seen: [...SEEN] } as BojProgress, tuning: TUNING,
+      frame: game => (simOf(game).pushBlock ? HIGH : LOW),
+      each: game => {
+        const sim = simOf(game);
+        if (sim.stage === 'slow' && sim.ex && sim.ex !== lastEx && sim.ex.opts.length) { lastEx = sim.ex; sim.choose(sim.ex.right); }
+      },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

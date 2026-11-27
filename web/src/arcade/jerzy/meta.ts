@@ -211,11 +211,11 @@ export function fightOf(p: JerzyProgress): { spec: DragonSpec; tier: number; lan
   return { spec: DRAGONS[land], tier: Math.max(0, Math.floor(p.tier)), land };
 }
 
-/** A road's multipliers (past the legend's road it keeps growing). */
+/** A road's multipliers (past the legend's road it keeps growing, `legendTop` roads more, then holds). */
 export function road(tier: number): { hp: number; brood: number; tele: number; combo: number; bank: number } {
   const R = RULES.roads, last = R[R.length - 1];
   if (tier < R.length) return R[Math.max(0, tier)];
-  const k = tier - (R.length - 1);
+  const k = Math.min(RULES.legendTop, tier - (R.length - 1));
   return { hp: last.hp + RULES.circleUp * k, brood: last.brood + 0.25 * k, tele: last.tele, combo: last.combo, bank: last.bank };
 }
 

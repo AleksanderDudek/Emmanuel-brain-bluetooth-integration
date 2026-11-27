@@ -9,6 +9,9 @@ import { clamp } from '../kit/juice';
 import { ZOSKA, type Moment } from './content';
 import { RULES } from './rules';
 
+/** how many said lines the log keeps (a session of any length) */
+export const SAID_KEEP = 120;
+
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
 interface Ask { moment: Moment; pri: number; until: number; seq: number }
@@ -21,7 +24,7 @@ export class Talk {
   private readonly queue: Ask[] = [];
   private readonly left = new Map<Moment, number[]>();
   private last: string | null = null;
-  /** every line said this session, in order (the tests read it) */
+  /** the lines said this session, in order, the last SAID_KEEP of them (the tests read it; an hour says ~400) */
   readonly said: string[] = [];
 
   constructor(private readonly rng: () => number, private readonly lines: Readonly<Record<Moment, readonly string[]>> = ZOSKA) {}
@@ -56,6 +59,7 @@ export class Talk {
     const text = this.pick(a.moment);
     this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
     this.said.push(text);
+    if (this.said.length > SAID_KEEP) this.said.splice(0, this.said.length - SAID_KEEP);
     if (a.moment === 'end') this.last = text;
   }
 

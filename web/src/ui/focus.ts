@@ -16,7 +16,7 @@ import { TrainingAudio } from '../training/audio';
 import { drawScenePreview, SceneRenderer, SCENES } from '../training/scene';
 import { dayScore, FEELINGS, isTopSession, newMilestones, type Mood, type TrainingResult } from '../training/score';
 import { FocusSession } from '../training/session';
-import { $, fmtDur, h, run, toast } from './dom';
+import { $, fmtMin, h, run, toast } from './dom';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 function s<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>, ...kids: SVGElement[]): SVGElementTagNameMap[K] {
@@ -559,7 +559,7 @@ export class FocusRunner {
       miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), t('sum.milestone', { title: m.title }))),
       h('div', { class: 'summary-grid' },
         stat(t('hud.activity'), signPct(r.activity_avg_pct)), stat(t('hud.control'), String(r.control_sec), 's'),
-        stat(t('sum.oxygen'), String(r.points), t('unit.points')), stat(t('sum.sessionStat'), fmtDur(r.played_sec), 'min')),
+        stat(t('sum.oxygen'), String(r.points), t('unit.points')), stat(t('sum.sessionStat'), fmtMin(r.played_sec), 'min')),
       h('div', { class: 'card' }, h('div', { class: 'card-head' }, t('sum.curve'), h('span', { class: 'hint' }, t('sum.curveHint'))), overview),
       h('p', { class: 'muted' }, [
         t('sum.parts', { commitment: day.commitment, performance: day.performance }),

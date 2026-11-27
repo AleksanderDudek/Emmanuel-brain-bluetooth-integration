@@ -21,6 +21,7 @@ import {
 } from '../src/arcade/latarnik/sim';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
 import { LANGS, catalogProblems } from '../src/i18n';
 
 const DAY = '2026-10-23';
@@ -2380,6 +2381,108 @@ describe('Latarnik at 15–30 minutes', () => {
       }
     }
   });
+});
+
+// ── long sessions (45–60 min) ────────────────────────────────────
+
+describe('Latarnik at 45–60 minutes', () => {
+  const total = (plan: { dur: number }[]) => plan.reduce((s, b) => s + b.dur, 0);
+
+  it.each([2700, 3600])('fills a %i s session to the dawn: Konwój/Cisza at their design lengths, ending with a Cisza', planned => {
+    for (const first of [false, true]) {
+      const plan = planBlocks(planned, first, mulberry32(planned));
+      expect(total(plan) + RULES.finale).toBeCloseTo(planned, 6);
+      expect(plan[plan.length - 1].kind).toBe('cisza');
+      const play = first ? plan.slice(1) : plan;
+      expect(play.every((b, i) => b.kind === (i % 2 ? 'cisza' : 'konwoj'))).toBe(true);
+      const k = play.filter(b => b.kind === 'konwoj').map(b => b.dur), c = play.filter(b => b.kind === 'cisza').map(b => b.dur);
+      inDesign(k, c);
+    }
+  }, 300_000);
+
+  it.each([{ sessions: 6, seed: 9 }, { sessions: 0, seed: 4 }])('plays a whole 60-min session (sessions before: $sessions): nights keep coming, nothing runs away, a short summary at its dawn', ({ sessions, seed }) => {
+    const sim = makeSim({ progress: { sessions, lastNewSession: sessions || -1 }, planned: 3600, seed });
+    const clock = { t: 0 };
+    const tap = tapper(sim, 3, 0.04, 0.85);
+    let evs = 0, maxBoats = 0, maxNuggets = 0;
+    const focusAt = (t: number) => (sim.block.kind === 'cisza'
+      ? frame({ activity: -2, level: 0.15, calm: 0.85 })
+      : frame({ activity: 9, level: 0.85 + 0.1 * Math.sin(t / 7), focused: true, hold: 8, calm: 0.1 }));
+    const n = Math.round(3603 / STEP);
+    for (let i = 0; i < n && sim.phase !== 'done'; i++) {
+      clock.t += STEP;
+      sim.update(STEP, focusAt(clock.t), clock.t);
+      tap(clock.t);
+      evs += sim.take().length;
+      maxBoats = Math.max(maxBoats, sim.boats.length);
+      maxNuggets = Math.max(maxNuggets, sim.nuggets.length);
+    }
+    expect(sim.phase).toBe('done');
+    expect(clock.t).toBeLessThan(3601);
+    expect(clock.t).toBeGreaterThan(3599);
+    expect(evs).toBeGreaterThan(1000);
+    expect(maxBoats).toBeLessThan(20);
+    expect(maxNuggets).toBeLessThan(10);
+    expect(sim.nightsWon).toBeGreaterThan(20);
+    // the beam's speed and the goals stop growing (nights.ts caps them), so night 100 plays like night 40
+    expect(sim.spec.speed).toBeLessThanOrEqual(RULES.speedMax + 1e-9);
+    expect(sim.spec.goal).toBeLessThanOrEqual(16);
+    for (const v of [sim.score, sim.crates, sim.reach, sim.glow, sim.farthest]) expect(Number.isFinite(v)).toBe(true);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(5);
+    // a first hour may light the whole harbour and fill the whole album: three names, then "+N", each once
+    for (const h of out.highlights) expect(h.length, h).toBeLessThan(110);
+    const port = out.highlights.find(h => h.startsWith('Port rośnie'));
+    if (port) expect(port.split(',').length).toBeLessThanOrEqual(3);
+    const amber = out.highlights.find(h => h.startsWith('Now'));
+    if (amber) {
+      const names = amber.replace(/ i \d+ innych$/, '').replace(/^[^:]+: /, '').split(', ');
+      expect(new Set(names).size).toBe(names.length);
+    }
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    for (const [, v] of out.stats) expect(v.length).toBeLessThan(16);
+  }, 300_000);
+
+  it('plays 45 and 60 minutes at any rhythm the player sets: long convoys or long calms, the boats still come home', () => {
+    const DT = 1 / 30;
+    for (const planned of [2700, 3600]) {
+      for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm.focus}/${rhythm.rest}`;
+        const sim = makeSim({ progress: { sessions: 6, lastNewSession: 6 }, planned, seed: 9, rhythm });
+        const tap = tapper(sim, 3, 0.04, 0.85);
+        let t = 0, at = 0, maxBoats = 0;
+        while (sim.phase !== 'done' && t < planned + 5) {
+          t += DT;
+          sim.update(DT, sim.block.kind === 'cisza' ? frame({ activity: -2, level: 0.15, calm: 0.85 })
+            : frame({ activity: 9, level: 0.9, focused: true, hold: 8, calm: 0.1 }), t);
+          tap(t);
+          sim.take();
+          maxBoats = Math.max(maxBoats, sim.boats.length);
+          if (!at && t >= planned * 2 / 3) at = sim.score;
+        }
+        expect(sim.phase, name).toBe('done');
+        expect(t, name).toBeLessThan(planned + 1);
+        expect(sim.score, name).toBeGreaterThan(at);
+        expect(maxBoats, name).toBeLessThan(20);
+      }
+    }
+  }, 300_000);
+});
+
+describe('Latarnik at 45–60 minutes, drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    let tap: ((t: number) => void) | null = null;
+    const simOf = (game: unknown) => (game as { sim: LatarnikSim }).sim;
+    const { early, late } = hourFrames({
+      module: latarnik, progress: { ...latarnik.freshProgress(), sessions: 6, lastNewSession: 6 }, tuning: TUNING,
+      setup: game => { simOf(game).story = null; tap = tapper(simOf(game), 3, 0.04, 0.9); },
+      frame: game => (simOf(game).block?.kind === 'konwoj' ? frame({ level: 0.85, activity: 6, focused: true, calm: 0.3 }) : frame({ level: 0.3, activity: -1, calm: 0.9 })),
+      each: (_game, t) => tap!(t),
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });
 
 describe('Latarnik: the breath pacer in a Cisza stands off the sea (pacerAt)', () => {

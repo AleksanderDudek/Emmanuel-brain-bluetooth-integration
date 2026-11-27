@@ -16,6 +16,8 @@ import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTarget
 import { passage } from '../src/arcade/kit/scripture';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import pasterz from '../src/arcade/pasterz/index';
 import { catalogProblems } from '../src/i18n';
 
 const DAY = '2026-11-07';
@@ -1251,4 +1253,97 @@ describe('long sessions (15–30 minutes)', () => {
     const wardrobe = hl.find(h => h.includes(t('skin.cloak.1' as 'skin.cloak.0')))!;
     expect(wardrobe).toContain(`+${UNLOCKS.length - 3}`);
   });
+});
+
+describe('long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes like the short ones: day and night in turn, rounds of about two minutes, a night last', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const name = `${planned}${first ? ' first' : ''}`;
+        expect(plan.reduce((s, b) => s + b.dur, 0), name).toBeCloseTo(planned - RULES.finale, 0);
+        const play = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0].kind, name).toBe('warmup');
+        play.forEach((b, i) => {
+          expect(b.kind, name).toBe(i % 2 ? 'watch' : 'call');
+          expect(b.dur, name).toBeGreaterThanOrEqual(RULES.minBlock - 1e-6);
+          expect(b.dur, name).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 2);
+        });
+        expect(plan[plan.length - 1].kind, name).toBe('watch');
+        expect(plan[plan.length - 1].roundEnd, name).toBe(true);
+        let len = 0, rounds = 0;
+        const last = plan.filter(b => b.roundEnd).length;
+        for (const b of plan) {
+          len += b.dur;
+          if (!b.roundEnd) continue;
+          rounds++;
+          expect(len, name).toBeGreaterThan(100);
+          expect(len, name).toBeLessThan(rounds === last ? 250 : 180);
+          len = 0;
+        }
+        expect(rounds, name).toBe(Math.floor(play.length / 4));
+        // an hour is some 26 hills: the eight hills come round three times, the rivals' growth stopped at the fourth
+        expect(rounds, name).toBeGreaterThanOrEqual(Math.floor(planned / 140));
+      }
+    }
+  }, 300_000);
+
+  it('a 60-minute session from the first ever plays every round to the finale; nothing piles up, the summary stays short', () => {
+    const sim = makeSim({ planned: 3600, progress: { sessions: 0 }, seed: 7 });
+    const DT = 0.1, n = Math.round(3615 / DT);
+    let nextTap = 0.65, maxSheep = 0, maxPrints = 0, finales = 0, rounds = 0, scoreAt40 = 0, finaleAt = 0;
+    for (let i = 1; i <= n; i++) {
+      const t = i * DT;
+      if (t >= nextTap) {
+        nextTap += 0.65;
+        sim.whistle();
+      }
+      sim.update(DT, sim.block?.kind === 'watch' ? CALM : HIGH, t);
+      for (const e of sim.take()) {
+        if (e.type === 'finale') { finales++; finaleAt = t; }
+        if (e.type === 'roundEnd') rounds++;
+      }
+      maxSheep = Math.max(maxSheep, sim.sheep.length);
+      maxPrints = Math.max(maxPrints, sim.prints.length);
+      if (i === 24000) scoreAt40 = sim.score;
+    }
+    expect(sim.phase).toBe('done');
+    expect(finales).toBe(1);
+    expect(finaleAt).toBeCloseTo(3600 - RULES.finale, 0);
+    expect(rounds).toBe(sim.roundsPlanned);
+    expect(sim.roundsDone).toBe(sim.roundsPlanned);
+    expect(sim.roundsPlanned).toBeGreaterThanOrEqual(25);
+    // it keeps giving to the end: the last twenty minutes still gather
+    expect(sim.score).toBeGreaterThan(scoreAt40 * 1.15);
+    expect(sim.p.hill).toBe(sim.roundsPlanned);
+    for (const v of [sim.score, sim.banked, sim.p.total, sim.p.flock, sim.ringR, sim.player.x, sim.player.y]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.p.flock).toBeLessThan(RULES.hundred);
+    expect(maxSheep).toBeLessThanOrEqual(RULES.maxSheep);
+    expect(maxPrints).toBeLessThanOrEqual(140);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(SAID_KEEP);
+    expect(sim.talk.said.every(l => l && !l.includes('undefined'))).toBe(true);
+    const r = sim.result();
+    expect(sim.p.best['3600']).toBe(r.score);
+    expect(r.highlights.length).toBeLessThanOrEqual(5);
+    for (const h of r.highlights) {
+      expect(h).not.toMatch(/undefined|NaN/);
+      expect(h.length, h).toBeLessThanOrEqual(90);
+    }
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+  }, 300_000);
+});
+
+describe('long sessions (45–60 minutes), drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: PasterzSim }).sim;
+    let nextTap = 0.65;
+    const { early, late } = hourFrames({
+      module: pasterz, progress: { ...pasterz.freshProgress(), sessions: 5, calls: 1, taught: TAUGHT }, tuning: TUNING, step: 0.1,
+      frame: game => (simOf(game).block?.kind === 'watch' ? CALM : HIGH),
+      each: (game, t) => { if (t >= nextTap) { nextTap += 0.65; simOf(game).whistle(); } },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

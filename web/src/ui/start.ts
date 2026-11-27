@@ -13,7 +13,7 @@ import { drawScenePreview } from '../training/scene';
 import { dayScore, type TrainingResult } from '../training/score';
 import { activityTile, drawArcadeCards, EXERCISES, GAME_ACTIVITIES, type Activity } from './activities';
 import { actionButtons, connectStep, nextStep, type ConnectActions, type ConnectStep } from './connect';
-import { $, fmtDur, h } from './dom';
+import { $, fmtMin, h } from './dom';
 import { drawOverview } from './focus';
 
 export type StartActions = ConnectActions;
@@ -123,7 +123,7 @@ export class StartView {
         h('span', { class: 'hint' }, fmtDate(last.start_time * 1000, { weekday: 'short', hour: '2-digit', minute: '2-digit' }))),
       h('div', { class: 'last' },
         stat(t('stat.activity'), pct === null ? '—' : fmtSigned(pct, 1), pct === null ? '' : '%'), stat(t('stat.control'), String(last.control_sec), 's'),
-        stat(t('stat.oxygen'), String(last.points), t('unit.points')), stat(t('stat.session'), fmtDur(last.played_sec), 'min')),
+        stat(t('stat.oxygen'), String(last.points), t('unit.points')), stat(t('stat.session'), fmtMin(last.played_sec), 'min')),
       spark);
     requestAnimationFrame(() => drawOverview(spark, last.series, resultFill(last)));
   }

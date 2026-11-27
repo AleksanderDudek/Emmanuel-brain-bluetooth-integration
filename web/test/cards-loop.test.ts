@@ -166,3 +166,23 @@ describe('links and rooms', () => {
     expect(asPadMsg([1, 2])).toBeNull();
   });
 });
+
+describe('the board\'s trial loop at 45–60 minutes', () => {
+  it.each([2700, 3600])('plays a %i s game to its end: trials all the way, the play time on the clock', planned => {
+    const { loop, log } = harness('palce', planned);
+    loop.begin(0);
+    const end = run(loop, (planned + 20) * 1000, () => {
+      const cue = log.show[log.show.length - 1];
+      return cue && cue.kind === 'item' ? [[cue.item.id, 450]] : [];
+    }, 20);
+    expect(loop.phase).toBe('done');
+    expect(log.ended).toBe(true);
+    expect(end).toBeGreaterThan(planned * 1000);
+    expect(end).toBeLessThan(planned * 1000 + 3 * 800 + 3000);
+    expect(Math.round(loop.playedMs() / 1000)).toBeGreaterThanOrEqual(planned);
+    // a trial every ~1.2–1.6 s, every one of them answered
+    expect(loop.trials.length).toBeGreaterThan(planned / 2);
+    expect(loop.trials.every(t => t.ok)).toBe(true);
+    expect(log.show.length).toBeLessThan(planned * 3);
+  });
+});

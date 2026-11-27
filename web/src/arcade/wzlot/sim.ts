@@ -811,9 +811,14 @@ export class WzlotSim {
       this.emit({ type: 'telegraph', next });
     }
     if (this.blockT >= b.dur) {
+      // the frame's overshoot carries into the next block: an hour of ~120 blocks would otherwise reach its last
+      // sunset 1–2 s late and the runner would cut the last day's tally short
+      const over = this.blockT - b.dur;
       this.endBlock();
-      if (next) this.beginBlock(this.blockIndex + 1);
-      else this.beginFinale();
+      if (next) {
+        this.beginBlock(this.blockIndex + 1);
+        this.blockT = over;
+      } else this.beginFinale();
     }
   }
 
