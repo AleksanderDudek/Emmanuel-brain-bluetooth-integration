@@ -195,7 +195,7 @@ const pl = {
   'stat.night': '{dream}: noc',
   'stat.perfect': 'Idealne ciosy',
   'hl.stars': '{dream}, noc {n}: {stars}',
-  'hl.boss': '{name} rozwiany w świetle',
+  'hl.boss': 'Światło rozwiało: {name}',
   'hl.toRecord': 'Do rekordu zabrakło: {zmory}',
   'hl.comboNear': 'Seria: zabrakło {n} do ×{m}',
   'hl.close': 'Ocalone o włos: {n}',
