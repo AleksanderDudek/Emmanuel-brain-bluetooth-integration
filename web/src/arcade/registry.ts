@@ -61,8 +61,8 @@ export interface ArcadeEntry {
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty' | 'boj'
   | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'passa' | 'wlosy'
-  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'kintsugi' | 'ogrod'
-  | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup' | 'ksztalt' | 'radosc' | 'rozkwit';
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo' | 'mysli' | 'stopklatka' | 'kintsugi' | 'ogrod' | 'warstwy' | 'kola'
+  | 'straz' | 'komorki' | 'skora' | 'zeby' | 'kregoslup' | 'ksztalt' | 'radosc' | 'sily' | 'rozkwit';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -423,6 +423,15 @@ export const ARCADE: ArcadeEntry[] = [
     load: () => import('./radosc/index').then(m => m.default),
   },
   {
+    id: 'sily', kind: 'health', title: t('sily.title'), tagline: t('sily.tagline'), text: t('sily.text'),
+    how: [t('sily.how1'), t('sily.how2'), t('sily.how3')],
+    tips: [t('sily.tip1'), t('sily.tip2'), t('sily.tip3'), t('sily.tip4'), t('sily.tip5')],
+    unit: t('sily.unit'), art: 'art-sily', fill: ['#fff2e0', '#ffd2a8', '#d9806e', '#1c0f24'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'isa40.31',
+    brain: brain('sily'),
+    load: () => import('./sily/index').then(m => m.default),
+  },
+  {
     id: 'rozkwit', kind: 'health', title: t('rozkwit.title'), tagline: t('rozkwit.tagline'), text: t('rozkwit.text'),
     how: [t('rozkwit.how1'), t('rozkwit.how2'), t('rozkwit.how3')],
     tips: [t('rozkwit.tip1'), t('rozkwit.tip2'), t('rozkwit.tip3'), t('rozkwit.tip4'), t('rozkwit.tip5')],
@@ -486,6 +495,15 @@ export const ARCADE: ArcadeEntry[] = [
     load: () => import('./mysli/index').then(m => m.default),
   },
   {
+    id: 'stopklatka', kind: 'heart', title: t('stopklatka.title'), tagline: t('stopklatka.tagline'), text: t('stopklatka.text'),
+    how: [t('stopklatka.how1'), t('stopklatka.how2'), t('stopklatka.how3')],
+    tips: [t('stopklatka.tip1'), t('stopklatka.tip2'), t('stopklatka.tip3'), t('stopklatka.tip4'), t('stopklatka.tip5')],
+    unit: t('stopklatka.unit'), art: 'art-stopklatka', fill: ['#e8f6ff', '#9fd8ff', '#c46a4a', '#14121c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'pro16.32',
+    brain: brain('stopklatka'),
+    load: () => import('./stopklatka/index').then(m => m.default),
+  },
+  {
     id: 'kintsugi', kind: 'heart', title: t('kintsugi.title'), tagline: t('kintsugi.tagline'), text: t('kintsugi.text'),
     how: [t('kintsugi.how1'), t('kintsugi.how2'), t('kintsugi.how3')],
     tips: [t('kintsugi.tip1'), t('kintsugi.tip2'), t('kintsugi.tip3'), t('kintsugi.tip4'), t('kintsugi.tip5')],
@@ -502,6 +520,24 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'psa30.5',
     brain: brain('ogrod'),
     load: () => import('./ogrod/index').then(m => m.default),
+  },
+  {
+    id: 'warstwy', kind: 'heart', title: t('warstwy.title'), tagline: t('warstwy.tagline'), text: t('warstwy.text'),
+    how: [t('warstwy.how1'), t('warstwy.how2'), t('warstwy.how3')],
+    tips: [t('warstwy.tip1'), t('warstwy.tip2'), t('warstwy.tip3'), t('warstwy.tip4'), t('warstwy.tip5')],
+    unit: t('warstwy.unit'), art: 'art-warstwy', fill: ['#fff4d8', '#f2c8e8', '#4a62c8', '#0a0c2a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '1th5.23',
+    brain: brain('warstwy'),
+    load: () => import('./warstwy/index').then(m => m.default),
+  },
+  {
+    id: 'kola', kind: 'heart', title: t('kola.title'), tagline: t('kola.tagline'), text: t('kola.text'),
+    how: [t('kola.how1'), t('kola.how2'), t('kola.how3')],
+    tips: [t('kola.tip1'), t('kola.tip2'), t('kola.tip3'), t('kola.tip4'), t('kola.tip5')],
+    unit: t('kola.unit'), art: 'art-kola', fill: ['#fff8ec', '#f2d68a', '#7a5ad8', '#0b0a26'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'eph4.16',
+    brain: brain('kola'),
+    load: () => import('./kola/index').then(m => m.default),
   },
 ];
 
