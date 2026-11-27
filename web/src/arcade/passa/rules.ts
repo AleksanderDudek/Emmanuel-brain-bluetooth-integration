@@ -2,7 +2,7 @@
  * Every number of Złota passa in one place, the session's plan and the day-streak's arithmetic (DESIGN.md §26), pure
  * and deterministic.
  *
- * One day walked down one street over the session's length T (3–30 minutes, or a test of a minute or less):
+ * One day walked down one street over the session's length T (3–60 minutes, or a test of a minute or less):
  *
  *   intro     dawn on the street, the root verse (a first-ever session: the story card — what the game is)   free
  *   moments   one after another, each a fixed run of blocks:
@@ -17,7 +17,8 @@
  * Every block has a planned start and end, so the day always reaches its evening and the session's end.  By design (the
  * dials untouched) the push and the after-rest grow with the session's length (`design`); a player who moved a dial
  * keeps it — the session fits as many moments as their rhythm allows and the evening takes what is left (always less
- * than one moment).
+ * than one moment, up to `momentsMax` moments: past half an hour a rhythm that would hold more is lengthened within the
+ * dials, `stretchFrom`; an hour of the longest dials leaves an evening of about four minutes).
  *
  * Only real focus turns a card (§18.3–18.4): in a sighted push past its lead-in, with a reliable signal, while focused,
  * at `focusRate` (the level averaged over one whole breath).  The rests are receptive.
@@ -53,8 +54,11 @@ export const RULES = {
   // ── the rhythm (kit/rhythm.ts): the turn's seconds (lead-in included), the after-rest's whole breaths ──
   focus: { def: 20, min: 15, max: 40, step: 5 },
   rest: { def: 1, min: 1, max: 4 },
-  /** by design (dials untouched): from a session of this many seconds, the push (s) and the after-rest (breaths) */
-  design: [[0, 20, 1], [600, 20, 2], [1200, 25, 2], [1500, 30, 3]] as readonly (readonly [number, number, number])[],
+  /**
+   * by design (dials untouched): from a session of this many seconds, the push (s) and the after-rest (breaths) — round
+   * 24: 45 minutes take 35 s and 4 breaths (32 moments: every set moment once), an hour the dials' longest, 40 s and 4
+   */
+  design: [[0, 20, 1], [600, 20, 2], [1200, 25, 2], [1500, 30, 3], [2700, 35, 4], [3300, 40, 4]] as readonly (readonly [number, number, number])[],
   /** the breath of every rest: 4 · 0 · 6 · 0 (the runner's pacer) — one whole breath (s) */
   cyc: 10,
 
@@ -77,6 +81,17 @@ export const RULES = {
   pickUntil: 0.6,
   /** at most this many moments in a session */
   momentsMax: 40,
+  /**
+   * past this length (s) a day the player's dials would fill with more moments than `momentsMax` lengthens their
+   * rhythm within the dials' ranges — the rests first, then the turns — so the moments fill the day, not the evening
+   * (round 24: dials of 15 s and one breath left 37 minutes of evening in an hour); 30 minutes and less as before
+   */
+  stretchFrom: 1800,
+  /**
+   * a day longer than the sets (an hour: 40 moments, 32 in the sets) meets a set moment again only this many moments
+   * after it (round 24: an hour's day once met the same card again four moments later; 12 moments ≈ 16 minutes)
+   */
+  againAfter: 12,
   /** a heavy moment needs this many moments around it (never the first, never the last) */
   heavyMinMoments: 3,
   /** where in the day a heavy moment stands (share of the moments) */
@@ -243,6 +258,11 @@ export function planFor(o: PlanOpts): Plan {
     // a session too short for the dials (never at 3 minutes and up, kept for odd lengths): rests, then pushes shrink
     while (fit(false) < 1 && breaths > 1) breaths--;
     if (fit(false) < 1) push = Math.max(lead + R.pushMinSighted, M - arrive - breaths * cyc);
+    // a long session too long for the dials' moments: the rhythm lengthens within the dials (see `stretchFrom`)
+    if (T > R.stretchFrom) {
+      while (fit(false) > R.momentsMax && breaths < R.rest.max) breaths++;
+      while (fit(false) > R.momentsMax && push < R.focus.max) push = Math.min(R.focus.max, push + R.focus.step);
+    }
     n = Math.min(R.momentsMax, Math.max(1, fit(false)));
     if (o.heavy) {
       const k = Math.min(R.momentsMax, fit(true));

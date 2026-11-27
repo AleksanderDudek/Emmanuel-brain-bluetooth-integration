@@ -206,6 +206,8 @@ export class PassaSim {
     const carriedHeavy = p.hard ? carriedSets.find(m => m.kind === 'heavy') ?? null : null;
 
     const used = new Set<string>();
+    /** the slot each set moment was last met at today (a long day's second round skips those met lately) */
+    const metAt = new Map<string, number>();
     const recent = new Set(p.recent);
     const runs: MomentRun[] = [];
     let snagsInRow = 0, setSlots = 0;
@@ -213,7 +215,7 @@ export class PassaSim {
       const b = P.blocks.find(x => x.what === 'turn' && x.slot === slot);
       return partOf(dayAt(P, b ? b.t0 : 0));
     };
-    const pickSet = (kind: 'joy' | 'snag', part: DayPart): SetMoment | null => {
+    const pickSet = (kind: 'joy' | 'snag', part: DayPart, slot: number): SetMoment | null => {
       const all = kind === 'joy' ? JOYS : SNAGS;
       let pool = all.filter(m => !used.has(m.id));
       if (!pool.length) {
@@ -221,15 +223,19 @@ export class PassaSim {
         for (const m of all) used.delete(m.id);
         pool = [...all];
       }
+      // …never one met in the last `againAfter` moments (before they were all used, none was met: nothing changes)
+      const longAgo = pool.filter(m => slot - (metAt.get(m.id) ?? -Infinity) >= RULES.againAfter);
+      if (longAgo.length) pool = longAgo;
       const tiers = [pool.filter(m => !recent.has(m.id) && m.part === part), pool.filter(m => !recent.has(m.id)), pool.filter(m => m.part === part), pool];
       for (const tier of tiers) if (tier.length) return tier[Math.floor(rng() * tier.length)];
       return null;
     };
     let ownI = 0, backI = 0;
     // the set cards' kinds over the day: a little more joys than troubles (and never fewer), troubles at most as many as
-    // the set has; spread so that three troubles never come in a row
+    // the set has, joys too while the troubles can make up the rest (round 24: a 45-minute day meets each card once);
+    // spread so that three troubles never come in a row
     const setTotal = Math.max(0, P.n - (heavySlot >= 0 ? 1 : 0) - ownLight.length - carriedLight.length);
-    let joysLeft = Math.max(Math.ceil(setTotal * 0.55), setTotal - SNAGS.length);
+    let joysLeft = Math.max(Math.min(Math.ceil(setTotal * 0.55), JOYS.length), setTotal - SNAGS.length);
     let snagsLeft = Math.max(0, setTotal - joysLeft);
     for (let slot = 0; slot < P.n; slot++) {
       const part = partAt(slot);
@@ -262,8 +268,9 @@ export class PassaSim {
       const joy = !canSnag || (canJoy && (setSlots === 0 || P.test || rng() < pJoy));
       if (joy) joysLeft--;
       else snagsLeft--;
-      const m = pickSet(joy ? 'joy' : 'snag', part)!;
+      const m = pickSet(joy ? 'joy' : 'snag', part, slot)!;
       used.add(m.id);
+      metAt.set(m.id, slot);
       setSlots++;
       snagsInRow = m.kind === 'snag' ? snagsInRow + 1 : 0;
       runs.push(this.setRun(m, slot, part, null));

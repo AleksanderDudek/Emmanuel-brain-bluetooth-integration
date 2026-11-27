@@ -37,6 +37,13 @@ export const RULES = {
   cellsLongMax: 216,
   cellsLongFrom: 900,
   cellsLongAt: 1350,
+  /**
+   * sessions past half an hour (round 24: 45 and 60 minutes) may take as many cells a minute of push and rest as half
+   * an hour does — 216 × the seconds / `cellsHourFrom` — up to `cellsHourMax`, so a threshold player is not done colouring
+   * at two thirds of an hour (a strong one at half of it); 30 minutes and less keep their 216 exactly
+   */
+  cellsHourFrom: 1800,
+  cellsHourMax: 432,
   /** the pace (cells lit per minute of push and rest) a newcomer is planned for, and its bounds */
   pace0: 5.3,
   paceMin: 2,

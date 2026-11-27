@@ -327,7 +327,8 @@ describe('sessions of 15–30 minutes (round 12)', () => {
     // a strong player's pace takes a finer window past 15 minutes (round 20: the window holds what the pace lights)
     expect(planCells(9, playSecOf(1200, false))).toBeGreaterThan(144);
     expect(planCells(9, playSecOf(1800, false))).toBe(RULES.cellsLongMax);
-    expect(planCells(RULES.paceMax, 99_999)).toBe(RULES.cellsLongMax);
+    // (past half an hour the window may grow on: round 24, up to cellsHourMax)
+    expect(planCells(RULES.paceMax, 99_999)).toBe(RULES.cellsHourMax);
     expect(later({ planned: 1800, progress: { pace: 9 } }).cellsWanted).toBe(RULES.cellsLongMax);
     // the progress keeps a long window's count
     expect(migrate({ ...freshProgress(), cells: 200 }).cells).toBe(200);
@@ -362,7 +363,7 @@ describe('the window fits the session (round 20: "I can do at most 50–60 % of 
   it('cuts a window into what the player is expected to light at their pace (×0.9) — 10 at least, 144 at most', () => {
     expect(RULES.planSpread).toBeLessThan(1);
     expect(planCells(RULES.pace0, 10)).toBe(RULES.cellsMin);
-    expect(planCells(RULES.paceMax, 9999)).toBe(RULES.cellsLongMax);
+    expect(planCells(RULES.paceMax, 9999)).toBe(RULES.cellsHourMax);
     expect(planCells(RULES.paceMax, playSecOf(900, false))).toBe(RULES.cellsMax);
     const p3 = planCells(RULES.pace0, playSecOf(180, false));
     const p5 = planCells(RULES.pace0, playSecOf(300, false));
@@ -441,6 +442,108 @@ describe('the window fits the session (round 20: "I can do at most 50–60 % of 
       expect(c.cap).toBeLessThanOrEqual(RULES.capMax * RULES.capUnit + 1e-9);
     }
   });
+});
+
+describe('45–60 minutes (round 24)', () => {
+  const weak = (sim: JestemSim, t: number) => (sim.block.kind === 'rest' ? CALM : t % 10 < 6 ? MID : LOW);
+  const PLAYERS: [string, Feed][] = [['weak', weak], ['threshold', good(MID)], ['strong', good(HIGH)]];
+
+  /** One session on a window cut as the game cuts it (the pace saved so far); the progress goes on. */
+  function session(planned: number, p: JestemProgress, feed: Feed, seed = 1, each?: (sim: JestemSim, t: number) => void) {
+    const probe = new JestemSim({ progress: { ...p }, rng: mulberry32(seed), day: DAY, plannedSec: planned, eeg: false, tuning: TUNING, askForm: false });
+    const sim = new JestemSim({ progress: p, rng: mulberry32(seed), day: DAY, plannedSec: planned, eeg: false, tuning: TUNING, askForm: false });
+    sim.setVision(visionOf('zdrowy', probe.cellsWanted));
+    sim.start();
+    const clock = { t: 0 };
+    let guard = 0;
+    while (sim.phase !== 'done' && guard++ < 4000) drive(sim, 1, feed, clock, t => each?.(sim, t));
+    expect(sim.phase).toBe('done');
+    return { sim, end: clock.t };
+  }
+
+  it('cuts 45- and 60-minute windows by the same cells a minute as half an hour; 30 minutes and less exactly as before', () => {
+    // round 12's and 20's maximum, unchanged up to half an hour of push and rest
+    const before = (ps: number) => Math.round(RULES.cellsMax + (RULES.cellsLongMax - RULES.cellsMax) * Math.min(1, Math.max(0, (ps - RULES.cellsLongFrom) / (RULES.cellsLongAt - RULES.cellsLongFrom))));
+    for (let ps = 0; ps <= RULES.cellsHourFrom; ps += 5) expect(cellsMaxFor(ps), String(ps)).toBe(before(ps));
+    for (const sec of [180, 300, 600, 900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) expect(playSecOf(sec, first)).toBeLessThanOrEqual(RULES.cellsHourFrom);
+    }
+    // past it the window may hold as many cells a minute as 30 minutes do: ~320 in 45 minutes, ~430 in an hour
+    const m45 = cellsMaxFor(playSecOf(2700, false)), m60 = cellsMaxFor(playSecOf(3600, false));
+    expect(m45).toBeGreaterThan(300);
+    expect(m45).toBeLessThan(330);
+    expect(m60).toBeGreaterThan(410);
+    expect(m60).toBeLessThanOrEqual(RULES.cellsHourMax);
+    // a player's window still follows their pace (a threshold player ~300 cells in an hour)
+    expect(planCells(5.6, playSecOf(3600, false))).toBeGreaterThan(280);
+    expect(planCells(5.6, playSecOf(3600, false))).toBeLessThan(320);
+    expect(planCells(3.6, playSecOf(3600, false))).toBeLessThan(200);
+    expect(later({ planned: 3600, progress: { pace: 9 } }).cellsWanted).toBe(m60);
+    // the lobby's card and the save keep an hour's window
+    expect(migrate({ ...freshProgress(), cells: 400 }).cells).toBe(400);
+    // the window cuts in a moment, also at its finest
+    const t0 = performance.now();
+    const g = geoOf('zdrowy', RULES.cellsHourMax, 11);
+    expect(performance.now() - t0).toBeLessThan(1500);
+    expect(g.cells.length).toBeGreaterThan(RULES.cellsHourMax * 0.9);
+  });
+
+  it('fits the window to 45 and 60 minutes: ≥ 90 % lit once the pace is learnt, the light pass short (before: a third to a half of an hour)', () => {
+    const rows: string[] = [];
+    for (const [name, feed] of PLAYERS) {
+      for (const planned of [2700, 3600]) {
+        const p: JestemProgress = { ...freshProgress(), seen: [...ALL_SEEN], form: 'm' };
+        for (let s = 1; s <= 13; s++) {
+          const measured = s === 1 || s === 2 || s === 5 || s === 13;
+          // between the measured ones: shorter sessions (they teach the pace as well)
+          const { sim } = session(measured ? planned : 600, p, feed, s);
+          if (measured) {
+            const lit = sim.score / sim.cells, pass = sim.complete ? 1 - sim.playDone / sim.playT : 0;
+            const row = `${name} ${planned} s${s}: ${sim.cells} cells, ${lit.toFixed(2)} lit, light pass ${pass.toFixed(2)}`;
+            rows.push(row);
+            expect(sim.score + sim.graced, row).toBe(sim.cells);
+            // measured (round 24): learnt 0.99–1.00; first sessions: weak 0.76–0.84, threshold and strong 1.00
+            if (s >= 5) {
+              expect(lit, row).toBeGreaterThanOrEqual(0.9);
+              expect(pass, row).toBeLessThan(0.2);
+            } else expect(lit, row).toBeGreaterThanOrEqual(0.7);
+            // a strong newcomer (the pace not yet learnt) still finishes early, but no longer at half of the hour
+            expect(pass, row).toBeLessThan(0.45);
+          }
+          Object.assign(p, sim.p);
+        }
+      }
+    }
+  }, 300_000);
+
+  it('plays an hour through: blocks to the finale on time, every piece counted, Hanna still speaking, a short summary', () => {
+    const p: JestemProgress = { ...freshProgress(), sessions: 6, pushes: 40, seen: [...ALL_SEEN], form: 'm', pace: 5.7 };
+    let pushes = 0, rests = 0, last = -1, late = 0, lastLine: unknown = null;
+    const { sim, end } = session(3600, p, good(MID), 3, (s, t) => {
+      if (s.blockIndex !== last) {
+        last = s.blockIndex;
+        if (s.block.kind === 'push') pushes++;
+        else if (s.block.kind === 'rest') rests++;
+      }
+      if (s.talk.line && s.talk.line !== lastLine && t > 3000) late++;
+      lastLine = s.talk.line;
+    });
+    expect(end).toBeGreaterThan(3590);
+    expect(end).toBeLessThan(3660);
+    expect(sim.score + sim.graced).toBe(sim.cells);
+    expect(sim.score / sim.cells).toBeGreaterThan(0.9);
+    for (const v of [sim.score, sim.rays, sim.rings, sim.glowMean]) expect(Number.isFinite(v)).toBe(true);
+    expect(pushes).toBeGreaterThan(40);
+    expect(rests).toBeGreaterThan(40);
+    expect(sim.plan.length).toBeLessThan(400);
+    expect(late).toBeGreaterThan(3);
+    const r = sim.result();
+    expect(r.score).toBe(sim.score);
+    expect(r.highlights.length).toBeLessThanOrEqual(6);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(sim.p.cells).toBe(sim.cells);
+  }, 120_000);
 });
 
 describe('the vision', () => {
@@ -875,7 +978,7 @@ describe('the meta', () => {
     expect(p.best).toBe(0);
     expect(p.album).toEqual({ silny: { n: 2, best: 30, rays: RULES.raysMax, rings: 2, first: '2026-11-01', last: '' } });
     expect(p.own.map(o => o.id)).toEqual(['a']);
-    expect(p.cells).toBe(RULES.cellsLongMax);
+    expect(p.cells).toBe(RULES.cellsHourMax);
     expect(p.seen).toEqual(['tap']);
     expect(p.last).toBe('decl:silny');
     for (const junk of [null, 3, 'x', [], { ver: 2 }, { album: [], own: {}, seen: 'x' }]) {

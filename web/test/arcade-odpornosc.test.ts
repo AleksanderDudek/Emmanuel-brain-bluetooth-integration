@@ -1396,6 +1396,81 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the finale: alarm and rest alternating, ending on a rest, a pair about every 65 s', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('plays a whole hour: loop after loop of the six stages at the held difficulty, no throw, a bounded field, a short summary', () => {
+    for (const seed of [3, 8]) {
+      const sim = later({ planned: 3600, seed });
+      const clock = { t: 0 };
+      let next = 1, maxBugs = 0, maxCells = 0, maxAbs = 0, maxRings = 0, maxFibres = 0, finale = false, grace = 0, starred = 0, late = 0;
+      let lastLine: unknown = null;
+      const close = closeCards(sim);
+      for (let i = 0; i < 3606 / STEP; i++) {
+        clock.t += STEP;
+        const tt = clock.t;
+        sim.update(STEP, sim.restBlock ? (Math.floor(tt / 7) % 2 ? LOW : MID) : Math.floor(tt / 13) % 2 ? MID : HIGH, tt);
+        close();
+        if (tt >= next) { next += 1.2; sim.seekNearest(); }
+        for (const e of sim.take()) {
+          if (e.type === 'finale') finale = true;
+          if (e.type === 'stageDone' && e.grace) grace++;
+          if (e.type === 'stageDone' && !e.grace) starred++;
+        }
+        const line = sim.talk.line;
+        if (line && line !== lastLine && tt > 3000) late++;
+        lastLine = line;
+        maxBugs = Math.max(maxBugs, sim.bugs.length);
+        maxCells = Math.max(maxCells, sim.cells.length);
+        maxAbs = Math.max(maxAbs, sim.abs.length);
+        maxRings = Math.max(maxRings, sim.rings.length);
+        maxFibres = Math.max(maxFibres, sim.fibres.length);
+      }
+      const r = sim.result();
+      expect(finale).toBe(true);
+      expect(sim.phase).toBe('done');
+      expect(sim.blockIndex).toBe(sim.plan.length - 1);
+      for (const v of [sim.score, sim.p.loop, sim.p.stage, sim.charge, sim.alarm, sim.calm]) expect(Number.isFinite(v)).toBe(true);
+      expect(sim.p.loop).toBeGreaterThanOrEqual(10);
+      expect(starred).toBeGreaterThan(grace * 3);
+      expect(maxBugs).toBeLessThanOrEqual(RULES.bugCap);
+      expect(maxCells).toBeLessThan(120);
+      expect(maxAbs).toBeLessThan(200);
+      expect(maxRings).toBeLessThan(60);
+      expect(maxFibres).toBeLessThan(400);
+      expect(late).toBeGreaterThan(5);
+      expect(r.score).toBe(sim.score);
+      expect(String(r.score).length).toBeLessThanOrEqual(7);
+      expect(sim.p.best['3600']).toBe(r.score);
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      // each place a loop closed at most once in the summary (an hour closes ~15 loops round three places)
+      expect(new Set(r.highlights).size).toBe(r.highlights.length);
+      expect(r.highlights.filter(h => h.startsWith(t('hl.loop', { place: '' }).slice(0, 8))).length).toBeLessThanOrEqual(2);
+      for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+      expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    }
+  }, 120_000);
+});
+
 describe('Odporność: the breath pacer in a rest stands under the strip, off the wound (pacerAt)', () => {
   it('keeps the pill whole under the HUD band, clear of the stage\'s pill, the help button, the round buttons and the wound, at every size', () => {
     for (const c of CHECK_SIZES) {

@@ -1467,6 +1467,72 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the finale: push and rest alternating, ending on a rest, a pair about every minute', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('plays a whole hour: lesson after lesson round the ladder at the held difficulty, no throw, a bounded network, a short summary', () => {
+    const sim = later({ planned: 3600, seed: 2 });
+    const clock = { t: 0 };
+    let space = 2, oli = 8, maxPulses = 0, maxLinks = 0, finale = false, late = 0, lastLine: unknown = null;
+    const learnedAt: number[] = [];
+    for (let i = 0; i < 3603 / STEP; i++) {
+      clock.t += STEP;
+      sim.update(STEP, sim.restBlock ? CALM : (Math.floor(clock.t / 13) % 2 ? MID : HIGH), clock.t, null);
+      if (clock.t >= space) { space += 2; sim.key(' ', true); sim.key(' ', false); }
+      if (clock.t >= oli) { oli += 8; if (sim.oli.state === 'home') sim.sendOli(); }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'learned') learnedAt.push(clock.t);
+      }
+      const line = sim.talk.line;
+      if (line && line !== lastLine && clock.t > 3000) late++;
+      lastLine = line;
+      maxPulses = Math.max(maxPulses, sim.pulses.length);
+      maxLinks = Math.max(maxLinks, sim.links.size);
+    }
+    const r = sim.result();
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.thoughts, sim.charge, sim.waste, sim.fastestMs]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.learnedNow.length).toBeGreaterThanOrEqual(40);
+    expect(learnedAt.filter(t => t > 3000).length).toBeGreaterThanOrEqual(3);
+    expect(sim.lesson.round).toBeGreaterThanOrEqual(6);
+    expect(maxPulses).toBeLessThanOrEqual(RULES.maxPulses);
+    expect(maxLinks).toBeLessThanOrEqual((NEURONS * RULES.perNeuron) / 2 + 4);
+    expect(late).toBeGreaterThan(3);
+    expect(r.score).toBe(sim.score);
+    expect(String(r.score).length).toBeLessThanOrEqual(7);
+    expect(sim.p.best['3600']).toBe(r.score);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) {
+      expect(h).not.toMatch(/undefined|NaN/);
+      expect(h.length).toBeLessThan(160);
+    }
+    expect(r.highlights.length).toBeLessThanOrEqual(5);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    expect(sim.p.links.length).toBeLessThanOrEqual(RULES.keepLinks);
+  }, 120_000);
+});
+
 describe('Synapsy: the breath pacer in a rest stands beside the brain (pacerAt)', () => {
   it('keeps the pill whole under the HUD band, clear of the lens, Oli, the song and the plate; off every neuron where the band leaves room', () => {
     for (const seed of [1, 7, 42]) {

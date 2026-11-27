@@ -123,7 +123,8 @@ describe('Złota passa — the plan', () => {
   });
 
   it('keeps the player’s dials (and says what a session keeps), and by design lengthens them with the session', () => {
-    for (const T of LENGTHS) for (const focus of [15, 20, 30, 40]) for (const rest of [1, 2, 3, 4]) {
+    // (up to half an hour; past it a rhythm that would hold more than momentsMax moments is lengthened: '45–60 minutes')
+    for (const T of LENGTHS.filter(s => s <= RULES.stretchFrom)) for (const focus of [15, 20, 30, 40]) for (const rest of [1, 2, 3, 4]) {
       const p = planFor({ plannedSec: T, eeg: false, focus, rest, custom: true });
       expect(p.push, `${T} ${focus}/${rest}`).toBe(focus);
       expect(p.breaths, `${T} ${focus}/${rest}`).toBe(rest);
@@ -821,3 +822,84 @@ function until(sim: PassaSim, done: (s: PassaSim) => boolean, f: FocusFrame | Fr
   for (let i = 0; i < max / STEP && !done(sim); i++) drive(sim, STEP, f, clock, out);
   return out;
 }
+
+describe('Złota passa — 45–60 minutes (round 24)', () => {
+  it('fills 45 and 60 minutes with moments, not with the evening: by design 35 s / 4 breaths (32 moments) and 40 / 4 (40)', () => {
+    expect(designFor(2700)).toEqual({ push: 35, breaths: 4 });
+    expect(designFor(3600)).toEqual({ push: 40, breaths: 4 });
+    expect(planFor({ plannedSec: 2700, eeg: false }).n).toBe(SETS.length - HEAVIES.length);
+    expect(planFor({ plannedSec: 3600, eeg: false }).n).toBe(RULES.momentsMax);
+    for (const T of [2700, 3600]) for (const eeg of [false, true]) for (const heavy of [false, true]) for (const first of [false, true]) {
+      for (const dials of [null, [15, 1], [20, 2], [30, 3], [40, 4]] as const) {
+        const p = planFor({ plannedSec: T, eeg, heavy, first, ...(dials ? { focus: dials[0], rest: dials[1], custom: true } : {}) });
+        const name = `${T} s ${eeg ? 'eeg' : 'fnirs'} heavy=${heavy} first=${first} ${dials ?? 'design'}`;
+        for (let i = 1; i < p.blocks.length; i++) expect(Math.abs(p.blocks[i].t0 - p.blocks[i - 1].t1), name).toBeLessThan(1e-9);
+        expect(Math.abs(p.blocks[p.blocks.length - 1].t1 - T), name).toBeLessThan(1e-6);
+        expect(p.n, name).toBeLessThanOrEqual(RULES.momentsMax);
+        expect(p.n, name).toBeGreaterThanOrEqual(28);
+        // the evening about as long a share as half an hour's (two to four minutes; before: up to 41 minutes)
+        const eve = T - p.eveningStart;
+        expect(eve, name).toBeGreaterThanOrEqual(RULES.evening.min);
+        expect(eve, name).toBeLessThanOrEqual(0.075 * T);
+        expect(T - p.prayerEnd, name).toBeGreaterThanOrEqual(RULES.closeMin - 1e-6);
+        // the dials only ever lengthen, within their ranges
+        if (dials) {
+          expect(p.push, name).toBeGreaterThanOrEqual(dials[0]);
+          expect(p.breaths, name).toBeGreaterThanOrEqual(dials[1]);
+        }
+        expect(p.push, name).toBeLessThanOrEqual(RULES.focus.max);
+        expect(p.breaths, name).toBeLessThanOrEqual(RULES.rest.max);
+        for (const b of p.blocks) if (b.kind === 'rest') expect((b.t1 - b.t0) / p.cyc, `${name} ${b.what}`).toBeCloseTo(Math.round((b.t1 - b.t0) / p.cyc), 9);
+      }
+    }
+    // a rhythm that fits keeps its dials also in an hour; 30 minutes and less never stretch
+    expect(planFor({ plannedSec: 2700, eeg: false, focus: 40, rest: 4, custom: true })).toMatchObject({ push: 40, breaths: 4, n: 30 });
+    expect(planFor({ plannedSec: 1800, eeg: false, focus: 15, rest: 1, custom: true })).toMatchObject({ push: 15, breaths: 1 });
+  });
+
+  it('a 45-minute day meets every set moment once; an hour’s day lets a few come again, later in the day', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const day45 = makeSim({ planned: 2700, seed }).runs.map(r => r.id);
+      expect(new Set(day45).size, `${seed}`).toBe(day45.length);
+      const sim = makeSim({ planned: 3600, seed });
+      const ids = sim.runs.map(r => r.id);
+      const seen = new Map<string, number>();
+      ids.forEach((id, i) => {
+        // never more than twice, and never again within the first half of the day
+        if (seen.has(id)) expect(i - seen.get(id)!, `${seed} ${id}`).toBeGreaterThanOrEqual(8);
+        seen.set(id, i);
+      });
+      for (const id of new Set(ids)) expect(ids.filter(x => x === id).length, `${seed} ${id}`).toBeLessThanOrEqual(2);
+      expect(new Set(ids).size, `${seed}`).toBe(SETS.length - HEAVIES.length);
+      expect(sim.runs.map(r => r.kind).join(','), `${seed}`).not.toMatch(/snag,snag,snag/);
+    }
+  });
+
+  it('plays an hour through: every moment met, the garland past its forty bulbs, a clean result, the narrator still speaking', () => {
+    for (const push of [AVG, HIGH]) {
+      const sim = makeSim({ planned: 3600, seed: 3, progress: { hard: true } });
+      let late = 0, last: unknown = null;
+      drive(sim, sim.T + 1, (tt, s) => {
+        const line = s.talk.line;
+        if (line && line !== last && tt > 3000) late++;
+        last = line;
+        return s.pushBlock ? push : LOW;
+      });
+      sim.finish();
+      expect(sim.runs.every(r => r.met)).toBe(true);
+      expect(sim.wins).toBeGreaterThanOrEqual(sim.runs.length * 0.9);
+      expect(late).toBeGreaterThan(3);
+      const v = sim.view();
+      expect(v.lights).toBe(sim.wins);
+      const r = sim.result();
+      expect(r.score).toBe(sim.wins);
+      expect(r.stats.length).toBeLessThanOrEqual(5);
+      expect(r.highlights.length).toBeLessThanOrEqual(6);
+      for (const [k, s] of r.stats) expect(`${k} ${s}`).not.toMatch(/undefined|NaN|Infinity/);
+      for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
+      expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      expect(sim.p.carried.length).toBeLessThanOrEqual(RULES.carryKeep);
+      expect(sim.p.recent.length).toBeLessThanOrEqual(RULES.recentMax);
+    }
+  }, 120_000);
+});

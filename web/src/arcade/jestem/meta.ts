@@ -118,7 +118,7 @@ export function migrate(p: JestemProgress): JestemProgress {
   p.pace = old ? f.pace : num(raw.pace, f.pace, RULES.paceMin, RULES.paceMax);
   p.best = int(raw.best);
   p.total = int(raw.total);
-  p.cells = int(raw.cells, 0, 0, RULES.cellsLongMax);
+  p.cells = int(raw.cells, 0, 0, RULES.cellsHourMax);
   p.last = isVisionKey(raw.last) ? raw.last : null;
   p.seen = Array.isArray(raw.seen) ? raw.seen.filter((x): x is string => typeof x === 'string').slice(0, 64) : [];
   // an own vision pinned or chosen must still be one of the player's pictures
@@ -195,8 +195,12 @@ export function dropOwn(p: JestemProgress, id: string): void {
   if (p.last === k) p.last = null;
 }
 
-/** The most cells a window of `playSec` seconds of push and rest may take: 144, growing to 216 past 15 minutes (round 12). */
+/**
+ * The most cells a window of `playSec` seconds of push and rest may take: 144, growing to 216 past 15 minutes (round 12),
+ * and past half an hour as many a minute as half an hour allows, up to 432 (round 24: 45 and 60 minutes).
+ */
 export function cellsMaxFor(playSec: number): number {
+  if (playSec > RULES.cellsHourFrom) return Math.round(Math.min(RULES.cellsHourMax, (RULES.cellsLongMax * playSec) / RULES.cellsHourFrom));
   const k = clamp((playSec - RULES.cellsLongFrom) / (RULES.cellsLongAt - RULES.cellsLongFrom));
   return Math.round(RULES.cellsMax + (RULES.cellsLongMax - RULES.cellsMax) * k);
 }
@@ -204,7 +208,7 @@ export function cellsMaxFor(playSec: number): number {
 /**
  * How many cells the next window gets: the cells the player is expected to light — their pace × the minutes of push
  * and rest the session holds — times `planSpread` (round 20: 0.9, so the player's own focus lights the whole picture;
- * a little time is left for the light pass), within 10…144 (…216 in sessions over 15 minutes, `cellsMaxFor`).
+ * a little time is left for the light pass), within 10…144 (…216 in sessions over 15 minutes, …432 in an hour: `cellsMaxFor`).
  */
 export function planCells(pace: number, playSec: number): number {
   const p = clamp(Number.isFinite(pace) ? pace : RULES.pace0, RULES.paceMin, RULES.paceMax);
