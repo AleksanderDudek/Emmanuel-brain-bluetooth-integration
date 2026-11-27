@@ -1561,3 +1561,14 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .og-week-item .og-glyph{margin-top:1px;color:var(--og-2)}
 .og-week-item.start{color:var(--og-2);font-style:italic}
 @media (prefers-reduced-motion:reduce){.og-sw::before,.og-sw::after{transition:none}}
+/* round 23 "Ciało słucha": the health visualisations' inner layer in the lobby card (src/arcade/kit/innerpanel.ts) */
+.inner-panel{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--line-2)}
+.inner-panel p{margin:0;overflow-wrap:anywhere}
+.inner-h{font-size:13.5px;font-weight:700;color:var(--tx2);margin-top:6px}
+.inner-chips,.inner-cues{gap:8px}
+.inner-panel .inner-chip{min-height:44px;min-width:0;padding:0 15px;border-radius:999px}
+.inner-chip[aria-pressed="true"]{background:var(--tool-dim);border-color:var(--tool);color:var(--tool)}
+.inner-own{padding:2px 0 0;max-width:520px}
+.inner-own input{min-height:44px;font-size:15px;width:100%}
+.inner-why{display:flex;align-items:center;min-height:32px}
+.inner-link{color:var(--tool);text-decoration:underline;text-underline-offset:3px;font-weight:600}

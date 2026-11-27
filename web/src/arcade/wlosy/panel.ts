@@ -7,12 +7,15 @@
  *   the library    the eight meditations as picture tiles — choose one (the next session begins there, or resumes
  *                  where it stopped), with how many of its scenes have grown and how often it was completed
  *   the colour     the player's hair colour (the melanocytes and every strand take it)
+ *   the body       "Ciało słucha" (round 23, kit/innerpanel.ts — one section for all nine health visualisations): the
+ *                  word on the out-breath, the intention, the word of peace, before sleep; kept on this device
  *   the music      the quiet tune's switch
  *
  * Built with h(); a choice saves the progress and redraws the card.
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { innerPanel } from '../kit/innerpanel';
 import { COLOUR, COLOURS, MED, MEDS, MODES, colourName, medLine, medName, modeName, sceneAt, sceneCount, sceneName, type HairColour } from './content';
 import { t } from './i18n';
 import { bestOf, choose, medsDone, scenesGrown, setColour, setMode, type WlosyProgress } from './meta';
@@ -118,6 +121,9 @@ function build(p: WlosyProgress, changed: () => void): HTMLElement[] {
     h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.colour') }, COLOURS.map(colBtn)),
     h('p', { class: 'muted' }, t('panel.colourNote')));
   if (p.abideBest > 0) out.push(h('p', null, `${t('panel.longest')}: ${secText(p.abideBest)}`));
+
+  // ── the body listens (round 23): its own section, saved on this device for every health visualisation ──
+  out.push(innerPanel());
 
   // ── the music ──
   const box = h('input', { type: 'checkbox', 'aria-label': t('panel.song') }) as HTMLInputElement;

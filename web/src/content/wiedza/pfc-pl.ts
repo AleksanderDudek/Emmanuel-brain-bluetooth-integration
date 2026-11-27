@@ -244,6 +244,28 @@ const article: Article = {
       link: '#gra/dlonie',
     },
     {
+      id: 'body',
+      title: 'Umysł, który pomaga ciału',
+      short: 'Spokój, oczekiwanie, wyobrażony ruch i sen naprawdę docierają do ciała: wspierają jego własną pracę — skromnie i nigdy zamiast leczenia.',
+      body: [
+        { text: 'Ciało cały czas samo się naprawia: goi rany, wymienia zużyte komórki, w nocy sprząta i odbudowuje. Stres tę pracę spowalnia — rany goją się wolniej u osób bardziej zestresowanych. Działa wprost, przez reakcje stresowe ciała, i pośrednio, przez nawyki, które zdrowiu nie służą.', refs: ['walburn2009', 'gouin2011'] },
+        { text: 'Z umysłu do ciała prowadzi kilka dobrze opisanych dróg. Spokój: powolny oddech pobudza nerw błędny, który uspokaja serce, a trening autogenny (ciężar, ciepło, spokojne serce) pomaga m.in. przy nadciśnieniu, bólach głowy i kłopotach ze snem. Oczekiwanie: to, czego się spodziewamy, realnie zmienia odczuwanie i objawy — tak działa placebo. Nastawienie: życzliwszy obraz własnego starzenia wiąże się z lepszym zdrowiem w kolejnych latach. Wyobrażenie: ruch ćwiczony w wyobraźni zwiększa siłę mięśni.', refs: ['laborde2022', 'stetter2002', 'wager2015', 'westerhof2023', 'paravlic2018'] },
+        { text: 'Gdzie w tym wszystkim jest kora przedczołowa? To w niej powstaje oczekiwanie: gdy spodziewamy się ulgi, pracuje mocniej, a gdy badacze na chwilę zakłócili jej grzbietowo-boczną część, placebo przestało łagodzić ból. Sąsiednia, brzuszno-przyśrodkowa część współgra z rytmem serca — ocena sytuacji „z góry” kształtuje to, jak ciało odpowiada na stres. Opaska widzi więc prawdziwy fragment tej drogi: pracę kory, w której rodzą się skupienie, spokojna ocena i oczekiwanie. Samego gojenia nie widzi.', refs: ['atlas2014', 'krummenacher2010', 'thayer2012'] },
+        { text: 'To wsparcie, nie lekarstwo. Efekty są prawdziwe, ale zwykle skromne, a wiele badań jest małych. Nie ma dowodów, że wyobrażenia zmniejszają guzy — u chorych na raka raczej łagodzą lęk i dają więcej komfortu. Spokój, dobre słowo i sen pomagają ciału robić to, co i tak robi, i nigdy nie zastępują leczenia.', refs: ['roffe2005'] },
+      ],
+      points: [
+        { text: 'Przegląd systematyczny 22 badań i metaanaliza 11 z nich: stres wiązał się z wolniejszym gojeniem ran (r\u00a0=\u00a0−0,42). Przegląd 19 badań z losowaniem: pomoc psychologiczna — najwyraźniej relaksacja, zwłaszcza u pacjentów po operacjach — wspierała gojenie; wyniki obiecujące, ale różnorodne, a część badań bez efektu mogła nie zostać opublikowana.', refs: ['walburn2009', 'robinson2017'] },
+        { text: 'Metaanaliza 223 badań: powolny oddech zwiększa zmienność rytmu serca zależną od nerwu błędnego — w trakcie ćwiczenia, tuż po nim i po serii treningów. Metaanaliza 34 badań z losowaniem: 7–16 tygodni tai chi, qigong, jogi lub medytacji umiarkowanie obniżało CRP, wskaźnik stanu zapalnego; na inne wskaźniki wpływ był mały.', refs: ['laborde2022', 'morgan2014'] },
+        { text: 'Metaanaliza 25 badań obrazowych: oczekiwanie ulgi pobudza korę przedczołową i wycisza obszary bólu. W badaniu ze stymulacją magnetyczną chwilowe zakłócenie grzbietowo-bocznej kory przedczołowej całkowicie znosiło przeciwbólowe działanie placebo.', refs: ['atlas2014', 'krummenacher2010'] },
+        { text: 'Metaanaliza 11 badań z losowaniem: placebo podane otwarcie — pacjent wie, że tabletka nie zawiera leku — łagodziło objawy (m.in. ból pleców, zmęczenie przy raku, zespół jelita drażliwego) wyraźniej niż brak leczenia; badania są jednak nieliczne i bardzo zróżnicowane.', refs: ['vonwernsdorff2021'] },
+        { text: 'Metaanaliza 13 badań (370 osób): trening w wyobraźni umiarkowanie zwiększał siłę mięśni — mniej niż prawdziwe ćwiczenia, ale wyraźnie bardziej niż ich brak.', refs: ['paravlic2018'] },
+        { text: 'Przegląd badań nad snem i odpornością: sen wspiera obronę organizmu (m.in. lepszą odpowiedź na szczepienie) i równowagę zapalną; długo za krótki lub przerywany sen sprzyja przewlekłemu, łagodnemu stanowi zapalnemu.', refs: ['besedovsky2019'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Wizualizacje zdrowotne w Emmanuelu korzystają z tych dróg: spokoju i oddechu, wiarygodnego słowa na wydechu, wyobrażenia poczutego od środka, słowa pokoju i snu. Wspierają własną pracę Twojego ciała — nigdy nie zastępują leczenia.',
+      link: '#gry',
+    },
+    {
       id: 'life',
       title: 'Od dzieciństwa do starości',
       short: 'Kora przedczołowa dojrzewa najdłużej, aż do wczesnej dorosłości, a w starszym wieku często pracuje intensywniej, by utrzymać sprawność.',

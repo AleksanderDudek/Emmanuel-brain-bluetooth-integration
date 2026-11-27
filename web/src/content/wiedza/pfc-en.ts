@@ -244,6 +244,28 @@ const article: Article = {
       link: '#gra/dlonie',
     },
     {
+      id: 'body',
+      title: 'A mind that helps the body',
+      short: 'Calm, expectation, imagined movement and sleep really do reach the body: they support its own work — modestly, and never instead of treatment.',
+      body: [
+        { text: 'Your body is repairing itself all the time: it heals wounds, replaces worn-out cells, and at night it clears away and rebuilds. Stress slows this work — wounds heal more slowly in people under more stress. It acts directly, through the body’s stress responses, and indirectly, through habits that do health no good.', refs: ['walburn2009', 'gouin2011'] },
+        { text: 'Several well-described paths lead from the mind to the body. Calm: slow breathing engages the vagus nerve, which settles the heart, and autogenic training (heaviness, warmth, a calm heart) helps with high blood pressure, headaches and sleep problems, among others. Expectation: what we expect really changes what we feel and our symptoms — this is how placebo works. Outlook: a kinder view of one’s own ageing goes with better health in the years that follow. Imagery: movement practised in the imagination increases muscle strength.', refs: ['laborde2022', 'stetter2002', 'wager2015', 'westerhof2023', 'paravlic2018'] },
+        { text: 'Where is the prefrontal cortex in all this? It is where expectation is formed: when we expect relief it works harder, and when researchers briefly disrupted its dorsolateral part, placebo no longer eased pain. The neighbouring ventromedial part works together with the heart’s rhythm — appraising a situation “from above” shapes how the body answers stress. So your headband sees a real part of this path: the work of the cortex where focus, calm appraisal and expectation arise. It does not see the healing itself.', refs: ['atlas2014', 'krummenacher2010', 'thayer2012'] },
+        { text: 'This is support, not medicine. The effects are real but usually modest, and many studies are small. There is no evidence that imagery shrinks tumours — for people with cancer it rather eases anxiety and brings comfort. Calm, a kind word and sleep help the body do what it does anyway, and they never replace treatment.', refs: ['roffe2005'] },
+      ],
+      points: [
+        { text: 'A systematic review of 22 studies with a meta-analysis of 11: stress went with slower wound healing (r\u00a0=\u00a0−0.42). A review of 19 randomised trials: psychological help — most clearly relaxation, especially for surgical patients — supported healing; promising but varied results, and some studies without an effect may not have been published.', refs: ['walburn2009', 'robinson2017'] },
+        { text: 'A meta-analysis of 223 studies: slow breathing raises vagally mediated heart-rate variability — during the exercise, right after it and after a series of sessions. A meta-analysis of 34 randomised trials: 7–16 weeks of tai chi, qigong, yoga or meditation moderately lowered CRP, a marker of inflammation; effects on other markers were small.', refs: ['laborde2022', 'morgan2014'] },
+        { text: 'A meta-analysis of 25 imaging studies: expecting relief engages the prefrontal cortex and quietens pain regions. In a magnetic-stimulation study, briefly disrupting the dorsolateral prefrontal cortex completely abolished the pain-relieving effect of placebo.', refs: ['atlas2014', 'krummenacher2010'] },
+        { text: 'A meta-analysis of 11 randomised trials: placebo given openly — the patient knows the pill contains no drug — eased symptoms (back pain, cancer-related fatigue and irritable bowel syndrome among them) more than no treatment; the trials are, however, few and very varied.', refs: ['vonwernsdorff2021'] },
+        { text: 'A meta-analysis of 13 studies (370 people): training in the imagination moderately increased muscle strength — less than real exercise, but clearly more than none.', refs: ['paravlic2018'] },
+        { text: 'A review of sleep and immunity: sleep supports the body’s defences (a better response to vaccination among them) and its inflammatory balance; sleep that is too short or broken for a long time favours chronic, low-grade inflammation.', refs: ['besedovsky2019'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Emmanuel’s health visualisations use these paths: calm and the breath, a believable word on the out-breath, an imagined process felt from inside, a word of peace, and sleep. They support your body’s own work — and never replace treatment.',
+      link: '#gry',
+    },
+    {
       id: 'life',
       title: 'From childhood to old age',
       short: 'The prefrontal cortex takes longest to mature, into early adulthood, and in later life it often works harder to keep performance up.',

@@ -15,24 +15,42 @@
  * as grown.  The place is kept for the next session.  The headline is the hairs (włosy) the focus has grown.
  * Blocks follow the kit's rules: push and rest of 20–30 s with jitter and a 4 s telegraph, each judged once at its
  * end, blind pushes from the third session, a warm-up the first time, a quiet finale.
+ *
+ * Round 23, "Ciało słucha" (kit/inner.ts, DESIGN §27 — the same layer as the engine's games): every rest carries
+ * words for the body on its out-breaths (the first rest in a meditation its verse, the last out-breath the player's
+ * word of peace), a word held in calm on its out-breath is received (counted for the summary, never the hairs);
+ * sessions of 3 minutes and more open with a settling-in rest (it waits under an opening card); "Przed snem" brings
+ * the night's words, a goodnight and the night's closing passages.
  */
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { BREATH_DEFAULT, breathAt, type BreathState } from '../kit/breath';
 import { approach, clamp, ease } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
+import {
+  InnerTrack, InnerWords, NIGHT_CLOSERS, SETTLE, SETTLE_HOLD_MAX, absorbHold, cueText, innerSource, loadInner, type InnerNow, type InnerPrefs, type ReceivedFrom,
+} from '../kit/inner';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
   MED, MEDS, TIPS, linesOf, medName, pushTip, sceneAt, sceneCount, sceneName, step, type MedId, type Mode, type Moment, type SceneId,
 } from './content';
 import { hairsText, t, unit } from './i18n';
+import { WLOSY_LOOKUP, wt } from './inner';
 import { bestOf, lenKey, markSeen, setMode, type Pos, type WlosyProgress } from './meta';
 import { BREATH, HAIRS_PER_SEC, RULES } from './rules';
 import { Talk } from './talk';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
-export interface Block { kind: BlockKind; dur: number; blind: boolean }
+/** a narrator's line may begin in a rest with words only this far into an in-breath (s), round 23 */
+const QUIET_START = 0.6;
+export interface Block {
+  kind: BlockKind;
+  dur: number;
+  blind: boolean;
+  /** the settling-in rest that opens a session of 3 minutes and more (round 23): SETTLE.breaths of autogenic words */
+  settle?: boolean;
+}
 
 /**
  * Where the meditation is: `move` (the camera goes to a scene), `at` (the scene grows), `hold` (it has just grown:
@@ -41,7 +59,8 @@ export interface Block { kind: BlockKind; dur: number; blind: boolean }
  */
 export type Stage = 'move' | 'at' | 'hold' | 'whole' | 'after';
 
-export type StoryKind = 'open' | 'whole';
+/** open: the first session's pages (Luke 12:7, what it is not, why the body listens); whole: a meditation completed; inner: a returning player's one-time card (round 23) */
+export type StoryKind = 'open' | 'whole' | 'inner';
 export interface Story { kind: StoryKind; page: number; pages: number; t: number; med: MedId }
 
 /** The first-time explanations (coach marks) and what each points at. */
@@ -69,6 +88,7 @@ export type SimEvent =
   | { type: 'stay' }
   | { type: 'picker'; open: boolean }
   | { type: 'mode'; mode: Mode }
+  | { type: 'received'; from: ReceivedFrom; text: string }
   | { type: 'finale' }
   | { type: 'done' };
 
@@ -102,7 +122,7 @@ export const restBreathsOf = (n?: number | null): number =>
  * 40 ± 5 s by design or the player's mean with the jitter scaled, as many pairs as bring their mean nearest it,
  * jittered when there is room.  Any planned length from 10 s gets at least one push and one rest.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null, settle = false): Block[] {
   const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]) };
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
@@ -117,6 +137,12 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
   }
   const plan: Block[] = [];
   let left = plannedSec - fin;
+  // round 23: a session of 3 minutes and more opens with the settling-in rest (whatever the rest dial says)
+  if (settle && plannedSec >= SETTLE.fromSec) {
+    const d = SETTLE.breaths * BREATH;
+    plan.push({ kind: 'rest', dur: d, blind: false, settle: true });
+    left -= d;
+  }
   if (firstEver) {
     const warm = plannedSec >= 300 ? R.warm.long : R.warm.short;
     plan.push(b('warmup', warm));
@@ -172,6 +198,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the rest's rhythm the player set (kit/rhythm): the pushes' mean (s), the rests' whole breaths; absent: the rules' */
   rhythm?: { focus: number; rest: number } | null;
+  /** the inner layer's choices (kit/inner.ts); absent: the player's, from this device (loadInner) */
+  inner?: InnerPrefs;
 }
 
 export class WlosySim {
@@ -190,6 +218,11 @@ export class WlosySim {
   private readonly plan: Block[];
   private readonly pushesBase: number;
   private readonly bestBefore: number | null;
+  /** the inner layer (round 23): the player's choices and this session's rests, words and received words */
+  readonly inner: InnerPrefs;
+  readonly track: InnerTrack;
+  /** seconds the settling-in rest waited under an opening card (given back by the following blocks) */
+  private held = 0;
 
   started = false;
   phase: 'play' | 'finale' | 'done' = 'play';
@@ -279,7 +312,9 @@ export class WlosySim {
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.plan = planBlocks(this.plannedSec, this.firstEver, init.rng, init.rhythm);
+    this.plan = planBlocks(this.plannedSec, this.firstEver, init.rng, init.rhythm, true);
+    this.inner = init.inner ?? loadInner();
+    this.track = new InnerTrack(new InnerWords(this.inner, innerSource(this.inner, WLOSY_LOOKUP, this.session)), { in: RULES.inhale, out: RULES.exhale });
     this.talk = new Talk(m => linesOf(m), init.rng);
     this.mode = this.p.mode;
     this.med = this.p.pos.med;
@@ -324,6 +359,27 @@ export class WlosySim {
   get breathNow(): BreathState | null { return this.restBlock ? breathAt(BREATH_DEFAULT, this.breathT) : null; }
   /** the rest's whole breaths (the guide's "oddech n z m") */
   get breaths(): number { return this.restBlock ? Math.max(1, Math.round(this.block.dur / BREATH)) : 0; }
+  /** the settling-in rest waits while an opening card is up (its clock and its breath hold) */
+  get holding(): boolean { return this.phase === 'play' && !!this.block.settle && !!this.story && this.held < SETTLE_HOLD_MAX; }
+  /** a settling-in rest now */
+  get settleBlock(): boolean { return this.restBlock && !!this.block.settle; }
+  /**
+   * The narrator holds a new line (round 23): in a rest whose breath carries a word, a line begins only in the first
+   * moment of an in-breath — it speaks on the in-breath, the word has the out-breath.
+   */
+  get quiet(): boolean {
+    const n = this.innerNow;
+    if (!n || n.show.kind === 'verse') return false;
+    return n.out || n.p * RULES.inhale > QUIET_START;
+  }
+  /** What the rest shows now in the words band (round 23): the breath's show, its out-breath and how far through. */
+  get innerNow(): InnerNow | null { return this.restBlock && !this.holding ? this.track.at(this.breathT) : null; }
+  /** The finale's line in the words band: the word of peace for the day (or the night); null with the words off. */
+  get finaleLine(): string | null {
+    if (this.phase !== 'finale' || !this.inner.words) return null;
+    const word = cueText(this.inner, WLOSY_LOOKUP);
+    return word ? wt(this.inner.night ? 'finale.night' : 'finale.cue', { word }) : null;
+  }
   /** How many scenes of a meditation were grown this session. */
   grownIn(med: MedId): number { return MED[med].scenes.reduce((n, s) => n + (this.grownNow.get(s) ? 1 : 0), 0); }
   /** Whether a scene was grown this session. */
@@ -336,9 +392,16 @@ export class WlosySim {
     this.startBlock(0);
     this.enter(this.med, this.idx, 'start', this.g);
     if (this.firstEver && markSeen(this.p, 's.open')) {
-      this.story = { kind: 'open', page: 0, pages: 2, t: 0, med: this.med };
+      // three pages: Luke 12:7, what it is not, why the body listens (round 23) — so the one-time card is not needed
+      markSeen(this.p, 's.inner');
+      this.story = { kind: 'open', page: 0, pages: 3, t: 0, med: this.med };
       this.emit({ type: 'story', kind: 'open', page: 0 });
       this.talk.ask('open', 3, 30);
+    } else if (markSeen(this.p, 's.inner')) {
+      // a returning player meets the inner layer once
+      this.story = { kind: 'inner', page: 0, pages: 1, t: 0, med: this.med };
+      this.emit({ type: 'story', kind: 'inner', page: 0 });
+      this.talk.ask('open', 1, 16);
     } else this.talk.ask('open', 1, 6);
   }
 
@@ -348,13 +411,15 @@ export class WlosySim {
     dt = Math.max(0, Math.min(0.1, dt));
     this.t = now;
     this.reliable = f.reliable && f.activity !== null;
-    if (this.reliable) this.relSec += dt;
+    // the settling rest's time under the opening card is not the rest's (its verdict needs its own reliable seconds)
+    if (this.reliable && !this.holding) this.relSec += dt;
     if (this.phase === 'play') this.schedule(dt, f, now);
     if (this.phase === 'finale' && now >= this.plannedSec) this.end();
     // end() moved the phase on (TypeScript narrowed it before the calls above)
     if ((this.phase as string) === 'done') return;
     this.updateLight(dt, f);
     this.updateBreath(dt);
+    this.updateInner(dt);
     this.updateStory(dt);
     if (!this.story) this.updateWay(dt, f);
     else this.setGrowing(false);
@@ -365,7 +430,7 @@ export class WlosySim {
       this.pickerT += dt;
       if (this.pickerT >= RULES.pickerIdle) this.closePicker();
     }
-    this.talk.update(dt, now, this.talkBlocked);
+    this.talk.update(dt, now, this.talkBlocked, this.quiet);
   }
 
   private updateLight(dt: number, f: FocusFrame): void {
@@ -398,17 +463,24 @@ export class WlosySim {
   }
 
   private updateBreath(dt: number): void {
-    if (!this.restBlock) return;
+    if (!this.restBlock || this.holding) return;
     const before = this.breath.inhale;
     this.breathT += dt;
     if (before !== this.breath.inhale) this.emit({ type: 'breathTurn', inhale: this.breath.inhale });
+  }
+
+  /** The rest's words (round 23): an out-breath held in calm under a word or the word of peace is received. */
+  private updateInner(dt: number): void {
+    if (!this.restBlock || this.holding || this.story) return;
+    const got = this.track.update(this.breathT, dt, this.calmShown, this.reliable);
+    if (got) this.emit({ type: 'received', ...got });
   }
 
   private updateStory(dt: number): void {
     const s = this.story;
     if (!s) return;
     s.t += dt;
-    if (s.t >= (s.kind === 'open' ? RULES.pageSec : RULES.closeSec)) this.turnStory();
+    if (s.t >= (s.kind === 'whole' ? RULES.closeSec : RULES.pageSec)) this.turnStory();
   }
 
   /** The next page of a story card, or close it (a tap, or its time ran out). */
@@ -746,7 +818,8 @@ export class WlosySim {
   }
 
   private updateAbide(dt: number): void {
-    if (!this.restBlock) {
+    // a card over the rest (the settling rest held under the opening card, the one-time card): no breath guide, no calm counted
+    if (!this.restBlock || this.holding || this.story) {
       this.abideRun = 0;
       this.abideGap = 0;
       return;
@@ -766,8 +839,10 @@ export class WlosySim {
   // ── the blocks ─────────────────────────────────────────────────
   private schedule(dt: number, f: FocusFrame, now: number): void {
     const b = this.block, R = RULES;
-    this.blockT += dt;
-    if (b.kind !== 'warmup') {
+    const hold = this.holding;
+    if (hold) this.held += dt;
+    else this.blockT += dt;
+    if (b.kind !== 'warmup' && !hold) {
       const want = b.kind === 'push' ? 'focus' : 'rest';
       this.judge.push(want, f, dt);
       this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
@@ -798,6 +873,11 @@ export class WlosySim {
   }
 
   private startBlock(i: number): void {
+    // a settling-in rest that waited under an opening card: the following blocks give those seconds back
+    if (i > 0 && this.plan[i - 1].settle && this.held > 0) {
+      absorbHold(this.plan, i, this.held, x => (x.kind === 'warmup' ? RULES.warm.test : RULES.minBlock));
+      this.held = 0;
+    }
     this.blockIndex = i;
     this.blockT = 0;
     this.telegraphed = false;
@@ -810,6 +890,10 @@ export class WlosySim {
     this.stillRun = 0;
     const b = this.plan[i];
     const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
+    // after the settling-in rest the scene's own line comes (it waited under the settling words)
+    if (i > 0 && this.plan[i - 1].settle && !linesOf(`at.${this.scene}`).some(l => this.talk.said.includes(l))) {
+      this.talk.ask(`at.${this.scene}`, 1.5, 12);
+    }
     if (b.kind === 'push') {
       this.pushesBegun++;
       b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
@@ -821,7 +905,9 @@ export class WlosySim {
       this.breathT = 0;
       // the guide's first in-breath begins with the block
       this.emit({ type: 'breathTurn', inhale: true });
-      this.talk.ask('rest', 2, 12);
+      // what each breath shows: the settling-in words, the meditation's verse the first time, words for the body
+      this.track.begin(this.med, Math.max(1, Math.round(b.dur / BREATH)), !!b.settle);
+      this.talk.ask(b.settle ? 'settle' : 'rest', 2, 12);
     } else this.talk.ask('warm', 1, 14);
     this.tip = this.tipFor(b);
     this.emit({ type: 'blockStart', block: b, index: i });
@@ -832,7 +918,7 @@ export class WlosySim {
     if (b.kind === 'warmup') return t(TIPS.warmup);
     if (b.kind === 'push') {
       if (b.blind) return t(TIPS.blind[(this.session + this.blockIndex) % TIPS.blind.length]);
-      return t(pushTip(this.scene, this.pushesBegun - 1));
+      return wt(pushTip(this.scene, this.pushesBegun - 1));
     }
     return t(TIPS.rest[(this.session - 1 + this.blockIndex) % TIPS.rest.length]);
   }
@@ -863,6 +949,10 @@ export class WlosySim {
       }
       if (b.kind === 'rest' && verdict) this.passedRests++;
     }
+    if (b.kind === 'rest') {
+      const got = this.track.end();
+      if (got && !this.story) this.emit({ type: 'received', ...got });
+    }
     this.judge.reset();
     this.emit({ type: 'blockEnd', block: b, verdict, share });
   }
@@ -874,7 +964,8 @@ export class WlosySim {
     this.setGrowing(false);
     this.closePicker();
     this.emit({ type: 'finale' });
-    this.talk.ask('end', 3, 10);
+    // before sleep the narrator says goodnight and lets sleep come
+    this.talk.ask(this.inner.night ? 'night' : 'end', 3, 10);
   }
 
   private end(): void {
@@ -996,6 +1087,8 @@ export class WlosySim {
    * others (2 Cor 4:16 renewed day by day, Ps 139:16 all my days written, Isa 40:31 new strength, Ps 121:1-2 help).
    */
   closingVerse(): PassageId {
+    // before sleep: Ps 4:8, Ps 127:2, Prov 3:24 in turn
+    if (this.inner.night) return inTurn(NIGHT_CLOSERS, this.session || 1);
     const fit: PassageId[] = [];
     if (this.session === 1) fit.push('luk12.7');
     fit.push(MED[this.lastGrownMed ?? this.med].verse);
@@ -1017,6 +1110,9 @@ export class WlosySim {
     else if (this.bestBefore !== null && this.score > 0 && this.bestBefore - this.score <= Math.max(60, this.bestBefore * 0.25)) {
       add(1, t('hl.toBest', { hairs: hairsText(this.bestBefore - this.score) }));
     }
+    // round 23: the words received in calm (never in the hairs), and a night's session
+    if (this.track.received > 0) add(2, wt('hl.received', { n: this.track.received }));
+    if (this.inner.night) add(2.5, wt('hl.night'));
     if (this.longestNow >= 10) add(3, t('hl.longest', { sec: secText(this.longestNow) }));
     if (this.blindShare >= 0) add(4, t('hl.blind', { pct: t('pct', { n: this.blindShare }) }));
     const total = this.p.hairs + (this.settled ? 0 : this.score);

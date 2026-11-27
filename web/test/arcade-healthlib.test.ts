@@ -17,6 +17,8 @@ import { BREATH, RULES } from '../src/arcade/kit/healthlib/rules';
 import { HealthSim, finaleFor, growMult, planBlocks, resumeFrom, type SimEvent } from '../src/arcade/kit/healthlib/sim';
 import type { HealthLibrary, SceneSpec } from '../src/arcade/kit/healthlib/spec';
 import { ALL_SEEN, FRAMES } from '../src/arcade/kit/healthlib/testing';
+import { SETTLE, freshInner, type InnerPrefs } from '../src/arcade/kit/inner';
+import { INNER } from '../src/arcade/kit/inner-i18n';
 import { wordsGuide } from '../src/arcade/kit/healthlib/hud';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -339,7 +341,8 @@ describe('growth only from real focus (the founder’s rule)', () => {
   });
 
   it('the warm-up of a first session grows at half the rate (it is real focus too)', () => {
-    const sim = makeSim({ tuning: BEGINNER });
+    // a session under 3 minutes: no settling-in rest before the warm-up (round 23)
+    const sim = makeSim({ tuning: BEGINNER, planned: 150 });
     sim.story = null;
     expect(sim.block.kind).toBe('warmup');
     drive(sim, RULES.moveSec + 0.1, HIGH);
@@ -499,16 +502,20 @@ describe('choose, walk, repeat', () => {
 
 // ── the session ─────────────────────────────────────────────────────
 describe('the session', () => {
-  it('opens the first session with the two-page card (the root, then what this is not) and teaches with coach marks', () => {
+  it('opens the first session with the three-page card (the root, what this is not, why the body listens) and teaches with coach marks', () => {
     const sim = makeSim();
-    expect(sim.story).toMatchObject({ kind: 'open', page: 0, pages: 2 });
+    expect(sim.story).toMatchObject({ kind: 'open', page: 0, pages: 3 });
     const clock = { t: 0 };
     drive(sim, 1, MID, clock);
     sim.stay();
     expect(sim.story!.page).toBe(1);
     drive(sim, 1, MID, clock);
     sim.stay();
+    expect(sim.story!.page).toBe(2);
+    drive(sim, 1, MID, clock);
+    sim.stay();
     expect(sim.story).toBeNull();
+    expect(sim.p.seen).toContain('s.inner');
     const evs = drive(sim, 120, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim));
     const coach = ofType(evs, 'coach').map(e => e.what);
     for (const c of ['grow', 'nav', 'pick', 'breath'] as const) expect(coach).toContain(c);
@@ -546,7 +553,7 @@ describe('the session', () => {
   });
 
   it('keeps the narrator quiet while a coach mark is up, and says the scene’s line on arriving', () => {
-    const sim = later();
+    const sim = later({ planned: 150 });
     const clock = { t: 0 };
     drive(sim, 8, MID, clock);
     expect(sim.talk.said.length).toBeGreaterThan(0);
@@ -824,5 +831,249 @@ describe('mobile first and the desk (DESIGN §12, §14)', () => {
       }
     }
     expect(sawCare).toBe(2 * CHECK_SIZES.length);
+  }, 120_000);
+});
+
+// ── "Ciało słucha" (round 23): the inner layer in the engine ───────
+describe('the body listens: words on the out-breath, the settling-in, the night (round 23)', () => {
+  const INNER_ON = (o: Partial<InnerPrefs> = {}): InnerPrefs => ({ ...freshInner(), ...o });
+  const withInner = (inner: InnerPrefs, o: SimOpts = {}) => {
+    const lib = o.lib ?? FIXTURE;
+    const sim = new HealthSim({
+      lib, progress: { ...freshProgress(lib), sessions: 5, pushes: 1, seen: [...ALL_SEEN], ...o.progress }, rng: mulberry32(o.seed ?? 1),
+      plannedSec: o.planned ?? 300, eeg: false, tuning: TUNING, rhythm: o.rhythm, inner,
+    });
+    sim.start();
+    return sim;
+  };
+  /** Each rest's shows (by kind) as the session meets them. */
+  const restsOf = (sim: HealthSim, sec: number, f: (t: number, s: HealthSim) => FocusFrame = (_t, s) => (s.restBlock ? CALM : HIGH)) => {
+    const rests: string[][] = [];
+    let last = -1;
+    const look = () => {
+      if (sim.restBlock && sim.blockIndex !== last && sim.track.plan) rests.push(sim.track.plan.map(x => (x.kind === 'word' ? `word:${x.from}` : x.kind)));
+      last = sim.blockIndex;
+    };
+    look();
+    drive(sim, sec, f, { t: 0 }, look);
+    return rests;
+  };
+
+  it('opens a session of 3 minutes and more with the settling-in rest; the 40 s test never gets it and still scores', () => {
+    for (const planned of [180, 300, 600, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned), null, true);
+        const id = `${planned} ${first}`;
+        expect(plan[0], id).toMatchObject({ kind: 'rest', settle: true, dur: SETTLE.breaths * BREATH });
+        if (first) expect(plan[1].kind, id).toBe('warmup');
+        expect(plan.filter(b => b.settle), id).toHaveLength(1);
+        expect(plan.reduce((s, b) => s + b.dur, 0), id).toBeCloseTo(planned - finaleFor(planned), 5);
+      }
+    }
+    // the rest dial does not change it
+    expect(planBlocks(300, false, mulberry32(1), { focus: 40, rest: 6 }, true)[0].dur).toBe(SETTLE.breaths * BREATH);
+    for (const planned of [40, 60, 150]) expect(planBlocks(planned, false, mulberry32(1), null, true).some(b => b.settle)).toBe(false);
+    const r = simSession(FIXTURE);
+    expect(r.sim.blocks.some(b => b.settle)).toBe(false);
+    expect(r.score).toBeGreaterThan(0);
+    // a 5-minute session: the settling-in words, then the first push; the narrator settles in
+    const sim = withInner(INNER_ON());
+    expect(sim.settleBlock).toBe(true);
+    expect(sim.innerNow!.show.kind).toBe('settle');
+    expect(sim.track.plan!.map(x => x.kind)).toEqual(['settle', 'settle']);
+    const evs = drive(sim, 22, CALM);
+    expect(ofType(evs, 'blockStart').find(e => e.index === 1)!.block.kind).toBe('push');
+    expect(sim.talk.said.some(l => LIB.linesOf('settle').includes(l))).toBe(true);
+  });
+
+  it('waits under the opening card and gives the seconds back: the plan still fills the session', () => {
+    const sim = makeSim({ planned: 300 });
+    expect(sim.story).toMatchObject({ kind: 'open', pages: 3 });
+    expect(sim.holding).toBe(true);
+    const before = sim.blocks.reduce((s, b) => s + b.dur, 0);
+    const clock = { t: 0 };
+    drive(sim, 20, CALM, clock);
+    // the card is up (11 s a page): the settling-in rest has not moved
+    expect(sim.blockT).toBe(0);
+    expect(sim.innerNow).toBeNull();
+    let guard = 0;
+    while (sim.story && guard++ < 400) drive(sim, 0.1, CALM, clock);
+    expect(sim.story).toBeNull();
+    const held = clock.t;
+    expect(held).toBeGreaterThan(30);
+    // the card's time is not calm abiding (no breath guide was shown) nor the rest's reliable seconds
+    const inside = sim as unknown as { abideNow: number; longestNow: number; relSec: number };
+    // (at most the one frame in which the card closed and the rest began)
+    expect(inside.abideNow).toBeLessThan(0.1);
+    expect(inside.longestNow).toBeLessThan(0.1);
+    expect(inside.relSec).toBeLessThan(0.1);
+    expect(sim.settleBlock).toBe(true);
+    expect(sim.innerNow!.show.kind).toBe('settle');
+    drive(sim, 21, CALM, clock);
+    expect(sim.block.kind).toBe('warmup');
+    expect(sim.blocks.reduce((s, b) => s + b.dur, 0) + held).toBeCloseTo(before, 0);
+    while (sim.phase !== 'done' && clock.t < 320) drive(sim, 1, (_t, s) => (s.restBlock ? CALM : MID), clock);
+    expect(sim.phase).toBe('done');
+    expect(clock.t).toBeLessThanOrEqual(300 + RULES.settle + 1.1);
+  });
+
+  it('meets a returning player once with the card of the new layer', () => {
+    const sim = later({ progress: { seen: ALL_SEEN.filter(s => s !== 's.inner') } });
+    expect(sim.story).toMatchObject({ kind: 'inner', pages: 1 });
+    expect(sim.p.seen).toContain('s.inner');
+    drive(sim, 1, CALM);
+    sim.stay();
+    expect(sim.story).toBeNull();
+    expect(later({ progress: { seen: [...sim.p.seen] } }).story).toBeNull();
+  });
+
+  it('shows the meditation’s verse in its first rest, then words for the body, the word of peace last', () => {
+    // a picture that waits (no focus in the pushes) keeps the walk in its first meditation
+    const sim = withInner(INNER_ON({ intents: ['joy'] }), { planned: 900 });
+    const rests = restsOf(sim, 400, (_t, s) => (s.restBlock ? CALM : UNFOCUSED));
+    expect(rests[0]).toEqual(['settle', 'settle']);
+    expect(rests[1]).toEqual(['verse', 'verse', 'cue']);
+    expect(rests[2]).toEqual(['word:med', 'word:med', 'cue']);
+    expect(rests[3]).toEqual(['word:intent', 'word:intent', 'cue']);
+    expect(rests[4]).toEqual(['word:med', 'word:med', 'cue']);
+    // walking on with focus, each meditation entered opens with its own verse once
+    const walk = withInner(INNER_ON(), { planned: 900 });
+    const wr = restsOf(walk, 600).slice(1);
+    expect(wr.filter(r => r[0] === 'verse').length).toBeGreaterThanOrEqual(2);
+    expect(wr.filter(r => r[0] === 'verse').length).toBeLessThanOrEqual(LIB.meds.length);
+    // the word off: the verse in every rest, as before
+    const off = withInner(INNER_ON({ words: false }), { planned: 600 });
+    expect(restsOf(off, 200).slice(1).every(r => r.every(k => k === 'verse'))).toBe(true);
+  });
+
+  it('receives a word only on an out-breath held in calm (never in the score) and says so in the summary', () => {
+    const calm = withInner(INNER_ON(), { planned: 600 });
+    const evs = drive(calm, 300, (_t, s) => (s.restBlock ? CALM : HIGH));
+    const got = ofType(evs, 'received');
+    expect(got.length).toBeGreaterThan(3);
+    expect(got.every(e => e.from === 'med' || e.from === 'cue')).toBe(true);
+    expect(calm.track.received).toBe(got.length);
+    const restless = withInner(INNER_ON(), { planned: 600 });
+    const evs2 = drive(restless, 300, (_t, s) => (s.restBlock ? UNFOCUSED : HIGH));
+    expect(ofType(evs2, 'received')).toHaveLength(0);
+    // the score is the same with and without calm in rest (growth only from focus)
+    expect(calm.score).toBe(restless.score);
+    const r = calm.result();
+    expect(r.highlights).toContain(LIB.t('hl.received', { n: calm.track.received }));
+    expect(restless.result().highlights.some(h => h.startsWith(LIB.t('hl.received', { n: 0 }).split(':')[0]))).toBe(false);
+  });
+
+  it('never puts the own sentence or the own word of peace into the result', () => {
+    const sim = withInner(INNER_ON({ own: 'Mój sekretny zdanie testowe.', cue: 'own', cueOwn: 'Tajemnica' }), { planned: 300 });
+    drive(sim, 300, (_t, s) => (s.restBlock ? CALM : HIGH));
+    sim.finish();
+    const text = JSON.stringify(sim.result()) + JSON.stringify(sim.p);
+    expect(text).not.toMatch(/sekretny|Tajemnica/);
+    // …while the rests and the finale did carry them
+    expect(sim.track.receivedBy.cue + sim.track.receivedBy.own).toBeGreaterThan(0);
+  });
+
+  it('closes the session with the word of peace for the day — or, before sleep, for the night', () => {
+    const day = withInner(INNER_ON({ cue: 'abba' }), { planned: 150 });
+    drive(day, 140, (_t, s) => (s.restBlock ? CALM : HIGH));
+    expect(day.phase).toBe('finale');
+    expect(day.finaleLine).toBe(LIB.t('finale.cue', { word: 'Abba' }));
+    const night = withInner(INNER_ON({ night: true }), { planned: 300 });
+    const evs = drive(night, 296, (_t, s) => (s.restBlock ? CALM : HIGH));
+    expect(night.finaleLine).toBe(LIB.t('finale.night', { word: 'Pokój' }));
+    expect(night.talk.said.some(l => LIB.linesOf('night').includes(l))).toBe(true);
+    expect(night.talk.said.some(l => LIB.linesOf('end').includes(l))).toBe(false);
+    expect(ofType(evs, 'received').some(e => e.from === 'night') || night.track.plan === null).toBe(true);
+    night.finish();
+    const out = night.result();
+    expect(['psa4.8', 'psa127.2', 'pro3.24']).toContain(out.verse);
+    expect(out.highlights).toContain(LIB.t('hl.night'));
+    const seen = new Set<string>();
+    for (let n = 1; n <= 3; n++) seen.add(withInner(INNER_ON({ night: true }), { progress: { sessions: n } }).closingVerse());
+    expect([...seen].sort()).toEqual(['pro3.24', 'psa127.2', 'psa4.8']);
+    expect(withInner(INNER_ON({ words: false }), { planned: 150 }).finaleLine).toBeNull();
+  });
+
+  it('lets the narrator speak on the in-breath of a rest with words, never begin over the word’s out-breath', () => {
+    const sim = withInner(INNER_ON(), { planned: 600 });
+    const starts: { kind: string; out: boolean; p: number }[] = [];
+    let said = 0;
+    drive(sim, 300, (_t, s) => (s.restBlock ? CALM : HIGH), { t: 0 }, () => {
+      if (sim.talk.said.length > said) {
+        said = sim.talk.said.length;
+        const n = sim.innerNow;
+        if (n) starts.push({ kind: n.show.kind, out: n.out, p: n.p });
+      }
+    });
+    const inWords = starts.filter(x => x.kind !== 'verse');
+    expect(inWords.length).toBeGreaterThan(0);
+    for (const x of inWords) {
+      expect(x.out).toBe(false);
+      expect(x.p * RULES.inhale).toBeLessThanOrEqual(0.62);
+    }
+  });
+
+  it('asks every fourth push to feel the place from inside (the counting one stays every third)', () => {
+    const tips = Array.from({ length: 12 }, (_, i) => LIB.pushTip('a1', i));
+    expect(tips[3]).toBe(LIB.t('tip.feel'));
+    expect(tips[7]).toBe(LIB.t('tip.feel'));
+    expect(tips[2]).toBe(LIB.t('tip.count'));
+    expect(tips[11]).toBe(LIB.t('tip.count'));
+    expect(tips[0]).toBe(LIB.t('tip.a1'));
+    expect(RULES.feelEvery).toBe(4);
+    expect(libOf(FIXTURE, 'sv').t('tip.feel')).toMatch(/inifrån/);
+  });
+
+  it('requires three words for the body per meditation in every language, ≤ 80 characters, in tone', () => {
+    expect(requiredKeys(FIXTURE)).toEqual(expect.arrayContaining(['word.jeden.1', 'word.jeden.2', 'word.cale.3']));
+    expect(problems(variant((_l, w) => { delete w.sv['word.dwa.2']; }))).toMatch(/sv.word.dwa.2: missing/);
+    expect(problems(variant((_l, w) => { w.en['word.dwa.2'] = 'a '.repeat(41); }))).toMatch(/en.word.dwa.2: 82 characters \(≤ 80\)/);
+    expect(problems(variant((_l, w) => { w.pl['word.dwa.2'] = 'Ta medytacja odmłodzi Twoje komórki.'; }))).toMatch(/pl.word.dwa.2: forbidden/);
+    expect(problems(variant((_l, w) => { w.pl['word.dwa.2'] = 'Zrobiłeś już wiele.'; }))).toMatch(/gendered/);
+    // the translator reaches the inner words after the game's and the engine's
+    expect(LIB.t('cue.peace')).toBe('Pokój');
+    expect(libOf(FIXTURE, 'de').t('hud.cue')).toBe('Dein Friedenswort');
+  });
+
+  it('draws the longest word and the word of peace whole, at 13 px and more, at every checked size', () => {
+    const longest = (l: Lang) => Object.entries(INNER[l]).filter(([k]) => /^(intent\.[a-z]+|night|settle(?:\.night)?)\.\d$/.test(k)).map(([, v]) => String(v)).reduce((a, b) => (b.length > a.length ? b : a));
+    const text = longest('de');
+    for (const touch of [true, false]) {
+      for (const c of CHECK_SIZES) {
+        for (const kind of ['word', 'cue', 'settle'] as const) {
+          const sim = withInner(INNER_ON(), { planned: 600, rhythm: { focus: 40, rest: 3 } });
+          const clock = { t: 0 };
+          let guard = 0;
+          while (!(sim.restBlock && !sim.settleBlock) && guard++ < 4000) drive(sim, 0.25, MID, clock);
+          const show = kind === 'cue' ? { kind, text: 'Maranatha' } : { kind, text } as const;
+          sim.track.plan = sim.track.plan!.map(() => (kind === 'word' ? { kind: 'word', text, from: 'med' } : show)) as typeof sim.track.plan;
+          drive(sim, 5, CALM, clock);
+          expect(sim.innerNow!.out, c.name).toBe(true);
+          const { ctx, texts } = fakeCtx();
+          const view = new HealthView({ getContext: () => ctx, style: {} } as unknown as HTMLCanvasElement, { reducedMotion: false, touch });
+          view.resize(c.w, c.h, 1, c.insets);
+          for (const e of sim.take()) view.on(e, sim);
+          sim.talk.line = null;
+          view.update(0.5, sim);
+          view.draw(sim);
+          const id = `${kind} · ${c.name} · ${touch ? 'touch' : 'mouse'}`;
+          for (const tx of texts) expect(tx.px, `${id}: “${tx.text}”`).toBeGreaterThanOrEqual(isRef(tx.text) ? MIN_TEXT : MIN_READ);
+          if (kind === 'cue') {
+            // larger than a word (18 px and more), but on the smallest band 13 and more
+            const big = view.L.words.h < 120 ? MIN_READ : 18;
+            expect(texts.filter(tx => tx.px >= big && /^[A-Za-z]$/.test(tx.text)).map(tx => tx.text).join(''), id).toContain('Maranatha');
+          } else {
+            const lines = texts.filter(tx => text.includes(tx.text) && tx.text.length > 3);
+            expect(lines.map(tx => tx.text).join(' '), id).toBe(text);
+            expect(lines.length, id).toBeLessThanOrEqual(3);
+            // 15 px and more, but on the smallest band (a small phone's rest, where the verse also steps down) 13
+            for (const tx of lines) expect(tx.px, id).toBeGreaterThanOrEqual(view.L.words.h < 120 ? MIN_READ : 15);
+          }
+          const w = view.fx.wordAt!;
+          expect(w.y + w.h, id).toBeLessThanOrEqual(view.L.words.y + view.L.words.h + 1);
+          expect(w.y, id).toBeGreaterThanOrEqual(view.L.words.y - 1);
+        }
+      }
+    }
   }, 120_000);
 });

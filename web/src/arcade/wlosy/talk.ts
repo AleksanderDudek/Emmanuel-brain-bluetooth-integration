@@ -42,8 +42,12 @@ export class Talk {
     for (let i = this.queue.length - 1; i >= 0; i--) if (pred(this.queue[i].moment)) this.queue.splice(i, 1);
   }
 
-  /** A frame: the line ages, something on screen cuts it, and the best fresh ask is said when the way is clear. */
-  update(dt: number, now: number, blocked: boolean): void {
+  /**
+   * A frame: the line ages, something on screen cuts it, and the best fresh ask is said when the way is clear.  `hold`
+   * (round 23): no new line begins now, but one already said goes on — in a rest with words the narrator speaks on
+   * the in-breath and leaves the out-breath to the word.
+   */
+  update(dt: number, now: number, blocked: boolean, hold = false): void {
     this.now = now;
     if (this.line) {
       this.line.t += dt;
@@ -53,7 +57,7 @@ export class Talk {
       }
     } else this.gap = Math.max(0, this.gap - dt);
     for (let i = this.queue.length - 1; i >= 0; i--) if (this.queue[i].until < now) this.queue.splice(i, 1);
-    if (this.line || blocked || this.gap > 0 || !this.queue.length) return;
+    if (this.line || blocked || hold || this.gap > 0 || !this.queue.length) return;
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);

@@ -12,6 +12,7 @@
  */
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../focus';
 import { mulberry32 } from '../../../core/random';
+import type { InnerPrefs } from '../inner';
 import type { ArcadeOutcome } from '../types';
 import { freshProgress, type HealthProgress } from './meta';
 import { RULES } from './rules';
@@ -33,7 +34,7 @@ export const FRAMES = {
 export type FocusScript = keyof typeof FRAMES | FocusFrame | ((t: number, sim: HealthSim) => FocusFrame);
 
 /** Every first-time card and coach mark already seen (a player who has been here before). */
-export const ALL_SEEN = ['s.open', 'c.grow', 'c.nav', 'c.pick', 'c.breath', 'c.blind'];
+export const ALL_SEEN = ['s.open', 's.inner', 'c.grow', 'c.nav', 'c.pick', 'c.breath', 'c.blind'];
 
 export interface SimSessionOpts {
   /** the planned length (s): 40 by default (the app smoke's ?trainingSec=40) */
@@ -54,6 +55,8 @@ export interface SimSessionOpts {
   eeg?: boolean;
   tuning?: FocusTuning;
   rhythm?: { focus: number; rest: number } | null;
+  /** the inner layer's choices (kit/inner.ts); absent: this device's (loadInner — fresh in a test) */
+  inner?: InnerPrefs;
   /** called every step (e.g. to walk or pick); `t` is the session's clock */
   each?: (t: number, sim: HealthSim) => void;
 }
@@ -84,7 +87,7 @@ export function simSession(lib: HealthLibrary, o: SimSessionOpts = {}): SimSessi
     ? { ...base, sessions: 5, pushes: 1, seen: [...ALL_SEEN], ...o.progress }
     : { ...base, ...o.progress };
   const tuning = o.tuning ?? (o.returning ? { ...DEFAULT_TUNING, adapt: 0.08 } : { ...DEFAULT_TUNING, adapt: 0.08, ...BEGINNER_TUNING });
-  const sim = new HealthSim({ lib, progress, rng: mulberry32(o.seed ?? 1), plannedSec: planned, eeg: o.eeg ?? false, tuning, rhythm: o.rhythm });
+  const sim = new HealthSim({ lib, progress, rng: mulberry32(o.seed ?? 1), plannedSec: planned, eeg: o.eeg ?? false, tuning, rhythm: o.rhythm, inner: o.inner });
   sim.start();
   const focus = o.focus ?? 'high';
   const read = (t: number): FocusFrame => {

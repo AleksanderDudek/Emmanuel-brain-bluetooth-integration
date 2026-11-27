@@ -27,8 +27,10 @@ const pl = {
   'mode.one': 'Jedna',
   'mode.repeat': 'Powtarzaj',
 
-  // what to do in the head (the panel's "W głowie"): the scene's picture (the game's tip.<s>); every third push a counting one
+  // what to do in the head (the panel's "W głowie"): the scene's picture (the game's tip.<s>); every third push a counting
+  // one, every fourth (round 23) the place felt from inside — imagery felt from within engages the body most
   'tip.count': 'Odejmuj w myślach po 7 od 200, patrząc na rosnący obraz.',
+  'tip.feel': 'Poczuj to miejsce od środka: ciepło, ruch, światło.',
   'tip.warmup': 'Przyjrzyj się obrazowi powoli, część po części, i oddychaj spokojnie.',
   'tip.rest.1': 'Oddychaj powoli: wdech na 4, wydech na 6; pozwól obrazowi po prostu trwać.',
   'tip.rest.2': 'Rozluźnij czoło i ramiona; patrz, jak obraz się pogłębia.',
@@ -179,6 +181,7 @@ const en: Cat = {
   'mode.repeat': 'Repeat',
 
   'tip.count': 'Count down from 200 in sevens in your head while you watch the picture grow.',
+  'tip.feel': 'Feel this place from inside: warmth, movement, light.',
   'tip.warmup': 'Look at the picture slowly, part by part, and breathe calmly.',
   'tip.rest.1': 'Breathe slowly: in for 4, out for 6; let the picture simply stay.',
   'tip.rest.2': 'Soften your forehead and shoulders; watch the picture deepen.',
@@ -319,6 +322,7 @@ const de: Cat = {
   'mode.repeat': 'Wiederholen',
 
   'tip.count': 'Zähl im Kopf von 200 in Siebenerschritten rückwärts und schau dabei auf das wachsende Bild.',
+  'tip.feel': 'Spüre diesen Ort von innen: Wärme, Bewegung, Licht.',
   'tip.warmup': 'Betrachte das Bild langsam, Teil für Teil, und atme ruhig.',
   'tip.rest.1': 'Atme langsam: ein auf 4, aus auf 6; lass das Bild einfach bleiben.',
   'tip.rest.2': 'Lockere Stirn und Schultern; sieh zu, wie das Bild tiefer wird.',
@@ -459,6 +463,7 @@ const sv: Cat = {
   'mode.repeat': 'Upprepa',
 
   'tip.count': 'Räkna baklänges från 200 i steg om sju i huvudet medan du ser bilden växa.',
+  'tip.feel': 'Känn den här platsen inifrån: värme, rörelse, ljus.',
   'tip.warmup': 'Se på bilden långsamt, del för del, och andas lugnt.',
   'tip.rest.1': 'Andas långsamt: in på 4, ut på 6; låt bilden bara vara.',
   'tip.rest.2': 'Slappna av i pannan och axlarna; se hur bilden fördjupas.',

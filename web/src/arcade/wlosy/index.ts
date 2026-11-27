@@ -14,6 +14,7 @@
  * words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
+import { nightLevel } from '../kit/inner';
 import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
@@ -46,6 +47,8 @@ class WlosyGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a little apart) */
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 1.5;
+  /** the player's game volume at the start ("Przed snem" lowers it and fades it out; null: not touched) */
+  private volume: number | null = null;
 
   constructor(private readonly env: GameEnv<WlosyProgress>) {
     migrate(env.progress);
@@ -94,12 +97,22 @@ class WlosyGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt);
+    this.nightSound();
     this.hintCool -= dt;
     this.flushHints();
   }
 
   draw(): void {
     if (this.sim.started) this.view.draw(this.sim);
+  }
+
+  /** Before sleep: the whole sound at NIGHT.level, fading to silence over the session's last NIGHT.fadeSec. */
+  private nightSound(): void {
+    const a = this.env.audio;
+    if (!this.sim.inner.night || !a.on) return;
+    if (this.volume === null) this.volume = a.level;
+    const v = this.volume * nightLevel(this.now, this.sim.plannedSec);
+    if (Math.abs(v - a.level) > 0.004) a.setVolume(v);
   }
 
   /**

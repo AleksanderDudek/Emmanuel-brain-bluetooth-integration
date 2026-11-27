@@ -5,6 +5,7 @@
  * `Lib` per library object (cached), in this page's language unless asked for another.
  */
 import { format, lang as pageLang, pick, type Catalog, type Lang, type Msg, type Params } from '../../../i18n';
+import { INNER } from '../inner-i18n';
 import { ENGINE } from './i18n';
 import { RULES } from './rules';
 import type { HealthLibrary, MedSpec, Pt, SceneSpec, WorldPainter } from './spec';
@@ -15,11 +16,15 @@ export type Mode = (typeof MODES)[number];
 
 /** The narrator's shared moments (three lines each, `say.<moment>.1–3`); a scene's own is `at.<scene>` (1–3 lines). */
 export const SHARED_MOMENTS = ['open', 'warm', 'grown', 'whole', 'good', 'rest', 'blind', 'blindEnd', 'nosignal', 'still', 'after', 'again', 'end'] as const;
-export type Moment = (typeof SHARED_MOMENTS)[number] | `at.${string}`;
+/** The inner layer's moments (kit/inner-i18n.ts, round 23): settling in at the start, goodnight at the end. */
+export const INNER_MOMENTS = ['settle', 'night'] as const;
+export type Moment = (typeof SHARED_MOMENTS)[number] | (typeof INNER_MOMENTS)[number] | `at.${string}`;
 
 /** The strategies the engine words itself (the scene's own is the game's `tip.<scene>`). */
 export const TIPS = {
   count: 'tip.count',
+  /** round 23: imagine the place from inside the body, with warmth, movement and light (every RULES.feelEvery-th push) */
+  feel: 'tip.feel',
   rest: ['tip.rest.1', 'tip.rest.2', 'tip.rest.3', 'tip.rest.4'],
   blind: ['tip.blind.1', 'tip.blind.2'],
   warmup: 'tip.warmup',
@@ -65,19 +70,25 @@ export interface Lib {
   modeName(m: Mode): string;
   /** the narrator's lines for a moment, in this language */
   linesOf(m: Moment): string[];
-  /** the push strategy on a scene: its picture, but every RULES.repeatEvery-th push the counting one */
+  /** the push strategy on a scene: its picture; every RULES.repeatEvery-th push the counting one, every RULES.feelEvery-th the felt one */
   pushTip(scene: string, pushIndex: number): string;
   /** the game has a quiet tune (else a warm pad only) */
   readonly hasTune: boolean;
 }
 
-/** `t(key)` over the game's catalog then the engine's, in a language (the page's by default). */
+/**
+ * `t(key)` over the game's catalog, then the engine's, then the inner layer's (kit/inner-i18n.ts), in a language (the
+ * page's by default), then the same three in Polish.
+ */
 export function translatorFor(words: Readonly<Record<Lang, Catalog<string>>>, l: Lang = pageLang): { t: Translate; has: (key: string) => boolean; msg: (key: string) => Msg | undefined } {
-  const g = (words[l] ?? {}) as Readonly<Record<string, Msg | undefined>>;
-  const e = ENGINE[l] as Readonly<Record<string, Msg | undefined>>;
-  const gp = (words.pl ?? {}) as Readonly<Record<string, Msg | undefined>>;
-  const ep = ENGINE.pl as Readonly<Record<string, Msg | undefined>>;
-  const msg = (key: string): Msg | undefined => g[key] ?? e[key] ?? gp[key] ?? ep[key];
+  type Rec = Readonly<Record<string, Msg | undefined>>;
+  const g = (words[l] ?? {}) as Rec;
+  const e = ENGINE[l] as Rec;
+  const i = INNER[l] as Rec;
+  const gp = (words.pl ?? {}) as Rec;
+  const ep = ENGINE.pl as Rec;
+  const ip = INNER.pl as Rec;
+  const msg = (key: string): Msg | undefined => g[key] ?? e[key] ?? i[key] ?? gp[key] ?? ep[key] ?? ip[key];
   return {
     t: (key, params) => format(pick(msg(key) ?? key, typeof params?.n === 'number' ? params.n : undefined), params),
     has: key => msg(key) !== undefined,
@@ -150,7 +161,9 @@ function build(spec: HealthLibrary, l: Lang): Lib {
       return out;
     },
     pushTip(s, pushIndex) {
-      if ((pushIndex + 1) % RULES.repeatEvery === 0) return t(TIPS.count);
+      const n = pushIndex + 1;
+      if (n % RULES.repeatEvery === 0) return t(TIPS.count);
+      if (n % RULES.feelEvery === 0) return t(TIPS.feel);
       return has(`tip.${s}`) ? t(`tip.${s}`) : t(TIPS.warmup);
     },
     get hasTune(): boolean {

@@ -244,6 +244,28 @@ const article: Article = {
       link: '#gra/dlonie',
     },
     {
+      id: 'body',
+      title: 'Ein Geist, der dem Körper hilft',
+      short: 'Ruhe, Erwartung, vorgestellte Bewegung und Schlaf erreichen den Körper wirklich: Sie unterstützen seine eigene Arbeit — bescheiden und nie anstelle einer Behandlung.',
+      body: [
+        { text: 'Dein Körper repariert sich ständig selbst: Er heilt Wunden, ersetzt verbrauchte Zellen, räumt nachts auf und baut wieder auf. Stress bremst diese Arbeit — bei Menschen unter mehr Stress heilen Wunden langsamer. Stress wirkt direkt, über die Stressreaktionen des Körpers, und indirekt, über Gewohnheiten, die der Gesundheit nicht guttun.', refs: ['walburn2009', 'gouin2011'] },
+        { text: 'Vom Geist zum Körper führen einige gut beschriebene Wege. Ruhe: Langsames Atmen regt den Vagusnerv an, der das Herz beruhigt, und autogenes Training (Schwere, Wärme, ruhiges Herz) hilft unter anderem bei Bluthochdruck, Kopfschmerzen und Schlafproblemen. Erwartung: Was wir erwarten, verändert tatsächlich unser Empfinden und unsere Beschwerden — so wirkt Placebo. Haltung: Ein freundlicherer Blick auf das eigene Älterwerden geht mit besserer Gesundheit in den folgenden Jahren einher. Vorstellung: In der Vorstellung geübte Bewegung steigert die Muskelkraft.', refs: ['laborde2022', 'stetter2002', 'wager2015', 'westerhof2023', 'paravlic2018'] },
+        { text: 'Wo ist dabei der präfrontale Kortex? In ihm entsteht die Erwartung: Erwarten wir Linderung, arbeitet er stärker, und als Forschende seinen dorsolateralen Teil kurz störten, linderte Placebo den Schmerz nicht mehr. Der benachbarte ventromediale Teil wirkt mit dem Herzrhythmus zusammen — wie wir eine Lage „von oben“ bewerten, prägt, wie der Körper auf Stress antwortet. Das Stirnband sieht also einen echten Teil dieses Weges: die Arbeit der Rinde, in der Sammlung, ruhige Bewertung und Erwartung entstehen. Die Heilung selbst sieht es nicht.', refs: ['atlas2014', 'krummenacher2010', 'thayer2012'] },
+        { text: 'Das ist Unterstützung, keine Medizin. Die Effekte sind echt, aber meist bescheiden, und viele Studien sind klein. Es gibt keinen Beleg dafür, dass Vorstellungsbilder Tumore verkleinern — bei Menschen mit Krebs lindern sie eher die Angst und schenken Wohlbefinden. Ruhe, ein gutes Wort und Schlaf helfen dem Körper, das zu tun, was er ohnehin tut, und sie ersetzen nie eine Behandlung.', refs: ['roffe2005'] },
+      ],
+      points: [
+        { text: 'Eine systematische Übersicht über 22 Studien mit einer Metaanalyse von 11: Stress ging mit langsamerer Wundheilung einher (r\u00a0=\u00a0−0,42). Eine Übersicht über 19 randomisierte Studien: Psychologische Hilfe — am deutlichsten Entspannung, besonders bei Operierten — unterstützte die Heilung; vielversprechende, aber uneinheitliche Ergebnisse, und manche Studien ohne Effekt wurden womöglich nicht veröffentlicht.', refs: ['walburn2009', 'robinson2017'] },
+        { text: 'Eine Metaanalyse von 223 Studien: Langsames Atmen erhöht die vom Vagusnerv getragene Herzratenvariabilität — während der Übung, direkt danach und nach einer Reihe von Trainings. Eine Metaanalyse von 34 randomisierten Studien: 7–16 Wochen Tai-Chi, Qigong, Yoga oder Meditation senkten das CRP, einen Entzündungsmarker, in mittlerem Maß; auf andere Marker war die Wirkung gering.', refs: ['laborde2022', 'morgan2014'] },
+        { text: 'Eine Metaanalyse von 25 Bildgebungsstudien: Bei der Erwartung von Linderung arbeitet der präfrontale Kortex stärker, und Schmerzregionen werden ruhiger. In einer Studie mit Magnetstimulation hob eine kurze Störung des dorsolateralen präfrontalen Kortex die schmerzlindernde Wirkung des Placebos vollständig auf.', refs: ['atlas2014', 'krummenacher2010'] },
+        { text: 'Eine Metaanalyse von 11 randomisierten Studien: Offen gegebenes Placebo — die Patienten wissen, dass die Tablette keinen Wirkstoff enthält — linderte Beschwerden (unter anderem Rückenschmerzen, krebsbedingte Erschöpfung, Reizdarm) stärker als keine Behandlung; die Studien sind allerdings wenige und sehr unterschiedlich.', refs: ['vonwernsdorff2021'] },
+        { text: 'Eine Metaanalyse von 13 Studien (370 Personen): Training in der Vorstellung steigerte die Muskelkraft in mittlerem Maß — weniger als echtes Üben, aber deutlich mehr als gar keins.', refs: ['paravlic2018'] },
+        { text: 'Eine Übersicht zu Schlaf und Immunsystem: Schlaf unterstützt die Abwehr des Körpers (unter anderem eine bessere Antwort auf Impfungen) und sein entzündliches Gleichgewicht; lange zu kurzer oder unterbrochener Schlaf begünstigt eine chronische, leichte Entzündung.', refs: ['besedovsky2019'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Die Gesundheitsvisualisierungen in Emmanuel nutzen diese Wege: Ruhe und Atem, ein glaubwürdiges Wort beim Ausatmen, eine von innen gespürte Vorstellung, ein Wort des Friedens und den Schlaf. Sie unterstützen die eigene Arbeit deines Körpers — und ersetzen nie eine Behandlung.',
+      link: '#gry',
+    },
+    {
       id: 'life',
       title: 'Von der Kindheit bis ins Alter',
       short: 'Der präfrontale Kortex reift am längsten, bis ins frühe Erwachsenenalter, und arbeitet im Alter oft intensiver, um die Leistung zu halten.',

@@ -4,7 +4,8 @@
  * meditation on a pentatonic ladder when its scene arrives, a whisper of glass with each tenth of a scene grown
  * (climbing as it grows), a chime with its fifth and octave when a scene has grown, all the meditations' bells when one
  * is whole, the breath's soft wind in rest, a soft page-turn for a step along the scenes.  No drums.  Throttled, so
- * many taps never become noise.
+ * many taps never become noise.  Round 23: a word received in calm rings a soft low bell (once a breath at most);
+ * before sleep the whole sound is quieter and fades to silence at the end (index.ts, kit/inner nightLevel).
  */
 import { ladder, type ArcadeAudio } from '../audio';
 import type { HealthSim, SimEvent } from './sim';
@@ -19,6 +20,7 @@ const bellOf = (i: number): number => ladder(i, ROOT / 2);
 export class HealthSound {
   private tickGap = 0;
   private tapGap = 0;
+  private wordGap = 0;
 
   constructor(private readonly a: ArcadeAudio) {}
 
@@ -30,6 +32,7 @@ export class HealthSound {
   update(dt: number): void {
     this.tickGap = Math.max(0, this.tickGap - dt);
     this.tapGap = Math.max(0, this.tapGap - dt);
+    this.wordGap = Math.max(0, this.wordGap - dt);
   }
 
   on(e: SimEvent, sim: HealthSim): void {
@@ -73,6 +76,15 @@ export class HealthSound {
         if (e.inhale) a.noiseBurst(3.6, { type: 'lowpass', freq: 260, sweepTo: 900, gain: 0.02 });
         else a.noiseBurst(5.4, { type: 'lowpass', freq: 900, sweepTo: 240, gain: 0.018 });
         break;
+      case 'received': {
+        // a soft low bell, its octave a breath later: the word has gone in (never louder than the breath's wind)
+        if (this.wordGap > 0) break;
+        this.wordGap = 4;
+        const f = ladder(e.from === 'cue' ? 0 : 2, ROOT / 4);
+        a.bell(f, 0.03, 3.2);
+        a.bell(f * 2, 0.012, 2.6, 0.22);
+        break;
+      }
       case 'blindEnd':
         [0, 2, 4].forEach((k, i) => a.bell(ladder(k + 5, ROOT / 2), 0.035, 2.2, i * 0.12));
         break;

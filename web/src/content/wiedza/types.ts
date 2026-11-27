@@ -33,7 +33,7 @@ export interface Point {
 
 export const SECTION_IDS = [
   'what', 'executive', 'attention', 'emotion', 'stress', 'anxiety', 'depression', 'decisions',
-  'social', 'sleep', 'exercise', 'prayer', 'life', 'neurofeedback', 'practice',
+  'social', 'sleep', 'exercise', 'prayer', 'body', 'life', 'neurofeedback', 'practice',
 ] as const;
 export type SectionId = typeof SECTION_IDS[number];
 

@@ -244,6 +244,28 @@ const article: Article = {
       link: '#gra/dlonie',
     },
     {
+      id: 'body',
+      title: 'När sinnet hjälper kroppen',
+      short: 'Lugn, förväntan, föreställd rörelse och sömn når verkligen kroppen: de stöder dess eget arbete — måttligt, och aldrig i stället för behandling.',
+      body: [
+        { text: 'Din kropp lagar sig själv hela tiden: den läker sår, byter ut slitna celler och städar och bygger upp på natten. Stress bromsar det arbetet — sår läker långsammare hos människor som är mer stressade. Stressen verkar direkt, genom kroppens stressreaktioner, och indirekt, genom vanor som inte gagnar hälsan.', refs: ['walburn2009', 'gouin2011'] },
+        { text: 'Från sinnet till kroppen leder några väl beskrivna vägar. Lugn: långsam andning väcker vagusnerven, som lugnar hjärtat, och autogen träning (tyngd, värme, ett lugnt hjärta) hjälper bland annat vid högt blodtryck, huvudvärk och sömnbesvär. Förväntan: det vi väntar oss förändrar verkligen hur vi känner och våra symtom — så verkar placebo. Inställning: en vänligare syn på det egna åldrandet hänger ihop med bättre hälsa under åren som följer. Föreställning: rörelse som övas i föreställningen ökar muskelstyrkan.', refs: ['laborde2022', 'stetter2002', 'wager2015', 'westerhof2023', 'paravlic2018'] },
+        { text: 'Var finns den prefrontala barken i allt detta? Det är där förväntan formas: när vi väntar oss lindring arbetar den mer, och när forskare kortvarigt störde dess dorsolaterala del slutade placebo att lindra smärtan. Den angränsande ventromediala delen samverkar med hjärtats rytm — hur vi bedömer en situation ”uppifrån” formar hur kroppen svarar på stress. Pannbandet ser alltså en verklig del av den vägen: arbetet i barken där fokus, lugn bedömning och förväntan uppstår. Själva läkningen ser det inte.', refs: ['atlas2014', 'krummenacher2010', 'thayer2012'] },
+        { text: 'Det här är stöd, inte medicin. Effekterna är verkliga men oftast måttliga, och många studier är små. Det finns inga belägg för att föreställningsbilder krymper tumörer — hos människor med cancer lindrar de snarare oro och ger välbefinnande. Lugn, ett gott ord och sömn hjälper kroppen att göra det den ändå gör, och de ersätter aldrig behandling.', refs: ['roffe2005'] },
+      ],
+      points: [
+        { text: 'En systematisk översikt av 22 studier med en metaanalys av 11: stress hängde ihop med långsammare sårläkning (r\u00a0=\u00a0−0,42). En översikt av 19 randomiserade studier: psykologisk hjälp — tydligast avslappning, särskilt hos opererade — stödde läkningen; lovande men varierande resultat, och en del studier utan effekt kan ha förblivit opublicerade.', refs: ['walburn2009', 'robinson2017'] },
+        { text: 'En metaanalys av 223 studier: långsam andning höjer den vagalt styrda hjärtfrekvensvariabiliteten — under övningen, direkt efter och efter en serie pass. En metaanalys av 34 randomiserade studier: 7–16 veckor tai chi, qigong, yoga eller meditation sänkte CRP, en inflammationsmarkör, måttligt; effekten på andra markörer var liten.', refs: ['laborde2022', 'morgan2014'] },
+        { text: 'En metaanalys av 25 hjärnavbildningsstudier: förväntan om lindring får den prefrontala barken att arbeta mer och dämpar smärtområden. I en studie med magnetstimulering tog en kortvarig störning av den dorsolaterala prefrontala barken helt bort placebos smärtlindrande effekt.', refs: ['atlas2014', 'krummenacher2010'] },
+        { text: 'En metaanalys av 11 randomiserade studier: placebo som ges öppet — patienten vet att tabletten inte innehåller något läkemedel — lindrade symtom (bland annat ryggsmärta, cancerrelaterad trötthet och IBS) mer än ingen behandling; studierna är dock få och mycket olika.', refs: ['vonwernsdorff2021'] },
+        { text: 'En metaanalys av 13 studier (370 personer): träning i föreställningen ökade muskelstyrkan måttligt — mindre än verklig träning, men tydligt mer än ingen alls.', refs: ['paravlic2018'] },
+        { text: 'En översikt om sömn och immunförsvar: sömn stöder kroppens försvar (bland annat ett bättre svar på vaccination) och dess inflammatoriska balans; sömn som länge är för kort eller avbruten gynnar en kronisk, lågradig inflammation.', refs: ['besedovsky2019'] },
+      ],
+      strength: 'moderate',
+      forYou: 'Hälsovisualiseringarna i Emmanuel använder de här vägarna: lugn och andning, ett trovärdigt ord på utandningen, en föreställning som känns inifrån, ett fridsord och sömn. De stöder din kropps eget arbete — och ersätter aldrig behandling.',
+      link: '#gry',
+    },
+    {
       id: 'life',
       title: 'Från barndom till ålderdom',
       short: 'Den prefrontala barken mognar längst, in i tidig vuxen ålder, och arbetar på äldre dagar ofta hårdare för att hålla prestationen uppe.',

@@ -8,7 +8,8 @@
  *   scripture      every meditation's verse, the root and the closers exist in all four editions (scripture.ts)
  *   the words      every key a game must give (spec.ts's header: REQUIRED_KEYS below) in all four languages, no key
  *                  in en/de/sv that pl lacks, the placeholders and plural forms of the kit's catalog check; lengths
- *                  (say.* ≤ 90, part.* ≤ 22, teach.* ≤ 220, tip.* ≤ 120, med.*.care ≤ 140)
+ *                  (say.* ≤ 90, part.* ≤ 22, teach.* ≤ 220, tip.* ≤ 120, med.*.care ≤ 140); round 23: each
+ *                  meditation's three words for the body, word.<med>.1–3 (kit/inner.ts), ≤ 80 characters each
  *   the tone       §24.3's forbidden words in each language (word-boundary regexes) and, in Polish, no gendered
  *                  second person ("zrobiłeś", "zrobiłaś", "gotowy/a", "gotowy", "gotowa") — a game may allow a
  *                  phrase with its reason (e.g. "Szkliwo nie odrasta": the myth corrected, not a promise)
@@ -34,6 +35,8 @@ export const REQUIRED_KEYS = [
 export function requiredKeys(lib: HealthLibrary): string[] {
   const keys = new Set<string>(REQUIRED_KEYS);
   for (const m of lib.meds) for (const k of [`med.${m.id}`, `med.${m.id}.line`, `med.${m.id}.care`]) keys.add(k);
+  // round 23, "Ciało słucha": three words for the body per meditation, said on the rests' out-breaths
+  for (const m of lib.meds) for (let i = 1; i <= 3; i++) keys.add(`word.${m.id}.${i}`);
   for (const m of lib.meds) {
     for (const s of m.scenes) {
       for (const k of [`scene.${s}`, `teach.${s}`, `tip.${s}`, `say.at.${s}.1`]) keys.add(k);
@@ -51,6 +54,8 @@ export function maxLen(key: string): number | null {
   if (key.startsWith('teach.')) return 220;
   if (/^med\.[^.]+\.care$/.test(key)) return 140;
   if (key.startsWith('tip.')) return 120;
+  // a word for the body is one out-breath (round 23): the meditations', the intentions', the night's, the settling-in
+  if (/^(?:word\.[^.]+|intent\.[^.]+)\.\d$/.test(key) || /^(?:night|settle|settle\.night)\.\d$/.test(key)) return 80;
   return null;
 }
 
