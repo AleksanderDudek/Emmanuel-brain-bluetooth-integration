@@ -11552,3 +11552,67 @@ breath long (≤ 80 characters, most 45–70).
   "Przed snem" especially; it was left out to keep this round to the founder's list (the body's processes).
 * **A spoken voice** (eyes closed in rest) would deepen the words further; the app has no narration voice yet — a
   recorded voice per language would be a round of its own.
+
+## 28. Round 24: Nowe siły, Stop-klatka, Warstwy światła, Koła światła, 45 and 60 minutes (2026-11-27)
+
+### 28.1 The request
+
+The founder, 2026-11-27 (Polish, away, "masz wolną rękę… pick recommended"), six asks:
+
+1. **Stem cells** — a visualisation of the body producing stem cells, where more focus produces more and visibly
+   improves every parameter; the starting point a figure (a man or a woman) visibly tired, with troubled skin and
+   general health troubles; the visualisation is this figure's healing.
+2. **Mindfulness in stressful everyday situations** ("nadpisanie zachowania gniewu", overriding the anger response) —
+   everyday stressful situations told as stories, with a freeze of 20–60 s at one moment: charge focus, come into here
+   and now, learn to master the emotion; situations gathered for the age groups 11–19, 20–26, 27–35, 36–50, 50+,
+   chosen at the start; multi-step stories fitted to each group's own troubles, training the prefrontal cortex; seen
+   "z perspektywy 3ciej osoby (tak jakby widok z oczu)".
+3. **Every session may also last 45 and 60 minutes.**
+4. **Practice: cleansing the aura** — the layers of being; on each layer the attachments ("wczepy") are drawn out, the
+   etheric, astral and other bodies healed and brightened; the different things on the layers visualised ("see the
+   attached pictures" — the pictures did not arrive with the message); beautiful.
+5. **Practice: spinning up the chakras** — the picture with the chakras on the front and the back of the body, and
+   up and down; the player brings each to right working by focus, one after another; at the end the full field;
+   beautiful.
+6. **Złote serce's music** — the list should play many songs in a row, fitted to the session's length, with gentle
+   transitions; and the question "how much does it hurt" becomes "how do you feel".
+
+### 28.2 The round's decisions
+
+* **Nowe siły** (`sily`, health, root Isa 40:31 — "renew their strength… run and not grow weary"): a health
+  visualisation on the engine (§24), so it has the inner layer of §27 from the start. A figure — woman or man, three
+  skin tones (the lobby's looks) — stands tired at the start of every session: grey dull skin with redness and spots,
+  shadows under the eyes, dim eyes, slumped shoulders, dull thin hair, a dim colour. Its meditations walk the body's
+  real stem cells (bone marrow's blood-forming cells, the skin's basal layer and the hair follicle's bulge, the
+  muscles' satellite cells, the gut lining renewed every few days, the repair of the night), each scene a picture that
+  grows only from real focus; and as the session's focused growth accumulates, the figure itself recovers parameter by
+  parameter — colour, clear skin, bright eyes, straight back, shining hair, a quiet smile. The engine gets one
+  addition: a world may see how far this session's arc has come (all scenes this session), so the figure keeps what
+  the earlier scenes gave. The words stay §24.3's: the picture shows what the body really does; no line says that
+  focus makes stem cells or heals.
+* **Stop-klatka** (`stopklatka`, heart, after Każda myśl; root Prov 16:32 — "he who rules his spirit than he who
+  takes a city"): stories of everyday provocation for the chosen age group, seen through the eyes; at the trigger the
+  time freezes (the push, 20–60 s fitted to the session and the player's pace) and the camera steps out of the eyes to
+  the observer's view (self-distancing, the best-supported quick tool against anger), with the four steps of the
+  freeze — stop, breathe and charge (focus), name the feeling (affect labelling), a second look (reappraisal) — and
+  then the answer from the calm and how it turns out (not a fairy tale). The story's contract is
+  `stopklatka/story.ts`; 8 stories per group (40), Polish first, en/de/sv. Heavier situations (bullying, a parent's
+  illness) only with a lobby switch; helplines in the panel (116 111 for the youngest group).
+* **Warstwy światła** (`warstwy`, heart; root 1 Thess 5:23 — "your whole spirit, soul and body"): the tradition's
+  seven layers around the person, each with its own texture and its own kind of what clings to it, pictured in
+  Scripture's images — thorns, stains, darts, cords, chains, ashes, cracks; focus draws each out and hands it to the
+  Light, and the layer closes, smooths and brightens. Words per §18.3: light, not energy; prayer with a Thou (Jesus
+  takes what clings, the player entrusts); the tradition (the aura and its layers) named once in the lobby; no promise.
+* **Koła światła** (`kola`, heart; root Eph 4:16 — "the whole body… through the work of each individual part"): the
+  figure in profile with the seven wheels — the first opening down, the seventh up, the five between opening to the
+  front and to the back; one after another the player's focus brings each to a calm, even, clockwise turn with a clean
+  colour, front and back alike; at the end all seven feed one full field around the figure. Names of the wheels as the
+  founder chose in round 10; words per §18.3.
+* **45 and 60 minutes** (`SESSION_MINUTES` = 3, 5, 10, 15, 20, 25, 30, 45, 60): the pickers have nine columns; every
+  game, the focus training and the cards' games were audited at 2 700 and 3 600 s (the plan to its finale, a full
+  headless session with bounded collections and a clean result, the work fitted to the session — §24.4b).
+* **Złote serce's music**: the plan now plays the chosen tracks back to back with gentle cross-fades, filling the
+  session — the last track fades out under the close when it would run past it; the ambient music only opens the
+  session briefly and bridges where a player's device cannot fade (iOS ignores YouTube's volume). The rating asks
+  "Jak się teraz czujesz?" (0 heavy … 10 light and well) instead of how much it hurts; old ratings are carried over
+  turned round.

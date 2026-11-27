@@ -242,16 +242,18 @@ describe('settings and storage upgrades', () => {
     expect((await loadSettings(db)).arcade).toEqual({ ...DEFAULT_SETTINGS.arcade, minutes: 10 });
   });
 
-  it('offers 3–30 minute sessions everywhere and keeps every saved length one of them', async () => {
-    expect([...SESSION_MINUTES]).toEqual([3, 5, 10, 15, 20, 25, 30]);
-    expect(MAX_SESSION_SEC).toBe(1800);
+  it('offers 3–60 minute sessions everywhere and keeps every saved length one of them', async () => {
+    expect([...SESSION_MINUTES]).toEqual([3, 5, 10, 15, 20, 25, 30, 45, 60]);
+    expect(MAX_SESSION_SEC).toBe(3600);
     for (const m of SESSION_MINUTES) expect(sessionMinutes(m)).toBe(m);
     // an old card-game save (1 or 2 min) and odd values: the nearest length, else the fallback
     expect(sessionMinutes(1)).toBe(3);
     expect(sessionMinutes(2)).toBe(3);
     expect(sessionMinutes(12)).toBe(10);
     expect(sessionMinutes(28)).toBe(30);
-    expect(sessionMinutes(90)).toBe(30);
+    expect(sessionMinutes(40)).toBe(45);
+    expect(sessionMinutes(50)).toBe(45);
+    expect(sessionMinutes(90)).toBe(60);
     expect(sessionMinutes(undefined, 10)).toBe(10);
     expect(sessionMinutes('x')).toBe(5);
     expect(sessionMinutes(0)).toBe(5);
@@ -265,12 +267,13 @@ describe('settings and storage upgrades', () => {
     expect([s.training.minutes, s.arcade.minutes]).toEqual([5, 5]);
   });
 
-  it('plans a session from the chosen minutes, or from ?trainingSec (≥ 10 s, at most 30 minutes)', () => {
+  it('plans a session from the chosen minutes, or from ?trainingSec (≥ 10 s, at most 60 minutes)', () => {
     expect(plannedSeconds(30, '')).toBe(1800);
     expect(plannedSeconds(3, '?debug')).toBe(180);
     expect(plannedSeconds(5, '?trainingSec=40')).toBe(40);
     expect(plannedSeconds(5, '?trainingSec=1500')).toBe(1500);
-    expect(plannedSeconds(5, '?trainingSec=99999')).toBe(1800);
+    expect(plannedSeconds(60, '')).toBe(3600);
+    expect(plannedSeconds(5, '?trainingSec=99999')).toBe(3600);
     expect(plannedSeconds(5, '?trainingSec=5')).toBe(300);
   });
 

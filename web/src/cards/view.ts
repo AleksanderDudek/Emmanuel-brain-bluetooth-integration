@@ -58,7 +58,7 @@ export interface CardsDeps {
 
 interface Prefs { minutes: number; pad: LinkKind; marks: boolean; sound: boolean; band: boolean; raw: boolean }
 const DEFAULT_PREFS: Prefs = { minutes: 3, pad: 'local', marks: false, sound: true, band: true, raw: false };
-/** The app's session lengths (settings.ts): 3–30 min, as in the training and the arcade (1 and 2 min until 2026-11-22). */
+/** The app's session lengths (settings.ts): 3–60 min, as in the training and the arcade (1 and 2 min until 2026-11-22; 45 and 60 from 2026-11-27). */
 const MINUTES = SESSION_MINUTES;
 const WORKOUT_SEC = 90;
 

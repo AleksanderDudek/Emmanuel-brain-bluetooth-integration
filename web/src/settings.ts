@@ -9,9 +9,10 @@ export type SceneId = 'hills' | 'dunes' | 'snow' | 'space';
 
 /**
  * The session lengths the player can choose, in minutes — the same list for the focus training, every arcade
- * game and the exercise cards' games (the founder, 2026-11-22: "3/5/10/15/20/25/30 min sessions").
+ * game and the exercise cards' games (the founder, 2026-11-22: "3/5/10/15/20/25/30 min sessions"; 2026-11-27: "chcę,
+ * żeby wszystkie sesje mogły trwać 45 i 60 min jeszcze").
  */
-export const SESSION_MINUTES = [3, 5, 10, 15, 20, 25, 30] as const;
+export const SESSION_MINUTES = [3, 5, 10, 15, 20, 25, 30, 45, 60] as const;
 export type SessionMinutes = (typeof SESSION_MINUTES)[number];
 /** The longest session in seconds (also the cap of the `?trainingSec=` override). */
 export const MAX_SESSION_SEC = SESSION_MINUTES[SESSION_MINUTES.length - 1] * 60;
