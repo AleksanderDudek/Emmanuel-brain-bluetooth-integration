@@ -442,6 +442,14 @@ export type PassageId =
   | 'pro24.16'
   | 'psa18.34'
   | '1ti6.12'
+  | '1th5.18'
+  | 'gen50.20'
+  | 'jas1.2-4'
+  | 'rom5.3-5'
+  | 'psa23.6'
+  | 'psa16.6'
+  | 'eph5.20'
+  | '2co4.17'
   ;
 
 export interface Passage {
@@ -3035,6 +3043,54 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Fight the good fight of the faith. Take hold of the eternal life to which you were called when you made the good confession before many witnesses.', '1 Timothy 6:12'],
     de: ['…kämpfe den guten Kampf des Glaubens; ergreife das ewige Leben, dazu du auch berufen bist und bekannt hast ein gutes Bekenntnis vor vielen Zeugen.', '1. Timotheus 6,12'],
     sv: ['Kämpa trons goda kamp, sök att vinna det eviga livet, vartill du har blivit kallad, du som ock inför många vittnen har avlagt den goda bekännelsen.', '1 Tim 6:12'],
+  },
+  '1th5.18': {
+    pl: ['Za wszystko dziękujcie; albowiem tać jest wola Boża w Chrystusie Jezusie przeciwko wam.', '1 Tes 5,18'],
+    en: ['Give thanks in every circumstance, for this is God’s will for you in Christ Jesus.', '1 Thessalonians 5:18'],
+    de: ['…seid dankbar in allen Dingen; denn das ist der Wille Gottes in Christo Jesu an euch.', '1. Thessalonicher 5,18'],
+    sv: ['Tacken Gud i alla livets förhållanden. Ty att I så gören är Guds vilja i Kristus Jesus.', '1 Tess 5:18'],
+  },
+  'gen50.20': {
+    pl: ['Wyście złe myślili przeciwko mnie, ale Bóg obrócił to w dobre, chcąc uczynić to, co się dziś dzieje, aby zachował tak wielki lud.', 'Rdz 50,20'],
+    en: ['As for you, what you intended against me for evil, God intended for good, in order to accomplish a day like this—to preserve the lives of many people.', 'Genesis 50:20'],
+    de: ['Ihr gedachtet\'s böse mit mir zu machen; aber Gott gedachte es gut zu machen, daß er täte, wie es jetzt am Tage ist, zu erhalten viel Volks.', '1. Mose 50,20'],
+    sv: ['I tänkten ont mot mig, men Gud har tänkt det till godo, för att låta det ske, som nu har skett, och så behålla mycket folk vid liv.', '1 Mos 50:20'],
+  },
+  'jas1.2-4': {
+    pl: ['Za największą radość miejcie, bracia moi! gdy w rozmaite pokusy wpadacie, Wiedząc, iż doświadczenie wiary waszej sprawuje cierpliwość; a cierpliwość niech ma doskonały uczynek, żebyście byli doskonali i zupełni, którym by na niczem nie schodziło.', 'Jk 1,2–4'],
+    en: ['Consider it pure joy, my brothers, when you encounter trials of many kinds, because you know that the testing of your faith develops perseverance. Allow perseverance to finish its work, so that you may be mature and complete, not lacking anything.', 'James 1:2–4'],
+    de: ['Meine lieben Brüder, achtet es für eitel Freude, wenn ihr in mancherlei Anfechtungen fallet, und wisset, daß euer Glaube, wenn er rechtschaffen ist, Geduld wirkt. Die Geduld aber soll festbleiben bis ans Ende, auf daß ihr seid vollkommen und ganz und keinen Mangel habet.', 'Jakobus 1,2–4'],
+    sv: ['Mina bröder, hållen det för idel glädje, när I kommen i allahanda frestelser, och veten, att om eder tro håller provet, så verkar detta ståndaktighet. Och låten ståndaktigheten hava med sig fullkomlighet i gärning, så att I ären fullkomliga, utan fel och utan brist i något stycke.', 'Jak 1:2–4'],
+  },
+  'rom5.3-5': {
+    pl: ['A nie tylko to, ale się też chlubimy z ucisków, wiedząc, iż ucisk cierpliwość sprawuje, a cierpliwość doświadczenie, a doświadczenie nadzieję, a nadzieja nie pohańbia, przeto iż miłość Boża rozlana jest w sercach naszych przez Ducha Świętego, który nam jest dany.', 'Rz 5,3–5'],
+    en: ['Not only that, but we also rejoice in our sufferings, because we know that suffering produces perseverance; perseverance, character; and character, hope. And hope does not disappoint us, because God has poured out His love into our hearts through the Holy Spirit, whom He has given us.', 'Romans 5:3–5'],
+    de: ['Nicht allein aber das, sondern wir rühmen uns auch der Trübsale, dieweil wir wissen, daß Trübsal Geduld bringt; Geduld aber bringt Erfahrung; Erfahrung aber bringt Hoffnung; Hoffnung aber läßt nicht zu Schanden werden. Denn die Liebe Gottes ist ausgegossen in unser Herz durch den heiligen Geist, welcher uns gegeben ist.', 'Römer 5,3–5'],
+    sv: ['Och icke det allenast, vi till och med berömma oss av våra lidanden, eftersom vi veta att lidandet verkar ståndaktighet, och ståndaktigheten beprövad fasthet, och fastheten hopp, och hoppet låter oss icke komma på skam; ty Guds kärlek är utgjuten i våra hjärtan genom den helige Ande, vilken har blivit oss given.', 'Rom 5:3–5'],
+  },
+  'psa23.6': {
+    pl: ['Nadto dobrodziejstwo i miłosierdzie twe pójdą za mną po wszystkie dni żywota mego, a będę mieszkał w domu Pańskim na długie czasy.', 'Ps 23,6'],
+    en: ['Surely goodness and mercy will follow me all the days of my life, and I will dwell in the house of the LORD forever.', 'Psalm 23:6'],
+    de: ['Gutes und Barmherzigkeit werden mir folgen mein Leben lang, und ich werde bleiben im Hause des HERRN immerdar.', 'Psalm 23,6'],
+    sv: ['Godhet allenast och nåd skola följa mig i alla mina livsdagar, och jag skall åter få bo i HERRENS hus, evinnerligen.', 'Ps 23:6'],
+  },
+  'psa16.6': {
+    pl: ['Sznury mi przypadły na miejscach wesołych, a dziedzictwo wdzięczne przyszło na mię.', 'Ps 16,6'],
+    en: ['The lines of my boundary have fallen in pleasant places; surely my inheritance is delightful.', 'Psalm 16:6'],
+    de: ['Das Los ist mir gefallen aufs Liebliche; mir ist ein schön Erbteil geworden.', 'Psalm 16,6'],
+    sv: ['En lott har tillfallit mig i det ljuvliga, ja, ett arv som behagar mig väl.', 'Ps 16:6'],
+  },
+  'eph5.20': {
+    pl: ['Dzięki czyniąc zawsze za wszystko, w imieniu Pana naszego, Jezusa Chrystusa, Bogu i Ojcu.', 'Ef 5,20'],
+    en: ['…always giving thanks to God the Father for everything in the name of our Lord Jesus Christ.', 'Ephesians 5:20'],
+    de: ['…und saget Dank allezeit für alles Gott und dem Vater in dem Namen unsers HERRN Jesu Christi…', 'Epheser 5,20'],
+    sv: ['…och tacken alltid Gud och Fadern för allt, i vår Herres, Jesu Kristi, namn.', 'Ef 5:20'],
+  },
+  '2co4.17': {
+    pl: ['Albowiem ten króciuchny i lekki ucisk nasz nader zacnej chwały wieczną wagę nam sprawuje…', '2 Kor 4,17'],
+    en: ['For our light and momentary affliction is producing for us an eternal weight of glory that is far beyond comparison.', '2 Corinthians 4:17'],
+    de: ['Denn unsre Trübsal, die zeitlich und leicht ist, schafft eine ewige und über alle Maßen wichtige Herrlichkeit…', '2. Korinther 4,17'],
+    sv: ['Ty vår bedrövelse, som varar ett ögonblick och väger föga, bereder åt oss, i översvinnligen rikt mått, en härlighet som väger översvinnligen tungt och varar i evighet -…', '2 Kor 4:17'],
   },
 };
 
