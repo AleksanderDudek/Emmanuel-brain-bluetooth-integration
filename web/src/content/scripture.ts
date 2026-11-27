@@ -462,6 +462,11 @@ export type PassageId =
   | 'psa107.14'
   | '1co12.12'
   | 'rom12.4-5'
+  | '1sa16.13'
+  | '1sa18.1'
+  | '1sa25.32-33'
+  | '1sa30.6'
+  | '1sa30.24'
   ;
 
 export interface Passage {
@@ -3175,6 +3180,36 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Just as each of us has one body with many members, and not all members have the same function, so in Christ we who are many are one body, and each member belongs to one another.', 'Romans 12:4–5'],
     de: ['Denn gleicherweise als wir in einem Leibe viele Glieder haben, aber alle Glieder nicht einerlei Geschäft haben, also sind wir viele ein Leib in Christus, aber untereinander ist einer des andern Glied…', 'Römer 12,4–5'],
     sv: ['Ty såsom vi i en och samma kropp hava många lemmar, men alla lemmarna icke hava samma förrättning, så utgöra ock vi, fastän många, en enda kropp i Kristus, men var för sig äro vi lemmar, varandra till tjänst.', 'Rom 12:4–5'],
+  },
+  '1sa16.13': {
+    pl: ['Wziąwszy tedy Samuel róg z oliwą, pomazał go w pośród braci jego. I został Duch Pański nad Dawidem od onegoż dnia, i na potem. Zatem Samuel wstał, i poszedł do Ramaty.', '1 Sm 16,13'],
+    en: ['So Samuel took the horn of oil and anointed him in the presence of his brothers, and the Spirit of the LORD rushed upon David from that day forward. Then Samuel set out and went to Ramah.', '1 Samuel 16:13'],
+    de: ['Da nahm Samuel sein Ölhorn und salbte ihn mitten unter seinen Brüdern. Und der Geist des HERRN geriet über David von dem Tage an und fürder. Samuel aber machte sich auf und ging gen Rama.', '1. Samuel 16,13'],
+    sv: ['Då tog Samuel sitt oljehorn och smorde honom mitt ibland hans bröder; och HERRENS Ande kom över David, från den dagen och allt framgent. Sedan stod Samuel upp och gick till Rama.', '1 Sam 16:13'],
+  },
+  '1sa18.1': {
+    pl: ['I stało się, gdy przestał mówić do Saula, że dusza Jonatanowa spoiła się z duszą Dawidową, i umiłował go Jonatan, jako duszę swoję.', '1 Sm 18,1'],
+    en: ['After David had finished speaking with Saul, the souls of Jonathan and David were knit together, and Jonathan loved him as himself.', '1 Samuel 18:1'],
+    de: ['Und da er hatte ausgeredet mit Saul, verband sich das Herz Jonathans mit dem Herzen Davids, und Jonathan gewann ihn lieb wie sein eigen Herz.', '1. Samuel 18,1'],
+    sv: ['Sedan, efter det att David hade talat ut med Saul, fäste sig Jonatans hjärta så vid Davids hjärta, att Jonatan hade honom lika kär som sitt eget liv.', '1 Sam 18:1'],
+  },
+  '1sa25.32-33': {
+    pl: ['I rzekł Dawid do Abigaili: Błogosławiony Pan, Bóg Izraelski, który cię dziś posłał przeciwko mnie. Błogosławiona wymowa twoja, i błogosławionaś ty, któraś mię zawściągnęła dzisiaj, żem nie szedł na rozlanie krwi, a żem się sam nie mścił krzywdy swojej.', '1 Sm 25,32–33'],
+    en: ['Then David said to Abigail, Blessed be the LORD, the God of Israel, who sent you to meet me this day! Blessed is your discernment, and blessed are you, because today you kept me from bloodshed and from avenging myself by my own hand.', '1 Samuel 25:32–33'],
+    de: ['Da sprach David zu Abigail: Gelobt sei der HERR, der Gott Israels, der dich heutigestages hat mir entgegengesandt; und gesegnet sei deine Rede, und gesegnet seist du, daß du mir heute gewehrt hast, daß ich nicht in Blutschuld gekommen bin und mir mit eigener Hand geholfen habe.', '1. Samuel 25,32–33'],
+    sv: ['Då sade David till Abigal: Välsignad vare HERREN, Israels Gud som i dag har sänt dig mig till mötes! Och välsignat vare ditt förstånd, och välsignad vare du själv, som i dag har hindrat mig från att ådraga mig blodskuld och skaffa mig rätt med egen hand!', '1 Sam 25:32–33'],
+  },
+  '1sa30.6': {
+    pl: ['I był utrapiony Dawid bardzo; bo się zmawiał lud ukamionować go, gdyż gorzkości pełna była dusza wszystkiego ludu, każdego dla synów swych, i dla córek swych; wszakże Dawid zmocnił się w Panu, Bogu swoim.', '1 Sm 30,6'],
+    en: ['And David was greatly distressed because the people spoke of stoning him, because the soul of every man grieved for his sons and daughters. But David found strength in the LORD his God.', '1 Samuel 30:6'],
+    de: ['Und David war sehr geängstet, denn das Volk wollte ihn steinigen; denn des ganzen Volkes Seele war unwillig, ein jeglicher um seine Söhne und Töchter willen. David aber stärkte sich in dem HERRN, seinem Gott…', '1. Samuel 30,6'],
+    sv: ['Och David kom i stor nöd, ty folket tänkte stena honom; så förbittrat var allt folket, var och en för sina söners och döttrars skull. Men David hämtade styrka hos HERREN, sin Gud.', '1 Sam 30:6'],
+  },
+  '1sa30.24': {
+    pl: ['I któż was w tem usłucha? Bo jaki dział tego, który wyszedł na wojnę, taki dział i tego, który został przy tłomokach; równo się podzielą.', '1 Sm 30,24'],
+    en: ['Who will listen to your proposal? The share of the one who went to battle will match the share of the one who stayed with the supplies. They will share alike.', '1 Samuel 30:24'],
+    de: ['Wer sollte euch darin gehorchen? Wie das Teil derjenigen, die in den Streit hinabgezogen sind, so soll auch sein das Teil derjenigen, die bei dem Geräte geblieben sind, und soll gleich geteilt werden.', '1. Samuel 30,24'],
+    sv: ['Och vem skulle för övrigt härutinnan vilja lyssna till eder? Nej, sådan deras lott är, som draga med i striden, sådan skall deras lott vara, som stanna vid trossen; de skola dela jämnt med varandra.', '1 Sam 30:24'],
   },
 };
 
