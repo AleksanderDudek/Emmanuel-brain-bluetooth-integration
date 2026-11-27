@@ -117,7 +117,16 @@ try {
   const page = await ctx.newPage();
   await markSelfTest(page);
   watch(page, 'board');
-  const shot = (name, fullPage = false, p = page) => p.screenshot({ path: join(SHOTS, `${name}.png`), fullPage });
+  // headless Chrome draws only the front tab, and newer builds never give a frame to capture from a tab in the
+  // back (Page.captureScreenshot hangs): a shot of another tab brings it forward, then the board comes back
+  const shot = async (name, fullPage = false, p = page) => {
+    if (p !== page) await p.bringToFront();
+    try {
+      return await p.screenshot({ path: join(SHOTS, `${name}.png`), fullPage });
+    } finally {
+      if (p !== page) await page.bringToFront();
+    }
+  };
   const clickText = (sel, label, p = page) => p.evaluate((s, l) => {
     const b = [...document.querySelectorAll(s)].find(x => x.textContent.trim() === l);
     if (!b) throw new Error(`no "${l}" in ${s}`);
@@ -345,7 +354,9 @@ try {
     await startRobot(rPad);
     await relayPage.waitForSelector('.k-layer .k-summary', { timeout: 150_000 });
     await relayPage.screenshot({ path: join(SHOTS, '19-relay-summary.png') });
+    await rPad.bringToFront();   // (a tab in the back gives no frame to capture)
     await rPad.screenshot({ path: join(SHOTS, '19-relay-pad.png') });
+    await relayPage.bringToFront();
     await stopRobot(rPad);
     console.log('  relay session finished');
   }
