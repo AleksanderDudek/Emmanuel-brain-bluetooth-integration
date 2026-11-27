@@ -66,10 +66,10 @@ const len = (s?: string): number => (s ? [...s].length : 0);
 // ── the stories ───────────────────────────────────────────────────
 
 describe('Stop-klatka — the stories', () => {
-  it('has eight stories for every group, ids unique and `<age>.<slug>`, 0–2 heavy, a light one to open each group', () => {
+  it('has twelve stories for every group, ids unique and `<age>.<slug>`, 0–2 heavy, a light one to open each group', () => {
     const ids = new Set<string>();
     for (const a of AGES) {
-      expect(STORIES[a], a).toHaveLength(8);
+      expect(STORIES[a], a).toHaveLength(12);
       const heavy = STORIES[a].filter(s => s.heavy).length;
       expect(heavy, a).toBeLessThanOrEqual(2);
       expect(STORIES[a][0].heavy, a).toBeFalsy();
@@ -80,7 +80,7 @@ describe('Stop-klatka — the stories', () => {
         ids.add(s.id);
       }
     }
-    expect(ALL_STORIES).toHaveLength(40);
+    expect(ALL_STORIES).toHaveLength(60);
   });
 
   it('keeps every story to the contract: 3–5 beats, the lists, the limits, heat rising to the trigger, a calm outcome', () => {
@@ -150,7 +150,7 @@ describe('Stop-klatka — the stories', () => {
   it('gives only heavy stories with the switch, and opens each group in its own order', () => {
     for (const a of AGES) {
       expect(storiesFor(a, false).some(s => s.heavy)).toBe(false);
-      expect(storiesFor(a, true)).toHaveLength(8);
+      expect(storiesFor(a, true)).toHaveLength(12);
     }
     // a session with the switch off never meets a heavy story, even at 60 minutes
     for (const a of AGES) {

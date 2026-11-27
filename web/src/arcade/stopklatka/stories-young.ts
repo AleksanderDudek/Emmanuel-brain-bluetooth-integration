@@ -347,4 +347,172 @@ export const STORIES_YOUNG: readonly Story[] = [
     lesson: 'Na hejt nie odpowiadaj w gorącej minucie: zgłoś, zablokuj, zadzwoń do bliskich.',
     verse: '2ti1.7',
   },
+  {
+    id: 'young.delivery',
+    age: 'young',
+    title: 'Paczka, która nie przyszła',
+    beats: [
+      {
+        place: 'living', prop: 'phone', heat: 0.2,
+        text: 'Cały dzień w domu, czekasz na kuriera. W paczce prezent na jutrzejsze urodziny kogoś bliskiego.',
+      },
+      {
+        place: 'screen', heat: 0.4,
+        text: 'Domofon milczy cały dzień. O 18:00 telefon brzęczy i wiadomość mówi swoje.',
+        screen: 'Nieudane doręczenie: adresata nie zastano.',
+      },
+      {
+        place: 'queue', people: [{ who: 'group', mood: 'tired' }], prop: 'ticket', heat: 0.6,
+        text: 'Rano biegniesz do punktu odbioru. Kolejka do drzwi, jedno okienko czynne.',
+      },
+      {
+        place: 'queue', people: [{ who: 'clerk', mood: 'busy' }], heat: 0.85,
+        text: 'Po czterdziestu minutach Twoja kolej. Ktoś za ladą stuka w klawiaturę i wzrusza ramionami.',
+        say: 'Paczka już wróciła do nadawcy. Nic nie poradzę.',
+      },
+    ],
+    trigger: 'Szczęka się zaciska, w uszach szum. Dłoń z telefonem już uderza o ladę.',
+    urge: 'Krzyknąć, że to oszustwo, i nagrać tę osobę telefonem dla całego internetu.',
+    feel: ['anger', 'helpless', 'tired'],
+    second: [
+      'Złość ma powód: ktoś wpisuje do systemu, że nikogo nie było, a było.',
+      'Osoba za ladą nie jeździ z paczkami. Nagranie uderzy w kogoś, kto nic nie zrobił.',
+      'Prezent może się spóźnić. Urodziny i tak będą, a Ty na nich.',
+    ],
+    answer: 'Prosisz o numer reklamacji i zdjęcie historii paczki. Skargę piszesz jeszcze w kolejce, krótko i rzeczowo.',
+    answerSay: 'Wiem, że to nie zależy od tego okienka. Poproszę numer reklamacji.',
+    outcome: {
+      place: 'street', prop: 'phone', heat: 0.3,
+      text: 'Reklamacja wysłana, pieniądze wrócą za tydzień. Po drodze kupujesz coś innego. Prezent skromniejszy, wieczór spokojny.',
+      screen: 'Reklamacja przyjęta · nr 55102',
+    },
+    lesson: 'Złość kieruj do tego, kto może coś zmienić, nie do tego, kto stoi najbliżej.',
+    verse: 'pro14.29',
+  },
+  {
+    id: 'young.groupwork',
+    age: 'young',
+    title: 'Cudza analiza',
+    beats: [
+      {
+        place: 'meeting', prop: 'laptop', heat: 0.2,
+        text: 'Seminarium, prezentacja projektu. Przez trzy tygodnie robisz analizę danych, często nocami.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'peer', mood: 'smile' }], heat: 0.4,
+        text: 'Osoba, która nie przyszła na żadne spotkanie grupy, zgłasza się na ochotnika, żeby przedstawić wyniki.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'peer', mood: 'smirk' }], heat: 0.6,
+        text: 'Przy Twoim wykresie mówi pewnym głosem, patrząc na salę:',
+        say: 'Ta analiza to moja działka. Nad nią było najwięcej pracy.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'teacher', mood: 'smile' }], heat: 0.85,
+        text: 'Z końca stołu pada pochwała, skierowana tylko do tej osoby.',
+        say: 'Świetna robota. Taka analiza to rzadkość.',
+      },
+    ],
+    trigger: 'Gorąco uderza do twarzy. Ręka już się podnosi, żeby przerwać w pół zdania.',
+    urge: 'Przerwać przy wszystkich i powiedzieć, że ta osoba nie zrobiła nic.',
+    feel: ['anger', 'hurt', 'helpless'],
+    second: [
+      'Ta złość stoi przy Twojej pracy. Trzy tygodnie nocy to coś, co się liczy.',
+      'Publiczna kłótnia zabrzmi jak zazdrość, nawet jeśli masz rację.',
+      'Historia zmian w pliku pamięta, kto co zrobił. Ona może mówić za Ciebie.',
+    ],
+    answer: 'Czekasz na pytania i dopowiadasz rzeczowo, jak powstała analiza. Po zajęciach piszesz do prowadzących z historią zmian.',
+    answerSay: 'Mogę dopowiedzieć, jak powstała ta analiza? To moja część projektu.',
+    outcome: {
+      place: 'corridor', prop: 'phone', heat: 0.3,
+      text: 'Po dwóch dniach odpowiedź: oceny będą indywidualne. Ta osoba unika Twojego wzroku. Ty śpisz spokojnie.',
+      screen: 'Dziękuję, ocenię wkład każdej osoby osobno.',
+    },
+    lesson: 'Swojej pracy broń dowodami i spokojnym głosem, nie przerywaniem.',
+    verse: 'pro16.32',
+  },
+  {
+    id: 'young.salary',
+    age: 'young',
+    title: 'Wypłata za staż',
+    beats: [
+      {
+        place: 'screen', heat: 0.2,
+        text: 'Dziesiąty dzień miesiąca. Czynsz trzeba zapłacić jutro. Wypłaty za staż wciąż nie ma.',
+        screen: 'Saldo: 46,20 zł',
+      },
+      {
+        place: 'office', people: [{ who: 'colleague', mood: 'busy' }], heat: 0.4,
+        text: 'Pytasz w kadrach. Wzruszenie ramion i odesłanie wyżej.',
+        say: 'Przelewy zatwierdza szef. My nic nie wiemy.',
+      },
+      {
+        place: 'office', people: [{ who: 'boss', mood: 'busy' }], prop: 'laptop', heat: 0.6,
+        text: 'Szef nawet nie odrywa oczu od ekranu.',
+        say: 'Będzie, będzie. W tym miesiącu jest ciasno.',
+      },
+      {
+        place: 'office', people: [{ who: 'boss', mood: 'smirk' }], heat: 0.85,
+        text: 'Już odchodzisz, gdy dobiega Cię jeszcze jedno zdanie, rzucone z uśmiechem:',
+        say: 'Przecież to dla ciebie przede wszystkim doświadczenie.',
+      },
+    ],
+    trigger: 'Dłonie zaciskają się w pięści. W gardle rośnie coś gorącego i ciężkiego.',
+    urge: 'Wrócić, trzasnąć dłonią w biurko i wykrzyczeć, że to wyzysk.',
+    feel: ['anger', 'fear', 'helpless'],
+    second: [
+      'Złość ma rację: praca to praca, a umowa mówi o pieniądzach, nie o doświadczeniu.',
+      'Pod złością jest lęk o czynsz, czyli troska o dach nad głową.',
+      'Krzyk da szefowi wymówkę. Pismo z datą da Ci argument.',
+    ],
+    answer: 'Wracasz do biurka i piszesz krótkiego maila: kwota, termin z umowy, prośba o datę przelewu. Kopia do kadr.',
+    answerSay: 'Proszę o informację, kiedy dostanę wypłatę. Termin z umowy minął piątego.',
+    outcome: {
+      place: 'screen', heat: 0.3,
+      text: 'Następnego dnia rano przychodzi przelew. Bez przeprosin. Wieczorem przeglądasz ogłoszenia o pracy, na spokojnie.',
+      screen: 'Przelew przychodzący: 2800,00 zł',
+    },
+    lesson: 'O swoje pieniądze proś na piśmie: kwota, termin, data. Spokojnie i do skutku.',
+    verse: '1pe5.7',
+  },
+  {
+    id: 'young.bike',
+    age: 'young',
+    title: 'Ścieżka rowerowa',
+    beats: [
+      {
+        place: 'street', heat: 0.2,
+        text: 'Jedziesz rowerem do pracy ścieżką wzdłuż ulicy. Wiatr w twarz, dziesięć minut zapasu.',
+      },
+      {
+        place: 'street', people: [{ who: 'stranger', mood: 'busy' }], heat: 0.4,
+        text: 'Na środku ścieżki ktoś idzie z nosem w telefonie. Dzwonisz raz, drugi. Nic.',
+      },
+      {
+        place: 'street', people: [{ who: 'driver', mood: 'busy' }], heat: 0.65,
+        text: 'Samochód wyjeżdża z bramy prosto na ścieżkę. Hamujesz w ostatniej chwili, tylne koło ucieka w bok.',
+      },
+      {
+        place: 'street', people: [{ who: 'driver', mood: 'shout' }], heat: 0.85,
+        text: 'Szyba zjeżdża w dół. Zamiast przeprosin słyszysz krzyk zza kierownicy:',
+        say: 'Patrz, jak jeździsz! Myślisz, że ulica jest twoja?',
+      },
+    ],
+    trigger: 'Serce wali jak młot, ręce trzęsą się na kierownicy. Złość wybucha jak płomień.',
+    urge: 'Kopnąć w drzwi tego auta i krzyczeć, aż usłyszy cała ulica.',
+    feel: ['anger', 'fear', 'helpless'],
+    second: [
+      'Pod tą złością jest strach: przed chwilą coś mogło Ci się stać.',
+      'Krzyk zza szyby to często ten sam strach, tylko po drugiej stronie.',
+      'Kopnięcie w drzwi zabierze Ci rację. Spokojne zdanie ją zostawi.',
+    ],
+    answer: 'Stajesz, oddychasz, mówisz jedno zdanie i jedziesz dalej. Na światłach sprawdzasz, czy nic Ci nie jest.',
+    answerSay: 'Ścieżka ma pierwszeństwo. Dobrze, że nic się nie stało. Jadę dalej.',
+    outcome: {
+      place: 'street', heat: 0.25,
+      text: 'Szyba jedzie w górę bez słowa. Ręce drżą jeszcze przez dwie przecznice, a potem już tylko wiatr i droga.',
+    },
+    lesson: 'Gdy złość rodzi się ze strachu, najpierw zadbaj o siebie, potem o rację.',
+    verse: 'rom12.21',
+  },
 ];

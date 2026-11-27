@@ -357,4 +357,173 @@ export const STORIES_SENIOR: readonly Story[] = [
     lesson: 'Z chorobą się nie kłócisz. Odpowiadasz na lęk, który jest pod spodem.',
     verse: 'isa46.4',
   },
+  {
+    id: 'senior.infolinia',
+    age: 'senior',
+    title: 'Infolinia',
+    beats: [
+      {
+        place: 'queue', people: [{ who: 'clerk', mood: 'busy' }], prop: 'card', heat: 0.3,
+        text: 'W aptece płacisz kartą za leki. Terminal piszczy: karta odrzucona. Za Tobą czeka kolejka.',
+        say: 'Odrzucona. Może inna karta? Albo gotówka?',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.48,
+        text: 'W domu dzwonisz na infolinię banku. Wybierz jeden, potem cztery, potem dwa. I muzyka.',
+        screen: 'Czas oczekiwania: ok. 25 minut',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.68,
+        text: 'Po półgodzinie odbiera konsultant. Prosi o kod z aplikacji, której nie masz.',
+        say: 'Bez aplikacji nic nie zrobię. Przełączam do działu kart.',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.88,
+        text: 'Znowu muzyka. Mija dziesięć minut, piętnaście. Nagle cisza i krótki sygnał.',
+        screen: 'Połączenie zakończone · 47:12',
+      },
+    ],
+    trigger: 'Telefon parzy w dłoni. W skroniach dudni, ręka już się zamachuje.',
+    urge: 'Zadzwonić jeszcze raz i nawrzeszczeć na pierwszą osobę, która odbierze.',
+    feel: ['anger', 'helpless', 'tired', 'fear'],
+    second: [
+      'Złość mówi: to Twoje pieniądze i masz prawo do pomocy. To prawda.',
+      'Następna osoba w słuchawce nie rozłączyła tej rozmowy. Krzyk trafi w kogoś niewinnego.',
+      'Zapisz, co już wiesz: godzinę, co mówili i do jakiego działu przełączali.',
+    ],
+    answer: 'Robisz herbatę i zapisujesz na kartce, co już wiesz. Potem dzwonisz jeszcze raz i spokojnie prosisz o konkret.',
+    answerSay: 'Rozmowa zerwała się po czterdziestu minutach. Proszę o numer zgłoszenia i oddzwonienie.',
+    outcome: {
+      place: 'kitchen', prop: 'paper', heat: 0.2,
+      text: 'Tym razem konsultantka przeprasza, zadaje kilka pytań i odblokowuje kartę. Numer zgłoszenia zapisujesz grubo na kartce.',
+    },
+    lesson: 'Nie wyładowuj złości na następnej osobie. Zapisz fakty i proś o konkret.',
+    verse: 'psa131.2',
+  },
+  {
+    id: 'senior.pies',
+    age: 'senior',
+    title: 'Pies sąsiadki',
+    beats: [
+      {
+        place: 'park', heat: 0.3,
+        text: 'Poranny spacer po parku. Przy ławce wdeptujesz w to, czego ktoś nie posprzątał po swoim psie.',
+      },
+      {
+        place: 'street', people: [{ who: 'neighbour', mood: 'smile', sex: 'f' }], heat: 0.48,
+        text: 'Pod blokiem pies sąsiadki, bez smyczy, skacze Ci na płaszcz. Błotne łapy na jasnym materiale.',
+        say: 'On tylko chce się przywitać! Nic nie zrobi.',
+      },
+      {
+        place: 'corridor', heat: 0.66,
+        text: 'Po południu sąsiadka wychodzi, a pies szczeka za ścianą. Godzinę, drugą. Nie da się czytać ani zdrzemnąć.',
+      },
+      {
+        place: 'corridor', people: [{ who: 'neighbour', mood: 'cold', sex: 'f' }], heat: 0.88,
+        text: 'Wieczorem na klatce mówisz jej o szczekaniu. Sąsiadka przewraca oczami.',
+        say: 'Pies to nie radio, nie wyłączę go. Jak komuś przeszkadza, niech mieszka na wsi.',
+      },
+    ],
+    trigger: 'Gorąco wspina się do twarzy. Ręce drżą, a głos już się podnosi.',
+    urge: 'Wykrzyczeć na całą klatkę, co myślisz o niej i o jej psie.',
+    feel: ['anger', 'disgust', 'tired', 'helpless'],
+    second: [
+      'Złość mówi: Twój spokój i czysty płaszcz też się liczą. To prawda.',
+      'Ona kocha tego psa jak domownika. Atak na psa usłyszy jako atak na siebie.',
+      'Chcesz ciszy po południu, nie wojny na klatce przez lata.',
+    ],
+    answer: 'Nie oceniasz ani jej, ani psa. Mówisz o jednej rzeczy, której potrzebujesz, i pytasz, co da się zrobić.',
+    answerSay: 'Lubię psy, ale gdy pani wychodzi, on szczeka godzinami. Da się coś z tym zrobić?',
+    outcome: {
+      place: 'corridor', people: [{ who: 'neighbour', mood: 'sorry', sex: 'f' }], heat: 0.2,
+      text: 'Sąsiadka milknie zaskoczona. Potem wzdycha i przyznaje, że nie wiedziała, jak długo to trwa.',
+      say: 'Nie miałam pojęcia. Spróbuję go brać do mamy albo zostawiać mu radio.',
+    },
+    lesson: 'Jedna prośba o jedną rzecz, bez oceniania człowieka.',
+    verse: 'rom12.18',
+  },
+  {
+    id: 'senior.hit',
+    age: 'senior',
+    title: 'Hit wieczoru',
+    beats: [
+      {
+        place: 'kitchen', prop: 'plate', heat: 0.2,
+        text: 'Wnuczka nocuje u Ciebie. Lepisz pierogi, a z radia leci piosenka z Twojej młodości. Tańczysz przy stolnicy.',
+      },
+      {
+        place: 'living', people: [{ who: 'teenager', mood: 'busy', sex: 'f' }], prop: 'phone', heat: 0.42,
+        text: 'Z kanapy dobiega chichot. Wnuczka trzyma telefon w górze i coś nagrywa.',
+        say: 'Nie przestawaj, to jest złoto!',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.66,
+        text: 'Później telefon brzęczy. Rodzinna grupa: filmik z Twoim tańcem i fala śmiechu.',
+        screen: 'Hit wieczoru xD · 14 reakcji',
+      },
+      {
+        place: 'living', people: [{ who: 'teenager', mood: 'smirk', sex: 'f' }], heat: 0.88,
+        text: 'Pytasz, czemu wysłała to bez pytania. Wnuczka wzrusza ramionami.',
+        say: 'No co? Przecież to śmieszne. Wszyscy się śmieją.',
+      },
+    ],
+    trigger: 'Policzki pieką. W gardle ściska wstyd zmieszany ze złością.',
+    urge: 'Zabrać jej telefon, skasować wszystko i powiedzieć, że więcej tu nie przyjedzie.',
+    feel: ['shame', 'hurt', 'anger'],
+    second: [
+      'Wstyd mówi: zależy Ci na tym, jak widzą Cię bliscy. To zrozumiałe.',
+      'Wnuczka chyba nie chciała Cię ośmieszyć. Dla niej to zabawny, czuły filmik.',
+      'Możesz postawić granicę i zostać w tym samym pokoju, przy tych samych pierogach.',
+    ],
+    answer: 'Siadasz obok wnuczki. Mówisz wprost, co Ci przeszkadza, i dodajesz coś z przymrużeniem oka.',
+    answerSay: 'Następnym razem zapytaj. A jak już wrzucasz, to cały taniec, nie tylko potknięcie.',
+    outcome: {
+      place: 'kitchen', people: [{ who: 'teenager', mood: 'smile', sex: 'f' }], heat: 0.15,
+      text: 'Wnuczka parska śmiechem, kasuje filmik i prosi, żeby nauczyć ją tego kroku. Tańczycie razem przy stolnicy.',
+    },
+    lesson: 'Granica może być lekka. Powiedz, co Ci przeszkadza, i zostaw drzwi otwarte.',
+    verse: 'col3.15',
+  },
+  {
+    id: 'senior.szybko',
+    age: 'senior',
+    title: 'Za szybko',
+    beats: [
+      {
+        place: 'living', prop: 'remote', heat: 0.3,
+        text: 'Nowy dekoder od operatora. Na telewizorze od rana napis: brak sygnału. A wieczorem Twój ulubiony teleturniej.',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.48,
+        text: 'Dzwonisz na wideo do swojego dorosłego dziecka. W tle hałas, pośpiech, ktoś woła.',
+        say: 'Dobra, szybko. Pokaż pilota. Nie tak, odwróć telefon.',
+      },
+      {
+        place: 'living', prop: 'phone', heat: 0.68,
+        text: 'Kierujesz kamerę na telewizor. Polecenia lecą jedno za drugim, za szybko, by nadążyć.',
+        say: 'Menu, zębatka, sieć, źródło, HDMI dwa. No przecież mówię!',
+      },
+      {
+        place: 'screen', prop: 'phone', heat: 0.88,
+        text: 'Pytasz o drugi krok jeszcze raz. W słuchawce długie westchnienie i zdanie rzucone do kogoś obok.',
+        say: 'Godzina z głowy. Jak zawsze, kiedy coś się zepsuje.',
+      },
+    ],
+    trigger: 'Coś ściska w gardle. Telefon w dłoni nagle waży więcej niż pilot.',
+    urge: 'Rzucić, że nikt nie musi się męczyć, i rozłączyć się bez słowa.',
+    feel: ['hurt', 'shame', 'anger', 'helpless'],
+    second: [
+      'Złość i żal mówią: chcesz być dla bliskich radością, nie kłopotem.',
+      'Twoje dziecko może mieć dziś urwanie głowy. Ten pośpiech nie jest oceną Ciebie.',
+      'Uczysz się czegoś nowego. Każdy potrzebuje na to czasu, w każdym wieku.',
+    ],
+    answer: 'Nie rozłączasz się. Mówisz spokojnie, czego potrzebujesz, i proponujesz inny sposób.',
+    answerSay: 'Widzę, że się spieszysz. Nagrasz mi krótki filmik krok po kroku? Obejrzę w swoim tempie.',
+    outcome: {
+      place: 'living', prop: 'remote', heat: 0.2,
+      text: 'Wieczorem przychodzi filmik. Oglądasz go trzy razy, klikasz po kolei i na ekranie zaczyna się teleturniej.',
+    },
+    lesson: 'Gdy ktoś tłumaczy za szybko, poproś o swoje tempo, nie o łaskę.',
+    verse: 'pro14.29',
+  },
 ];

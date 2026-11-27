@@ -337,4 +337,172 @@ export const STORIES_ADULT: readonly Story[] = [
     lesson: 'W szoku nie podejmuj decyzji. Poproś o czas i nie zostawaj z tym w pojedynkę.',
     verse: 'php4.7',
   },
+  {
+    id: 'adult.client',
+    age: 'adult',
+    title: 'Klient zmienia zdanie',
+    beats: [
+      {
+        place: 'office', prop: 'laptop', heat: 0.2,
+        text: 'Spotkanie z klientem. Projekt zaakceptowany dwa tygodnie temu, dziś miała być tylko formalność.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'client', mood: 'cold' }], heat: 0.4,
+        text: 'Klient przewija Twoje slajdy coraz szybciej i marszczy brwi.',
+        say: 'Kto to zatwierdził? To zupełnie nie to.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'client', mood: 'angry' }, { who: 'colleague', mood: 'sad', at: 'right' }], heat: 0.6,
+        text: 'Przypominasz maila z akceptacją. Ktoś z Twojego zespołu nagle wpatruje się w stół.',
+        say: 'Maile maile. Ja płacę za efekt.',
+      },
+      {
+        place: 'meeting', people: [{ who: 'client', mood: 'shout' }], heat: 0.85,
+        text: 'A potem, przy wszystkich, zdanie z naciskiem:',
+        say: 'Może ktoś bardziej doświadczony to poprawi? Na jutro.',
+      },
+    ],
+    trigger: 'Kark sztywnieje, policzki płoną. Odpowiedź pełna sarkazmu już ciśnie się na usta.',
+    urge: 'Odpowiedzieć sarkazmem i wyjść ze spotkania bez słowa.',
+    feel: ['anger', 'shame', 'hurt'],
+    second: [
+      'Ta złość pilnuje czegoś ważnego: ustaleń, które były na piśmie.',
+      'Taki ton często przychodzi z góry: ktoś nad klientem właśnie zmienił zdanie.',
+      'Na jutro, po nocy, zrobisz to gorzej. Termin też da się ustalić.',
+    ],
+    answer: 'Wyciszasz emocje, nie rozmowę. Pytasz konkretnie, co ma się zmienić, i proponujesz realny termin oraz wycenę zmian.',
+    answerSay: 'Rozumiem, że priorytety się zmieniły. Spiszmy zmiany, wycenę i termin wyślę dziś.',
+    outcome: {
+      place: 'office', prop: 'paper', heat: 0.3,
+      text: 'Po spotkaniu przychodzi lista zmian i zgoda na nowy termin. Chłodno, ale konkretnie. Wieczór masz dla siebie.',
+      screen: 'Zmiany: 6 · Termin: poniedziałek · Aneks',
+    },
+    lesson: 'Gdy ktoś zmienia zasady w trakcie, zapisz je i wyceń. Nie walcz z tonem.',
+    verse: 'pro15.1',
+  },
+  {
+    id: 'adult.contractor',
+    age: 'adult',
+    title: 'Fachowiec',
+    beats: [
+      {
+        place: 'kitchen', prop: 'clock', heat: 0.2,
+        text: 'Trzeci tydzień remontu łazienki. Dziecko kąpie się w misce w kuchni. Fachowiec miał być o ósmej.',
+      },
+      {
+        place: 'screen', heat: 0.4,
+        text: 'Jest jedenasta. Telefon nie odpowiada. Po godzinie przychodzi wiadomość.',
+        screen: 'dziś nie dam rady, jutro na pewno',
+      },
+      {
+        place: 'kitchen', people: [{ who: 'stranger', mood: 'busy' }], heat: 0.6,
+        text: 'Następnego dnia, o czternastej, w drzwiach. Rozgląda się po łazience i wzdycha.',
+        say: 'Te płytki się nie nadają. Trzeba wymienić, to będzie więcej.',
+      },
+      {
+        place: 'kitchen', people: [{ who: 'stranger', mood: 'smirk' }], heat: 0.85,
+        text: 'Wyciąga rękę po zaliczkę. Drugą w tym miesiącu.',
+        say: 'Bez zaliczki nie ruszę. U innych czekałoby się pół roku.',
+      },
+    ],
+    trigger: 'Gorąco uderza w skronie. Zaciśnięta dłoń drży, a słowa same pchają się na usta.',
+    urge: 'Wystawić narzędzia za drzwi i napisać najgorszą opinię w sieci.',
+    feel: ['anger', 'helpless', 'tired'],
+    second: [
+      'Złość ma podstawy: trzy tygodnie bez łazienki to dużo, a terminy były ustalone.',
+      'Wybuch teraz da powód, żeby zniknąć z połową roboty.',
+      'Masz prawo do jasnych warunków. Umowa na piśmie to nie atak, to porządek.',
+    ],
+    answer: 'Siadasz przy stole i proponujesz spisanie warunków: zakres, cena, termin. Zaliczka dopiero po podpisie.',
+    answerSay: 'Spiszmy dziś zakres, cenę i termin. Zaliczkę dam po podpisaniu.',
+    outcome: {
+      place: 'kitchen', people: [{ who: 'stranger', mood: 'tired' }], prop: 'paper', heat: 0.3,
+      text: 'Jest marudzenie, ale jest i podpis. Łazienka gotowa dwa dni po terminie, za to bez dopłat.',
+      screen: 'Termin: 24.11. Cena: bez zmian.',
+    },
+    lesson: 'Na niedotrzymane słowo najlepiej działa spokojnie spisana umowa.',
+    verse: 'jas1.19-20',
+  },
+  {
+    id: 'adult.parking',
+    age: 'adult',
+    title: 'Parking pod blokiem',
+    beats: [
+      {
+        place: 'street', prop: 'keys', heat: 0.2,
+        text: '7:50. Kluczyki w dłoni, dziecko na ręku, torba na ramieniu. O 8:20 szczepienie w przychodni.',
+      },
+      {
+        place: 'street', heat: 0.4,
+        text: 'Na Twoim wykupionym miejscu stoi znajome auto. Twoje jest zastawione na amen.',
+      },
+      {
+        place: 'street', people: [{ who: 'neighbour', mood: 'busy' }], heat: 0.6,
+        text: 'Dzwonisz domofonem. Po dziesięciu minutach z klatki wychodzi ktoś z czwartego piętra, z kawą w ręku.',
+        say: 'No co? To tylko na chwilę.',
+      },
+      {
+        place: 'street', people: [{ who: 'neighbour', mood: 'smirk' }], heat: 0.85,
+        text: 'Auto odjeżdża bez pośpiechu. Przez uchyloną szybę pada jeszcze:',
+        say: 'Ale nerwowi ci nowi sąsiedzi.',
+      },
+    ],
+    trigger: 'Dziecko płacze na ręku, a w Tobie wszystko się gotuje. Usta już otwierają się do krzyku.',
+    urge: 'Nawrzeszczeć przez całe podwórko i zostawić za wycieraczką kartkę pełną wyzwisk.',
+    feel: ['anger', 'helpless', 'tired'],
+    second: [
+      'Ta złość pilnuje granicy: to miejsce jest Twoje, a czas dziś ma znaczenie.',
+      'Z tą osobą będziesz mijać się na klatce przez lata. Jeden krzyk zostaje na długo.',
+      'Na szczepienie zdążysz, jeśli ruszysz teraz. Rozmowa o parkingu może być wieczorem.',
+    ],
+    answer: 'Wsiadasz i jedziesz. Wieczorem pukasz do drzwi na czwartym piętrze i spokojnie mówisz, jak to wyglądało z Twojej strony.',
+    answerSay: 'Dziś rano dziecko jechało na szczepienie. Proszę, niech to miejsce zostaje wolne.',
+    outcome: {
+      place: 'street', people: [{ who: 'neighbour', mood: 'sorry' }], heat: 0.25,
+      text: 'Pada niechętne „dobra, rozumiem”. Przez tydzień miejsce jest wolne. Co dalej, zobaczysz, ale dziś śpisz spokojnie.',
+    },
+    lesson: 'Z sąsiadem rozmawiaj wieczorem, nie w biegu. Granica nie musi być krzykiem.',
+    verse: 'rom12.18',
+  },
+  {
+    id: 'adult.inlaws',
+    age: 'adult',
+    title: 'Święta u teściów',
+    beats: [
+      {
+        place: 'living', people: [{ who: 'elder', mood: 'smile' }], prop: 'plate', heat: 0.2,
+        text: 'Wigilia u rodziców Twojej drugiej połówki. Opłatek, pierogi, uśmiechy na powitanie.',
+      },
+      {
+        place: 'living', people: [{ who: 'elder', mood: 'busy' }], heat: 0.4,
+        text: 'Przy stole pytanie o pracę. Odpowiadasz, że zmieniasz branżę.',
+        say: 'Znowu? U nas pracowało się w jednym miejscu całe życie.',
+      },
+      {
+        place: 'living', people: [{ who: 'elder', mood: 'cold' }], heat: 0.6,
+        text: 'Przy karpiu kolejna uwaga, niby żartem:',
+        say: 'Ciekawe, kiedy wreszcie będzie was stać na własne mieszkanie.',
+      },
+      {
+        place: 'living', people: [{ who: 'partner', mood: 'busy' }, { who: 'elder', mood: 'smirk', at: 'right' }], heat: 0.85,
+        text: 'Patrzysz na swoją drugą połówkę. Wzrok wbity w talerz. Ani słowa.',
+      },
+    ],
+    trigger: 'W piersi robi się ciasno, w uszach szum. Widelec zastyga nad talerzem.',
+    urge: 'Odpowiedzieć ostro przy całej rodzinie, a w drodze do domu zrobić awanturę o milczenie.',
+    feel: ['hurt', 'anger', 'shame'],
+    second: [
+      'Pod złością jest zranienie: chcesz, żeby ktoś bliski stanął obok Ciebie.',
+      'Milczenie przy stole rodziców bywa starym lękiem, a nie brakiem miłości.',
+      'Kolacja przy tym stole szybko się skończy. Rozmowa we dwoje może zostać na długo.',
+    ],
+    answer: 'Odpowiadasz krótko, z uśmiechem, bez szpili. W domu mówisz spokojnie, czego potrzebujesz od swojej drugiej połówki.',
+    answerSay: 'Kiedy twoi rodzice tak mówią, potrzebuję choć jednego zdania od ciebie.',
+    outcome: {
+      place: 'living', people: [{ who: 'partner', mood: 'sorry' }], heat: 0.25,
+      text: 'Długa cisza, potem ciche „masz rację, przy nich nie umiem”. Umawiacie się na znak, który znaczy: stań obok mnie.',
+    },
+    lesson: 'Złość na milczenie bliskich zamień w prośbę: powiedz, czego potrzebujesz.',
+    verse: 'col3.15',
+  },
 ];
