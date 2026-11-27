@@ -222,6 +222,7 @@ export class EzechielSim {
     this.steps = this.way.steps.slice();
     this.planned = this.steps.length;
     this.talk = new Talk(m => linesOf(m), init.rng);
+    this.talk.fresh = this.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0;
     this.oldLeaves = Math.min(40, this.p.leaves);
     this.block = { kind: 'warmup', dur: 0, blind: false, why: null, cycles: 0, step: 0, last: false };
   }

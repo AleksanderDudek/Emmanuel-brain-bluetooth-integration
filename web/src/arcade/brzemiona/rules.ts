@@ -96,6 +96,9 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 2.6,
+  /** a session over `talkFrom` s (45 and 60 minutes, round 24): a narrator's line comes back only after `talkFresh` s */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
 } as const;
 

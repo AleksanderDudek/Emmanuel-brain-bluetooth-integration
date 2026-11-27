@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CLOSE_MIN, MusicDirector, type PlayerState, type TrackPlayer } from '../src/arcade/kit/music';
-import { ageRecent, frame, longestFit, mmss, parseLength, planMusic, type Track } from '../src/arcade/kit/playlist';
+import { MusicDirector, type MusicNow, type PlayerState, type TrackPlayer } from '../src/arcade/kit/music';
+import {
+  CLOSE_FADE, FADE, MIN_SESSION, TAIL_MAX, ageRecent, introOf, mmss, parseLength, planMusic, type MusicPlan, type Track,
+} from '../src/arcade/kit/playlist';
 import { appleTouch, isVideoId, parseVideoId } from '../src/arcade/kit/youtube';
 
 /** The founder's eleven (round 17), with their lengths. */
@@ -14,32 +16,74 @@ function seeded(seed: number): () => number {
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 2 ** 32; };
 }
 
-describe('kit/playlist planMusic', () => {
-  for (const min of [3, 5, 10, 15, 20, 25, 30]) {
-    it(`${min} min: tracks fit whole, with ambient before, between and after`, () => {
+const LENGTHS = [3, 5, 10, 15, 20, 25, 30, 45, 60];
+
+/** The plan's shape: back to back, only the last may run past the end (by more than a minute played), else a short ambient close. */
+function checkShape(p: MusicPlan, total: number, name: string): void {
+  expect(p.empty, name).toBeNull();
+  expect(p.slots.length, name).toBeGreaterThan(0);
+  expect(p.intro, name).toBe(introOf(total));
+  expect(p.intro).toBeGreaterThanOrEqual(8);
+  expect(p.intro).toBeLessThanOrEqual(20);
+  expect(p.slots[0].at, name).toBe(p.intro);
+  for (let k = 1; k < p.slots.length; k++) {
+    const prev = p.slots[k - 1];
+    // the next begins FADE seconds before the one before ends: a cross-fade, never a gap of ambient
+    expect(Math.abs(p.slots[k].at - (prev.at + prev.sec - FADE)), name).toBeLessThanOrEqual(1);
+    expect(prev.at + prev.sec, `${name}: only the last may run past the end`).toBeLessThanOrEqual(total + 1);
+    expect(prev.play, name).toBe(prev.sec);
+  }
+  const last = p.slots[p.slots.length - 1];
+  expect(total - last.at, `${name}: the last begins with more than a minute left`).toBeGreaterThan(TAIL_MAX - 1);
+  if (last.at + last.sec > total) {
+    expect(p.cut, name).toBeGreaterThan(0);
+    expect(p.tail, name).toBe(0);
+    expect(Math.abs(last.play - (total - last.at)), name).toBeLessThanOrEqual(1);
+  } else {
+    expect(p.cut, name).toBe(0);
+    expect(p.tail, name).toBeLessThanOrEqual(TAIL_MAX);
+  }
+}
+
+describe('kit/playlist planMusic: tracks back to back, filling the session (round 24)', () => {
+  for (const min of LENGTHS) {
+    it(`${min} min: back to back with a cross-fade, the last one fits the end or fades under the close`, () => {
       const total = min * 60;
       for (let seed = 1; seed <= 25; seed++) {
         const p = planMusic({ total, tracks: ELEVEN, rng: seeded(seed) });
-        const [i0, g0, o0] = frame(total);
-        if (min === 3) { expect(p.empty).toBe('short'); expect(p.slots).toHaveLength(0); continue; }
-        expect(p.empty).toBeNull();
-        expect(p.slots.length).toBeGreaterThan(0);
-        expect(p.intro).toBeGreaterThanOrEqual(i0);
-        expect(p.slots[0].at).toBe(p.intro);
-        for (let k = 1; k < p.slots.length; k++) {
-          const prev = p.slots[k - 1];
-          expect(p.slots[k].at - (prev.at + prev.sec)).toBeGreaterThanOrEqual(g0 - 1);
-        }
-        const last = p.slots[p.slots.length - 1];
-        expect(total - (last.at + last.sec)).toBeGreaterThanOrEqual(o0 - 1);
-        expect(new Set(p.slots.map(s => s.id)).size).toBe(p.slots.length);   // no track twice
+        checkShape(p, total, `${min} min seed ${seed}`);
+        // the eleven are longer than an hour together: none comes twice
+        expect(new Set(p.slots.map(s => s.id)).size).toBe(p.slots.length);
+        if (min === 3) { expect(p.slots).toHaveLength(1); expect(p.cut).toBeGreaterThan(0); }
       }
     });
   }
 
-  it('fills a 30-minute session mostly with music', () => {
-    const p = planMusic({ total: 1800, tracks: ELEVEN, rng: seeded(7) });
-    expect(p.music).toBeGreaterThan(1800 * 0.7);
+  it('fills the session with songs: ≥ 80 % at 5 min, ≥ 92 % from 10 min (60 daily sessions with the rotation)', () => {
+    for (const min of LENGTHS) {
+      const total = min * 60;
+      let recent = {}, share = 0;
+      const rng = seeded(min);
+      for (let day = 0; day < 60; day++) {
+        const p = planMusic({ total, tracks: ELEVEN, rng, recent });
+        share += p.music / total;
+        recent = ageRecent(recent, p.slots.map(s => s.id));
+      }
+      expect(share / 60, `${min} min`).toBeGreaterThanOrEqual(min <= 5 ? 0.8 : 0.92);
+    }
+  });
+
+  it('fits the end closely: a last track loses little, an ambient close is short', () => {
+    for (const min of [10, 15, 20, 30, 45, 60]) {
+      let cut = 0, tail = 0;
+      for (let seed = 1; seed <= 40; seed++) {
+        const p = planMusic({ total: min * 60, tracks: ELEVEN, rng: seeded(seed) });
+        cut += p.cut;
+        tail += p.tail;
+      }
+      expect(cut / 40, `${min} min: seconds of the last track lost, on average`).toBeLessThan(75);
+      expect(tail / 40, `${min} min: ambient at the end, on average`).toBeLessThan(40);
+    }
   });
 
   it('draws different sets on different days (random), the same for the same seed', () => {
@@ -52,37 +96,66 @@ describe('kit/playlist planMusic', () => {
   });
 
   it('rotates: a track heard last session comes back far less often', () => {
-    let withIt = 0, without = 0;
-    for (let seed = 1; seed <= 200; seed++) {
-      const ids = planMusic({ total: 600, tracks: ELEVEN, rng: seeded(seed), recent: { qD3P7RULGIY: 1 } }).slots.map(s => s.id);
-      if (ids.includes('qD3P7RULGIY')) withIt++;
-      const fresh = planMusic({ total: 600, tracks: ELEVEN, rng: seeded(seed) }).slots.map(s => s.id);
-      if (fresh.includes('qD3P7RULGIY')) without++;
+    for (const total of [180, 600]) {
+      let withIt = 0, without = 0;
+      for (let seed = 1; seed <= 200; seed++) {
+        const ids = planMusic({ total, tracks: ELEVEN, rng: seeded(seed), recent: { qD3P7RULGIY: 1 } }).slots.map(s => s.id);
+        if (ids.includes('qD3P7RULGIY')) withIt++;
+        const fresh = planMusic({ total, tracks: ELEVEN, rng: seeded(seed) }).slots.map(s => s.id);
+        if (fresh.includes('qD3P7RULGIY')) without++;
+      }
+      expect(withIt, `${total} s`).toBeLessThan(without * 0.6);
     }
-    expect(withIt).toBeLessThan(without * 0.6);
   });
 
-  it('with the rotation, every track that fits gets its turn within a few weeks of daily sessions', () => {
-    for (const min of [5, 10, 15, 20, 30]) {
+  it('with the rotation, every track gets its turn within a few weeks of daily sessions (the short ones in 3–5 minutes)', () => {
+    for (const min of LENGTHS) {
       for (const start of [1, 50]) {
         const seen = new Set<string>();
         let recent = {};
         const rng = seeded(start);
-        for (let day = 0; day < 30; day++) {
+        // (at 15 min Ong Namo, 13:01, leaves 1:44 that only a chant faded early fills: its turn comes about every
+        // six weeks — the plan prefers a close fit)
+        for (let day = 0; day < (min === 15 ? 75 : 30); day++) {
           const ids = planMusic({ total: min * 60, tracks: ELEVEN, rng, recent }).slots.map(s => s.id);
           ids.forEach(id => seen.add(id));
           recent = ageRecent(recent, ids);
         }
-        for (const t of ELEVEN) if (t.sec <= longestFit(min * 60)) expect(seen.has(t.id), `${min} min from ${start}: ${t.id}`).toBe(true);
+        // every track that fits the session whole (in 3–5 minutes: those of about four minutes; a long one would be mostly cut)
+        for (const t of ELEVEN) if (t.sec <= Math.max(240, min * 60 - introOf(min * 60))) expect(seen.has(t.id), `${min} min from ${start}: ${t.id}`).toBe(true);
       }
     }
   });
 
-  it('says why there is no music', () => {
+  it('a few allowed tracks come round again to fill an hour — never the same twice in a row while there are two', () => {
+    const two = planMusic({ total: 3600, tracks: [{ id: 'a', sec: 237 }, { id: 'b', sec: 190 }], rng: seeded(3) });
+    checkShape(two, 3600, 'two tracks');
+    expect(two.slots.length).toBeGreaterThan(14);
+    for (let k = 1; k < two.slots.length; k++) expect(two.slots[k].id).not.toBe(two.slots[k - 1].id);
+    const one = planMusic({ total: 2700, tracks: [{ id: 'a', sec: 781 }], rng: seeded(3) });
+    checkShape(one, 2700, 'one track');
+    expect(one.slots.map(s => s.id)).toEqual(['a', 'a', 'a', 'a']);
+    expect(one.music / 2700).toBeGreaterThan(0.95);
+  });
+
+  it('a track longer than the session plays from its start and fades under the close', () => {
+    const p = planMusic({ total: 600, tracks: [{ id: 'long', sec: 7200 }], rng: seeded(1) });
+    expect(p.slots).toEqual([{ id: 'long', sec: 7200, at: introOf(600), play: 600 - introOf(600) }]);
+    expect(p.cut).toBe(7200 - (600 - introOf(600)));
+  });
+
+  it('says why there is no music: none allowed, or a test of a minute', () => {
     expect(planMusic({ total: 900, tracks: [], rng: seeded(1) }).empty).toBe('none');
-    expect(planMusic({ total: 300, tracks: [{ id: 'long', sec: 781 }], rng: seeded(1) }).empty).toBe('short');
-    expect(longestFit(300)).toBeGreaterThanOrEqual(239);   // 5 min: the shorter chants fit
-    expect(longestFit(180)).toBeLessThan(190);              // 3 min: none of the eleven
+    expect(planMusic({ total: 40, tracks: ELEVEN, rng: seeded(1) }).empty).toBe('short');
+    expect(planMusic({ total: MIN_SESSION, tracks: ELEVEN, rng: seeded(1) }).empty).toBeNull();
+    expect(MIN_SESSION).toBeLessThanOrEqual(180);   // every session the lobby offers holds a track
+  });
+
+  it('plans in a moment, even an hour of short tracks', () => {
+    const t0 = performance.now();
+    planMusic({ total: 3600, tracks: [{ id: 'a', sec: 30 }, { id: 'b', sec: 40 }, { id: 'c', sec: 25 }], rng: seeded(2) });
+    for (let i = 0; i < 10; i++) planMusic({ total: 3600, tracks: ELEVEN, rng: seeded(i) });
+    expect(performance.now() - t0).toBeLessThan(1500);
   });
 
   it('ageRecent keeps three sessions of memory', () => {
@@ -146,19 +219,32 @@ class FakePlayer implements TrackPlayer {
   blocked = false;
   volume = 100;
   loads: string[] = [];
+  cues: string[] = [];
   lengths: Record<string, number> = {};
   /** the browser refuses to start without a tap */
   needsTap = false;
   failIds = new Set<string>();
-  load(id: string): void {
-    this.loads.push(id);
+  private open(id: string): void {
     this.time = 0;
     this.duration = this.lengths[id] ?? 0;
     this.error = this.failIds.has(id) ? 150 : null;
+  }
+  load(id: string): void {
+    this.loads.push(id);
+    this.open(id);
     this.state = this.needsTap ? 'unstarted' : 'buffering';
     this.blocked = this.needsTap;
   }
-  play(): void { if (!this.needsTap && this.state !== 'ended') this.state = 'playing'; }
+  cue(id: string): void {
+    this.cues.push(id);
+    this.open(id);
+    this.state = 'cued';
+  }
+  play(): void {
+    if (this.needsTap) { this.blocked = true; return; }
+    if (this.state === 'cued') this.state = 'buffering';
+    else if (this.state !== 'ended') this.state = 'playing';
+  }
   pause(): void { if (this.state === 'playing' || this.state === 'buffering') this.state = 'paused'; }
   setVolume(v: number): void { this.volume = v; }
   /** the player's own time passes */
@@ -172,81 +258,194 @@ class FakePlayer implements TrackPlayer {
   tap(): void { this.needsTap = false; this.blocked = false; this.state = 'playing'; }
 }
 
-function run(total: number, tracks: Track[], player: FakePlayer, opts: { until?: number; each?: (t: number, d: MusicDirector) => void } = {}) {
-  for (const t of tracks) player.lengths[t.id] = t.sec;
-  const plan = planMusic({ total, tracks, rng: seeded(11) });
-  const mixes: [number, number][] = [];
-  const d = new MusicDirector(plan, player, { mix: l => mixes.push([l, 0]) }, { total, volume: 0.6 });
+interface Frame { t: number; now: MusicNow; playing: boolean[]; vol: number[]; mix: number }
+
+function run(total: number, tracks: Track[], decks: FakePlayer[] | null, opts: {
+  until?: number; fades?: boolean; overlap?: boolean; seed?: number; each?: (t: number, d: MusicDirector) => void;
+} = {}) {
+  for (const p of decks ?? []) for (const t of tracks) p.lengths[t.id] = t.sec;
+  const plan = planMusic({ total, tracks, rng: seeded(opts.seed ?? 11) });
+  let mix = 1;
+  const mixes: number[] = [];
+  const d = new MusicDirector(plan, decks, { mix: l => { mix = l; mixes.push(l); } }, { total, volume: 0.6, fades: opts.fades, overlap: () => opts.overlap ?? false });
   const dt = 0.25;
   const until = opts.until ?? total;
+  const frames: Frame[] = [];
   for (let t = 0; t <= until; t += dt) {
-    player.tick(dt);
+    for (const p of decks ?? []) p.tick(dt);
     d.update(t);
+    frames.push({ t, now: d.now, playing: (decks ?? []).map(p => p.state === 'playing'), vol: (decks ?? []).map(p => p.volume), mix });
     opts.each?.(t, d);
   }
-  return { plan, d, mixes };
+  return { plan, d, mixes, frames };
+}
+
+/** Seconds during which two players play at once, per stretch. */
+function overlaps(frames: Frame[]): number[] {
+  const out: number[] = [];
+  let run0 = 0;
+  for (const f of frames) {
+    if (f.playing.filter(Boolean).length > 1) run0 += 0.25;
+    else if (run0) { out.push(run0); run0 = 0; }
+  }
+  if (run0) out.push(run0);
+  return out;
+}
+
+/** Seconds during which no player plays, between the first track's start and the last's end. */
+function gaps(frames: Frame[]): number[] {
+  const first = frames.findIndex(f => f.playing.some(Boolean));
+  let last = frames.length - 1;
+  while (last > 0 && !frames[last].playing.some(Boolean)) last--;
+  const out: number[] = [];
+  let g = 0;
+  for (let i = first; i <= last; i++) {
+    if (!frames[i].playing.some(Boolean)) g += 0.25;
+    else if (g) { out.push(g); g = 0; }
+  }
+  return out;
 }
 
 describe('kit/music MusicDirector', () => {
-  it('plays the planned tracks whole, in turn, with the ambient between, and ends with the ambient', () => {
-    const p = new FakePlayer();
-    let trackTime = 0;
-    let atEnd = '';
-    const { plan, d } = run(900, ELEVEN, p, {
-      each: (t, dd) => { if (dd.now.phase === 'track') trackTime += 0.25; if (t > 900 - CLOSE_MIN) atEnd = dd.now.phase; },
+  it('two players, one place (a phone): fade-through — never two playing at once, the next starts as the one before ends', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
+    const { plan, d, frames, mixes } = run(1800, ELEVEN, decks, { overlap: false });
+    expect(plan.slots.length).toBeGreaterThan(2);
+    expect(overlaps(frames)).toEqual([]);
+    // the next was cued in the other player while this one played: it starts at once (no ambient bridge of seconds)
+    for (const g of gaps(frames)) expect(g).toBeLessThanOrEqual(1);
+    expect(decks[0].loads.length + decks[1].loads.length).toBe(1);
+    expect(decks[1].cues.length).toBeGreaterThan(0);
+    expect([...decks[0].cues, ...decks[1].cues].length).toBe(plan.slots.length - 1);
+    expect(d.played.sort()).toEqual([...new Set(plan.slots.map(s => s.id))].sort());
+    // each change of track: the ending one falls to silence while the ambient swells softly (the bridge), then it falls again
+    expect(mixes.filter(m => m === 0.75).length).toBeGreaterThanOrEqual(plan.slots.length - 1);
+    // the ending track's last seconds fall gently: half way down 2.5 s before its end
+    const ends = frames.filter((f, i) => i > 0 && frames[i - 1].now.deck !== f.now.deck);
+    expect(ends.length).toBe(plan.slots.length - 1);
+    for (const e of ends) {
+      const before = frames.find(f => Math.abs(f.t - (e.t - 2.5)) < 0.01)!;
+      const old = 1 - e.now.deck;
+      expect(before.vol[old]).toBeGreaterThan(10);
+      expect(before.vol[old]).toBeLessThan(45);
+    }
+    expect(Math.max(...frames.flatMap(f => f.vol.filter((_, i) => f.playing[i])))).toBeLessThanOrEqual(60);   // never above the app's volume
+  });
+
+  it('two players and room for two cards (a large desk): a cross-fade of about FADE seconds, one rising while the other falls', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
+    const { plan, frames } = run(1800, ELEVEN, decks, { overlap: true });
+    const o = overlaps(frames);
+    expect(o.length).toBe(plan.slots.length - 1);
+    for (const s of o) { expect(s).toBeGreaterThanOrEqual(FADE - 1.5); expect(s).toBeLessThanOrEqual(FADE + 1); }
+    // during a cross-fade both cards show: the next one in the second place
+    const both = frames.filter(f => f.playing[0] && f.playing[1]);
+    expect(both.every(f => f.now.next !== null && f.now.next.deck !== f.now.deck)).toBe(true);
+    // in each cross-fade the rising one grows, the falling one shrinks
+    const stretches: Frame[][] = [];
+    frames.forEach((f, i) => {
+      if (!(f.playing[0] && f.playing[1])) return;
+      if (i > 0 && frames[i - 1].playing[0] && frames[i - 1].playing[1]) stretches[stretches.length - 1].push(f);
+      else stretches.push([f]);
     });
+    for (const st of stretches) {
+      const first = st[0], lastF = st[st.length - 1];
+      const inc = first.now.next!.deck, out = first.now.deck;
+      expect(lastF.now.next?.deck ?? inc).toBe(inc);
+      expect(lastF.vol[inc]).toBeGreaterThan(first.vol[inc] + 20);
+      expect(lastF.vol[out]).toBeLessThan(first.vol[out] - 20);
+    }
+    // and the ambient is silent under two tracks
+    expect(both.every(f => f.mix === 0)).toBe(true);
+  });
+
+  it('an iPhone (one player, no volume): the next loads into the same player, the ambient swells over each change', () => {
+    const p = new FakePlayer();
+    const { plan, mixes, frames } = run(1800, ELEVEN, [p], { fades: false });
     expect(p.loads).toEqual(plan.slots.map(s => s.id));
-    expect(d.played.sort()).toEqual(plan.slots.map(s => s.id).sort());
-    expect(trackTime).toBeGreaterThan(plan.music - 10);
-    expect(atEnd === 'done' || atEnd === 'ambient').toBe(true);
-    expect(p.volume).toBeLessThanOrEqual(60);   // never above the app's volume
+    expect(p.cues).toEqual([]);
+    expect(mixes.filter(m => m === 0.75).length).toBeGreaterThanOrEqual(plan.slots.length - 1);
+    for (const g of gaps(frames)) expect(g).toBeLessThanOrEqual(1);
   });
 
-  it('skips a track that cannot play (blocked embed) and carries on', () => {
-    const p = new FakePlayer();
+  it('the last track that runs past the end fades out under the close, and stops with it', () => {
+    for (const overlap of [false, true]) {
+      const decks = [new FakePlayer(), new FakePlayer()];
+      // a 10-minute session of the eleven always ends in a track faded under the close
+      const { plan, frames, d } = run(600, ELEVEN, decks, { overlap });
+      expect(plan.cut).toBeGreaterThan(0);
+      const closing = frames.filter(f => f.now.phase === 'closing');
+      expect(closing.length * 0.25).toBeGreaterThanOrEqual(CLOSE_FADE - 1);
+      expect(closing[0].t).toBeGreaterThanOrEqual(600 - CLOSE_FADE - 0.5);
+      const deck = closing[0].now.deck;
+      const v = closing.map(f => f.vol[deck]);
+      for (let i = 1; i < v.length; i++) expect(v[i]).toBeLessThanOrEqual(v[i - 1]);
+      expect(v[v.length - 1]).toBeLessThan(10);
+      const end = frames[frames.length - 1];
+      expect(end.playing.some(Boolean)).toBe(false);
+      expect(d.now.phase).toBe('done');
+      expect(d.canStop()).toBe(true);
+    }
+  });
+
+  it('never runs a track into the summary: a late, slow track fades out before the end', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
+    // the players' clocks run at half speed (buffering): the plan's times slip
+    for (const p of decks) { const slow = p.tick.bind(p); p.tick = (dt: number) => slow(dt / 2); }
+    let lastPhase = '';
+    run(600, ELEVEN, decks, { each: (t, dd) => { if (t >= 599.9) lastPhase = dd.now.phase; } });
+    expect(['done', 'ambient']).toContain(lastPhase);
+    expect(decks.some(p => p.state === 'playing')).toBe(false);
+  });
+
+  it('skips a track that cannot play (blocked embed) and carries on — the cued next takes its turn', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
     const plan = planMusic({ total: 1200, tracks: ELEVEN, rng: seeded(11) });
-    p.failIds.add(plan.slots[0].id);
-    const { d } = run(1200, ELEVEN, p);
-    expect(d.skipped).toContain(plan.slots[0].id);
-    expect(d.played.length).toBeGreaterThan(0);
+    for (const p of decks) p.failIds.add(plan.slots[1].id);
+    const { d } = run(1200, ELEVEN, decks);
+    expect(d.skipped).toContain(plan.slots[1].id);
+    expect(d.played).toContain(plan.slots[0].id);
+    expect(d.played).toContain(plan.slots[2].id);
   });
 
-  it('asks for one tap when the browser wants it, then plays on after the tap', () => {
-    const p = new FakePlayer();
-    p.needsTap = true;
+  it('asks for one tap when the browser wants it, then plays on in that player (the second would ask again)', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
+    for (const p of decks) p.needsTap = true;
     let asked = 0;
-    const { d } = run(900, ELEVEN, p, {
-      each: (_t, dd) => { if (dd.now.tap) { asked++; if (asked === 20) p.tap(); } },
+    const { d, plan } = run(1200, ELEVEN, decks, {
+      each: (_t, dd) => { if (dd.now.tap) { asked++; if (asked === 20) decks[0].tap(); } },
     });
-    expect(asked).toBeGreaterThanOrEqual(20);
-    expect(d.played.length).toBeGreaterThan(0);
+    expect(asked).toBe(20);
+    expect(decks[1].loads.length + decks[1].cues.length).toBe(0);
+    expect(decks[0].loads.length).toBe(plan.slots.length);
+    expect(d.played.length).toBeGreaterThan(1);
+  });
+
+  it('a second player that wants a tap of its own: the tracks go on in the first one, without asking', () => {
+    const decks = [new FakePlayer(), new FakePlayer()];
+    decks[1].needsTap = true;
+    let asked = false;
+    const { d, plan } = run(1200, ELEVEN, decks, { each: (_t, dd) => { if (dd.now.tap) asked = true; } });
+    expect(asked).toBe(false);
+    expect(d.played.length).toBe(new Set(plan.slots.map(s => s.id)).size);
+    expect(decks[0].loads.length).toBe(plan.slots.length);
   });
 
   it('without a tap: asks once, then the ambient alone for the rest of the session', () => {
-    const p = new FakePlayer();
-    p.needsTap = true;
-    const { d } = run(1200, ELEVEN, p);
-    expect(p.loads.length).toBe(1);
+    const decks = [new FakePlayer(), new FakePlayer()];
+    for (const p of decks) p.needsTap = true;
+    const { d } = run(1200, ELEVEN, decks);
+    expect(decks[0].loads.length).toBe(1);
+    expect(decks[1].loads.length + decks[1].cues.length).toBe(0);
     expect(d.played).toEqual([]);
     expect(d.now.phase).toBe('done');
   });
 
-  it('never runs a track into the summary: a late, slow track fades out before the end', () => {
-    const p = new FakePlayer();
-    // the player's clock runs at half speed (buffering): the plan's times slip
-    const slow = p.tick.bind(p);
-    p.tick = (dt: number) => slow(dt / 2);
-    let lastPhase = '';
-    run(600, ELEVEN, p, { each: (t, dd) => { if (t >= 599) lastPhase = dd.now.phase; } });
-    expect(['done', 'ambient']).toContain(lastPhase);
-    expect(p.state === 'playing').toBe(false);
-  });
-
-  it('pauses the track with the session and resumes it after', () => {
+  it('pauses the tracks with the session and resumes them after', () => {
     const p = new FakePlayer();
     p.lengths = Object.fromEntries(ELEVEN.map(t => [t.id, t.sec]));
     const plan = planMusic({ total: 900, tracks: ELEVEN, rng: seeded(11) });
-    const d = new MusicDirector(plan, p, { mix: () => undefined }, { total: 900, volume: 1 });
+    const d = new MusicDirector(plan, [p, new FakePlayer()], { mix: () => undefined }, { total: 900, volume: 1 });
     let t = 0;
     while (d.now.phase !== 'track' && t < 300) { p.tick(0.25); d.update(t); t += 0.25; }
     expect(d.now.phase).toBe('track');
@@ -304,5 +503,19 @@ describe('kit/music MusicDirector', () => {
     for (let t = 0; t < 900; t += 1) d.update(t);
     expect(d.now.show).toBe(false);
     expect(d.played).toEqual([]);
+  });
+
+  it('an hour: every planned track plays, the players never both play outside a cross-fade, the session ends quiet', () => {
+    for (const overlap of [false, true]) {
+      const decks = [new FakePlayer(), new FakePlayer()];
+      const { plan, d, frames } = run(3600, ELEVEN, decks, { overlap, seed: 5 });
+      expect(plan.slots.length).toBeGreaterThanOrEqual(7);
+      expect(d.played.length).toBe(plan.slots.length);
+      const o = overlaps(frames);
+      expect(o.length).toBe(overlap ? plan.slots.length - 1 : 0);
+      const heard = frames.filter(f => f.playing.some(Boolean)).length * 0.25;
+      expect(heard / 3600).toBeGreaterThan(0.93);
+      expect(frames[frames.length - 1].playing.some(Boolean)).toBe(false);
+    }
   });
 });

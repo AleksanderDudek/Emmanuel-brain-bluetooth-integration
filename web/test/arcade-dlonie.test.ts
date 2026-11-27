@@ -8,6 +8,7 @@ import {
 } from '../src/arcade/dlonie/meta';
 import { RULES, breathsFor, prayersFor, readSec } from '../src/arcade/dlonie/rules';
 import { DlonieSim, Smooth, growMult, type SimEvent } from '../src/arcade/dlonie/sim';
+import { ALWAYS } from '../src/arcade/dlonie/talk';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -631,4 +632,77 @@ describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () =
       }
     });
   }
+});
+
+describe('45–60 minutes (round 24)', () => {
+  it('the plan scales: 16 prayers in 45 minutes, 21 in an hour; the deepest breaths of the longest sessions', () => {
+    expect([2700, 3600].map(prayersFor)).toEqual([16, 21]);
+    expect(breathsFor(2700)).toEqual(breathsFor(1800));
+    expect(breathsFor(3600)).toEqual(breathsFor(1800));
+  });
+
+  for (const planned of [2700, 3600]) {
+    it(`walks an average player through ${planned / 60} minutes: every planned prayer, the last one near the end`, () => {
+      const sim = later({ planned, seed: 3, progress: { names: [{ name: 'Anna', place: null }, { name: 'Jan', place: 'head' }] } });
+      const { offered, evs } = session(sim, average);
+      const n = prayersFor(planned);
+      expect(offered.length).toBeGreaterThanOrEqual(n - 1);
+      expect(offered.length).toBeLessThanOrEqual(n + 1);
+      const last = offered[offered.length - 1];
+      expect(last / planned).toBeGreaterThan(0.8);
+      expect(last / planned).toBeLessThan(0.995);
+      expect(offered.filter(x => x <= 0.4 * planned).length).toBeLessThanOrEqual(Math.ceil(n / 2));
+      expect(sim.phase).toBe('done');
+      expect(ofType(evs, 'done')).toHaveLength(1);
+      // bounded, and a summary of a few lines with no name in it
+      expect(sim.blocks.length).toBeLessThan(300);
+      expect(sim.talk.said.length).toBeLessThan(400);
+      const r = sim.result();
+      expect(r.score).toBeGreaterThan(0);
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      expect(r.stats.length).toBeLessThanOrEqual(6);
+      expect(r.stats.find(([k]) => k === t('stat.prayers'))![1].split(' · ').length).toBeLessThanOrEqual(3);
+      expect(JSON.stringify(r)).not.toContain('Anna');
+    });
+  }
+
+  it('an hour: a strong player prays more and still ends on time; with no focus nothing grows, nothing runs away', () => {
+    const strong = later({ planned: 3600, seed: 4 });
+    const { offered } = session(strong, ideal);
+    expect(offered.length).toBeGreaterThanOrEqual(prayersFor(3600));
+    expect(strong.t).toBeGreaterThanOrEqual(3600);
+    expect(strong.phase).toBe('done');
+    const idle = later({ planned: 3600, seed: 5 });
+    const none = session(idle, () => () => LOW);
+    expect(none.offered).toEqual([]);
+    expect(idle.grow).toBe(0);
+    for (const b of idle.blocks) if (b.kind === 'push' && b.end !== undefined) expect(b.end - b.t0).toBeLessThanOrEqual(RULES.maxPush + 0.1);
+    expect(idle.blocks.length).toBeLessThan(300);
+    expect(idle.talk.said.length).toBeLessThan(400);
+    expect(idle.phase).toBe('done');
+    expect(idle.result().highlights.length).toBeLessThanOrEqual(5);
+  });
+
+  it('an hour’s narrator: no line again within ten minutes, still speaking in the last quarter; half an hour as before', () => {
+    expect(later({ planned: 1800 }).talk.fresh).toBe(0);
+    expect(later({ planned: 2700 }).talk.fresh).toBe(RULES.talkFresh);
+    const sim = later({ planned: 3600, seed: 3 });
+    const lines: [number, string, string][] = [];
+    let last: unknown = null;
+    const clock = { t: 0 };
+    drive(sim, 3606, average(sim), clock, () => {
+      const l = sim.talk.line;
+      if (l && l !== last) { last = l; lines.push([clock.t, l.moment, l.text]); }
+    });
+    expect(sim.phase).toBe('done');
+    // no line again within ten minutes (the warnings and the help when stuck aside), and still a voice at the end
+    const at = new Map<string, number>();
+    for (const [tt, m, text] of lines) {
+      if ((ALWAYS as readonly string[]).includes(m)) continue;
+      const p = at.get(text);
+      if (p !== undefined) expect(tt - p, text).toBeGreaterThanOrEqual(RULES.talkFresh - 1e-6);
+      at.set(text, tt);
+    }
+    expect(lines.filter(([tt, m]) => tt > 0.75 * 3600 && !(ALWAYS as readonly string[]).includes(m)).length).toBeGreaterThan(0);
+  });
 });

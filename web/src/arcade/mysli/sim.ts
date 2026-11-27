@@ -362,7 +362,7 @@ export class MysliSim {
     this.pushesBase = this.p.pushes;
     this.bestBefore = bestOf(this.p);
     this.before = this.p.before;
-    this.talk = new Talk(m => linesOf(m), init.rng);
+    this.talk = new Talk(m => linesOf(m), init.rng, init.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0);
     this.queue = this.buildQueue(true);
   }
 

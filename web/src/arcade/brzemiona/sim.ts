@@ -289,7 +289,7 @@ export class BrzSim {
     this.finaleSec = finaleFor(this.plannedSec);
     this.bestBefore = bestOf(this.p);
     this.mean = new WindowMean(Math.max(RULES.meanSec, breathCycle(this.pattern)));
-    this.talk = new Talk(init.rng);
+    this.talk = new Talk(init.rng, undefined, init.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0);
     const st = this.own ? ownStartOf(this.p, ownDefaults()) : startOf(this.p);
     this.index = Math.max(0, Math.min(this.queue.length - 1, st.index));
     this.item = this.queue[this.index];

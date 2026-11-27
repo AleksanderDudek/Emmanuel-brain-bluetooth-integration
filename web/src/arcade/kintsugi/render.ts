@@ -58,6 +58,18 @@ export interface Pose { x: number; y: number; rot: number; sc: number; lift: num
 /** Pieces lying on the cloth are drawn at this share of their size, a little flattened (they lie, the eye looks down). */
 const LIE = 0.82, FLAT = 0.8;
 
+/**
+ * "Jak się teraz czujesz?" 0 (very heavy) … 10 (light and well): each button a step from a dusky plum to a warm gold —
+ * dark enough throughout for the light digit to read — its edge warming the same way.
+ */
+const STEP = (i: number, from: readonly number[], to: readonly number[]): string => {
+  const k = i / 10;
+  const c = from.map((v, j) => v + (to[j] - v) * k);
+  return `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${c[3].toFixed(2)})`;
+};
+const RATE_FILL = Array.from({ length: 11 }, (_, i) => STEP(i, [30, 22, 46, 0.62], [112, 80, 30, 0.6]));
+const RATE_EDGE = Array.from({ length: 11 }, (_, i) => STEP(i, [170, 150, 200, 0.34], [255, 220, 150, 0.8]));
+
 export class KintsugiView {
   private readonly ctx: CanvasRenderingContext2D | null;
   private l: Layout;
@@ -114,6 +126,8 @@ export class KintsugiView {
   get layoutNow(): Layout { return this.l; }
   /** Where the music's player card goes (null: no track will play). */
   get musicRect(): Rect | null { return this.o.tracks ? this.lCard.music : null; }
+  /** Where a second card goes for a cross-fade (null: no room — the tracks change in the one place). */
+  get musicRect2(): Rect | null { return this.o.tracks ? this.lCard.music2 : null; }
 
   /**
    * The music's player card is on screen now.  On a short phone held upright the card's reserved place would leave the
@@ -139,6 +153,7 @@ export class KintsugiView {
       scene: r(a.scene, b.scene), band: r(a.band, b.band), cyX: n(a.cyX, b.cyX), sX: n(a.sX, b.sX),
       guide: k < 0.5 ? a.guide : b.guide,
       music: b.music,
+      music2: b.music2,
     };
   }
 
@@ -1281,7 +1296,7 @@ export class KintsugiView {
       shown.forEach((s, i) => ctx.fillText(s, band.x + band.w / 2, top + i * lh));
       ctx.restore();
     } else if (sim.card) this.drawVerse(ctx, sim.card.id, band, clamp((sim.t - sim.card.t0) / 0.8));
-    // how much does it hurt now (0–10)
+    // how do you feel now: 0 very heavy … 10 light and well
     const q = l.rateQ;
     ctx.save();
     ctx.globalAlpha = a;
@@ -1302,10 +1317,10 @@ export class KintsugiView {
     ctx.fillText(t('rate.sub'), q.x + q.w / 2, q.y + Math.round(l.font + 6));
     l.rate.forEach((r, i) => {
       const on = sim.rating === i;
-      ctx.fillStyle = on ? rgba(GOLD, 0.9) : 'rgba(14,10,24,0.5)';
+      ctx.fillStyle = on ? rgba(GOLD, 0.9) : RATE_FILL[i];
       roundRect(ctx, r.x, r.y, r.w, r.h, 12);
       ctx.fill();
-      ctx.strokeStyle = on ? rgba(GOLD_HI, 1) : 'rgba(255,236,206,0.4)';
+      ctx.strokeStyle = on ? rgba(GOLD_HI, 1) : RATE_EDGE[i];
       ctx.lineWidth = on ? 2 : 1;
       ctx.stroke();
       ctx.fillStyle = on ? '#2a1a06' : '#fbf3e4';

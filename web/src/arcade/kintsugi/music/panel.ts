@@ -7,11 +7,13 @@
  *                 (youtube-nocookie.com), when one starts YouTube receives the device's IP address and may show an
  *                 advert, nothing connects before that, offline the ambient plays alone — "Włącz utwory z YouTube" or
  *                 "Tylko muzyka tła"; afterwards a small link withdraws it
- *   what fits     for the lobby's chosen length (#arcadeLen, re-read when it changes): how many tracks fit whole, from
- *                 the same plan the session makes (kit/playlist.ts), or why none does
+ *   what fits     for the lobby's chosen length (#arcadeLen, re-read when it changes): how many tracks play one after
+ *                 another, from the same plan the session makes (kit/playlist.ts), and that a last one longer than
+ *                 what is left fades with the session's end
  *   the list      the founder's eleven in his order, then the player's own: a switch, the title, the performer and a
- *                 note on what it is, the length (dimmed with "nie zmieści się w 5 min" when it cannot fit — never
- *                 hidden), a "▶ YouTube" link to listen first on YouTube itself; all / none; on a phone the first six
+ *                 note on what it is, the length (dimmed, with "dłuższy niż sesja 5 min — gdy zagra, ucichnie z jej
+ *                 końcem", when it is longer than the session), a "▶ YouTube" link to listen first on YouTube itself;
+ *                 all / none; on a phone the first six
  *                 and "Pokaż wszystkie"
  *   own tracks    a YouTube link, a length the player types ("4:39"), an optional name; ≤ 12, each removable, kept on
  *                 this device only
@@ -22,12 +24,12 @@
 import { fmtNum } from '../../../i18n';
 import { MAX_SESSION_SEC, SESSION_MINUTES } from '../../../settings';
 import { h } from '../../../ui/dom';
-import { longestFit, mmss, planMusic, type Recent, type Track } from '../../kit/playlist';
+import { MIN_SESSION, mmss, planMusic, type Recent, type Track } from '../../kit/playlist';
 import { appleTouch, watchUrl } from '../../kit/youtube';
 import { mulberry32 } from '../../../core/random';
 import { t } from './i18n';
 import {
-  MODES, OWN_MAX, activeTracks, addOwn, isOn, removeOwn, setAll, setMode, setOn, tooLong, type MusicPrefs,
+  MODES, OWN_MAX, activeTracks, addOwn, isOn, removeOwn, roomFor, setAll, setMode, setOn, tooLong, type MusicPrefs,
 } from './prefs';
 import { BUILTIN } from './tracks';
 
@@ -37,28 +39,24 @@ const minutes = (sec: number): string => fmtNum(sec / 60, sec % 60 ? 1 : 0);
 export type Fit =
   | { kind: 'empty' }
   | { kind: 'none'; from: number }
-  | { kind: 'never' }
-  | { kind: 'some'; lo: number; hi: number };
+  | { kind: 'some'; lo: number; hi: number; cut: boolean };
 
 /**
- * How many of `tracks` fit a session of `total` s — the least and the most over many draws of the same plan the
- * session makes — or why none does (none on, none short enough now — and from which length one would — or none
- * short enough for any session).
+ * How many of `tracks` play one after another in a session of `total` s — the least and the most over many draws of
+ * the same plan the session makes, and whether a last one may be faded under the close — or why none does (none on,
+ * or a session too short for tracks, and from which length they play).
  */
 export function fitOf(tracks: readonly Track[], total: number, recent: Recent = {}): Fit {
   if (!tracks.length) return { kind: 'empty' };
-  const shortest = Math.min(...tracks.map(x => x.sec));
-  if (shortest > longestFit(total)) {
-    const from = SESSION_MINUTES.find(m => longestFit(m * 60) >= shortest && m * 60 > total);
-    return from ? { kind: 'none', from } : { kind: 'never' };
-  }
-  let lo = Infinity, hi = 0;
+  if (total < MIN_SESSION) return { kind: 'none', from: SESSION_MINUTES.find(m => m * 60 >= MIN_SESSION) ?? SESSION_MINUTES[0] };
+  let lo = Infinity, hi = 0, cut = false;
   for (let seed = 1; seed <= 24; seed++) {
-    const n = planMusic({ total, tracks, rng: mulberry32(seed * 7919), recent, samples: 80 }).slots.length;
-    lo = Math.min(lo, n);
-    hi = Math.max(hi, n);
+    const p = planMusic({ total, tracks, rng: mulberry32(seed * 7919), recent, samples: 80 });
+    lo = Math.min(lo, p.slots.length);
+    hi = Math.max(hi, p.slots.length);
+    cut ||= p.cut > 0;
   }
-  return { kind: 'some', lo: Math.max(1, lo), hi: Math.max(1, hi) };
+  return { kind: 'some', lo: Math.max(1, lo), hi: Math.max(1, hi), cut };
 }
 
 /** The fit in one line of text. */
@@ -66,9 +64,11 @@ export function fitLine(f: Fit, total: number): string {
   const min = minutes(total);
   switch (f.kind) {
     case 'empty': return t('fit.empty');
-    case 'never': return t('fit.never', { max: MAX_SESSION_SEC / 60 });
     case 'none': return t('fit.none', { min, from: f.from });
-    default: return f.lo === f.hi ? t('fit.exact', { min, n: f.hi }) : t('fit.range', { min, lo: f.lo, n: f.hi });
+    default: {
+      const n = f.lo === f.hi ? t('fit.exact', { min, n: f.hi }) : t('fit.range', { min, lo: f.lo, n: f.hi });
+      return f.cut ? `${n} ${t('fit.cut')}` : n;
+    }
   }
 }
 
@@ -130,7 +130,7 @@ export function musicPanel(m: MusicPrefs, save: () => void, sessionSec: () => nu
     const sec = total();
     fitEl.textContent = fitLine(fitOf(activeTracks(m), sec, m.recent), sec);
     if (!listEl) return;
-    const room = longestFit(sec);
+    const room = roomFor(sec);
     for (const row of listEl.querySelectorAll<HTMLElement>('.kin-music-row')) {
       const len = Number(row.dataset.sec);
       const warn = row.querySelector<HTMLElement>('.kin-music-warn')!;

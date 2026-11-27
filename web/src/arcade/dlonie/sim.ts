@@ -251,6 +251,7 @@ export class DlonieSim {
     this.planned = this.focusSec !== null ? prayersWith(this.plannedSec, this.focusSec, this.fixedSec(false)) : prayersFor(this.plannedSec);
     this.maxPush = Math.max(RULES.maxPush, Math.round((this.focusSec ?? 0) * 1.5));
     this.talk = new Talk(m => linesOf(m, init.mouse === true), init.rng);
+    this.talk.fresh = this.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0;
     const walk = walkOf(this.p);
     this.whoAt = Math.min(walk.length - 1, Math.max(0, this.p.walk));
     this.who = walk[this.whoAt];

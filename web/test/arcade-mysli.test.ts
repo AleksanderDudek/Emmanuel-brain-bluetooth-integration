@@ -1164,3 +1164,99 @@ describe('round 16: the card — one clear first choice', () => {
     expect(el.querySelector('[data-mysli="own-chosen"]')?.textContent).toContain('Nie poradzę sobie z tym projektem');
   });
 });
+
+describe('45–60 minutes (round 24)', () => {
+  /** A whole session with the arrivals (their text and truth) and the narrator's lines, each with its time. */
+  const hour = (planned: number, f: (t: number, sim: MysliSim) => FocusFrame, o: SimOpts = {}) => {
+    const sim = later({ ...o, planned });
+    const arrivals: [number, string][] = [];
+    const lines: [number, string][] = [];
+    const clock = { t: 0 };
+    let prev: unknown = null, most = 0;
+    for (let i = 0; i < Math.round((planned + 8) / STEP); i++) {
+      clock.t += STEP;
+      sim.update(STEP, f(clock.t, sim), clock.t);
+      const evs = sim.take();
+      most = Math.max(most, evs.length);
+      for (const e of evs) if (e.type === 'arrive') arrivals.push([clock.t, `${e.thought.text}|${e.thought.truth}`]);
+      if (sim.story && sim.story.t > 1.5) sim.stay();
+      const l = sim.talk.line;
+      if (l && l !== prev) lines.push([clock.t, l.text]);
+      prev = l;
+    }
+    return { sim, arrivals, lines, most };
+  };
+  const repeatGap = (xs: [number, string][]): number => {
+    const at = new Map<string, number>();
+    let gap = Infinity;
+    for (const [t0, s] of xs) { const a = at.get(s); if (a !== undefined) gap = Math.min(gap, t0 - a); at.set(s, t0); }
+    return gap;
+  };
+
+  it('the plan goes deeper at 45 and 60 minutes (more pairs, a longer quiet); 30 minutes and less as they were', () => {
+    const at = (T: number) => planFor(T, BREATH_DEFAULT, cleanRhythm(null));
+    expect([at(1800).thoughts, at(1800).quietSec]).toEqual([34, 90]);
+    expect([at(2700).thoughts, at(2700).quietSec]).toEqual([46, 120]);
+    expect([at(3600).thoughts, at(3600).quietSec]).toEqual([56, 150]);
+    // each pair still worth about what it is at 30 minutes (never the 30-minute row's 30 focus-s cap all hour)
+    expect(at(2700).need).toBeGreaterThan(at(1800).need);
+    expect(at(2700).need).toBeLessThan(RULES.needMax);
+    expect(at(3600).need).toBeLessThanOrEqual(RULES.needMax);
+    // the 60-minute plan fits the library: no planned pair needs a thought twice
+    expect(at(3600).thoughts).toBeLessThanOrEqual(LIBRARY.length);
+    // the rhythm dials still shape it
+    expect(planFor(3600, BREATH_DEFAULT, cleanRhythm({ focus: 1, rest: 6 })).thoughts).toBeLessThanOrEqual(at(3600).thoughts);
+  });
+
+  for (const min of [45, 60]) {
+    it(`walks an average player through ${min} minutes: the planned pairs near the end (never at 40 %), the quiet and the close`, () => {
+      const T = min * 60;
+      const { sim, arrivals, lines, most } = hour(T, average);
+      expect(sim.phase).toBe('done');
+      // the fit (§24.4b): the average player gives the planned pairs (≥ 85 %; ~110 % measured)
+      expect(sim.doneNow).toBeGreaterThanOrEqual(Math.round(sim.plan.thoughts * 0.9));
+      const lastPlanned = sim.doneAt[Math.round(sim.plan.thoughts * 0.85) - 1];
+      expect(lastPlanned / T).toBeGreaterThan(0.55);
+      expect(lastPlanned / T).toBeLessThan(0.97);
+      const kinds = sim.blocks.map(b => (b.kind === 'rest' ? `rest:${b.rest}` : b.kind));
+      expect(kinds).toContain('rest:last');
+      expect(kinds[kinds.length - 1]).toBe('quiet');
+      const rest = sim.blocks.filter(b => b.kind === 'rest').reduce((s, b) => s + b.len, 0);
+      expect(rest / T).toBeLessThan(0.34);
+      // a thought comes back only after the whole library (never within 10 minutes); the narrator's lines likewise
+      expect(repeatGap(arrivals)).toBeGreaterThanOrEqual(600);
+      expect(repeatGap(lines)).toBeGreaterThanOrEqual(RULES.talkFresh - 0.5);
+      expect(lines.filter(([t0]) => t0 > T * 0.75).length).toBeGreaterThan(2);
+      // bounded: the blocks, the events of a frame, the records the progress keeps
+      expect(sim.blocks.length).toBeLessThan(T / 30);
+      expect(most).toBeLessThan(12);
+      expect(sim.p.recent.length).toBeLessThanOrEqual(RULES.recentMax);
+      // a clean, short summary; numbers that fit
+      const r = sim.result();
+      expect(r).toEqual(sim.result());
+      expect(r.stats.length).toBeLessThanOrEqual(6);
+      for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      for (const h of r.highlights) expect(h.length).toBeLessThan(120);
+      expect(String(r.score).length).toBeLessThanOrEqual(3);
+    });
+  }
+
+  it('a strong player at 60 minutes and a warownia at 60: still a clean hour', () => {
+    const strong = hour(3600, () => HIGH);
+    expect(strong.sim.phase).toBe('done');
+    expect(strong.sim.doneNow).toBeGreaterThan(strong.sim.plan.thoughts);
+    // past the library's 56 thoughts they come round again — never sooner than 10 minutes
+    expect(repeatGap(strong.arrivals)).toBeGreaterThanOrEqual(600);
+    expect(strong.sim.result().highlights.length).toBeLessThanOrEqual(5);
+    // a warownia falls early in an hour; its truths come round again (by design, "Prawda na co dzień"), never twice in a row
+    const war = hour(3600, average, { progress: { mode: 'war', war: 'fears' } });
+    expect(war.sim.phase).toBe('done');
+    expect(war.sim.fellNow).toBe(true);
+    expect(war.sim.dailyNow).toBeGreaterThan(WAR_SIZE);
+    for (let i = 1; i < war.arrivals.length; i++) expect(war.arrivals[i][1]).not.toBe(war.arrivals[i - 1][1]);
+    expect(repeatGap(war.lines)).toBeGreaterThanOrEqual(RULES.talkFresh - 0.5);
+    // 30 minutes and less keep the narrator as it was (no wait)
+    for (const planned of [180, 600, 1800]) expect((later({ planned }).talk as unknown as { fresh: number }).fresh).toBe(0);
+  });
+});

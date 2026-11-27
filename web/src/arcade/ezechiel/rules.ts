@@ -25,6 +25,11 @@ export const RULES = {
   byLeaves: 2,
   /** the fruit of the trees: one ripens with each trees step done, at most twelve ("every month", Rev 22:2) */
   fruitsMax: 12,
+  /**
+   * the leaves laid on one place spread in a rosette up to this many (a 30-minute session lays up to ~28); later ones
+   * (an hour lays ~63) settle on its rim, so the rosette never grows over the arms (round 24)
+   */
+  laidRing: 30,
   /** a blind push's progress is shown at its end over this long (s) */
   revealSec: 1.8,
 
@@ -110,6 +115,9 @@ export const RULES = {
   talkMin: 2.5,
   talkMax: 4.5,
   talkGap: 2.6,
+  /** sessions over talkFrom s (45 and 60 minutes): a narrator's line comes back only after talkFresh s (round 24) */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
 } as const;
 

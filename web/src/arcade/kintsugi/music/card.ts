@@ -3,15 +3,20 @@
  * a title line "♪ title — performer" over the YouTube player, at the place the meditation's layout keeps for it
  * (`place(rect)`; without one, a lower corner inside the insets).  YouTube's terms (DESIGN.md §21.5): while a track
  * loads, plays or waits for a tap, the player is on screen, at least 200 × 200 CSS px (16:9 when the place is wide),
- * nothing over it, its own controls kept; between tracks the card fades away and only the ambient plays.  When the
- * browser wants a tap on the player first (iOS), a line under (or over) the card asks for it once, with a button for
- * the ambient alone.  Never an error on screen: a track that cannot play is simply skipped by the director.
+ * nothing over it, its own controls kept; when no track plays the card fades away and only the ambient plays.  A
+ * session has two cards taking turns (one per player, kit/music.ts): the next track waits, cued, in the hidden one;
+ * for a cross-fade the second card shows in its own place beside the first (`place(second)`) and, once the first has
+ * faded away, glides into the first one's place.  When the browser wants a tap on the player first (iOS), a line
+ * under (or over) the card asks for it once, with a button for the ambient alone.  Never an error on screen: a track
+ * that cannot play is simply skipped by the director.
  */
-import type { MusicNow } from '../../kit/music';
 import type { Insets } from '../../kit/types';
 import { h } from '../../../ui/dom';
 import { t } from './i18n';
 import type { Rect } from './types';
+
+/** After a cross-fade: the card that stood in the first place fades away (styles.css .kin-player, .9 s), then the next glides in. */
+const GLIDE_WAIT = 950, GLIDE_MS = 900;
 
 /** The player's least size (CSS px), and the title line over it. */
 export const PLAYER_MIN = 200;
@@ -48,6 +53,7 @@ export class PlayerCard {
   private shown = false;
   private tapping = false;
   private text = '';
+  private glideTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly env: CardEnv, onAmbientOnly: () => void) {
     this.title = h('div', { class: 'kin-player-title' });
@@ -70,33 +76,62 @@ export class PlayerCard {
     this.layout();
   }
 
-  /** The meditation's place for the card (canvas CSS px), or null for the fallback corner. */
-  place(r: Rect | null): void {
+  /**
+   * The meditation's place for the card (canvas CSS px), or null for the fallback corner; `glide`: the card is on
+   * screen and moves there smoothly (after a cross-fade, from the second place into the first) — once the card that
+   * stood there has faded away (GLIDE_WAIT), so the two never lie one over the other.
+   */
+  place(r: Rect | null, glide = false): void {
     this.rect = r && [r.x, r.y, r.w, r.h].every(Number.isFinite) ? { ...r } : null;
+    if (this.glideTimer) { clearTimeout(this.glideTimer); this.glideTimer = null; this.el.classList.remove('glide'); }
+    if (glide && this.shown) {
+      this.glideTimer = setTimeout(() => {
+        this.el.classList.add('glide');
+        this.layout();
+        this.glideTimer = setTimeout(() => { this.el.classList.remove('glide'); this.glideTimer = null; }, GLIDE_MS);
+      }, GLIDE_WAIT);
+      return;
+    }
     this.layout();
   }
 
-  /** Show or hide the card with the director's state; `title` names the track. */
-  show(now: MusicNow, title: string): void {
+  /** Show or hide the card (a track loads, plays or waits for a tap on it); `tap`: ask for the tap; `title` names the track. */
+  show(on: boolean, tap: boolean, title: string): void {
     if (title !== this.text) {
       this.text = title;
       this.title.textContent = title ? `♪ ${title}` : '';
     }
-    if (now.show !== this.shown) {
-      this.shown = now.show;
-      this.el.classList.toggle('on', now.show);
-      this.el.setAttribute('aria-hidden', String(!now.show));
+    if (on !== this.shown) {
+      this.shown = on;
+      this.el.classList.toggle('on', on);
+      this.el.setAttribute('aria-hidden', String(!on));
     }
-    if (now.tap !== this.tapping) {
-      this.tapping = now.tap;
-      this.tapBox.hidden = !now.tap;
+    if (tap !== this.tapping) {
+      this.tapping = tap;
+      this.tapBox.hidden = !tap;
       this.layout();
     }
   }
 
   get visible(): boolean { return this.shown; }
 
-  remove(): void { this.el.remove(); }
+  /** Where the card stands now (canvas CSS px, the player's frame and its title line). */
+  get box(): Rect {
+    const f = this.fit();
+    return { x: f.x, y: f.y, w: f.w, h: f.h + TITLE_H };
+  }
+
+  remove(): void {
+    if (this.glideTimer) clearTimeout(this.glideTimer);
+    this.el.remove();
+  }
+
+  private fit(): { x: number; y: number; w: number; h: number } {
+    const hud = this.env.hud;
+    let ins: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
+    try { ins = this.env.insets(); } catch { /* a test env without insets */ }
+    return fitPlayer(this.rect ?? cornerPlace(hud.clientWidth || 0, hud.clientHeight || 0, ins));
+  }
 
   private layout(): void {
     const hud = this.env.hud;

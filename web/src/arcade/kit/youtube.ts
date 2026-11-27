@@ -6,8 +6,9 @@
  *
  * YouTube's terms for embeds (DESIGN.md §21.5): the player stays visible while it plays (at least
  * 200 × 200 CSS px, nothing over it), the sound is never separated from the picture, the player's own
- * controls stay.  One iframe serves the whole session: the next track loads into it, which also keeps
- * a browser's "tap to play" (iOS) satisfied after the first tap.
+ * controls stay.  A session has one player, or two taking turns for a cross-fade (kit/music.ts): the next track
+ * is cued in the other one while this one plays.  On iOS one player serves the whole session — the next track loads
+ * into it, which keeps the browser's "tap to play" satisfied after the first tap.
  */
 import type { PlayerState, TrackPlayer } from './music';
 
@@ -65,6 +66,8 @@ export class YouTubePlayer implements TrackPlayer {
   blocked = false;
   /** the player answered the handshake */
   ready = false;
+  /** the volume the player itself reports (0..100; -1 until it says) — what the director set, as the embed applied it */
+  reported = -1;
   private queued: [string, unknown[]][] = [];
   private listenTimer: ReturnType<typeof setInterval> | null = null;
   private id: string | null = null;
@@ -83,24 +86,35 @@ export class YouTubePlayer implements TrackPlayer {
   }
 
   load(id: string): void {
+    if (this.open(id)) {
+      // started by command once the player answers, after the volume the director set (no blare at full volume)
+      this.command('playVideo');
+      return;
+    }
+    this.command('loadVideoById', [id, 0]);
+  }
+
+  /** The next track made ready in this player, not playing (its card stays hidden until it is its turn). */
+  cue(id: string): void {
+    if (this.open(id)) return;
+    this.command('cueVideoById', [id, 0]);
+  }
+
+  /** A new track: true when the embed itself had to be opened with it (the first track of this player). */
+  private open(id: string): boolean {
     this.error = null;
     this.blocked = false;
     this.time = 0;
     this.duration = 0;
     this.id = id;
-    if (!this.frame.src) {
-      const q = new URLSearchParams({
-        enablejsapi: '1', origin: this.origin, autoplay: '0', playsinline: '1', rel: '0', iv_load_policy: '3', fs: '0', widgetid: '1',
-      });
-      this.state = 'unstarted';
-      this.frame.addEventListener('load', () => this.listen(), { once: true });
-      this.frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(id)}?${q}`;
-      // started by command once the player answers, after the volume the director set (no blare at full volume)
-      this.command('playVideo');
-      return;
-    }
     this.state = 'unstarted';
-    this.command('loadVideoById', [id, 0]);
+    if (this.frame.src) return false;
+    const q = new URLSearchParams({
+      enablejsapi: '1', origin: this.origin, autoplay: '0', playsinline: '1', rel: '0', iv_load_policy: '3', fs: '0', widgetid: '1',
+    });
+    this.frame.addEventListener('load', () => this.listen(), { once: true });
+    this.frame.src = `${YT_ORIGIN}/embed/${encodeURIComponent(id)}?${q}`;
+    return true;
   }
 
   play(): void { this.command('playVideo'); }
@@ -174,13 +188,14 @@ export class YouTubePlayer implements TrackPlayer {
 
   private info(info: unknown): void {
     if (!info || typeof info !== 'object') return;
-    const i = info as { playerState?: unknown; currentTime?: unknown; duration?: unknown; videoData?: { video_id?: unknown } };
+    const i = info as { playerState?: unknown; currentTime?: unknown; duration?: unknown; volume?: unknown; videoData?: { video_id?: unknown } };
     // a delivery about the previous video (just after loadVideoById) says nothing about this one
     const vid = i.videoData?.video_id;
     if (typeof vid === 'string' && this.id && vid !== this.id) return;
     if (typeof i.playerState === 'number') this.setState(i.playerState);
     if (typeof i.currentTime === 'number' && Number.isFinite(i.currentTime)) this.time = i.currentTime;
     if (typeof i.duration === 'number' && Number.isFinite(i.duration) && i.duration > 0) this.duration = i.duration;
+    if (typeof i.volume === 'number' && Number.isFinite(i.volume)) this.reported = i.volume;
   }
 
   private setState(n: number): void {

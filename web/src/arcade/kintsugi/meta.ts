@@ -6,8 +6,10 @@
  *   Co boli?    the words written on the pieces: a gentle themed set, the player's own words, or none — own words are
  *               kept only in this progress on this device (§18.3 "names stay home"), never in a session's result
  *   the breath  the rests' breath (kit/breath.ts): washing, the beat and the radiance are whole breaths of it
- *   how it hurts the 0–10 the player gave in the lobby for the next session, and a short history of before → after
- *               (the player's own sense, not a measurement)
+ *   how I feel  "Jak się teraz czujesz?" 0 (very heavy) … 10 (light and well): the one the player gave in the lobby for
+ *               the next session, and a short history of before → after (the player's own sense, not a measurement).
+ *               Until round 24 it asked "how much does it hurt" (0 none … 10 most): version 2 turns the saved ones round
+ *               once (feel = 10 − hurt), so a returning player's history stays true
  *   the music   builder B's MusicPrefs (music/index.ts), repaired by its own `cleanMusic`
  *
  * Anything broken becomes a fresh progress keeping only a session count; every field of a wrong type is repaired, never
@@ -18,11 +20,11 @@ import { cleanWords, isWordChoice, type WordChoice } from './content';
 import { cleanMusic, freshMusic, type MusicPrefs } from './music/index';
 import { RULES } from './rules';
 
-/** One before → after: the day, the 0–10 before (null: not given) and after. */
+/** One before → after: the day, the 0–10 before (null: not given) and after — how the player felt, 10 the lightest. */
 export interface Weight { day: string; before: number | null; after: number }
 
 export interface KintsugiProgress {
-  ver: 1;
+  ver: 2;
   sessions: number;
   /** the most seams gilded in one session */
   best: number;
@@ -36,7 +38,7 @@ export interface KintsugiProgress {
   /** the player's own words (≤ 14, each ≤ 24 characters), only on this device */
   own: string[];
   breath: BreathPattern;
-  /** the 0–10 given in the lobby for the next session (null: none), and the history of before → after */
+  /** how the player feels, 0–10, given in the lobby for the next session (null: none), and the history of before → after */
   before: number | null;
   history: Weight[];
   music: MusicPrefs;
@@ -51,7 +53,7 @@ export const BREATH_DEF: BreathPattern = BREATH_PRESETS.even;
 
 export function freshProgress(): KintsugiProgress {
   return {
-    ver: 1, sessions: 0, best: 0, seams: 0, pieces: 0, grace: 0, golden: 0, words: 'heart', own: [], breath: { ...BREATH_DEF },
+    ver: 2, sessions: 0, best: 0, seams: 0, pieces: 0, grace: 0, golden: 0, words: 'heart', own: [], breath: { ...BREATH_DEF },
     before: null, history: [], music: freshMusic(), seen: [], lastLen: 0,
   };
 }
@@ -74,11 +76,18 @@ function cleanHistory(v: unknown): Weight[] {
   return out.slice(-RULES.historyMax);
 }
 
-/** Bring a loaded save to version 1, in place (idempotent): every field repaired; a broken save keeps its session count. */
+/** A version-1 rating said how much it hurt (0 none … 10 most); from version 2 it says how the player feels (0 … 10 well). */
+const turn = (v: number | null): number | null => (v === null ? null : 10 - v);
+
+/**
+ * Bring a loaded save to version 2, in place (idempotent): every field repaired; a broken save keeps its session count.
+ * A version-1 save's ratings are turned round once (feel = 10 − hurt) — the lobby's "before" and every before → after.
+ */
 export function migrate(p: KintsugiProgress): KintsugiProgress {
   const raw = p as unknown as Record<string, unknown>;
   const f = freshProgress();
-  if (raw.ver !== 1) {
+  const v1 = raw.ver === 1;
+  if (raw.ver !== 1 && raw.ver !== 2) {
     const sessions = int(raw.sessions);
     for (const k of Object.keys(raw)) delete raw[k];
     Object.assign(p, f, { sessions });
@@ -95,6 +104,11 @@ export function migrate(p: KintsugiProgress): KintsugiProgress {
   p.breath = cleanBreath(raw.breath);
   p.before = cleanWeight(raw.before);
   p.history = cleanHistory(raw.history);
+  if (v1) {
+    p.before = turn(p.before);
+    p.history = p.history.map(w => ({ day: w.day, before: turn(w.before), after: 10 - w.after }));
+  }
+  p.ver = 2;
   p.music = cleanMusic(raw.music);
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))].slice(0, 40) : [];
   p.lastLen = int(raw.lastLen);

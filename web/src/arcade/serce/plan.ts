@@ -30,7 +30,7 @@ import { breathRestOf, type BreathPattern } from '../kit/breath';
 import { PLACE } from '../kit/figure';
 import { passage, type PassageId } from '../kit/scripture';
 import {
-  ARCS, BLESS_LINES, WAY, WAY_LEN, blessLine, indexRing, verseFor,
+  ARCS, BLESS_LINES, MORE_VERSES, WAY, WAY_LEN, blessLine, indexRing, verseFor,
   type ArcId, type PlaceId, type RestKind, type Ring, type StageId, type StageKind, type VerseKey, type WayId,
 } from './content';
 import { t, type Key } from './i18n';
@@ -63,6 +63,8 @@ export interface RestStep {
   place?: PlaceId;
   /** a "more" stage's blessing: the people */
   arc?: ArcId;
+  /** a "more" stage of the second round of the people or later: the group's own verse (content.ts MORE_VERSES) */
+  again?: boolean;
   /** a stage's closing rest (its blessing, its verse, the heart word) */
   closing?: boolean;
   /** the close of a session that finished the way: the Aaronic blessing */
@@ -115,7 +117,7 @@ function partsOf(st: RestStep, session: number): Parts {
       break;
     case 'more':
       if (st.arc) p.lines.push(t(`more.${st.arc}` as Key));
-      p.verse = verseFor('ring5', session);
+      p.verse = st.again && st.arc ? MORE_VERSES[st.arc] : verseFor('ring5', session);
       p.word = true;
       break;
     case 'word': p.word = true; break;
@@ -184,8 +186,9 @@ export interface StageOpts {
   eeg: boolean;
   /** the session's number (the verses go in turn) */
   session: number;
-  /** a "more" stage's people */
+  /** a "more" stage's people, and whether they come round again this session (the second round or later) */
   arc?: ArcId;
+  again?: boolean;
   /** the close: this session finished the way (the Aaronic blessing) */
   whole?: boolean;
   /** the close: the stage its quiet abiding stays with (the last one walked) */
@@ -210,7 +213,7 @@ const rest = (kind: RestKind, cycles: number, extra: Partial<RestStep> = {}): Re
   ({ kind: 'rest', rest: kind, rings: [], cycles, ...extra });
 
 /** A stage's closing rest: the descent's arrival, gratitude, a circle's blessing, the dimensions', the world's people. */
-function closingOf(kind: WayId | 'more', arc?: ArcId): RestStep {
+function closingOf(kind: WayId | 'more', arc?: ArcId, again = false): RestStep {
   const r = kind === 'more' ? null : indexRing(WAY.indexOf(kind));
   if (r) return rest('bless', 1, { rings: [r], closing: true });
   switch (kind) {
@@ -218,7 +221,7 @@ function closingOf(kind: WayId | 'more', arc?: ArcId): RestStep {
     case 'heart': return rest('grat', 1, { closing: true });
     case 'field': return rest('bless', 1, { rings: [0], closing: true });
     case 'sun': return rest('pervade', 1, { closing: true });
-    default: return rest('more', 1, { closing: true, ...(arc ? { arc } : {}) });
+    default: return rest('more', 1, { closing: true, ...(arc ? { arc } : {}), ...(again ? { again } : {}) });
   }
 }
 
@@ -264,7 +267,7 @@ function cyclesPlan(o: StageOpts): StagePlan {
   const kind = o.kind as WayId | 'more';
   const b = int(o.breaths, 1, R.restBreathsMax);
   const M = Math.max(1, o.min);
-  const closing = closingOf(kind, o.arc);
+  const closing = closingOf(kind, o.arc, !!o.again);
   closing.cycles = Math.min(Math.max(b, restNeed(closing, o.session)), Math.max(1, Math.floor((M * R.closingShare) / cyc)));
   const nMax = kind === 'descent' ? R.pushesMax.descent : kind === 'sun' ? R.pushesMax.sun : R.pushesMax.other;
   const floor = lead + R.pushSighted;
@@ -495,8 +498,9 @@ export function forecast(o: ForecastOpts): Forecast {
     const M = stageLen(left, S, first);
     if (M === null) break;
     const kind: StageKind = idx < WAY_LEN ? WAY[idx] : 'more';
+    const again = kind === 'more' && more >= ARCS.length;
     const arc = kind === 'more' ? ARCS[more++ % ARCS.length] : undefined;
-    const len = stagePlan({ kind, way: kind === 'more' ? null : idx, min: M, cap: stageCap(left, M), ...dials, ...(arc ? { arc } : {}) }).len;
+    const len = stagePlan({ kind, way: kind === 'more' ? null : idx, min: M, cap: stageCap(left, M), ...dials, ...(arc ? { arc } : {}), ...(again ? { again } : {}) }).len;
     slots.push({ kind, way: kind === 'more' ? null : idx, min: M, len, at: t, ...(arc ? { arc } : {}) });
     if (kind !== 'more') {
       if (idx === WAY_LEN - 1) whole = true;

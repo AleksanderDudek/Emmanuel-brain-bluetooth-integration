@@ -328,6 +328,7 @@ export class SerceSim {
     this.cyc = breathRestOf(this.pattern, 1).sec;
     this.bestBefore = bestOf(this.p);
     this.talk = new Talk(m => linesOf(m), init.rng);
+    this.talk.fresh = this.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0;
   }
 
   // ── what the view and the runner read ───────────────────────────
@@ -774,7 +775,7 @@ export class SerceSim {
   private get closeAt(): number { return this.plannedSec - this.plan.finale - closeMin(this.pattern, this.eeg, this.plannedSec); }
 
   /** Open a stage: its steps go onto the way, its title card shows. */
-  private openStage(kind: StageKind, min: number, way: number | null, extra: { arc?: ArcId; whole?: boolean; abideOn?: StageId; cap?: number } = {}): void {
+  private openStage(kind: StageKind, min: number, way: number | null, extra: { arc?: ArcId; again?: boolean; whole?: boolean; abideOn?: StageId; cap?: number } = {}): void {
     const sp = stagePlan({
       kind, way, min, push: this.plan.push, breaths: this.plan.breaths, pattern: this.pattern, eeg: this.eeg, session: this.session, ...extra,
     });
@@ -811,10 +812,12 @@ export class SerceSim {
     const cap = stageCap(left, M);
     if (this.wayIdx < WAY_LEN) this.openStage(WAY[this.wayIdx], M, this.wayIdx, { cap });
     else {
+      // from the second round of the people on, each group's blessing has its own verse (MORE_VERSES)
+      const again = this.moreRounds >= ARCS.length;
       const arc = ARCS[this.moreRounds++ % ARCS.length];
       this.prog.more = 0;
       this.moreStep = 0;
-      this.openStage('more', M, null, { arc, cap });
+      this.openStage('more', M, null, { arc, cap, ...(again ? { again } : {}) });
     }
   }
 

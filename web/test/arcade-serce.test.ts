@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALL_VERSES, BLESS_LINES, RINGS, VERSES, WAY, cleanName, cleanOwn, heartWord, pushTip, stageOf, stageRing, stageTitle, verseFor,
+  ALL_VERSES, ARCS, BLESS_LINES, MORE_VERSES, RINGS, VERSES, WAY, cleanName, cleanOwn, heartWord, pushTip, stageOf, stageRing, stageTitle, verseFor,
 } from '../src/arcade/serce/content';
 import { CATALOGS, breathWords, t, unit } from '../src/arcade/serce/i18n';
 import {
@@ -12,6 +12,7 @@ import {
 } from '../src/arcade/serce/plan';
 import { RULES, focusRate, lampsFor, readTime } from '../src/arcade/serce/rules';
 import { SerceSim, linesOf, pageTime, secText, type SimEvent, type StageRun } from '../src/arcade/serce/sim';
+import { ALWAYS } from '../src/arcade/serce/talk';
 import { BREATH_PRESETS, breathCycle } from '../src/arcade/kit/breath';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -1043,5 +1044,116 @@ describe('the rest’s rhythm, set in the lobby (kit/rhythm.ts)', () => {
       for (const r of wayRuns(sim)) if (r.goal && r.t1 !== null) expect(r.t1 - r.t0, tag).toBeGreaterThanOrEqual(r.min - 0.1);
       expect(sim.phase, tag).toBe('done');
     }
+  });
+});
+
+describe('45–60 minutes (round 24)', () => {
+  it('the plan to its finale: the whole way, then the world’s people in turn — every stage in its bounds, the close fitting', () => {
+    for (const T of [2700, 3600]) {
+      for (const S of LENS) {
+        for (const next of [0, 3, 7]) {
+          const f = fc(T, { stageSec: S, next });
+          const tag = `${T / 60} min, S ${S}, from ${next}`;
+          const end = T - f.finale, cm = closeMin(EVEN, false);
+          expect(f.whole, tag).toBe(true);
+          const stages = f.slots.filter(x => x.kind !== 'reentry');
+          stages.forEach((x, i) => {
+            if (i > 0) expect(end - cm - x.at, tag).toBeGreaterThanOrEqual(FLOOR - 1e-6);
+            expect(x.min, tag).toBeLessThanOrEqual(240);
+            expect(x.len, tag).toBeGreaterThanOrEqual(x.min - 1e-6);
+          });
+          expect(f.close.min, tag).toBeGreaterThanOrEqual(cm - 1e-6);
+          expect(f.close.at + f.close.min, tag).toBeCloseTo(end, 6);
+          // the people after the way, in turn — an hour holds up to four rounds of them
+          const more = f.slots.filter(x => x.kind === 'more');
+          more.forEach((x, i) => expect(x.arc, tag).toBe(ARCS[i % ARCS.length]));
+          expect(f.slots.length, tag).toBeLessThan(40);
+        }
+      }
+    }
+    // an hour at 3:00 after a fresh start: the nine stages, then ten stages for the world's people
+    expect(fc(3600).slots.filter(x => x.kind === 'more')).toHaveLength(10);
+  });
+
+  for (const T of [2700, 3600]) {
+    it(`a whole headless session of ${T / 60} minutes: the forecast walked, a clean close, bounded, a short summary`, () => {
+      const avg = later({ planned: T });
+      session(avg, average);
+      const strongSim = later({ planned: T, seed: 9 });
+      session(strongSim, strong);
+      const weakSim = later({ planned: T, seed: 3 });
+      session(weakSim, weak);
+      const want = fc(T).slots.map(x => x.kind);
+      expect(avg.runs.filter(r => r.kind !== 'close').map(r => r.kind)).toEqual(want);
+      expect(strongSim.runs.filter(r => r.kind !== 'close').map(r => r.kind)).toEqual(want);
+      expect(avg.wayDone).toBe(true);
+      // a weak player walks most of the way (its stages longer), never past the close
+      expect(weakSim.walkedNow.length).toBeGreaterThanOrEqual(7);
+      for (const sim of [avg, strongSim, weakSim]) {
+        expect(sim.phase).toBe('done');
+        expect(sim.runs.at(-1)!.kind).toBe('close');
+        for (const r of sim.runs) if (r.kind !== 'close' && r.t1 !== null && r.goal) expect(r.t1 - r.t0, r.kind).toBeGreaterThanOrEqual(r.min - 0.1);
+        expect(sim.steps.length).toBeLessThan(200);
+        expect(sim.blocks.length).toBeLessThan(200);
+        expect(sim.talk.said.length).toBeLessThan(400);
+        const res = sim.result();
+        expect(res.score).toBeGreaterThan(0);
+        expect(res.highlights.length).toBeLessThanOrEqual(5);
+        for (const h of res.highlights) expect(h.length).toBeLessThan(140);
+        expect(res.stats.length).toBeLessThanOrEqual(6);
+        for (const [, v] of res.stats) expect(v.length, v).toBeLessThanOrEqual(12);
+      }
+      for (const r of wayRuns(avg)) expect(r.goal, r.kind).toBe(true);
+    });
+  }
+
+  it('from the second round of the people each group’s blessing has its own verse, back only after ten minutes', () => {
+    const sim = later({ planned: 3600, progress: { stageSec: 120 } });
+    session(sim, strong);
+    const more = sim.runs.filter(r => r.kind === 'more');
+    expect(more.length).toBeGreaterThanOrEqual(15);
+    const seen = new Map<string, number>();
+    more.forEach((r, i) => {
+      const closing = sim.steps.slice(r.i0, r.i1).find((x): x is RestStep => x.kind === 'rest' && x.rest === 'more' && !!x.closing)!;
+      const verse = sim.restItems(closing).find(it => it.verse)?.verse;
+      const tag = `${i}: ${r.arc}`;
+      if (i < ARCS.length) {
+        // the first round as in a half-hour session: the circle of the whole world's verse
+        expect(closing.again, tag).toBeUndefined();
+        expect(verse, tag).toBe(verseFor('ring5', sim.session));
+      } else {
+        expect(closing.again, tag).toBe(true);
+        expect(verse, tag).toBe(MORE_VERSES[r.arc!]);
+        const last = seen.get(verse!);
+        if (last !== undefined) expect(r.t0 - last, tag).toBeGreaterThanOrEqual(600);
+        seen.set(verse!, r.t0);
+      }
+    });
+    for (const id of Object.values(MORE_VERSES)) expect(ALL_VERSES).toContain(id);
+    // a half-hour session never reaches a second round from a fresh start: it is as it was
+    for (const S of LENS) expect(fc(1800, { stageSec: S }).slots.filter(x => x.kind === 'more').length, String(S)).toBeLessThanOrEqual(ARCS.length);
+  });
+
+  it('an hour’s narrator: no line again within ten minutes, still speaking in the last quarter; half an hour as before', () => {
+    expect(later({ planned: 1800 }).talk.fresh).toBe(0);
+    expect(later({ planned: 2700 }).talk.fresh).toBe(RULES.talkFresh);
+    const sim = later({ planned: 3600 });
+    const lines: [number, string, string][] = [];
+    let last: unknown = null;
+    drive(sim, 3606, average, { t: 0 }, tt => {
+      reader(sim)();
+      const l = sim.talk.line;
+      if (l && l !== last) { last = l; lines.push([tt, l.moment, l.text]); }
+    });
+    expect(sim.phase).toBe('done');
+    // no line again within ten minutes (the warnings and the help when stuck aside), and still a voice at the end
+    const at = new Map<string, number>();
+    for (const [tt, m, text] of lines) {
+      if ((ALWAYS as readonly string[]).includes(m)) continue;
+      const p = at.get(text);
+      if (p !== undefined) expect(tt - p, text).toBeGreaterThanOrEqual(RULES.talkFresh - 1e-6);
+      at.set(text, tt);
+    }
+    expect(lines.filter(([tt, m]) => tt > 0.75 * 3600 && !(ALWAYS as readonly string[]).includes(m)).length).toBeGreaterThan(0);
   });
 });

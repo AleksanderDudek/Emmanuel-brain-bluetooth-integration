@@ -8,6 +8,7 @@ import {
 } from '../src/arcade/ezechiel/meta';
 import { RULES, curve, finaleFor, mult, planWay, riseCuts } from '../src/arcade/ezechiel/rules';
 import { EzechielSim, type SimEvent } from '../src/arcade/ezechiel/sim';
+import { ALWAYS } from '../src/arcade/ezechiel/talk';
 import { BTN, figRect, hitTest, layout, pickerRect, storyRect, tapTargets } from '../src/arcade/ezechiel/layout';
 import { coachText, ezechielRhythm, howto } from '../src/arcade/ezechiel/index';
 import { progressPanel } from '../src/arcade/ezechiel/panel';
@@ -643,5 +644,86 @@ describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () =
     expect(text).toContain('Jeden oddech: 10\u00a0s');
     expect(text).toContain('„Rytm”');
     expect(text).not.toContain('auto');
+  });
+});
+
+describe('45–60 minutes (round 24)', () => {
+  it('the plan to its finale: the rise, three washings, then the trees — every push fitting the session', () => {
+    for (const P of [2700, 3600]) {
+      for (const breath of Object.values(BREATH_PRESETS)) {
+        const w = planWay(P, { firstEver: false, eeg: false, breath });
+        const kinds = (k: string) => w.steps.filter(x => x.kind === k).length;
+        expect(kinds('rise'), `${P}`).toBe(4);
+        expect(kinds('wash'), `${P}`).toBe(3);
+        // more trees than half an hour holds: the leaves go on, the way's arc stays (the rise, the washings)
+        expect(kinds('trees'), `${P}`).toBeGreaterThan(planWay(1800, { firstEver: false, eeg: false, breath }).steps.filter(x => x.kind === 'trees').length);
+        const fixed = finaleFor(P) + w.float.sec;
+        expect(w.steps.length * w.pushSec + (w.steps.length - 1) * w.rest.sec + fixed, `${P}`).toBeLessThanOrEqual(P + 1e-6);
+        // the longest session's curve: the push and the rests as at half an hour
+        expect(w.pushSec).toBe(planWay(1800, { firstEver: false, eeg: false, breath }).pushSec);
+      }
+    }
+  });
+
+  it('a whole headless hour: the arc near the end, then the float; bounded, a short summary, the rosette of leaves held', () => {
+    for (const P of [2700, 3600]) {
+      for (const amp of [1, 2]) {
+        const sim = later({ planned: P, seed: 2 });
+        let floatAt = -1;
+        const fi = new FocusInput(TUNING);
+        const rnd = mulberry32(9);
+        let act = 0, noise = 0;
+        drive(sim, P + 10, (tt, s) => {
+          act += ((s.pushBlock ? amp : 0) - act) * (1 - Math.exp(-STEP / 4));
+          noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+          return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+        }, { t: 0 }, () => { sim.take(); if (floatAt < 0 && sim.floatK > 0.05) floatAt = sim.t; });
+        const tag = `${P}s amp ${amp}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(sim.t, tag).toBeLessThanOrEqual(P + 0.1);
+        expect(sim.arcAt, tag).toBeGreaterThan(0.6 * P);
+        expect(sim.arcAt, tag).toBeLessThan(0.95 * P);
+        expect(floatAt, tag).toBeGreaterThan(0.75 * P);
+        expect(sim.markReached, tag).toBe(MARKS);
+        expect(sim.fruits, tag).toBe(RULES.fruitsMax);
+        expect(sim.laid.length, tag).toBeGreaterThan(30);
+        expect(sim.laid.length, tag).toBeLessThan(120);
+        expect(sim.talk.said.length, tag).toBeLessThan(600);
+        const r = sim.result();
+        expect(r.stats, tag).toHaveLength(6);
+        for (const [, v] of r.stats) expect(v.length, v).toBeLessThanOrEqual(10);
+        expect(r.highlights.length, tag).toBeLessThanOrEqual(5);
+        for (const h of r.highlights) expect(h.length, h).toBeLessThan(90);
+        expect(sim.laidLine().split(',').length).toBeLessThanOrEqual(3);
+      }
+    }
+    // the rosette round a place grows up to what half an hour lays there, then holds its size
+    const half = later({ planned: 1800, seed: 3 });
+    player(half, 4, 3);
+    expect(half.laid.length).toBeLessThanOrEqual(RULES.laidRing);
+  });
+
+  it('an hour’s narrator: no line again within ten minutes, still speaking in the last quarter; half an hour as before', () => {
+    expect(later({ planned: 1800 }).talk.fresh).toBe(0);
+    expect(later({ planned: 2700 }).talk.fresh).toBe(RULES.talkFresh);
+    const sim = later({ planned: 3600, seed: 2 });
+    const lines: [number, string, string][] = [];
+    let last: unknown = null;
+    const clock = { t: 0 };
+    drive(sim, 3610, steady(0.7), clock, () => {
+      sim.take();
+      const l = sim.talk.line;
+      if (l && l !== last) { last = l; lines.push([clock.t, l.moment, l.text]); }
+    });
+    expect(sim.phase).toBe('done');
+    // no line again within ten minutes (the warnings and the help when stuck aside), and still a voice at the end
+    const at = new Map<string, number>();
+    for (const [tt, m, text] of lines) {
+      if ((ALWAYS as readonly string[]).includes(m)) continue;
+      const p = at.get(text);
+      if (p !== undefined) expect(tt - p, text).toBeGreaterThanOrEqual(RULES.talkFresh - 1e-6);
+      at.set(text, tt);
+    }
+    expect(lines.filter(([tt, m]) => tt > 0.75 * 3600 && !(ALWAYS as readonly string[]).includes(m)).length).toBeGreaterThan(0);
   });
 });

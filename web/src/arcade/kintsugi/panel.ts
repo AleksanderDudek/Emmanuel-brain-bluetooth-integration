@@ -7,7 +7,8 @@
  *                  plan the session follows, rules.ts), and how many the average player lifts when grace gathers the rest
  *   Co boli?       the words on the pieces: five gentle sets (their words shown), own words (≤ 14, kept only on this
  *                  device, "Zapomnij moje słowa"), or none
- *   how it hurts   0–10 now, for this session (the player's own sense, not a measurement), and the last before → after
+ *   how I feel     "Jak się teraz czujesz?" 0 (very heavy) … 10 (light and well) now, for this session (the player's own
+ *                  sense, not a measurement), and the last before → after
  *   the breath     the rests' breath as presets (5 · 5 by default)
  *   care           not therapy, the help lines; what stays on the device
  *   the music      builder B's section (music/index.ts `musicPanel`)
@@ -118,12 +119,12 @@ function build(p: KintsugiProgress, fc: HTMLElement, changed: () => void): HTMLE
   else if (p.words === 'none') out.push(h('p', { class: 'muted' }, t('panel.noneNote')));
   else out.push(h('p', { class: 'muted' }, setWordsLine(p.words)));
 
-  // ── how much it hurts now ──
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.hurt')), h('p', { class: 'muted' }, t('panel.hurtNote')));
-  const row = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.hurt') },
+  // ── how do you feel now ──
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.feel')), h('p', { class: 'muted' }, t('panel.feelNote')));
+  const row = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.feel') },
     Array.from({ length: 11 }, (_, n) => {
       const b = button(String(n), () => { setBefore(p, p.before === n ? null : n); changed(); }, p.before === n ? 'btn on' : 'btn', {
-        role: 'radio', 'aria-checked': String(p.before === n),
+        role: 'radio', 'aria-checked': String(p.before === n), 'aria-label': t('rate.label', { n }),
       });
       b.style.paddingLeft = '0';
       b.style.paddingRight = '0';
@@ -135,9 +136,9 @@ function build(p: KintsugiProgress, fc: HTMLElement, changed: () => void): HTMLE
   row.style.maxWidth = '560px';
   out.push(row);
   const extras = h('div', { class: 'row' });
-  if (p.before !== null) extras.append(button(t('panel.hurtClear'), () => { setBefore(p, null); changed(); }, 'btn ghost'));
+  if (p.before !== null) extras.append(button(t('panel.feelClear'), () => { setBefore(p, null); changed(); }, 'btn ghost'));
   const last = p.history[p.history.length - 1];
-  if (last && last.before !== null) extras.append(h('span', { class: 'muted' }, t('panel.hurtLast', { a: last.before, b: last.after })));
+  if (last && last.before !== null) extras.append(h('span', { class: 'muted' }, t('panel.feelLast', { a: last.before, b: last.after })));
   if (extras.childNodes.length) out.push(extras);
 
   // ── the breath ──
