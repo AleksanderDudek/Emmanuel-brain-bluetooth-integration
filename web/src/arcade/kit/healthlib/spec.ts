@@ -98,6 +98,14 @@ export interface WorldState {
   px: number;
   /** the look the player chose (HealthLibrary.looks), '' when the game has none */
   look: string;
+  /**
+   * Round 24 (Nowe siły, DESIGN §28): how far this session's arc has come — its focused growth over what the session
+   * can hold at the player's own pace (0..1, never falls; a player who keeps their pace reaches 1 a little before the
+   * end).  Absent outside play (the lobby's hero and tiles): a world then reads its own `g`.
+   */
+  arc?: number;
+  /** Round 24: this session's focused growth per scene (scene units, repeats add up); absent outside play */
+  session?: Readonly<Record<string, number>>;
 }
 
 export interface WorldPainter {
