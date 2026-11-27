@@ -99,8 +99,12 @@ export type Prop = (typeof PROPS)[number];
 export const FEELINGS = ['anger', 'hurt', 'fear', 'shame', 'helpless', 'envy', 'tired', 'disgust'] as const;
 export type Feeling = (typeof FEELINGS)[number];
 
-/** Someone in a beat: who, how they look, and where they stand in the view. */
-export interface Figure { who: Person; mood: Mood; at?: 'left' | 'centre' | 'right' }
+/**
+ * Someone in a beat: who, how they look, and where they stand in the view.  `sex` (added by B1 for the stories' words):
+ * draw this person as a woman or a man so the words and the picture agree ("mama", "pani w okienku"); absent, the code
+ * picks.
+ */
+export interface Figure { who: Person; mood: Mood; at?: 'left' | 'centre' | 'right'; sex?: 'f' | 'm' }
 
 /**
  * One beat of a story: a picture through the eyes and a line of narration (≤ 140 characters), perhaps someone's words
