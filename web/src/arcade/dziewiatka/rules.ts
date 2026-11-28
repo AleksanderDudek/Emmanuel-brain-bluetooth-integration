@@ -10,6 +10,8 @@
  * (x 2–7), the Din comes in from the right edge (x 16+).  `y` is a depth row 0..1 (drawn as a little
  * height on the street), it never changes who reaches whom.
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the field ────────────────────────────────────────────────
   /** the street the view shows (u): x from 0 to fieldW */
@@ -221,3 +223,29 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The difficulty levels (kit/difficulty.ts, DESIGN §29) on Dziewiątka's own knobs — multipliers on REGULAR (all ones:
+ * the game as it was).  What a level never touches is the training: the energy's multiplier from the band, Harmony's
+ * hold and the chord, the push block's surge of shadows while the multiplier is gold, the well's calm healing, the
+ * boons, the blocks — nor the semi-auto, which fires a full bar for the player who does not tap (focus is worth the
+ * same ultimates at every level).
+ *   foe      the Din's power: every shadow's health and attack (× the mission's)
+ *   count    the shadows of a wave: fewer at Na start (never the boss, at least one), small ones more past REGULAR
+ *   speed    the Din's walk and the pace of its strikes
+ *   self     the heroes' health
+ *   grace    the helps: the Din's shyness against a team behind its pace (× how far it bends; none at Hardcore) and
+ *            the heart a wave loses after a wipe (none at Hardcore: the shadows stay as they were)
+ *   reward   the XP a cleared wave gives the five
+ */
+export interface DziewiatkaLevel { foe: number; count: number; speed: number; self: number; grace: number; reward: number }
+
+export const LEVELS: Readonly<Record<Difficulty, DziewiatkaLevel>> = {
+  start: { foe: 0.6, count: 0.75, speed: 0.85, self: 1.5, grace: 1.5, reward: 0.9 },
+  regular: { foe: 1, count: 1, speed: 1, self: 1, grace: 1, reward: 1 },
+  advanced: { foe: 1.4, count: 1.25, speed: 1.1, self: 0.85, grace: 0.6, reward: 1.15 },
+  hardcore: { foe: 2, count: 1.5, speed: 1.2, self: 0.7, grace: 0, reward: 1.3 },
+};
+
+/** A level's knobs (an unknown value: REGULAR). */
+export const levelKnobs = (d: Difficulty | undefined): DziewiatkaLevel => LEVELS[d ?? 'regular'] ?? LEVELS.regular;

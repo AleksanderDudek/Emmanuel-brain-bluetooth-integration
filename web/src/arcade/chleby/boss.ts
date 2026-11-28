@@ -75,10 +75,10 @@ export interface BossCtx {
   brookY: number;
 }
 
-/** A boss's pouch on an arena: base + per chapter (a circle counts as six chapters), × its share. */
+/** A boss's pouch on an arena: base + per chapter (a circle counts as six chapters, up to `circleTop` circles), × its share. */
 export function pouchOf(kind: BossKind, chapter: number, circle: number): number {
   const R = RULES;
-  return Math.round((R.pelikanPouch + R.pelikanPerChapter * (chapter + circle * R.chapters)) * R.pouchShare[kind]);
+  return Math.round((R.pelikanPouch + R.pelikanPerChapter * (chapter + Math.min(circle, R.circleTop) * R.chapters)) * R.pouchShare[kind]);
 }
 
 export function makeBoss(kind: BossKind, pouch: number, brookY = 11.4): Boss {

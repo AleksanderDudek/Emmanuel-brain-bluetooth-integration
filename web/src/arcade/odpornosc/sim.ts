@@ -2474,7 +2474,9 @@ export class OdpSim {
     else if (this.bestBefore !== null && this.score > 0 && this.bestBefore - this.score <= Math.max(10, this.bestBefore * 0.3)) {
       add(1, t('hl.toBest', { pathogens: pathogensText(this.bestBefore - this.score) }));
     }
-    for (const l of this.loopsNow) add(2, t('hl.loop', { place: placeName(loopSpec(l).place) }));
+    // each place a loop closed at once, the latest two (round 24: an hour closes ~15 loops round three places)
+    const places = [...new Set(this.loopsNow.map(l => loopSpec(l).place).reverse())].slice(0, 2).reverse();
+    for (const place of places) add(2, t('hl.loop', { place: placeName(place) }));
     for (const s of this.stagesNow.filter(x => x.stars > 0).slice(-2)) add(3, t('hl.stage', { stage: stageName(s.stage), stars: starText(s.stars) }));
     for (const id of [...new Set(this.memoryNow)]) add(4, t('hl.memory', { name: pathogenName(id) }));
     for (const id of this.unlocksNow) add(4, t('hl.unlock', { name: unlockName(id) }));

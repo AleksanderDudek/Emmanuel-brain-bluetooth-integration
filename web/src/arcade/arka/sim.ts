@@ -83,6 +83,13 @@ export type SimEvent =
   | { type: 'say'; text: string; moment: Moment };
 
 /** How many lines each moment has in the catalog (say.<moment>.<i>). */
+/**
+ * Past half an hour a line comes round again only this long after it was said (s; DESIGN §17.1, §28): the raven's
+ * lines go in turn, so when the next in turn is younger, the moment keeps quiet.  30 minutes and less: as before.
+ */
+export const ROUND_SEC = 600;
+export const roundFor = (plannedSec: number): number => (plannedSec > 1800 ? ROUND_SEC : 0);
+
 const LINES: Readonly<Record<Moment, number>> = {
   open: 4, push: 4, blind: 3, rest: 4, sun: 4, rainbow: 3, bump: 5, restart: 3, clear: 4, clear3: 4,
   bonus: 3, dove: 4, idle: 3, end: 3, chain: 3, level: 4,
@@ -252,6 +259,8 @@ export class ArkaSim {
   private pending: { m: Moment; at: number }[] = [];
   private lastSaid: Partial<Record<Moment, number>> = {};
   private turnOf: Partial<Record<Moment, number>> = {};
+  /** when each line was last said, for the ten-minute rule past half an hour (`roundFor`) */
+  private readonly saidAt = new Map<string, number>();
   private talkTill = 0;
   private coachQ: { key: string; at: CoachAt }[] = [];
   private coachTill = 0;
@@ -800,8 +809,11 @@ export class ArkaSim {
     const { m } = this.pending.splice(i, 1)[0];
     const n = LINES[m];
     const k = ((this.turnOf[m] ?? Math.floor(this.rng() * n)) % n) + 1;
-    this.turnOf[m] = k;
     const text = t(`say.${m}.${k}` as Parameters<typeof t>[0]);
+    const round = roundFor(this.plannedSec);
+    if (round && this.now - (this.saidAt.get(text) ?? -Infinity) < round) return;
+    this.saidAt.set(text, this.now);
+    this.turnOf[m] = k;
     const dur = sayDur(text);
     this.line = { text, t0: this.now, dur, moment: m };
     this.lastSaid[m] = this.now;

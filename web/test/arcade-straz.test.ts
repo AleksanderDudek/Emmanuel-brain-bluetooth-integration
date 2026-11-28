@@ -222,3 +222,36 @@ describe('Czujna straż — the words', () => {
     }
   });
 });
+
+describe('Czujna straż — 45–60 minutes (round 24)', () => {
+  it('fills 45 and 60 minutes in every mode: scenes grown to the last minutes, the narrator still there, a short clean result', () => {
+    for (const planned of [2700, 3600]) {
+      for (const mode of ['order', 'one', 'repeat'] as const) {
+        let lateGrow = 0, late = 0, lastLine: unknown = null;
+        const run = simSession(LIBRARY, {
+          planned, returning: true, focus: 'mid', progress: { mode },
+          each: (t, s) => {
+            if (t > planned - 600 && s.growing) lateGrow += 1 / 60;
+            if (s.talk.line && s.talk.line !== lastLine && t > planned - 600) late++;
+            lastLine = s.talk.line;
+          },
+        });
+        const tag = `${planned} ${mode}`;
+        expect(run.sim.phase, tag).toBe('done');
+        for (const v of [run.score, run.grownSec, run.sim.g, run.sim.light, run.sim.afterSec]) expect(Number.isFinite(v), tag).toBe(true);
+        // round and round the library: measured ~40 scenes in 45 minutes, ~53 in an hour (just this one: its picture
+        // lives on and still grows)
+        if (mode !== 'one') expect(run.scenes, tag).toBeGreaterThanOrEqual(planned / 120);
+        expect(lateGrow, tag).toBeGreaterThan(60);
+        expect(late, tag).toBeGreaterThan(0);
+        const r = run.outcome;
+        expect(String(r.score).length, tag).toBeLessThanOrEqual(7);
+        expect(run.progress.best[String(planned)], tag).toBe(r.score);
+        expect(r.highlights.length, tag).toBeLessThanOrEqual(5);
+        expect(new Set(r.highlights).size, tag).toBe(r.highlights.length);
+        for (const [k, v] of r.stats) expect(`${k} ${v}`, tag).not.toMatch(/undefined|NaN|Infinity/);
+        for (const h of r.highlights) expect(h, tag).not.toMatch(/undefined|NaN|\{\w+\}/);
+      }
+    }
+  }, 300_000);
+});

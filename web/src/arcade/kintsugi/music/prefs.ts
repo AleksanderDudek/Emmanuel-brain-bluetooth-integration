@@ -5,7 +5,7 @@
  * A saved value is never trusted: `cleanMusic` repairs it field by field.
  */
 import { MAX_SESSION_SEC } from '../../../settings';
-import { longestFit, parseLength, type Recent, type Track } from '../../kit/playlist';
+import { introOf, parseLength, type Recent, type Track } from '../../kit/playlist';
 import { isVideoId, parseVideoId } from '../../kit/youtube';
 import { BUILTIN, isBuiltin } from './tracks';
 
@@ -109,8 +109,11 @@ export function setMode(m: MusicPrefs, mode: MusicMode): void {
 export type AddError = 'link' | 'length' | 'dup' | 'full';
 export type AddResult = { ok: true; track: OwnTrack; tooLong: boolean } | { ok: false; error: AddError };
 
-/** Too long for any session: longer than the longest session leaves room for (kit/playlist.ts longestFit). */
-export const tooLong = (sec: number): boolean => sec > longestFit(MAX_SESSION_SEC);
+/** The room a session of `total` s has for one track whole: all of it after the ambient's short opening. */
+export const roomFor = (total: number): number => Math.max(0, total - introOf(total));
+
+/** Never heard whole: longer than even the longest session has room for (it plays only as a last track, faded). */
+export const tooLong = (sec: number): boolean => sec > roomFor(MAX_SESSION_SEC);
 
 /** Add an own track from what the player typed: a YouTube link (or id), a length ("4:39"), an optional name. */
 export function addOwn(m: MusicPrefs, link: string, length: string, name: string, untitled: (id: string) => string): AddResult {

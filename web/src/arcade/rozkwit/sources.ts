@@ -9,10 +9,11 @@ import { LIBRARY as KREGOSLUP } from '../kregoslup/library';
 import { LIBRARY as KSZTALT } from '../ksztalt/library';
 import { LIBRARY as RADOSC } from '../radosc/library';
 import { LIBRARY as SKORA } from '../skora/library';
+import { LIBRARY as SILY } from '../sily/library';
 import type { SceneId as HairScene } from '../wlosy/content';
 import type { Borrow } from './borrow';
 
-export { KOMORKI, STRAZ, KREGOSLUP, KSZTALT, RADOSC, SKORA };
+export { KOMORKI, STRAZ, KREGOSLUP, KSZTALT, RADOSC, SKORA, SILY };
 
 // ── the scenes borrowed from the engine's games ──────────────────
 export const BORROWS: Readonly<Record<string, Borrow>> = {
@@ -39,6 +40,8 @@ export const hairPart = (p: string): string => `wlosy_${p}`;
 
 /** Each meditation's everyday step ("Na co dzień"), one source game's own line, word for word. */
 export const CARE: Readonly<Record<string, { lib: typeof KOMORKI; key: string }>> = {
+  // „Wszystko naraz”: joy told to someone close grows (Pełnia radości's own step)
+  naraz: { lib: RADOSC, key: 'med.pelnia.care' },
   komorki: { lib: KOMORKI, key: 'med.noc.care' },
   postawa: { lib: KREGOSLUP, key: 'med.ruch.care' },
   sylwetka: { lib: KSZTALT, key: 'med.miesien.care' },
@@ -48,14 +51,27 @@ export const CARE: Readonly<Record<string, { lib: typeof KOMORKI; key: string }>
 };
 
 /**
- * The look each source game is told: Rozkwit's figure (`ona`/`on`) is Lekkość i siła's own; Żywa skóra paints its
- * pictures in a skin tone and gets the middle one (Rozkwit asks only for the figure — the lobby stays simple); the
- * others have none.
+ * Rozkwit's looks are Nowe siły's (round 25): a woman or a man in three skin tones, `f1 f2 f3 m1 m2 m3` — the person of
+ * „Wszystko naraz” is Nowe siły's person seen whole.  Saves from before kept Lekkość i siła's figure (`ona`/`on`); they
+ * are read as the first tone of that figure (index.ts).
+ */
+export const LOOKS = SILY.looks;
+/** an old save's figure → the look it becomes */
+export const OLD_LOOK: Readonly<Record<string, string>> = { ona: 'f1', on: 'm1' };
+
+/** The skin tone a look has (1 light, 2 olive, 3 dark), and whether it is a man's. */
+const toneOf = (l: string): 1 | 2 | 3 => (l.endsWith('3') ? 3 : l.endsWith('2') ? 2 : 1);
+const isMan = (l: string): boolean => l === 'on' || l.startsWith('m');
+
+/**
+ * The look each source game is told: Lekkość i siła gets the figure (`ona`/`on`); Żywa skóra paints its pictures in
+ * the skin tone nearest the player's (Nowe siły's light tone is Żywa skóra's medium, olive its olive, dark its dark);
+ * the others have none.
  */
 export const LOOK_FOR: Readonly<Record<string, (l: string) => string>> = {
-  ksztalt: l => (l === 'on' ? 'on' : 'ona'),
-  skora: () => 'medium',
+  ksztalt: l => (isMan(l) ? 'on' : 'ona'),
+  skora: l => (['medium', 'olive', 'dark'] as const)[toneOf(l) - 1],
 };
 
-/** The figure's look and the note under it: Lekkość i siła's words. */
-export const LOOK_KEYS = ['look.ona', 'look.on', 'panel.look', 'panel.lookNote'] as const;
+/** The person's looks: Nowe siły's words (the note under them is Rozkwit's own). */
+export const LOOK_KEYS = ['look.f1', 'look.f2', 'look.f3', 'look.m1', 'look.m2', 'look.m3'] as const;

@@ -5,7 +5,7 @@ import motylarnia from '../src/arcade/motylarnia/index';
 import { drawBubble } from '../src/arcade/motylarnia/garden';
 import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
-import { GARDENS, LINES, LINE_COUNT, SPECIES, TIPS, gardenAt, speciesById } from '../src/arcade/motylarnia/content';
+import { GARDENS, LAP_GROWTH_MAX, LINES, LINE_COUNT, SPECIES, TIPS, gardenAt, speciesById } from '../src/arcade/motylarnia/content';
 import { CATALOGS, t } from '../src/arcade/motylarnia/i18n';
 import { PACER, computeLayout, gardenCardBox, openCard, tapTargets, toScreen, toWorld, zoomFor } from '../src/arcade/motylarnia/layout';
 import { fitFont, font, fontPx } from '../src/arcade/motylarnia/paint';
@@ -15,6 +15,7 @@ import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, au
 import { passage as passageIn } from '../src/content/scripture';
 import { drawEggs, emerge, finishGarden, freshProgress, migrate, starCount, type MothProgress } from '../src/arcade/motylarnia/meta';
 import { REACH_MARK, RULES, girthOf, reachFor } from '../src/arcade/motylarnia/rules';
+import { ROUND_SEC, roundFor } from '../src/arcade/motylarnia/talk';
 import { MothSim, addPigment, multOf, planBlocks, sizeClass, starsOf, wingspan, type SimEvent } from '../src/arcade/motylarnia/sim';
 import { decodePath, encodePath, scribble } from '../src/arcade/motylarnia/wing';
 import { mulberry32 } from '../src/core/random';
@@ -1063,5 +1064,95 @@ describe('Motylarnia at 15–30 minutes', () => {
       expect(g.len).toBeLessThanOrEqual(Math.max(...GARDENS.map(x => x.len)) + 24);
       expect(g.rivals).toBeLessThanOrEqual(5);
     }
+  });
+});
+
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+
+describe('Motylarnia at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the finale: Apetyt/Sjesta pairs at their design lengths, ending on a Sjesta', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const sum = plan.reduce((s, b) => s + b.dur, 0);
+        expect(Math.abs(sum - (planned - RULES.finale))).toBeLessThan(0.5);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('keeps the pool\'s turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('plays a whole 60-min session: gardens all hour, the world bounded, Hieronim never twice in ten minutes, it reaches its finale', () => {
+    const sim = newSim({ progress: veteran({ garden: 0 }), plannedSec: 3600, seed: 5 });
+    let maxFood = 0, maxRival = 0, maxBirds = 0, maxSegs = 0, evs = 0, lastLine: unknown = null;
+    const heard: { text: string; at: number }[] = [];
+    const byQuarter: number[] = [];
+    const dt = 1 / 20;
+    for (let i = 0; i < 3606 / dt && sim.phase !== 'done'; i++) {
+      if (i % 3 === 0) {
+        const h = sim.player.segs[0];
+        let best: { x: number; y: number } | null = null, bd = Infinity;
+        for (const f of sim.food) {
+          const d = ((f.x - h.x) ** 2 + (f.y - h.y) ** 2) / (f.kind === 'flower' ? 3 : 1);
+          if (d < bd) { bd = d; best = f; }
+        }
+        if (best) sim.aim(Math.atan2(best.y - h.y, best.x - h.x));
+      }
+      const l = sim.block.kind === 'push' ? 0.85 : 0.2;
+      sim.update(dt, frame(l), sim.t + dt);
+      evs += sim.take().length;
+      if (i % (900 * 20) === 0) byQuarter.push(sim.gardensDone);
+      const line = sim.talk;
+      if (line && line !== lastLine) heard.push({ text: line.text, at: sim.t });
+      lastLine = line;
+      maxFood = Math.max(maxFood, sim.food.length);
+      maxBirds = Math.max(maxBirds, sim.birds.length);
+      maxSegs = Math.max(maxSegs, sim.player.segs.length);
+      for (const r of sim.rivals) maxRival = Math.max(maxRival, r.segs.length);
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.t).toBeLessThan(3601);
+    expect(sim.t).toBeGreaterThan(3595);
+    expect(evs).toBeGreaterThan(1000);
+    // the gardens keep coming in every quarter of the hour: the later laps are longer gardens (a veteran's own pace at
+    // any length), and their growth stops after the fourth lap (§17.1)
+    byQuarter.push(sim.gardensDone);
+    expect(byQuarter.length).toBe(5);
+    for (let q = 1; q < 5; q++) expect(byQuarter[q] - byQuarter[q - 1], `quarter ${q}`).toBeGreaterThanOrEqual(2);
+    expect(gardenAt(sim.gardenIndex).len).toBeLessThanOrEqual(Math.max(...GARDENS.map(x => x.len)) + 6 * LAP_GROWTH_MAX);
+    expect(maxFood).toBeLessThan(800);
+    expect(maxRival).toBeLessThan(120);
+    expect(maxBirds).toBeLessThanOrEqual(8);
+    expect(maxSegs).toBeLessThan(200);
+    expect(sim.hatchedList.length).toBeLessThanOrEqual(sim.plan.filter(b => b.kind === 'rest').length + 2);
+    expect(sim.twig.length).toBeLessThanOrEqual(RULES.twigMax);
+    // Hieronim talks in every quarter of the hour, a line again only after ten minutes (§17.1, §28)
+    for (const q of [0, 900, 1800, 2700]) expect(heard.filter(h => h.at > q && h.at <= q + 900).length, `from ${q}`).toBeGreaterThan(5);
+    let soonest = Infinity;
+    const last = new Map<string, number>();
+    for (const h of heard) {
+      const was = last.get(h.text);
+      if (was !== undefined) soonest = Math.min(soonest, h.at - was);
+      last.set(h.text, h.at);
+    }
+    expect(soonest).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+    expect(sim.said.length).toBeLessThan(1000);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    const out = sim.result();
+    expect(out.score).toBeLessThan(10_000_000);
+    expect(out.highlights.length).toBeLessThanOrEqual(4);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(160);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
   });
 });

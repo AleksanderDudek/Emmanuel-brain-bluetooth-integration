@@ -250,7 +250,8 @@ const mod: ArcadeModule<ZastepyProgress> = {
   create: env => new ZastepyGame(env),
   best: p => (migrate(p).sessions > 0 ? bestOf(p) : null),
   unit,
-  progressPanel: (p, save) => progressPanel(p, save),
+  // the card opens with the difficulty row (kit/difficultypanel.ts): Na start · Zwykły · Zaawansowany · Hardcore
+  progressPanel: (p, save) => progressPanel(p, save, { levels: true }),
   preview: (ctx, w, h, tt, p) => drawPreview(ctx, w, h, tt, p),
   howto: () => howto(),
   // the rest's rhythm in the lobby: seconds of Natarcie before the Cisza, and of the Cisza

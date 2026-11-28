@@ -56,12 +56,12 @@ class KintsugiGame implements ArcadeGame {
     const plan = (this.music as unknown as { plan?: unknown }).plan;
     this.tracks = m.mode === 'tracks' && m.youtube && plan !== null;
     this.view = new KintsugiView(env.canvas, this.sim.geo, { reducedMotion: env.reducedMotion, touch: env.touch, seed: Math.floor(env.rng() * 1e9), tracks: this.tracks });
-    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) Object.assign(globalThis, { __kintsugi: this.sim, __kintsugiView: this.view });
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) Object.assign(globalThis, { __kintsugi: this.sim, __kintsugiView: this.view, __kintsugiMusic: this.music });
   }
 
   resize(w: number, h: number, dpr: number): void {
     this.view.resize(w, h, dpr, this.env.insets());
-    this.music.place(this.tracks ? this.view.musicRect : null);
+    this.music.place(this.tracks ? this.view.musicRect : null, this.tracks ? this.view.musicRect2 : null);
   }
 
   /** The calibration's scene: the night, the cloth, the heart broken on it. */
@@ -100,7 +100,7 @@ class KintsugiGame implements ArcadeGame {
     this.view.draw(this.sim);
   }
 
-  /** A tap: on the 0–10 row answers "how much does it hurt now"; anywhere else the words glow again — never light. */
+  /** A tap: on the 0–10 row answers "how do you feel now"; anywhere else the words glow again — never light. */
   pointer(e: PointerInput): void {
     const sim = this.sim, v = this.view;
     if (!this.env.touch) this.env.canvas.style.cursor = v.hover(sim, e.x, e.y) ? 'pointer' : '';

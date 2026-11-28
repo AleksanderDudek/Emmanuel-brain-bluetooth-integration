@@ -10,6 +10,7 @@
  * learns.  Never out while lives remain: the count always ends on the feet with what was charged.
  */
 import { breathAt } from '../kit/breath';
+import { difficultyName } from '../kit/difficultypanel';
 import type { FocusFrame, FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import type { Rhythm } from '../kit/rhythm';
@@ -18,14 +19,14 @@ import type { ArcadeOutcome } from '../kit/types';
 import type { RingCue } from './audio';
 import { LADDER, ROOT, foeLook, ladderOf, playerLook, verseFor, type FoeId, type Moment, type Persona } from './content';
 import { t, unit, type Key } from './i18n';
-import { bestOf, ladderAfter, migrate, type BojProgress } from './meta';
+import { bestOf, ladderAfter, migrate, recordAt, type BojProgress } from './meta';
 import {
   COMBOS, DEFENSES, DEFENSE_IDS, OPENINGS, STRIKES, answer, bestAnswers, combosFor, fit,
   type Combo, type DefenseId, type Opening, type StrikeId, type Style,
 } from './moves';
 import {
-  BREATH, RULES, attackDamage, attackLands, counterDamage, defend, defenseSec, fightPlan, focusRate, landSec, needFor, planFor,
-  readTime, strikeDamage, strikeSec, weakBackDamage, windowFits, type FightPlan, type Plan,
+  BREATH, RULES, attackDamage, attackLands, counterDamage, defend, defenseSec, fightPlan, focusRate, landSec, levelOf, needFor, planFor,
+  readTime, strikeDamage, strikeSec, weakBackDamage, windowFits, type FightPlan, type Level, type Plan,
 } from './rules';
 import { Talk } from './talk';
 import type { Act, FightView, FighterView, Impact, Option, Phase } from './view';
@@ -135,6 +136,8 @@ const GUARD: Act = { kind: 'guard' };
 /** Acts that return to the guard when they end. */
 const TRANSIENT = new Set<Act['kind']>(['tell', 'strike', 'defend', 'hit', 'rise', 'touch']);
 const LOOPS = new Set<Act['kind']>(['guard', 'corner']);
+/** The summary's lines for the fights: the last this many (a session of 30 minutes holds up to four fights). */
+const FIGHT_LINES = 4;
 
 /** The right defences of a style, the partial ones and the wrong ones against a strike. */
 function defensesFor(s: StrikeId, style: Style): { right: DefenseId[]; part: DefenseId[]; wrong: DefenseId[] } {
@@ -220,6 +223,8 @@ export class BojSim {
   readonly style: Style;
   readonly session: number;
   readonly first: boolean;
+  /** the difficulty level's knobs (rules.ts LEVELS; REGULAR: the game as it was) */
+  readonly level: Level;
   started = false;
   stage: Stage = 'intro';
   blockT = 0;
@@ -295,6 +300,7 @@ export class BojSim {
     this.style = this.p.style;
     this.session = this.p.sessions + 1;
     this.first = this.p.sessions === 0;
+    this.level = levelOf(this.p.difficulty);
     this.plan = planFor({ plannedSec: o.plannedSec, eeg: o.eeg, focus: o.rhythm?.focus ?? null, rest: o.rhythm?.rest ?? null, custom: !!o.rhythm?.custom, first: this.first });
     this.talk = new Talk(o.rng);
     this.ladderNow = this.p.ladder;
@@ -315,11 +321,30 @@ export class BojSim {
   get restBlock(): boolean { return this.kind === 'rest'; }
   get sighted(): boolean { return this.pushBlock && this.blockT >= this.lead; }
   get left(): number { return Math.max(0, this.blockDur - this.blockT); }
-  /** the coach's pick glows: the first sessions, or after two wrong picks in a row */
-  get hintOn(): boolean { return this.session <= RULES.hint.sessions || this.wrongRun >= RULES.hint.wrongRun; }
-  /** the opponent's power and chin with the ladder */
-  get foePow(): number { return this.persona.power * (1 + RULES.ladderPow * this.ladderNow); }
-  get foeChin(): number { return this.persona.chin * (1 - RULES.ladderChin * this.ladderNow); }
+  /** the coach's pick glows: the first sessions, or after two wrong picks in a row (the level's numbers; REGULAR 3 and 2) */
+  get hintOn(): boolean {
+    const L = this.level;
+    if (L.d === 'regular') return this.session <= RULES.hint.sessions || this.wrongRun >= RULES.hint.wrongRun;
+    return this.session <= L.hintSessions || this.wrongRun >= L.hintWrong;
+  }
+  /** the opponent's power and chin with the ladder (and the level: REGULAR × 1) */
+  get foePow(): number {
+    const v = this.persona.power * (1 + RULES.ladderPow * this.ladderNow);
+    return this.level.pow === 1 ? v : v * this.level.pow;
+  }
+  get foeChin(): number {
+    const v = this.persona.chin * (1 - RULES.ladderChin * this.ladderNow);
+    return this.level.chin === 1 ? v : v * this.level.chin;
+  }
+  /** the opponent's hand speed (the level's: never below the design) */
+  get foeSpeed(): number { return this.level.speed === 1 ? this.persona.speed : this.persona.speed * this.level.speed; }
+  /** how often the opponent leads (the level's share, 0.25–0.75) */
+  get foeAggr(): number { return this.level.aggr === 1 ? this.persona.aggr : clamp(this.persona.aggr * this.level.aggr, 0.25, 0.75); }
+  /** the quick-time choice is still open (a level may close it a few seconds into the slow motion; REGULAR never) */
+  get choiceOpen(): boolean {
+    const ex = this.ex;
+    return this.stage === 'slow' && !!ex && !ex.released && this.blockT < this.level.chooseSec;
+  }
   /** the story card (a first-ever session's walk-in; the read's breath pacer stands where it was) */
   get story(): boolean { return this.first && this.fightNo === 1 && this.exchanges === 0 && this.stage === 'intro'; }
 
@@ -513,7 +538,7 @@ export class BojSim {
 
   private pickKind(): 'in' | 'open' {
     if (this.exchanges === 0) return 'open';
-    let k: 'in' | 'open' = this.rng() < this.persona.aggr ? 'in' : 'open';
+    let k: 'in' | 'open' = this.rng() < this.foeAggr ? 'in' : 'open';
     if (this.lastKind === k && this.kindRun >= RULES.sameKindMax) k = k === 'in' ? 'open' : 'in';
     return k;
   }
@@ -534,7 +559,7 @@ export class BojSim {
     this.exchanges++;
     const need = needFor(window, this.lead) * (firstWindow ? RULES.firstNeed : 1);
     const base = { chosen: null, hint: this.hintOn, window, need, charge: 0, energy: 0, readyAt: null, e: 0, pick: 0, released: false };
-    const sp = P.speed;
+    const sp = this.foeSpeed;
     const steps: [number, () => void][] = [];
     let at = RULES.seqStep;
     if (kind === 'in') {
@@ -600,7 +625,7 @@ export class BojSim {
     if (ex.kind === 'in' && ex.key) {
       // the key strike hangs in the air: its act is fixed by the travel (view())
       const S = STRIKES[ex.key];
-      this.act(this.foe, { kind: 'strike', strike: ex.key, power: 1 }, strikeSec(ex.key, this.persona.speed));
+      this.act(this.foe, { kind: 'strike', strike: ex.key, power: 1 }, strikeSec(ex.key, this.foeSpeed));
       this.foe.fix = (S.load + S.travel * RULES.travel0) / (S.load + S.travel + S.back);
     }
     // the first slow motion explains itself and the choice in one mark; a first of the other kind explains its choice
@@ -643,6 +668,7 @@ export class BojSim {
   choose(i: number): boolean {
     const ex = this.ex;
     if (this.stage !== 'slow' || !ex || ex.released || !(i >= 0 && i < ex.opts.length)) return false;
+    if (!this.choiceOpen) return false;
     ex.chosen = i;
     this.emit({ type: 'choose', i });
     this.cue('whoosh', 0.35);
@@ -688,7 +714,7 @@ export class BojSim {
   // ── the resolve (real time) ───────────────────────────────────
 
   private resolveIncoming(ex: Exchange, o: OptSpec): void {
-    const s = ex.key!, S = STRIKES[s], sp = this.persona.speed, pow = this.foePow;
+    const s = ex.key!, S = STRIKES[s], sp = this.foeSpeed, pow = this.foePow;
     const d = o.defense!;
     const out = defend(d, s, ex.e, o.kind === 'counter');
     const keyLand = ((1 - this.travel) * S.travel * RULES.tempo) / sp;
@@ -755,7 +781,7 @@ export class BojSim {
 
   private resolveAttack(ex: Exchange, o: OptSpec): void {
     const c = o.combo!, e = ex.e, chin = this.foeChin;
-    const lands = attackLands(c.strikes.length, o.value, e);
+    const lands = attackLands(c.strikes.length, o.value, e, this.level.guard);
     const steps: [number, () => void][] = [];
     let at = 0.1, end = 0.8;
     c.strikes.forEach((s, i) => {
@@ -787,7 +813,7 @@ export class BojSim {
     });
     if (!lands.some(Boolean)) {
       // nothing landed: the guard took it all, and a soft counter comes back
-      const s: StrikeId = 'cross', sp = this.persona.speed;
+      const s: StrikeId = 'cross', sp = this.foeSpeed;
       const land = end + landSec(s, sp);
       steps.push([end, () => this.act(this.foe, { kind: 'strike', strike: s, power: 0.6 }, strikeSec(s, sp))]);
       steps.push([land, () => this.hurt('player', s, weakBackDamage(this.foePow, e), 0.4)]);
@@ -1152,9 +1178,12 @@ export class BojSim {
   view(reduced: boolean): FightView {
     const ex = this.ex, sex = this.p.sex;
     const inSlow = this.stage === 'slow' && !!ex && !ex.released;
+    // a level's choice closed with nothing chosen: the move that will go shows as the chosen one
+    const lit = inSlow ? (ex!.chosen ?? (this.choiceOpen ? null : this.defaultPick)) : null;
     const options: Option[] = inSlow ? ex!.opts.map((o, i) => {
       const w = optionWords(o);
-      return { id: o.id, kind: o.kind, label: w.label, sub: w.sub, chosen: ex!.chosen === i, hint: ex!.hint && i === ex!.right };
+      const aim = o.counter ? STRIKES[o.counter].target : o.combo ? STRIKES[o.combo.strikes[0]].target : undefined;
+      return { id: o.id, kind: o.kind, label: w.label, sub: w.sub, chosen: lit === i, hint: ex!.hint && i === ex!.right, aim };
     }) : [];
     let why: string | null = null;
     if (inSlow && ex!.hint) why = this.whyOf(ex!) || null;
@@ -1184,6 +1213,11 @@ export class BojSim {
       crowd: clamp(this.crowd),
       breath: this.breath?.k ?? 0.5,
       reduced,
+      choice: inSlow && Number.isFinite(this.level.chooseSec)
+        ? { left: clamp(1 - this.blockT / Math.max(0.1, Math.min(ex!.window, this.level.chooseSec))), open: this.choiceOpen }
+        : null,
+      prompt: inSlow ? promptOf(ex!) : null,
+      closed: inSlow && !this.choiceOpen ? t('choice.closed') : null,
     };
   }
 
@@ -1206,7 +1240,7 @@ export class BojSim {
     this.credited = true;
     const p = this.p, tl = this.tally;
     p.sessions = this.session;
-    p.best = Math.max(p.best, this.score);
+    recordAt(p, this.level.d, this.score);
     p.strikes += this.score;
     p.counters += this.counters;
     p.fights += tl.won + tl.lost;
@@ -1227,16 +1261,17 @@ export class BojSim {
     const tl = this.tally, sex = this.p.sex;
     const stats: [string, string][] = [];
     stats.push([t('stat.record'), t('stat.recordV', { w: tl.won, l: tl.lost })]);
+    // a level other than REGULAR is named (its records are its own)
+    if (this.level.d !== 'regular') stats.push([t('stat.level'), difficultyName(this.level.d)]);
     if (tl.kos > 0) stats.push([t('stat.ko'), String(tl.kos)]);
     stats.push([t('stat.counters'), String(this.counters)]);
     if (this.defenses > 0) stats.push([t('stat.defense'), t('stat.ofV', { ok: this.defensesRight, n: this.defenses })]);
     if (this.slows > 0) stats.push([t('stat.charge'), t('stat.ofV', { ok: this.slowsFull, n: this.slows })]);
     if (this.downs > 0) stats.push([t('stat.down'), `${this.downs} (${this.rises})`]);
-    const highlights: string[] = [];
-    for (const f of this.fights) {
-      const name = foeName(LADDER.find(x => x.id === f.foe) ?? this.persona, sex);
-      highlights.push(t(f.how === 'ko' ? 'hl.ko' : f.how === 'bell' ? 'hl.survive' : 'hl.loss', { name }));
-    }
+    // a line a fight — the same line once, the last four fights (an hour holds seven; the stats keep the whole record)
+    const fought = this.fights.map(f => t(f.how === 'ko' ? 'hl.ko' : f.how === 'bell' ? 'hl.survive' : 'hl.loss',
+      { name: foeName(LADDER.find(x => x.id === f.foe) ?? this.persona, sex) }));
+    const highlights = fought.filter((l, i) => fought.lastIndexOf(l) === i).slice(-FIGHT_LINES);
     if (this.titlesNow > 0) highlights.push(t('hl.title'));
     if (this.rises > 0) highlights.push(t('hl.rose', { n: this.rises }));
     if (this.counters >= 3) highlights.push(t('hl.counters', { n: this.counters }));
@@ -1254,6 +1289,13 @@ export class BojSim {
       foeLives: this.foe.lives, score: this.score, energy: Math.round((this.ex?.energy ?? 0) * 100), fights: this.fights.map(f => f.how).join(','),
     };
   }
+}
+
+/** What comes or what opens, for the words over the opponent. */
+function promptOf(ex: Exchange): string | null {
+  if (ex.kind === 'in' && ex.key) return t('prompt.in', { s: t(`strike.${ex.key}` as Key) });
+  if (ex.opening) return t('prompt.open', { o: t(`opening.${ex.opening.id}` as Key) });
+  return null;
 }
 
 /** The ring's sound for a strike that lands. */

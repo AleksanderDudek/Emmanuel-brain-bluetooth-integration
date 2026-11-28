@@ -172,7 +172,7 @@ describe('checkLibrary (check.ts)', () => {
     expect(requiredKeys(FIXTURE)).toContain('look.dark');
   });
 
-  it('catches the shape: 4–6 meditations of 2–4 scenes, each scene in exactly one, worlds, views, perScene', () => {
+  it('catches the shape: 4–7 meditations of 2–4 scenes, each scene in exactly one, worlds, views, perScene', () => {
     expect(problems(variant(l => { l.meds = l.meds.slice(0, 3); }))).toMatch(/3 meditations/);
     expect(problems(variant(l => { l.meds = l.meds.map((m, i) => (i === 1 ? { ...m, scenes: ['b1', 'b2', 'b3', 'a1', 'a2'] } : m)); }))).toMatch(/med.dwa: 5 scenes[\s\S]*in jeden and dwa/);
     expect(problems(variant(l => { l.meds = l.meds.map((m, i) => (i === 0 ? { ...m, scenes: ['a1'] } : m)); }))).toMatch(/1 scenes[\s\S]*scene.a2: in no meditation/);
@@ -706,6 +706,70 @@ describe('the rest’s rhythm and the breath guide', () => {
       }
     }
   });
+});
+
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the quiet end: push and rest alternating, ending on a rest, the player’s rhythm on time', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.2);
+        }
+        const pairs = (planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.restBreaths * BREATH);
+        expect(Math.abs(body.length / 2 - pairs)).toBeLessThanOrEqual(1);
+      }
+      for (const [focus, rest] of [[20, 1], [120, 6]] as const) {
+        const plan = planBlocks(planned, false, mulberry32(planned), { focus, rest });
+        const pushes = plan.filter(b => b.kind === 'push');
+        expect(Math.abs(pushes.reduce((s, b) => s + b.dur, 0) / pushes.length - focus)).toBeLessThanOrEqual(Math.max(12, focus * 0.45));
+        for (const b of plan.filter(x => x.kind === 'rest')) expect(b.dur % BREATH).toBeCloseTo(0, 6);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      }
+    }
+  });
+
+  it('fills an hour in every mode: round the library again and again, growing to the last minutes, a clean short result', () => {
+    for (const mode of MODES) {
+      for (const focus of ['mid', 'high'] as const) {
+        let late = 0, lastLine: unknown = null, lateGrow = 0;
+        const run = simSession(FIXTURE, {
+          planned: 3600, returning: true, focus, taps: false, seed: 6,
+          progress: { mode, chosen: 'jeden', pos: { med: 'jeden', scene: 0, g: 0 } },
+          each: (t, s) => {
+            if (s.talk.line && s.talk.line !== lastLine && t > 3000) late++;
+            lastLine = s.talk.line;
+            if (t > 3000 && s.growing) lateGrow += 1 / 60;
+            reader(s)();
+          },
+        });
+        const tag = `${mode} ${focus}`;
+        const sim = run.sim;
+        expect(sim.phase, tag).toBe('done');
+        for (const v of [sim.score, sim.g, sim.light, sim.afterSec, run.grownSec]) expect(Number.isFinite(v), tag).toBe(true);
+        // ~40 s of growth a pair: an hour grows dozens of scenes (just this one: its picture lives on)
+        if (mode !== 'one') expect(run.scenes, tag).toBeGreaterThanOrEqual(30);
+        expect(lateGrow, tag).toBeGreaterThan(mode === 'one' ? 0 : 60);
+        expect(late, tag).toBeGreaterThan(0);
+        const r = run.outcome;
+        expect(r.score, tag).toBe(sim.score);
+        expect(String(r.score).length, tag).toBeLessThanOrEqual(7);
+        expect(run.progress.best['3600'], tag).toBe(r.score);
+        expect(r.stats.length, tag).toBe(6);
+        expect(r.highlights.length, tag).toBeLessThanOrEqual(5);
+        expect(new Set(r.highlights).size, tag).toBe(r.highlights.length);
+        for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+        for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{\w+\}/);
+        expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      }
+    }
+  }, 180_000);
 });
 
 // ── mobile first and the desk ──────────────────────────────────────

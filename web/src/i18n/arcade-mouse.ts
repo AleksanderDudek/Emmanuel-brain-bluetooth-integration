@@ -61,6 +61,7 @@ const pl = {
   'kregoslup.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
   'ksztalt.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
   'radosc.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
+  'sily.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
   'rozkwit.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
   'serce.how3': 'Rękami: kliknij (albo Spacja), by zostać przy słowach jeszcze chwilę; imiona do kręgów i słowa serca wybierzesz w „Postępach”.',
   'dlonie.how3': 'Rękami: kliknij imię, za kogo się modlisz; ≡ (albo M) wybiera modlitwę (za kogoś, za siebie, za świat).',
@@ -68,8 +69,11 @@ const pl = {
   'brzemiona.how3': 'Rękami: ≡ (albo M) — lista, ◎ (W) — przyjmij pokój albo poszerz krąg, ▶ (N) — następne brzemię; kliknij gdziekolwiek (albo Spacja), by przy tym zostać.',
   'drzewo.how3': 'Rękami: kliknij owoc, by przeczytać jego słowo; ≡ (albo M) wybiera postawę (na stojąco albo na siedząco) i porę roku.',
   'mysli.how3': 'Rękami: kliknij „Nie moja” (albo N), gdy myśl Cię nie dotyczy; na końcu kliknij (albo 0–9), jak ciężko jest teraz.',
-  'kintsugi.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9), jak bardzo boli teraz.',
+  'stopklatka.how3': 'Rękami: kliknij (albo Spacja), by czytać dalej; w stop-klatce kliknij (albo 1–4) uczucie, które pasuje, i to, co zrobisz, gdy czas ruszy.',
+  'kintsugi.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9, a 1 i 0 to 10), jak się teraz czujesz.',
   'ogrod.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu; na końcu kliknij (albo 0–9), jak ciężko jest teraz Twojemu sercu.',
+  'warstwy.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu. W „Postępach” możesz zapisać, co dziś oddajesz na każdej warstwie — zostaje tylko na tym urządzeniu.',
+  'kola.how3': 'Rękami: kliknij (albo Spacja), a słowa zajaśnieją znowu. W „Postępach” wybierzesz postawę — na stojąco albo na siedząco — i oddech.',
   'passa.how3': 'Rękami: kliknij (albo 1–4, Spacja — następny), jak spojrzeć na kłopot albo jaką nadzieję wybierasz — bez wyboru idzie pierwsza. Wieczorem kliknij, za co dziękujesz najbardziej.',
 } satisfies Partial<Record<ArcadeKey, string>>;
 
@@ -121,6 +125,7 @@ const en: Twins = {
   'kregoslup.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
   'ksztalt.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
   'radosc.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
+  'sily.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
   'rozkwit.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
   'serce.how3': 'With your hands: click (or press Space) to stay with the words a little longer; names for your circles and the words of the heart are under “Progress”.',
   'dlonie.how3': 'With your hands: click the name you are praying for; ≡ (or M) chooses the prayer (for someone, for yourself, for the world).',
@@ -128,8 +133,11 @@ const en: Twins = {
   'brzemiona.how3': 'With your hands: ≡ (or M) — the list, ◎ (W) — receive peace or widen the circle, ▶ (N) — the next burden; click anywhere (or Space) to stay with it.',
   'drzewo.how3': 'With your hands: click a fruit to read its word; ≡ (or M) chooses the posture (standing or sitting) and the season.',
   'mysli.how3': 'With your hands: click “Not mine” (or N) when a thought isn’t about you; at the end, click (or press 0–9) how heavy it is now.',
-  'kintsugi.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9) how much it hurts now.',
+  'stopklatka.how3': 'With your hands: click (or press Space) to read on; in the freeze frame, click (or press 1–4) the feeling that fits and what you will do when time moves on.',
+  'kintsugi.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9; 1 then 0 is 10) how you feel now.',
   'ogrod.how3': 'With your hands: click (or press Space), and the words glow again; at the end, click (or press 0–9) how heavy your heart is now.',
+  'warstwy.how3': 'With your hands: click (or press Space), and the words glow again. Under “Progress” you can write what you give today on each layer — it stays on this device only.',
+  'kola.how3': 'With your hands: click (or press Space), and the words glow again. Under “Progress” you choose the posture — standing or seated — and the breath.',
   'passa.how3': 'With your hands: click (or press 1–4, Space for the next) how to see a trouble or which hope you choose — with no choice the first one goes. In the evening, click what you are most grateful for.',
 };
 
@@ -178,6 +186,7 @@ const de: Twins = {
   'kregoslup.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
   'ksztalt.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
   'radosc.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
+  'sily.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
   'rozkwit.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
   'serce.how3': 'Mit den Händen: Klick (oder Leertaste), um noch etwas bei den Worten zu bleiben; Namen für deine Kreise und die Worte des Herzens findest du unter „Fortschritt“.',
   'dlonie.how3': 'Mit den Händen: Klick auf den Namen, für den du betest; ≡ (oder M) wählt das Gebet (für jemanden, für dich, für die Welt).',
@@ -185,8 +194,11 @@ const de: Twins = {
   'brzemiona.how3': 'Mit den Händen: ≡ (oder M) — die Liste, ◎ (W) — Frieden empfangen oder Kreis weiten, ▶ (N) — die nächste Last; klicke irgendwo (oder Leertaste), um dabei zu bleiben.',
   'drzewo.how3': 'Mit den Händen: Klick auf eine Frucht, um ihr Wort zu lesen; ≡ (oder M) wählt die Haltung (stehend oder sitzend) und die Jahreszeit.',
   'mysli.how3': 'Mit den Händen: Klick auf „Nicht meiner“ (oder N), wenn ein Gedanke dich nicht betrifft; am Ende klickst du (oder 0–9), wie schwer es jetzt ist.',
-  'kintsugi.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9), wie sehr es jetzt wehtut.',
+  'stopklatka.how3': 'Mit den Händen: Klick (oder Leertaste), um weiterzulesen; im Standbild klickst du (oder 1–4) auf das passende Gefühl und auf das, was du tust, wenn die Zeit weiterläuft.',
+  'kintsugi.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9; 1 und 0 ist 10), wie du dich jetzt fühlst.',
   'ogrod.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf; am Ende klickst du (oder 0–9), wie schwer dein Herz jetzt ist.',
+  'warstwy.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf. Unter „Fortschritt“ kannst du für jede Schicht aufschreiben, was du heute hergibst — es bleibt nur auf diesem Gerät.',
+  'kola.how3': 'Mit den Händen: Klick (oder Leertaste), und die Worte leuchten wieder auf. Unter „Fortschritt“ wählst du die Haltung — stehend oder sitzend — und den Atem.',
   'passa.how3': 'Mit den Händen: Klicke (oder 1–4, Leertaste für die nächste), wie du ein Ärgernis siehst oder welche Hoffnung du wählst — ohne Wahl geht die erste. Am Abend klickst du, wofür du am dankbarsten bist.',
 };
 
@@ -235,6 +247,7 @@ const sv: Twins = {
   'kregoslup.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
   'ksztalt.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
   'radosc.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
+  'sily.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
   'rozkwit.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
   'serce.how3': 'Med händerna: klicka (eller tryck på mellanslag) för att stanna vid orden en stund till; namn till dina kretsar och hjärtats ord väljer du under ”Framsteg”.',
   'dlonie.how3': 'Med händerna: klicka på namnet du ber för; ≡ (eller M) väljer bönen (för någon, för dig själv, för världen).',
@@ -242,8 +255,11 @@ const sv: Twins = {
   'brzemiona.how3': 'Med händerna: ≡ (eller M) — listan, ◎ (W) — ta emot frid eller vidga kretsen, ▶ (N) — nästa börda; klicka var som helst (eller mellanslag) för att stanna kvar.',
   'drzewo.how3': 'Med händerna: klicka på en frukt för att läsa dess ord; ≡ (eller M) väljer hållning (stående eller sittande) och årstid.',
   'mysli.how3': 'Med händerna: klicka på ”Inte min” (eller N) när en tanke inte gäller dig; i slutet klickar du (eller 0–9) hur tungt det är nu.',
-  'kintsugi.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9) hur ont det gör nu.',
+  'stopklatka.how3': 'Med händerna: klicka (eller mellanslag) för att läsa vidare; i frysbilden klickar du (eller 1–4) på känslan som passar och på vad du gör när tiden går vidare.',
+  'kintsugi.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9; 1 och 0 är 10) hur du känner dig nu.',
   'ogrod.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen; i slutet klickar du (eller 0–9) hur tungt ditt hjärta är nu.',
+  'warstwy.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen. Under ”Framsteg” kan du skriva vad du ger i dag på varje lager — det stannar bara på den här enheten.',
+  'kola.how3': 'Med händerna: klicka (eller tryck mellanslag), så lyser orden igen. Under ”Framsteg” väljer du hållning — stående eller sittande — och andning.',
   'passa.how3': 'Med händerna: klicka (eller 1–4, mellanslag för nästa) på hur du ser ett bekymmer eller vilket hopp du väljer — utan val går det första. På kvällen klickar du på vad du är mest tacksam för.',
 };
 

@@ -11,6 +11,8 @@
  * never ends early; the band only adds reach, rhythm and the horn.
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -23,11 +25,11 @@ import {
 } from './content';
 import { cubits as cubitsText, t, unit } from './i18n';
 import {
-  bestFor, breadCap, canPay, costOf, decreeOn, freshStretch, heightOf, isOpen, jobs, lenKey, levelCap, maxHp, perkLevel, room,
+  bestFor, bestKey, breadCap, canPay, costOf, decreeOn, freshStretch, heightOf, isOpen, jobs, levelCap, maxHp, perkLevel, room,
   standing, starsOf, stoneCap, type Jobs, type NehProgress,
 } from './meta';
-import { RULES } from './rules';
-import { Talk } from './talk';
+import { LEVELS, RULES, type NehLevel } from './rules';
+import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
 
@@ -218,6 +220,12 @@ export class NehSim {
   private readonly holdNeed: number;
   private readonly restLead: number;
   readonly finaleSec: number;
+  /** the difficulty level of this session (chosen in the lobby) and its knobs (rules.ts LEVELS) */
+  readonly difficulty: Difficulty;
+  private readonly lv: NehLevel;
+  /** a raider's grab (stones or loaves) and the horn's wait before it sounds by itself (s), at this level */
+  private readonly lootGrab: number;
+  private readonly hornAuto: number;
 
   started = false;
   readonly session: number;
@@ -342,12 +350,16 @@ export class NehSim {
     this.holdNeed = RULES.holdNeed[band];
     this.restLead = RULES.restLead[band];
     this.finaleSec = finaleFor(init.plannedSec);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.lv = LEVELS[this.difficulty];
+    this.lootGrab = Math.round(RULES.loot * this.lv.loot);
+    this.hornAuto = this.lv.helps > 0 ? RULES.hornAuto / this.lv.helps : Infinity;
     this.bestBefore = bestFor(p, init.plannedSec);
     this.bankBefore = p.starBank;
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(LINES, init.rng, roundFor(init.plannedSec));
     for (const id of FIRE_IDS) { this.fireR[id] = fireReach(p.stretch[id] ?? 0, 0); this.fireDim[id] = 0; }
   }
 
@@ -915,7 +927,7 @@ export class NehSim {
     p.hornCarry = 0;
     this.hornReady = false;
     if (this.horn >= 1) { this.horn = 0.999; this.addHorn(0.01); }
-    this.lootBudget = { stone: p.stone * R.lootCap, bread: p.bread * R.lootCap };
+    this.lootBudget = { stone: p.stone * (R.lootCap * this.lv.loot), bread: p.bread * (R.lootCap * this.lv.loot) };
     this.nightDriven = 0;
     this.nightReached = 0;
     this.nightLost = 0;
@@ -941,7 +953,7 @@ export class NehSim {
       p.strength = Math.min(1, p.strength + R.heldBonus);
     } else p.strength = Math.min(1, p.strength + R.word);
     let carry = this.hornReady ? 1 : this.horn * 0.5;
-    if (verdict) carry = Math.max(carry, R.hornKeep);
+    if (verdict) carry = Math.max(carry, R.hornKeep * this.lv.helps);
     let s: number | null = null;
     if (b.blind) {
       s = this.judge.measured > 0 ? share : 0;
@@ -966,7 +978,7 @@ export class NehSim {
     const stars = starsOf(p);
     const gain = Math.max(0, stars - (p.stars[g] ?? 0));
     p.stars[g] = Math.max(p.stars[g] ?? 0, stars);
-    p.starBank += gain;
+    p.starBank += Math.round(gain * this.lv.reward);
     const key = `gate:${GATES[g]}`;
     if (!p.chronicle.includes(key)) p.chronicle.push(key);
     this.gatesDone.push({ gate: g, stars });
@@ -995,8 +1007,8 @@ export class NehSim {
     const durK = clamp(dur / 24, 0.5, R.nightTop);
     const level = p.gate + p.year * GATES.length;
     const gentle = this.session === 1 && this.nightsAll === 0 && p.gate === 0 && p.year === 0;
-    let n = gentle ? R.firstNight
-      : Math.round((R.nightBase + R.nightPerDay * Math.max(0, p.gateDay - 1) + R.nightPerGate * p.gate) * (1 + R.yearUp * Math.min(p.year, R.yearTop)) * durK);
+    let n = gentle ? Math.round(R.firstNight * this.lv.count)
+      : Math.round((R.nightBase + R.nightPerDay * Math.max(0, p.gateDay - 1) + R.nightPerGate * p.gate) * (1 + R.yearUp * Math.min(p.year, R.yearTop)) * durK * this.lv.count);
     n = Math.max(2, n);
     const kinds: RaiderKind[] = [];
     const tall = p.wall.some(s => s.done >= 2);
@@ -1062,7 +1074,7 @@ export class NehSim {
     // the horn waits for a tap; after a while it goes by itself when there is someone to hear it
     if (this.hornReady) {
       this.hornT += w;
-      if (this.hornT >= R.hornAuto && this.raiders.some(r => r.state !== 'flee')) this.blowHorn();
+      if (this.hornT >= this.hornAuto && this.raiders.some(r => r.state !== 'flee')) this.blowHorn();
     }
     this.rally = Math.max(0, this.rally - w);
     this.moveRaiders(w);
@@ -1075,7 +1087,7 @@ export class NehSim {
   private spawn(kind: RaiderKind, route: RouteId): void {
     const p = this.p, R = RULES;
     const k = 1 + R.perGate * p.gate + R.perYear * Math.min(p.year, R.yearTop);
-    const courage = R.courage[kind] * k;
+    const courage = R.courage[kind] * k * this.lv.courage;
     const start = routeAt(route, 0);
     const r: Raider = {
       id: this.nextId++, kind, route, band: ROUTES[route].band, d: 0, x: start.x, y: start.y, state: 'walk', t: 0,
@@ -1117,7 +1129,7 @@ export class NehSim {
       const r = this.raiders[i];
       r.hit = Math.max(0, r.hit - w);
       r.seen = this.seenAt(r.x, r.y);
-      const sp = R.speed[r.kind] * (this.strongLight && r.state === 'walk' && this.inLight(r.x, r.y) ? R.hesitate : 1);
+      const sp = R.speed[r.kind] * this.lv.speed * (this.strongLight && r.state === 'walk' && this.inLight(r.x, r.y) ? R.hesitate : 1);
       switch (r.state) {
         case 'walk': {
           r.d += sp * w;
@@ -1169,7 +1181,7 @@ export class NehSim {
             break;
           }
           const k = (decreeOn(p, 'upal') ? 1 - DECREE.upal.nums.pct / 100 : 1);
-          s.hp = Math.max(0, s.hp - R.pry[r.kind] * k * w);
+          s.hp = Math.max(0, s.hp - R.pry[r.kind] * this.lv.pry * k * w);
           this.pryTick += w;
           if (s.hp <= 0) this.breachAt(r.seg);
           break;
@@ -1197,7 +1209,7 @@ export class NehSim {
           r.t -= w;
           if (r.t <= 0) {
             const what: 'stone' | 'bread' = r.store === 'yard' ? 'stone' : 'bread';
-            const n = Math.min(R.loot, Math.floor(this.lootBudget[what]), Math.floor(what === 'stone' ? p.stone : p.bread));
+            const n = Math.min(this.lootGrab, Math.floor(this.lootBudget[what]), Math.floor(what === 'stone' ? p.stone : p.bread));
             if (n > 0) {
               this.lootBudget[what] -= n;
               if (what === 'stone') p.stone -= n;
@@ -2039,15 +2051,18 @@ export class NehSim {
     const p = this.p;
     const score = this.headlineValue;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      const key = bestKey(p, this.plannedSec);
       p.best[key] = Math.max(p.best[key] ?? 0, score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const from = this.firstDay || p.day, to = Math.max(from, p.day);
-    // the wall finished mid-session: the days run to 52 and on from 1 of the next year
+    // the wall finished mid-session: the days run to 52 and on from 1 of the next year; an hour that finished it twice
+    // (§28) went through the whole calendar
     const wrapped = this.firstDay > 0 && p.year > this.firstYear;
+    const whole = this.firstDay > 0 && p.year > this.firstYear + 1;
     const stats: [string, string][] = [
-      [t('stat.days'), wrapped ? t('stat.daysWrap', { from: this.firstDay, to: p.day }) : t('stat.daysV', { from, to })],
+      [t('stat.days'), whole ? t('stat.daysV', { from: 1, to: gateFirstDay(GATES.length) - 1 })
+        : wrapped ? t('stat.daysWrap', { from: this.firstDay, to: p.day }) : t('stat.daysV', { from, to })],
       [t('stat.gate'), gateName(p.gate)],
       [t('stat.wall'), t('pct', { n: Math.round(standing(p) * 100) })],
       [t('stat.driven'), fmtNum(this.driven)],
@@ -2055,6 +2070,8 @@ export class NehSim {
       [t('stat.people'), t('people', { n: p.people })],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
+    // a level other than REGULAR is named first (the record is that level's)
+    if (this.difficulty !== 'regular') stats.unshift([t('stat.level'), difficultyName(this.difficulty)]);
     return {
       score, unit: unit(score), record: this.bestBefore !== null && score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

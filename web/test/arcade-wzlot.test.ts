@@ -9,6 +9,7 @@ import { Talk } from '../src/arcade/wzlot/talk';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
 import { catalogProblems } from '../src/i18n';
 import { CATALOGS as SHARED } from '../src/i18n/arcade';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
@@ -1742,4 +1743,80 @@ describe('Wzlot at 15–30 minutes', () => {
     expect(out.highlights.length).toBeLessThanOrEqual(7);
     for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
   });
+});
+
+// ── long sessions (45–60 min) ────────────────────────────────────
+
+describe('Wzlot at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the last sunset: push/rest pairs at their design lengths, ending on a rest', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - RULES.finale, 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  }, 300_000);
+
+  it.each([{ planned: 2700, first: false }, { planned: 3600, first: false }, { planned: 3600, first: true }])('flies a whole $planned s session (first ever: $first): day after day, the ground made and forgotten, the numbers sane, the last sunset', ({ planned, first }) => {
+    const sim = later({ planned, seed: 3, progress: first ? { sessions: 0, opened: false, taught: 0, practiced: 0 } : {} });
+    const clock = { t: 0 };
+    const fly = pilot(sim);
+    let evs = 0, maxKnots = 0, maxGranie = 0, maxV = 0, finale = 0, maxThermals = 0, finaleAt = 0;
+    const dt = 1 / 30;
+    for (let i = 0; i < (planned + 6) / dt && sim.phase !== 'done'; i++) {
+      clock.t += dt;
+      fly();
+      sim.update(dt, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+      for (const e of sim.take()) { evs++; if (e.type === 'finale') { finale++; finaleAt = clock.t; } }
+      const tt = sim.terrain as unknown as { kx: number[]; granie: unknown[] };
+      maxKnots = Math.max(maxKnots, tt.kx.length);
+      maxGranie = Math.max(maxGranie, tt.granie.length);
+      maxV = Math.max(maxV, Math.hypot(sim.eaglet.vx, sim.eaglet.vy));
+      maxThermals = Math.max(maxThermals, sim.thermals.length);
+    }
+    expect(sim.phase).toBe('done');
+    expect(finale).toBe(1);
+    // ~120 blocks: each block's last frame carries into the next, so the last sunset comes on time (it came 2 s
+    // late at 30 fps, and the runner cut the last day's tally)
+    expect(Math.abs(finaleAt - (planned - RULES.finale))).toBeLessThan(0.1);
+    expect(clock.t).toBeLessThanOrEqual(planned + RULES.settle - 1);
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(planned * 2);
+    expect(sim.daysDone).toBeGreaterThan(planned / 400);
+    // the ground, the crags and the warm columns are made ahead and forgotten behind: the same at 60 minutes as at 5
+    expect(maxKnots).toBeLessThan(400);
+    expect(maxGranie).toBeLessThan(12);
+    expect(maxThermals).toBeLessThan(10);
+    expect(Number.isFinite(maxV)).toBe(true);
+    expect(maxV).toBeLessThan(60);
+    expect(Number.isFinite(sim.total)).toBe(true);
+    // an hour's points stay under eight digits (the score corner takes a smaller size from eight characters)
+    expect(sim.total).toBeLessThan(1e7);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  }, 300_000);
+});
+
+describe('Wzlot at 45–60 minutes, drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: WzlotSim }).sim;
+    let fly: (() => void) | null = null;
+    const { early, late } = hourFrames({
+      module: wzlot, progress: { ...wzlot.freshProgress(), sessions: 5, opened: true, taught: 255, practiced: 1 }, tuning: TUNING,
+      setup: game => { fly = pilot(simOf(game)); },
+      frame: game => { fly!(); return simOf(game).block.kind === 'rest' ? CALM : HIGH; },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

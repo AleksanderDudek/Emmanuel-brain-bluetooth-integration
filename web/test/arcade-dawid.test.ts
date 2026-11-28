@@ -15,12 +15,17 @@ import {
   stars, toggleParty, weaponCost, weaponLevel, xpNeed, type DawidProgress,
 } from '../src/arcade/dawid/meta';
 import { RULES } from '../src/arcade/dawid/rules';
-import { DawidSim, finaleFor, multFor, planBlocks, questsOf, type SimEvent } from '../src/arcade/dawid/sim';
+import { DawidSim, finaleFor, multFor, planBlocks, questsOf, statsOf, type SimEvent } from '../src/arcade/dawid/sim';
+import { AREA_W, MAPS, allSpots, areaAt, spotArea } from '../src/arcade/dawid/lands';
+import { storyIds } from '../src/arcade/dawid/chains';
+import { STORY, WHO } from '../src/arcade/dawid/story';
+import { DIFFICULTIES, recordKey } from '../src/arcade/kit/difficulty';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
-import { catalogProblems } from '../src/i18n';
+import { hourFrames, mean } from './longframe';
+import { catalogProblems, fmtNum } from '../src/i18n';
 
 const DAY = '2026-11-11';
 const STEP = 1 / 60;
@@ -581,7 +586,7 @@ describe('levels, the cave, the end and the result', () => {
 describe('old saves', () => {
   it('reads the round-5 placeholder ({ sessions }) as a fresh save keeping its count', () => {
     const p = migrate(mergeSaved(freshProgress(), { sessions: 4 }));
-    expect(p.ver).toBe(1);
+    expect(p.ver).toBe(2);
     expect(p.sessions).toBe(4);
     expect(p.level).toBe(1);
     expect(p.wp.proca).toBe(1);
@@ -747,7 +752,7 @@ describe('long sessions (15–30 min)', () => {
         }
       }
       const q = sim.questTarget();
-      const atCamp = q && Math.hypot(q.x - sim.land.camp[0], q.y - sim.land.camp[1]) < 1;
+      const atCamp = q && Math.hypot(q.x - sim.campX, q.y - sim.campY) < 1;
       if (sim.bagFull || atCamp) { if (!sim.inCamp) sim.goHome(); }
       else if (q && sim.quest?.kind !== 'hunt' && sim.quest?.kind !== 'level' && Math.hypot(q.x - sim.david.x, q.y - sim.david.y) > 3) sim.tap(q.x, q.y);
       else if (sim.mode === 'none' || sim.mode === 'go') sim.tap();
@@ -854,6 +859,149 @@ describe('long sessions (15–30 min)', () => {
   });
 });
 
+describe('long sessions (45–60 min)', () => {
+  /** A typical player (as the pacing bot): taps the story on, buys in camp, follows the quest, hunts, goes home with a full bag. */
+  function typical(sim: DawidSim, step: number): () => void {
+    let tap = 0;
+    return () => {
+      if (sim.story && sim.story.t > 1) sim.tap();
+      if ((tap += step) < 1) return;
+      tap = 0;
+      if (sim.inCamp) {
+        for (const tab of ['bd', 'wp', 'ab'] as const) {
+          sim.setTab(tab);
+          for (let k = 0; k < 6; k++) { const i = sim.tiles().findIndex(x => x.why === 'ok' && x.kind !== 'cave'); if (i < 0) break; sim.campTap(i); }
+        }
+      }
+      const q = sim.questTarget();
+      const atCamp = q && Math.hypot(q.x - sim.campX, q.y - sim.campY) < 1;
+      if (sim.bagFull || atCamp) { if (!sim.inCamp) sim.goHome(); }
+      else if (q && sim.quest?.kind !== 'hunt' && sim.quest?.kind !== 'level' && Math.hypot(q.x - sim.david.x, q.y - sim.david.y) > 3) sim.tap(q.x, q.y);
+      else if (sim.mode === 'none' || sim.mode === 'go') sim.tap();
+    };
+  }
+
+  /** The pacing bot's focus: a steady push, a calm rest. */
+  const steady = (sim: DawidSim) => (): FocusFrame => {
+    const b = sim.block;
+    if (sim.phase !== 'play' || !b) return frame({ level: 0.4 });
+    if (b.kind === 'push') return frame({ level: 0.68, focused: true, hold: sim.blockT > 8 ? sim.blockT - 8 : 0, activity: 3 });
+    if (b.kind === 'rest') return frame({ level: 0.2, calm: 0.75, activity: -1 });
+    return frame({ level: 0.4 });
+  };
+
+  it('plans 45 and 60 minutes like the short ones: Proca and Harfa in turn up to the last stretch, no block too long or too short', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const blocks = first ? plan.slice(1) : plan;
+        blocks.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(blocks.at(-1)!.kind).toBe('rest');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        const left = planned - finaleFor(planned) - (first ? RULES.warm.long : 0);
+        expect(blocks.length / 2).toBe(Math.round(left / (RULES.push[0] + RULES.rest[0])));
+        for (const b of blocks) {
+          const [nominal, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((nominal + jitter) * 1.05);
+        }
+      }
+    }
+  }, 300_000);
+
+  it('a first 60-minute session plays to its finale and keeps giving: levels, quests and guardians to the end, the numbers finite and fitting, nothing piling up', () => {
+    const sim = makeSim({ planned: 3600, seed: 3 });
+    const p = sim.p, step = 1 / 30, bot = typical(sim, step), f = steady(sim);
+    let finale = 0, done = 0, bad = 0, at40 = -1, lvl40 = 0, end = 0;
+    const most = { coins: 0, chests: 0, beasts: 0, shots: 0, prints: 0, fx: 0 };
+    for (let tt = step; tt < 3600 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      end = tt;
+      sim.update(step, f(), tt);
+      bot();
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale++;
+        else if (e.type === 'done') done++;
+      }
+      most.coins = Math.max(most.coins, sim.coins.length);
+      most.chests = Math.max(most.chests, sim.chests.length);
+      most.beasts = Math.max(most.beasts, sim.beasts.length);
+      most.shots = Math.max(most.shots, sim.shots.length);
+      most.prints = Math.max(most.prints, sim.prints.length);
+      most.fx = Math.max(most.fx, sim.puffs.length + sim.rings.length + sim.notes.length + sim.zones.length);
+      const d = sim.david;
+      if (![sim.score, d.x, d.y, d.hp, d.max, sim.charge, p.xp, p.silver, p.wood, p.stone, sim.stats.dmg].every(Number.isFinite)) bad++;
+      if (at40 < 0 && tt >= 2400) { at40 = sim.score; lvl40 = p.level; }
+    }
+    expect(bad).toBe(0);
+    expect([finale, done, sim.phase]).toEqual([1, 1, 'done']);
+    expect(end).toBeLessThan(3600 + RULES.settle);
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    // the last twenty minutes still pay: XP, levels; the road went round the six lands and on into the second circle
+    expect(sim.score).toBeGreaterThan(at40 * 1.2);
+    expect(p.level).toBeGreaterThan(lvl40);
+    expect(p.land).toBeGreaterThanOrEqual(6);
+    expect(sim.guardsNow.length).toBeGreaterThanOrEqual(6);
+    // bounded as at 30 minutes
+    expect(most.coins).toBeLessThanOrEqual(RULES.coinCap);
+    expect(most.chests).toBeLessThan(12);
+    expect(most.beasts).toBeLessThan(80);
+    expect(most.shots).toBeLessThan(40);
+    expect(most.prints).toBeLessThan(400);
+    expect(most.fx).toBeLessThan(100);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(120);
+    const r = sim.result();
+    expect(Number.isFinite(r.score)).toBe(true);
+    expect(r.highlights.length).toBeLessThanOrEqual(6);
+    for (const h of r.highlights) expect(h.length, h).toBeLessThanOrEqual(90);
+    // the second circle multiplies everything by 45: an hour's XP takes eight figures (the score corner and the
+    // summary take their smaller size from eight characters) — but stays within thirteen, what a phone's summary holds
+    expect(fmtNum(r.score).length).toBeGreaterThanOrEqual(8);
+    expect(fmtNum(r.score).length).toBeLessThanOrEqual(13);
+    for (const [, v] of r.stats) expect(v.length, v).toBeLessThanOrEqual(16);
+    expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+    expect(p.best['3600']).toBe(sim.score);
+  }, 300_000);
+
+  it('a 60-minute session deep on a later circle stays sane: finite, bounded, still levelling', () => {
+    const sim = makeSim({ planned: 3600, seed: 5, progress: { sessions: 60, seen: SEEN, land: 8, level: 80 } });
+    const p = sim.p, step = 1 / 30, bot = typical(sim, step);
+    const level0 = p.level;
+    let bad = 0, most = 0, at40 = -1;
+    for (let tt = step; tt < 3600 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      sim.update(step, sim.block?.kind === 'rest' ? CALM : HIGH, tt);
+      bot();
+      sim.take();
+      most = Math.max(most, sim.coins.length + sim.chests.length + sim.beasts.length + sim.shots.length);
+      if (![sim.score, sim.david.x, sim.david.hp, p.xp, p.silver].every(Number.isFinite)) bad++;
+      if (at40 < 0 && tt >= 2400) at40 = sim.score;
+    }
+    expect(bad).toBe(0);
+    expect(sim.phase).toBe('done');
+    expect(p.level).toBeGreaterThan(level0);
+    expect(sim.score).toBeGreaterThan(at40);
+    expect(most).toBeLessThan(RULES.coinCap + 150);
+    const r = sim.result();
+    expect(fmtNum(r.score).length).toBeLessThanOrEqual(13);
+    expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+  }, 300_000);
+
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: DawidSim }).sim;
+    let bot: (() => void) | null = null, f: (() => FocusFrame) | null = null;
+    const { early, late } = hourFrames({
+      module: dawid, progress: { ...dawid.freshProgress(), sessions: 5, pushes: 1, seen: SEEN }, tuning: TUNING,
+      setup: game => { bot = typical(simOf(game), 0.05); f = steady(simOf(game)); },
+      frame: () => f!(),
+      each: () => bot!(),
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
+});
+
 /** A typical player over many sessions (DAWID_PACING=12 DAWID_OUT=/tmp/pace.txt npx vitest run test/arcade-dawid.test.ts -t pacing). */
 describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
   it('plays sessions like a typical player and prints the road', () => {
@@ -874,7 +1022,7 @@ describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
             }
           }
           const q = sim.questTarget();
-          const atCamp = q && Math.hypot(q.x - sim.land.camp[0], q.y - sim.land.camp[1]) < 1;
+          const atCamp = q && Math.hypot(q.x - sim.campX, q.y - sim.campY) < 1;
           if (sim.bagFull || atCamp) { if (!sim.inCamp) sim.goHome(); }
           else if (q && sim.quest?.kind !== 'hunt' && sim.quest?.kind !== 'level' && Math.hypot(q.x - sim.david.x, q.y - sim.david.y) > 3) sim.tap(q.x, q.y);
           else if (sim.mode === 'none' || sim.mode === 'go') sim.tap();
@@ -1170,9 +1318,10 @@ describe('phone first (DESIGN.md §12)', () => {
     const qs = questsOf(0);
     // a hunt: to the sling's reach of the den, then the hunt
     const a = later({ progress: { quest: qs.findIndex(q => q.kind === 'hunt') } });
+    // from the area's fire: the nearest jackals are farther than the sling's reach
+    a.david.x = a.campX;
+    a.david.y = a.campY;
     const den = a.questTarget()!;
-    a.david.x = den.x + 20 > a.land.w - 1 ? den.x - 20 : den.x + 20;
-    a.david.y = den.y;
     expect(a.followQuest()).toBe(true);
     expect(a.mode).toBe('go');
     expect(Math.hypot(a.goal.x - den.x, a.goal.y - den.y)).toBeGreaterThan(3);
@@ -1419,5 +1568,599 @@ describe('Dawid: the breath pacer in a Harfa stands in the open field (pacerAt)'
       expect(at, c.name).not.toBeNull();
       expect(pacerProblems(at, c.w, c.h, c.insets, [{ label: 'sheet', ...L.sheet }, { label: 'quest pill', ...L.quest }]), c.name).toEqual([]);
     }
+  });
+});
+
+// ── round 25: the lands as levels, the story, the difficulty (DESIGN §29) ──────────────────
+
+describe('the lands as levels: three areas each, bigger than round 5’s maps', () => {
+  it('each land is a wide map of three named areas with their fires, dens, heaps, chests, people and landmarks; passes between them', () => {
+    expect(MAPS.map(m => m.id)).toEqual(LANDS.map(l => l.id));
+    for (const m of MAPS) {
+      expect(m.areas.length, m.id).toBeGreaterThanOrEqual(3);
+      expect(m.w * m.h, m.id).toBeGreaterThan(64 * 42 * 2);
+      m.areas.forEach((a, i) => {
+        const name = `${m.id}/${a.id}`;
+        expect(a.x1 - a.x0, name).toBeGreaterThanOrEqual(AREA_W);
+        expect(a.x0, name).toBe(i ? m.areas[i - 1].x1 : 0);
+        if (i < m.areas.length - 1) expect(a.pass, name).toBeTruthy();
+        expect(a.dens.length, name).toBeGreaterThanOrEqual(4);
+        expect(a.nodes.filter(n => n[0] === 'wood').length, name).toBeGreaterThanOrEqual(3);
+        expect(a.nodes.filter(n => n[0] === 'stone').length, name).toBeGreaterThanOrEqual(3);
+        expect(a.landmarks.length, name).toBeGreaterThanOrEqual(1);
+        const inside = (x: number, y: number) => x > a.x0 + 0.5 && x < a.x1 - 0.5 && y > 0.5 && y < m.h - 0.5;
+        for (const [, x, y] of a.dens) expect(inside(x, y), `${name} den ${x},${y}`).toBe(true);
+        for (const [, x, y] of a.nodes) expect(inside(x, y), `${name} heap ${x},${y}`).toBe(true);
+        for (const [id, [x, y]] of Object.entries(a.spots)) expect(inside(x, y), `${name} spot ${id}`).toBe(true);
+        expect(inside(...a.camp), `${name} camp`).toBe(true);
+        expect(inside(...a.chest), `${name} chest`).toBe(true);
+        // the fire is safe ground: no den sits on it
+        for (const [, x, y] of a.dens) expect(Math.hypot(x - a.camp[0], y - a.camp[1]), `${name} den by the fire`).toBeGreaterThan(RULES.campR + 4);
+      });
+      expect(areaAt(m, m.lair[0]), `${m.id} lair`).toBe(m.areas.length - 1);
+    }
+  });
+
+  it('every chain place exists, each area has a chain, the kinds of the new quests are all there', () => {
+    const kinds = new Set<string>();
+    for (const m of MAPS) {
+      const chain = QUESTS[m.id], spots = allSpots(m);
+      expect(chain.at(-1)!.kind).toBe('gate');
+      expect(chain.filter(q => q.kind === 'pass').length, m.id).toBe(m.areas.length - 1);
+      for (let a = 0; a < m.areas.length; a++) expect(chain.filter(q => q.area === a).length, `${m.id} area ${a}`).toBeGreaterThanOrEqual(3);
+      for (const q of chain) {
+        kinds.add(q.kind);
+        for (const sp of [q.at, q.to, ...(q.spots ?? [])]) if (sp && sp !== 'camp') expect(spots[sp], `${m.id} ${q.kind} ${sp}`).toBeTruthy();
+        if (q.kind === 'hunt') expect(m.areas[q.area!].dens.some(d => d[0] === q.what), `${m.id} hunt ${q.what} in area ${q.area}`).toBe(true);
+        if (q.at && q.kind !== 'deliver' && q.at !== 'camp') expect(spotArea(m, q.at), `${m.id} ${q.id}`).toBe(q.area);
+      }
+      // the areas follow one another along the chain
+      const areas = chain.map(q => q.area ?? 0);
+      for (let i = 1; i < areas.length; i++) expect(areas[i], `${m.id} #${i}`).toBeGreaterThanOrEqual(areas[i - 1]);
+    }
+    for (const k of ['find', 'rescue', 'escort', 'deliver', 'defend', 'talk', 'word', 'visit', 'pass']) expect(kinds.has(k), k).toBe(true);
+  });
+
+  it('fences hold David on his side of a closed pass; through an open pass only by its gap', () => {
+    const sim = later({ progress: { quest: 0 } });
+    quiet(sim);
+    const A = sim.land.areas[0], bx = A.x1, gy = A.pass!.y;
+    expect(sim.gapOpen(0)).toBe(false);
+    sim.david.x = bx - 1;
+    sim.david.y = gy;
+    sim.steer(1, 0);
+    drive(sim, 2, frame());
+    expect(sim.david.x).toBeLessThan(bx);
+    // the chain's pass: the gap opens, a walk through it goes on into the next area
+    const pi = QUESTS.pastwiska.findIndex(q => q.kind === 'pass');
+    const s2 = later({ progress: { quest: pi } });
+    quiet(s2);
+    expect(s2.gapOpen(0)).toBe(true);
+    s2.david.x = bx - 1;
+    s2.david.y = gy + 6;   // off the gap: the wall holds
+    s2.steer(1, 0);
+    drive(s2, 1.5, frame());
+    expect(s2.david.x).toBeLessThan(bx);
+    s2.david.y = gy;
+    s2.steer(1, 0);
+    const evs = drive(s2, 2, frame());
+    expect(s2.david.x).toBeGreaterThan(bx);
+    expect(s2.area).toBe(1);
+    expect(ofType(evs, 'area')).toHaveLength(1);
+    expect(s2.p.quest).toBe(pi + 1);
+    expect(s2.areasOpen).toBe(2);
+  });
+
+  it('the auto-pilot walks through the passes to a place in another area', () => {
+    const pi = QUESTS.pastwiska.findIndex(q => q.kind === 'pass');
+    const sim = later({ progress: { quest: pi + 1 } });   // the well, in the second area; David starts at its fire
+    quiet(sim);
+    const back = sim.campOf(0);
+    sim.david.x = back[0] + 4;
+    sim.david.y = back[1];
+    (sim as unknown as { area: number }).area = 0;
+    expect(sim.followQuest()).toBe(true);
+    drive(sim, 25, frame(), { t: 0 }, () => { sim.david.hp = sim.david.max; if (sim.story) sim.story = null; });
+    expect(sim.area).toBe(1);
+    expect(sim.p.quest).toBeGreaterThan(pi + 1);   // the talk at the well is done
+  });
+
+  it('only David’s area and the next open one keep live dens (the far ones cost nothing)', () => {
+    const sim = later({ progress: { quest: QUESTS.pastwiska.length - 2, sessions: 5 } });   // the guard: all three open
+    expect(sim.areasOpen).toBe(3);
+    const live = new Set(sim.dens.filter(d => d.live).map(d => d.area));
+    expect(live.has(sim.area)).toBe(true);
+    for (const a of live) expect(Math.abs(a - sim.area)).toBeLessThanOrEqual(1);
+    for (const b of sim.beasts) expect(Math.abs(b.area - sim.area)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('the story: chapter cards, scenes, choices, the quest kinds, the log', () => {
+  it('a first session opens with the chapter card and the anointing scene; a tap goes on line by line, Pomiń closes', () => {
+    const sim = makeSim({ planned: 300 });
+    expect(sim.story?.kind).toBe('open');
+    expect(sim.story?.title).toContain(t('land.pastwiska'));
+    drive(sim, 0.7, frame());
+    sim.tap();
+    expect(sim.story?.kind).toBe('scene');
+    expect(sim.story?.scene).toBe('open');
+    const n = sim.story!.lines!.length;
+    expect(n).toBeGreaterThanOrEqual(3);
+    drive(sim, 0.4, frame(), { t: 1 });
+    sim.tap();
+    expect(sim.story?.i).toBe(1);
+    expect(sim.frozen).toBe(true);
+    expect(sim.skipScene()).toBe(true);
+    expect(sim.story).toBeNull();
+  });
+
+  it('untapped, a scene goes on by itself (its reading time), its passage last', () => {
+    const sim = makeSim({ planned: 600 });
+    let shown = 0;
+    for (let i = 0; i < 120 * 60 && (sim.story || shown === 0); i++) {
+      if (sim.story?.kind === 'scene') shown++;
+      sim.update(STEP, frame(), i * STEP);
+    }
+    expect(shown).toBeGreaterThan(0);
+    expect(sim.story).toBeNull();
+    expect(shown * STEP).toBeLessThan(60);
+  });
+
+  it('a session of a minute or less shows the chapter’s title for a moment and no scene: play comes first', () => {
+    for (const planned of [40, 60]) {
+      const sim = makeSim({ planned });
+      expect(sim.quick).toBe(true);
+      expect(sim.story?.kind).toBe('open');
+      expect(sim.story?.dur).toBeLessThanOrEqual(2.5);
+      let scene = 0;
+      drive(sim, 3, frame(), { t: 0 }, () => { if (sim.story?.kind === 'scene') scene++; });
+      expect(sim.story).toBeNull();
+      expect(scene).toBe(0);
+    }
+  });
+
+  it('a choice: two answers, each with its reply and its gift; Space takes the first; never a dead end', () => {
+    const wi = QUESTS.pastwiska.findIndex(q => q.id === 'well');
+    for (const pick of ['a', 'b'] as const) {
+      const sim = later({ progress: { quest: wi } });
+      quiet(sim);
+      const at = sim.spot('well')!;
+      sim.david.x = at.x;
+      sim.david.y = at.y + 0.5;
+      const silver0 = sim.p.silver;
+      drive(sim, 0.2, frame());
+      expect(sim.story?.kind).toBe('scene');
+      // to the last line, where the answers wait
+      for (let i = 0; i < 12 && sim.story && !(sim.story.i === sim.story.lines!.length - 1); i++) { drive(sim, 0.4, frame()); sim.tap(); }
+      expect(sim.story?.choice).toBeTruthy();
+      const rested0 = sim.p.rested;
+      const silverMid = sim.p.silver;
+      if (pick === 'a') { drive(sim, 0.4, frame()); expect(sim.key(' ', true)).toBe(true); }
+      else expect(sim.choose('b')).toBe(true);
+      expect(sim.p.choices.well).toBe(pick);
+      if (pick === 'a') expect(sim.p.silver).toBeGreaterThan(silverMid);
+      else expect(sim.p.rested).toBeGreaterThan(rested0);
+      expect(sim.p.silver).toBeGreaterThan(silver0);   // the quest's own reward
+      for (let i = 0; i < 10 && sim.story; i++) { drive(sim, 0.4, frame()); sim.tap(); }
+      expect(sim.story).toBeNull();
+      expect(sim.quest!.kind).toBe('gather');
+    }
+  });
+
+  it('find, deliver, escort, rescue, defend, a word: each completes where the story says', () => {
+    const at = (land: number, id: string) => questsOf(land).findIndex(q => q.id === id);
+    const walk = (sim: DawidSim, x: number, y: number, sec = 0.3) => { sim.david.x = x; sim.david.y = y; drive(sim, sec, frame(), { t: sim.t }, () => { sim.david.hp = sim.david.max; if (sim.story) sim.story = null; }); };
+    // find: the five smooth stones, one by one
+    const f = later({ progress: { land: 2, quest: at(2, 'stones') } });
+    quiet(f);
+    const c0 = f.charge;
+    for (const sp of ['s1', 's2', 's3', 's4', 's5']) { const p = f.spot(sp)!; walk(f, p.x, p.y); }
+    expect(f.quest!.kind).not.toBe('find');
+    expect(f.charge).toBeGreaterThanOrEqual(Math.max(c0, 0.6));
+    // deliver: the jar from the well to the old shepherd
+    const d = later({ progress: { quest: at(0, 'jar') } });
+    quiet(d);
+    const well = d.spot('well')!, old = d.spot('starzec')!;
+    walk(d, well.x, well.y);
+    expect(d.p.questN).toBe(1);
+    walk(d, old.x, old.y);
+    expect(d.quest!.id).toBe('asahel');
+    // escort: Jesse's donkey walks with David to the milestone
+    const e = later({ progress: { land: 1, quest: at(1, 'donkey') } });
+    quiet(e);
+    drive(e, 0.1, frame());
+    expect(e.escort).toBeTruthy();
+    walk(e, e.escort!.x + 0.5, e.escort!.y);
+    expect(e.escort!.follow).toBe(true);
+    const ms = e.spot('milestone')!;
+    e.mode = 'go';
+    e.goal = { x: ms.x, y: ms.y };
+    drive(e, 40, frame(), { t: e.t }, () => { e.david.hp = e.david.max; if (e.story) e.story = null; });
+    expect(e.quest!.id).not.toBe('donkey');
+    // rescue: the pack comes out when David is near, the ewe is saved when it has run off
+    const r = later({ progress: { quest: at(0, 'ewe'), level: 30 } });
+    quiet(r);
+    const ewe = r.spot('ewe')!;
+    walk(r, ewe.x - 4, ewe.y, 0.2);
+    expect(r.beasts.filter(b => b.den === -2).length).toBe(4);
+    drive(r, 30, frame(), { t: r.t }, () => { r.david.hp = r.david.max; if (r.story) r.story = null; if (r.mode === 'none') r.hunt(); });
+    expect(r.p.quest).toBeGreaterThan(at(0, 'ewe'));
+    // defend: the vineyard holds against the boars' waves
+    const v = later({ progress: { land: 1, quest: at(1, 'vines'), level: 40 } });
+    quiet(v);
+    const vin = v.spot('vines')!;
+    walk(v, vin.x, vin.y, 0.2);
+    expect(v.defending).toBe(true);
+    drive(v, 60, frame(), { t: v.t }, () => { v.david.hp = v.david.max; if (v.story) v.story = null; if (v.mode === 'none') v.hunt(); });
+    expect(v.quest!.kind).toBe('pass');
+    // a word: out of the cave and up the hill
+    const w = later({ progress: { land: 4, quest: at(4, 'call') } });
+    quiet(w);
+    const cave = w.spot('cave')!, hill = w.spot('hill')!;
+    walk(w, cave.x, cave.y);
+    expect(w.p.questN).toBe(1);
+    walk(w, hill.x, hill.y);
+    expect(w.quest!.id).toBe('water');
+  });
+
+  it('the quest log: the chapter, the areas and the chain; it holds the world; a tap closes it', () => {
+    const wi = QUESTS.pastwiska.findIndex(q => q.id === 'well');
+    const sim = later({ progress: { quest: wi } });
+    const log = sim.log();
+    expect(log.title).toContain(t('land.pastwiska'));
+    expect(log.areas.map(a => a.state)).toEqual(['done', 'here', 'shut']);
+    expect(log.quests.filter(q => q.state === 'now')).toHaveLength(1);
+    expect(log.quests.at(-1)!.state).toBe('next');
+    expect(log.quests.filter(q => q.state === 'done')).toHaveLength(wi);
+    expect(sim.toggleLog(true)).toBe(true);
+    expect(sim.frozen).toBe(true);
+    const x = sim.david.x;
+    sim.steer(1, 0);
+    drive(sim, 1, frame());
+    expect(sim.david.x).toBe(x);
+    sim.tap();
+    expect(sim.logOpen).toBe(false);
+    expect(sim.key('l', true)).toBe(true);
+    expect(sim.logOpen).toBe(true);
+  });
+
+  it('a typical player goes through all six lands of the first circle: every quest done in order, the scenes played', () => {
+    const p = freshProgress();
+    const done: string[] = [];
+    let scenes = 0, stuck = 0;
+    for (let s = 0; s < 8 && p.land < 6; s++) {
+      const sim = new DawidSim({ progress: p, rng: mulberry32(40 + s), day: DAY, daySeed: 1, plannedSec: 1200, eeg: false, tuning: TUNING });
+      sim.start();
+      const step = 1 / 30;
+      let tap = 0, lastQ = `${p.land}:${p.quest}`, since = 0;
+      for (let tt = step; tt < 1200 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+        const b = sim.block;
+        const f = sim.phase !== 'play' || !b ? frame({ level: 0.4 }) : b.kind === 'push' ? frame({ level: 0.68, focused: true, hold: sim.blockT > 8 ? sim.blockT - 8 : 0, activity: 3 }) : b.kind === 'rest' ? frame({ level: 0.2, calm: 0.75, activity: -1 }) : frame({ level: 0.4 });
+        sim.update(step, f, tt);
+        if (sim.story && sim.story.t > 0.5) { if (sim.story.choice && !sim.story.choice.picked && sim.story.i === sim.story.lines!.length - 1) sim.choose(sim.t % 2 < 1 ? 'a' : 'b'); else sim.tap(); }
+        if ((tap += step) >= 1) {
+          tap = 0;
+          if (sim.inCamp) for (const tab of ['bd', 'wp', 'ab'] as const) {
+            sim.setTab(tab);
+            for (let k = 0; k < 6; k++) { const i = sim.tiles().findIndex(x => x.why === 'ok' && x.kind !== 'cave'); if (i < 0) break; sim.campTap(i); }
+          }
+          const q = sim.questTarget();
+          const atCamp = q && Math.hypot(q.x - sim.campX, q.y - sim.campY) < 1;
+          if (sim.bagFull || atCamp) { if (!sim.inCamp) sim.goHome(); }
+          else if (q && sim.quest?.kind !== 'hunt' && sim.quest?.kind !== 'level' && Math.hypot(q.x - sim.david.x, q.y - sim.david.y) > 3) sim.tap(q.x, q.y);
+          else if (sim.mode === 'none' || sim.mode === 'go') sim.tap();
+        }
+        for (const e of sim.take()) {
+          if (e.type === 'questDone' && p.land < 6) done.push(`${landAt(p.land).spec.id}:${sim.quests[p.quest - 1]?.kind ?? 'gate'}`);
+          if (e.type === 'story' && sim.story?.kind === 'scene') scenes++;
+        }
+        const key = `${p.land}:${p.quest}`;
+        if (key !== lastQ) { lastQ = key; since = 0; } else if ((since += step) > 600) stuck++;
+      }
+      sim.finish();
+    }
+    expect(p.land, done.slice(-3).join(' ')).toBeGreaterThanOrEqual(6);
+    expect(stuck).toBe(0);
+    const total = MAPS.reduce((n, m) => n + QUESTS[m.id].length, 0);
+    expect(done.length).toBeGreaterThanOrEqual(total - 1);   // the last gate counts as the road goes on (land 6)
+    expect(scenes).toBeGreaterThanOrEqual(30);
+    expect(Object.keys(p.choices).length).toBeGreaterThanOrEqual(6);
+    expect(p.joined.sort()).toEqual(['abigail', 'abiszaj', 'asahel', 'benajasz', 'jonatan', 'szamma']);
+  }, 300_000);
+});
+
+describe('the story’s words (the writer’s files): four languages, one shape', () => {
+  const FORBIDDEN = [/skup się/, /concentrate/, /konzentrier/, /koncentrera/, /błogosław/, /bless/, /segen/, /välsign/, /święt/, /holy/, /heilig/, /helig/, /demon/, /blood/, /krew/, /zabij/, /zabił/, /\bkill/, /töte/, /getötet/, /döda/, /dödar/, /pray/, /módl/, /\bbete\b/, /\bdead\b/, /\bdies\b/, /martw/, /umar/];
+  it('every id of the chains has its words in pl, en, de and sv, with the same speakers and as many lines', () => {
+    for (const m of MAPS) {
+      const ids = storyIds(m.id);
+      const pl = STORY[m.id].pl;
+      for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+        const w = STORY[m.id][lang], name = `${m.id}.${lang}`;
+        expect(w.chapter.length, name).toBeGreaterThan(20);
+        for (const a of m.areas) {
+          expect(w.areas[a.id]?.name, `${name} area ${a.id}`).toBeTruthy();
+          expect(w.areas[a.id].name.length, `${name} area ${a.id}`).toBeLessThanOrEqual(28);
+        }
+        for (const q of ids.quests) {
+          expect(w.quests[q], `${name} quest ${q}`).toBeTruthy();
+          expect(w.quests[q].length, `${name} quest ${q}`).toBeLessThanOrEqual(44);
+        }
+        for (const sc of ids.scenes) {
+          const lines = w.scenes[sc];
+          expect(lines?.length, `${name} scene ${sc}`).toBeGreaterThan(0);
+          expect(lines.length, `${name} scene ${sc}`).toBeLessThanOrEqual(6);
+          expect(lines.map(l => l[0]), `${name} scene ${sc}`).toEqual(pl.scenes[sc].map(l => l[0]));
+          for (const [who, text] of lines) {
+            expect(WHO, `${name} ${sc}`).toContain(who);
+            expect(text.length, `${name} ${sc}: ${text}`).toBeLessThanOrEqual(110);
+          }
+        }
+        for (const c of ids.choices) {
+          const ch = w.choices[c];
+          expect(ch, `${name} choice ${c}`).toBeTruthy();
+          for (const b of [ch.a, ch.b]) expect(b.length, `${name} ${c}`).toBeLessThanOrEqual(36);
+          expect(ch.ra.map(l => l[0]), `${name} ${c}`).toEqual(pl.choices[c].ra.map(l => l[0]));
+          expect(ch.rb.map(l => l[0]), `${name} ${c}`).toEqual(pl.choices[c].rb.map(l => l[0]));
+        }
+        const all = JSON.stringify(w).toLowerCase();
+        expect(JSON.stringify(w), name).not.toMatch(/\bTODO\b/);
+        for (const re of FORBIDDEN) expect(all, `${name} ${re}`).not.toMatch(re);
+      }
+      // Polish without the gendered second person
+      expect(JSON.stringify(pl), m.id).not.toMatch(/\b\w+(łeś|łaś)\b/);
+    }
+  });
+
+  it('the speakers have a name in four languages and a portrait', () => {
+    for (const who of WHO) for (const l of ['pl', 'en', 'de', 'sv'] as const) expect(CATALOGS[l][`who.${who}` as keyof typeof CATALOGS.pl], `${l} ${who}`).toBeTruthy();
+  });
+});
+
+describe('difficulty levels (kit/difficulty.ts): Na start · Zwykły · Zaawansowany · Hardcore', () => {
+  const at = (difficulty: DawidProgress['difficulty'], o: SimOpts = {}) => later({ ...o, progress: { ...o.progress, difficulty } });
+
+  it('REGULAR is the game as it was: the same beasts, guardians, David and helps; an old save (no level) plays identically', () => {
+    const a = at('regular', { seed: 9 });
+    const b = later({ seed: 9 });   // no difficulty in the save: REGULAR
+    expect(b.difficulty).toBe('regular');
+    for (const bs of a.beasts) {
+      const spec = BEASTS[bs.kind], dn = a.dens[bs.den];
+      expect(bs.max).toBe(spec.hp * dn.k);
+      expect(bs.atk).toBe(spec.atk * dn.k);
+      expect(bs.xp).toBe(spec.xp * dn.k);
+      expect(bs.silver).toBe(spec.silver * dn.k);
+      expect(bs.speed).toBe(spec.speed);
+    }
+    for (const dn of a.dens) expect(dn.n).toBe(a.land.camps.find(c => c[1] === dn.x && c[2] === dn.y)![3]);
+    expect(a.guard.max).toBe(guardHp(a.p.land));
+    expect(a.david.max).toBe(statsOfHp(a));
+    expect(a.huntSeek).toBe(RULES.huntSeek);
+    expect(a.floorSec).toBe(RULES.floorSec);
+    const f = (tt: number) => (tt % 60 < 45 ? HIGH : CALM);
+    drive(a, 120, f, { t: 0 }, () => { if (a.mode === 'none') a.hunt(); });
+    drive(b, 120, f, { t: 0 }, () => { if (b.mode === 'none') b.hunt(); });
+    expect(a.score).toBe(b.score);
+    expect(a.p.silver).toBe(b.p.silver);
+    expect(a.result().stats.map(s => s[0])).not.toContain(t('stat.difficulty'));
+  });
+
+  it('the plan and the training are the same at every level (3–60 min and ≤ 60 s)', () => {
+    for (const planned of [40, 60, 180, 300, 600, 1800, 2700, 3600]) {
+      const plans = DIFFICULTIES.map(d => JSON.stringify(makeSim({ planned, seed: 4, progress: { difficulty: d } }).plan));
+      expect(new Set(plans).size, String(planned)).toBe(1);
+    }
+  });
+
+  it('scales foes, numbers, David and the helps in order: STARTING < REGULAR < ADVANCED < HARDCORE', () => {
+    const sims = DIFFICULTIES.map(d => at(d, { seed: 2, progress: { quest: QUESTS.pastwiska.length - 2 } }));
+    const hp = sims.map(s => s.guard.max), dhp = sims.map(s => s.david.max), seek = sims.map(s => s.huntSeek), beasts = sims.map(s => s.dens.reduce((n, d) => n + d.n, 0));
+    for (let i = 1; i < 4; i++) {
+      expect(hp[i]).toBeGreaterThan(hp[i - 1]);
+      expect(dhp[i]).toBeLessThan(dhp[i - 1]);
+      expect(seek[i]).toBeLessThan(seek[i - 1]);
+      expect(beasts[i]).toBeGreaterThanOrEqual(beasts[i - 1]);
+    }
+    expect(sims[0].floorSec).toBeGreaterThan(RULES.floorSec);
+    expect(sims[3].floorSec).toBeLessThan(RULES.floorSec);
+  });
+
+  it('harder levels hurt more at the same focus: harm taken and time to drive off the lion, measured', () => {
+    const run = (d: DawidProgress['difficulty']) => {
+      const qi = questsOf(0).findIndex(q => q.kind === 'guard');
+      const sim = at(d, { seed: 6, progress: { quest: qi, level: 8 } });
+      quiet(sim);
+      sim.david.x = sim.guard.hx - 4;
+      sim.david.y = sim.guard.hy;
+      let harm = 0, last = sim.david.hp, tDriven = Infinity;
+      drive(sim, 120, frame({ level: 0.95, activity: 6, focused: true, hold: 0, calm: 0.05 }), { t: 0 }, tt => {
+        if (sim.david.hp < last) harm += last - sim.david.hp;
+        if (sim.david.down > 0) { sim.david.down = 0; sim.david.hp = sim.david.max; }
+        last = sim.david.hp;
+        if (sim.story) sim.story = null;
+        if (sim.mode === 'none') sim.hunt();
+        if (tDriven === Infinity && (sim.guard.state === 'driven' || sim.guard.state === 'gone')) tDriven = tt;
+      });
+      return { harm: harm / sim.david.max, tDriven };
+    };
+    const r = DIFFICULTIES.map(run);
+    expect(r[0].tDriven).toBeLessThan(r[1].tDriven);
+    expect(r[1].tDriven).toBeLessThan(r[2].tDriven);
+    expect(r[2].tDriven).toBeLessThan(r[3].tDriven);
+    expect(r[0].harm).toBeLessThan(r[3].harm);
+    expect(r[3].tDriven).toBeLessThan(120);   // hard but fair: a focused player still drives it off
+  });
+
+  it('a 40 s test session scores at every level, first session or later, on either band', () => {
+    for (const d of DIFFICULTIES) for (const eeg of [false, true]) for (const prog of [{}, { sessions: 6, seen: SEEN }, { sessions: 6, seen: SEEN, land: 3, level: 30 }]) {
+      const sim = makeSim({ planned: 40, seed: 3, eeg, tuning: BEGINNER, progress: { ...prog, difficulty: d } });
+      const focus = new FocusInput(BEGINNER);
+      let f = focus.push(0, true, 0.1), hub = 0, tap = 0, space = 0;
+      for (let tt = 0; tt < 22; tt += STEP) {
+        if ((hub += STEP) >= 0.1) { hub -= 0.1; f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1); }
+        sim.update(STEP, f, tt);
+        if ((tap += STEP) >= 0.65) { tap -= 0.65; sim.steer(0, 0); sim.tap(sim.david.x, sim.david.y + 1); }
+        if ((space += STEP) >= 2) { space -= 2; sim.key(' ', true); sim.key(' ', false); }
+        sim.take();
+      }
+      expect(sim.result().score, `${d} eeg ${eeg} ${JSON.stringify(prog)}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('records per level (REGULAR keeps the old key); the summary names a level that is not REGULAR', () => {
+    const h = at('hardcore', { planned: 180 });
+    drive(h, 30, HIGH, { t: 0 }, () => { if (h.mode === 'none') h.hunt(); });
+    const r = h.result();
+    expect(h.p.best[recordKey('180', 'hardcore')]).toBe(h.score);
+    expect(h.p.best['180']).toBeUndefined();
+    expect(r.stats[0]).toEqual([t('stat.difficulty'), 'Hardcore']);
+    expect(bestOf(h.p, 'hardcore')).toBe(h.score);
+    expect(bestOf(h.p, 'regular')).toBeNull();
+    const g = at('regular', { planned: 180, progress: { best: { 180: 5 } } });
+    drive(g, 30, HIGH, { t: 0 }, () => { if (g.mode === 'none') g.hunt(); });
+    g.result();
+    expect(g.p.best['180']).toBe(Math.max(5, g.score));
+  });
+
+  it('the save keeps the level (absent or unknown: REGULAR); the lobby card opens with the four chips', () => {
+    expect(migrate(mergeSaved(freshProgress(), { ver: 2, difficulty: 'nope' })).difficulty).toBe('regular');
+    expect(migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 3 })).difficulty).toBe('regular');
+    expect(migrate(mergeSaved(freshProgress(), { ver: 2, difficulty: 'advanced' })).difficulty).toBe('advanced');
+    const p = { ...freshProgress(), sessions: 2 };
+    let saved = 0;
+    const el = dawid.progressPanel!(p, () => { saved++; });
+    const chips = [...el.querySelectorAll('[data-difficulty]')] as HTMLButtonElement[];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.textContent).toContain(t('diff.regular'));
+    chips[3].click();
+    expect(p.difficulty).toBe('hardcore');
+    expect(saved).toBe(1);
+  });
+});
+
+describe('a round-5 save on the new road (version 1 → 2)', () => {
+  it('keeps the land, the guardian’s wounds and the gate; never skips a companion not yet met', () => {
+    const v1 = (o: Record<string, unknown>) => migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 9, ...o }));
+    // in land 3 (Gibeah) at the guardian, wounded: still there
+    const a = v1({ land: 3, quest: 5, wounds: 500, joined: ['asahel', 'abiszaj', 'jonatan'], wp: { proca: 5, luk: 1 } });
+    expect(a.land).toBe(3);
+    expect(questsOf(3)[a.quest].kind).toBe('guard');
+    expect(a.wounds).toBe(500);
+    // at the gate: still at the gate
+    expect(questsOf(1)[v1({ land: 1, quest: 9, joined: ['asahel', 'abiszaj'] }).quest].kind).toBe('gate');
+    // after Goliath, Jonathan's visit: still Jonathan
+    const j = v1({ land: 2, quest: 7, joined: ['asahel', 'abiszaj'] });
+    expect(questsOf(2)[j.quest].id).toBe('jonatan');
+    // mid-chain in the pastures before Asahel: never past his visit
+    const b = v1({ land: 0, quest: 9 });
+    expect(b.quest).toBeLessThanOrEqual(questsOf(0).findIndex(q => q.id === 'asahel'));
+    const c = v1({ land: 0, quest: 9, joined: ['asahel'], party: ['asahel'] });
+    expect(c.quest).toBeGreaterThan(questsOf(0).findIndex(q => q.id === 'asahel'));
+    expect(c.joined).toEqual(['asahel']);
+    // a later circle keeps its index
+    expect(v1({ land: 8, quest: 2 }).quest).toBe(2);
+    // idempotent
+    expect(migrate(structuredClone(c))).toEqual(c);
+    // the game opens it at the chain's area
+    const sim = new DawidSim({ progress: c, rng: mulberry32(1), day: DAY, daySeed: 1, plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.area).toBe(sim.quest!.area);
+  });
+});
+
+/** David's health from the rules alone (REGULAR's). */
+function statsOfHp(sim: DawidSim): number {
+  return statsOf(sim.p, partyNow(sim.p)).hp;
+}
+
+describe('the story on a phone: the scene card, its answers and skip, the log, the minimap', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  function game(size: (typeof CHECK_SIZES)[number], progress: Partial<DawidProgress>, touch: boolean) {
+    const env: GameEnv<DawidProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), ...progress }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    const g = dawid.create(env);
+    g.resize(size.w, size.h, 1);
+    g.start();
+    const sim = (g as unknown as { sim: DawidSim }).sim;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) { g.update(STEP, frame(), sim.t + STEP); g.draw(); } };
+    frames(5);
+    return { g, sim, frames };
+  }
+  const tapAt = (g: ArcadeGame, r: { x: number; y: number; w: number; h: number }) => {
+    const at = { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+    g.pointer!({ type: 'down', ...at, id: 1 });
+    g.pointer!({ type: 'up', ...at, id: 1 });
+    g.draw();
+  };
+
+  it('every control of a scene, a choice and the log is finger-sized and apart, at every size; the minimap opens the log', () => {
+    for (const size of CHECK_SIZES) for (const touch of [true, false]) {
+      const name = `${size.name}${touch ? '' : ' (mouse)'}`;
+      // the first session: the chapter card, then the anointing scene
+      const a = game(size, {}, touch);
+      a.frames(40);
+      a.g.pointer!({ type: 'down', x: size.w / 2, y: size.h / 2, id: 1 });
+      a.g.pointer!({ type: 'up', x: size.w / 2, y: size.h / 2, id: 1 });
+      a.frames(30);
+      expect(a.sim.story?.kind, name).toBe('scene');
+      const ts = a.g.targets!();
+      expect(ts.map(x => x.label), name).toEqual(['story', 'skip']);
+      expect(auditTargets(ts, size.w, size.h, size.insets), name).toEqual([]);
+      tapAt(a.g, ts.find(x => x.label === 'skip')!);
+      expect(a.sim.story, name).toBeNull();
+      // a choice: the two answers and the skip
+      const wi = QUESTS.pastwiska.findIndex(q => q.id === 'well');
+      const b = game(size, { sessions: 5, pushes: 1, seen: [...SEEN, 'log'], quest: wi }, touch);
+      quiet(b.sim);
+      const well = b.sim.spot('well')!;
+      b.sim.david.x = well.x;
+      b.sim.david.y = well.y + 0.5;
+      b.frames(20);
+      for (let i = 0; i < 12 && b.sim.story && b.sim.story.i! < b.sim.story.lines!.length - 1; i++) { b.frames(25); b.sim.tap(); }
+      b.frames(25);
+      const cs = b.g.targets!();
+      expect(cs.map(x => x.label), name).toEqual(['skip', 'choice a', 'choice b']);
+      expect(auditTargets(cs, size.w, size.h, size.insets), name).toEqual([]);
+      tapAt(b.g, cs.find(x => x.label === 'choice b')!);
+      expect(b.sim.p.choices.well, name).toBe('b');
+      b.sim.skipScene();
+      b.frames(5);
+      // the minimap is a control; it opens the log, a tap closes it
+      const ms = b.g.targets!().find(x => x.label === 'mini');
+      if (!ms) continue;   // a short screen has no minimap (and L opens the log)
+      expect(auditTargets(b.g.targets!(), size.w, size.h, size.insets), name).toEqual([]);
+      tapAt(b.g, ms);
+      expect(b.sim.logOpen, name).toBe(true);
+      b.frames(2);
+      const ls = b.g.targets!();
+      expect(ls.map(x => x.label), name).toEqual(['log']);
+      expect(auditTargets(ls, size.w, size.h, size.insets), name).toEqual([]);
+      tapAt(b.g, ls[0]);
+      expect(b.sim.logOpen, name).toBe(false);
+    }
+  });
+
+  it('never draws text under 11 px in a scene, a choice or the log', () => {
+    FONT_LOG.clear();
+    const size = CHECK_SIZES[0];
+    const wi = QUESTS.pastwiska.findIndex(q => q.id === 'well');
+    const b = game(size, { sessions: 5, pushes: 1, seen: SEEN, quest: wi }, true);
+    quiet(b.sim);
+    const well = b.sim.spot('well')!;
+    b.sim.david.x = well.x;
+    b.sim.david.y = well.y + 0.5;
+    for (let i = 0; i < 14 && b.sim.story; i++) { b.frames(25); b.sim.tap(); }
+    b.sim.toggleLog(true);
+    b.frames(3);
+    const sizes = [...FONT_LOG.values()];
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(MIN_TEXT);
   });
 });

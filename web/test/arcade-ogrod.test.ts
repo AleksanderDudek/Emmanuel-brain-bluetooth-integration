@@ -154,7 +154,8 @@ describe('Ogród o świcie — the plan', () => {
         prev = n;
         const c = { feelings: 1, stones: 1, lanterns: 2, seeds: 1, ...counts };
         for (const s of p.stations) {
-          const r = actsRange(s.id, c);
+          // (a session over 30 minutes lets the repeated acts come a little more often — round 24)
+          const r = actsRange(s.id, c, T > RULES.longFrom);
           expect(s.acts.length, `${T} ${s.id}`).toBeGreaterThanOrEqual(1);
           expect(s.acts.length, `${T} ${s.id}`).toBeLessThanOrEqual(r.max);
         }
@@ -938,6 +939,101 @@ describe('Ogród o świcie — in every language', () => {
       expect(said[0], l).toBe(I.t('bless.me'));
       expect(said[said.length - 1], l).toBe(I.t('bless.all'));
     }
+  });
+});
+
+describe('Ogród o świcie — 45–60 minutes (round 24)', () => {
+  const DEF = { feelings: 1, stones: 1, lanterns: 2, seeds: 1 };
+  const acts = (p: Plan): number => p.stations.reduce((n, s) => n + s.acts.length, 0);
+  const part = (p: Plan, w: BlockWhat): number => p.blocks.filter(b => b.what === w).reduce((n, b) => n + b.t1 - b.t0, 0);
+
+  it('30 minutes and less are as they were: the caps, 18 acts at 30 minutes, the dawn’s frame', () => {
+    for (const s of STATIONS) for (const c of [DEF, MANY]) expect(actsRange(s, c, false)).toEqual(actsRange(s, c));
+    const p = planFor({ plannedSec: 1800, cyc: CYC, eeg: false });
+    expect(acts(p)).toBe(18);
+    expect(p.stations[0].acts[0].push).toBeCloseTo(35, 0);
+    expect(p.short).toBe(false);
+    expect(p.dawnStart).toBeCloseTo(1800 - frameOf(1800).dawn, 6);
+    // a short way at 30 minutes keeps its long dawn, shared as before
+    const two = planFor({ plannedSec: 1800, cyc: CYC, eeg: false, way: ['lzy', 'dlon'] });
+    expect(Math.round(part(two, 'close'))).toBe(210);
+  });
+
+  it('the whole way fills 45 and 60 minutes with acts — the repeated ones a little more often — not a long dawn', () => {
+    for (const T of [2700, 3600]) for (const counts of [{}, MANY]) {
+      const p = planFor({ plannedSec: T, cyc: CYC, eeg: false, counts });
+      const name = `${T} ${Object.keys(counts).length ? 'many' : 'default'}`;
+      const c = { ...DEF, ...counts };
+      expect(p.stations.map(s => s.id), name).toEqual([...STATIONS]);
+      expect(acts(p), name).toBeGreaterThan(acts(planFor({ plannedSec: 1800, cyc: CYC, eeg: false, counts })));
+      for (const s of p.stations) {
+        expect(s.acts.length, `${name} ${s.id}`).toBeLessThanOrEqual(actsRange(s.id, c, true).max);
+        for (const a of s.acts) {
+          expect(a.push, name).toBeLessThanOrEqual(RULES.pushMax + 1e-6);
+          expect(a.breaths, name).toBeLessThanOrEqual(RULES.restShort + 1);
+        }
+      }
+      // the stones and the lanterns stay the player's own
+      for (const s of p.stations) if (s.id === 'kamienie') expect(s.acts.length).toBeLessThanOrEqual(c.stones);
+      for (const s of p.stations) if (s.id === 'latarnie') expect(s.acts.length).toBeLessThanOrEqual(c.lanterns);
+      // the dawn stays a dawn (at most its grown frame and a little), its close a close
+      expect(T - p.dawnStart, name).toBeLessThanOrEqual(frameOf(T).dawn * RULES.dawnGrow + RULES.longShort * T);
+      expect(part(p, 'close'), name).toBeLessThanOrEqual(60);
+      // 45 minutes: the whole way is never "short"; 60 minutes with the default words (one feeling, one stone…) is,
+      // honestly — its settles grow (the lobby says so); with more words it is not
+      if (T === 2700 || Object.keys(counts).length) expect(p.short, name).toBe(false);
+    }
+  });
+
+  it('a short way at 45 and 60 minutes: the extra dawn is the sunrise’s — the name, the prayer and the close stay a dawn’s', () => {
+    for (const T of [2700, 3600]) for (const way of [['lzy'], ['lzy', 'dlon'], ['nasiona', 'furtka']]) {
+      const p = planFor({ plannedSec: T, cyc: CYC, eeg: false, way });
+      const name = `${T} ${way.join('+')}`;
+      expect(p.short, name).toBe(true);
+      const grown = frameOf(T).dawn * RULES.dawnGrow;
+      expect(part(p, 'call') + part(p, 'prayer') + part(p, 'close'), name).toBeLessThanOrEqual(grown + 1e-6);
+      expect(part(p, 'close'), name).toBeGreaterThanOrEqual(RULES.closeMin - 1e-6);
+      expect(part(p, 'sunrise'), name).toBeGreaterThan(T - p.dawnStart - grown);
+      expect(p.blocks.at(-1)!.t1).toBeCloseTo(T, 6);
+    }
+  });
+
+  it('a full hour: every act ends, an average player does them all with focus, the garden bounded, a clean result', () => {
+    for (const T of [2700, 3600]) for (const f of [LOW, player(AVG), player(HIGH)]) {
+      const sim = makeSim({ planned: T, seed: 3 });
+      const name = `${T} ${f === LOW ? 'low' : 'focus'}`;
+      const clock = { t: 0 };
+      const lines: [number, string][] = [];
+      let prev: unknown = null, most = 0;
+      for (let i = 0; i < Math.round((T + 0.2) / STEP); i++) {
+        drive(sim, STEP, f, clock);
+        const l = sim.talk.line;
+        if (l && l !== prev) lines.push([clock.t, l.text]);
+        prev = l;
+      }
+      expect(sim.block.what, name).toBe('close');
+      expect(sim.acts.every(a => a.done !== null), name).toBe(true);
+      const tl = sim.tally;
+      expect(tl.focus + tl.grace + tl.kept).toBe(tl.all);
+      // the fit (§24.4b): each act asks what the average player gives in its push — all of them done with focus
+      if (f !== LOW) expect(tl.focus, name).toBe(tl.all);
+      else expect(sim.flowers.length).toBe(0);
+      expect(sim.flowers.length, name).toBeLessThanOrEqual(3 * tl.all);
+      // the narrator: a line comes back only after 10 minutes in a session over 30
+      const at = new Map<string, number>();
+      for (const [t0, s] of lines) { const a = at.get(s); if (a !== undefined) expect(t0 - a, `${name}: ${s}`).toBeGreaterThanOrEqual(RULES.talkFresh - 0.5); at.set(s, t0); }
+      most = Math.max(most, sim.talk.said.length);
+      expect(most, name).toBeLessThan(T / 30);
+      drive(sim, RULES.rateWait + 0.5, LOW, clock);
+      expect(sim.canStop(), name).toBe(true);
+      const r = sim.result();
+      expect(r).toEqual(sim.result());
+      for (const [k, v] of r.stats) expect(`${k} ${v}`, name).not.toMatch(/undefined|NaN|Infinity/);
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      expect(String(r.score).length).toBeLessThanOrEqual(3);
+    }
+    // 30 minutes and less keep the narrator as it was (no wait)
+    for (const planned of [180, 600, 1800]) expect((makeSim({ planned }).talk as unknown as { fresh: number }).fresh).toBe(0);
   });
 });
 

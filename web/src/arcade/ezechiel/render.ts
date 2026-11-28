@@ -286,7 +286,8 @@ export class EzechielView {
       const pts = placePoints(l.place);
       pts.forEach(([px, py], j) => {
         const ang = k * 2.4 + j;
-        const rr0 = k ? 0.016 * Math.sqrt(k) : 0;
+        // a rosette round the place; past the most a 30-minute session lays there, the leaves settle on its rim
+        const rr0 = k ? 0.016 * Math.sqrt(Math.min(k, RULES.laidRing)) : 0;
         const to = figPt(L, px + Math.cos(ang) * rr0, py + Math.sin(ang) * rr0, lift);
         const len = 0.06 * H;
         const behind = l.place === 'back';

@@ -16,6 +16,7 @@ import {
 import { RULES, gradeAt, needleSpeed, shapeStars, starsOf, zoneOf } from '../src/arcade/glina/rules';
 import { Pot, RINGS, matchOf, targetOf } from '../src/arcade/glina/shape';
 import { GlinaSim, decoOf, planBlocks, recOf, type GlinaEvent } from '../src/arcade/glina/sim';
+import { ROUND_SEC, roundFor } from '../src/arcade/glina/talk';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
@@ -1077,6 +1078,82 @@ describe('Glina at 15–30 minutes', () => {
       expect(r.highlights.length).toBeLessThanOrEqual(9);
       for (const s of r.highlights) expect(s.length).toBeLessThan(110);
       for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});
+
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+
+describe('Glina at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the end: Toczenie/Wypał pairs at their design lengths, ending on a Wypał', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('keeps the pool\'s turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('runs a whole 60-min session with a skilled potter: orders all hour, every piece sold, Szamot never twice in ten minutes, the summary short', () => {
+    for (const fresh of [true, false]) {
+      const name = fresh ? 'fresh' : 'returning';
+      const sim = newSim({ progress: fresh ? freshProgress() : returning(), plannedSec: 3600, seed: 5 });
+      sim.start();
+      const hands = skilledHands(sim);
+      const heard: { text: string; at: number }[] = [];
+      let lastLine: unknown = null, maxQueue = 0, maxBatch = 0, maxMarket = 0;
+      const ev = run(sim, 3601, () => (sim.restBlock ? resting() : focusing()), 0, tt => {
+        hands(tt);
+        const l = sim.talk.line;
+        if (l && l !== lastLine) heard.push({ text: l.text, at: tt });
+        lastLine = l;
+        maxQueue = Math.max(maxQueue, sim.queue.length);
+        maxBatch = Math.max(maxBatch, sim.batch.length);
+        maxMarket = Math.max(maxMarket, sim.market.length);
+      }, 0.1);
+      const cuts = ev.filter(e => e.type === 'cut');
+      const made = cuts.length;
+      const sold = ev.filter(e => e.type === 'sale').length + ev.filter((e): e is Extract<GlinaEvent, { type: 'market' }> => e.type === 'market').reduce((s, e) => s + e.n, 0);
+      expect(sim.ended, name).toBe(true);
+      expect(made, name).toBeGreaterThan(80);
+      expect(sold, name).toBe(made);
+      expect(sim.batch.length, name).toBe(0);
+      expect(sim.market.length, name).toBe(0);
+      expect(maxQueue, name).toBeLessThan(20);
+      expect(maxBatch, name).toBeLessThan(40);
+      expect(maxMarket, name).toBeLessThan(40);
+      expect(sim.gifts.length, name).toBeLessThanOrEqual(sim.plan.filter(b => b.kind === 'rest').length);
+      expect(Number.isFinite(sim.score), name).toBe(true);
+      expect(sim.trace.samples.length, name).toBeLessThan(400);
+      // Szamot talks in every quarter of the hour, a line again only after ten minutes (§17.1, §28)
+      for (const q of [0, 900, 1800, 2700]) expect(heard.filter(h => h.at > q && h.at <= q + 900).length, `${name} from ${q}`).toBeGreaterThan(5);
+      let soonest = Infinity;
+      const last = new Map<string, number>();
+      for (const h of heard) {
+        const was = last.get(h.text);
+        if (was !== undefined) soonest = Math.min(soonest, h.at - was);
+        last.set(h.text, h.at);
+      }
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      expect(sim.talk.said.length, name).toBeLessThan(1000);
+      const r = sim.result();
+      expect(r.score, name).toBeLessThan(10_000_000);
+      expect(r.highlights.length, name).toBeLessThanOrEqual(9);
+      for (const s of r.highlights) expect(s.length, name).toBeLessThan(110);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s, name).not.toMatch(/undefined|NaN|Infinity/);
     }
   });
 });

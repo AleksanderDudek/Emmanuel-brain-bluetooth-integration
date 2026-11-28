@@ -21,6 +21,8 @@ import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import jerzy from '../src/arcade/jerzy/index';
 import { catalogProblems } from '../src/i18n';
 
 const DAY = '2026-11-11';
@@ -1925,4 +1927,124 @@ describe('Jerzy: the breath pacer in a Postój (pacerAt)', () => {
       }
     }
   });
+});
+
+describe('long sessions (45–60 min)', () => {
+  it('plans 45 and 60 minutes like the short ones: Tarcza and Postój in turn up to the last stretch, no block too long or too short', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const blocks = first ? plan.slice(1) : plan;
+        blocks.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(blocks.at(-1)!.kind).toBe('rest');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        const left = planned - finaleFor(planned) - (first ? RULES.warm.long : 0);
+        expect(blocks.length / 2).toBe(Math.round(left / (RULES.push[0] + RULES.rest[0])));
+        for (const b of blocks) {
+          const [nominal, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((nominal + jitter) * 1.05);
+        }
+      }
+    }
+  }, 300_000);
+
+  it('the legend\'s roads grow for four roads, then hold (an hour a day climbs about a road a day)', () => {
+    const legend = RULES.roads.length - 1;
+    for (let k = 1; k <= RULES.legendTop; k++) {
+      expect(road(legend + k).hp).toBeGreaterThan(road(legend + k - 1).hp);
+      expect(road(legend + k).brood).toBeGreaterThan(road(legend + k - 1).brood);
+    }
+    for (const tier of [legend + RULES.legendTop + 1, 16, 60]) expect(road(tier)).toEqual(road(legend + RULES.legendTop));
+  }, 300_000);
+
+  it('a 60-minute session plays to its finale and keeps giving: dragons, levels and scales to the end, the numbers finite, nothing piling up', () => {
+    const p: JerzyProgress = { ...freshProgress(), sessions: 5, pushes: 3, seen: SEEN };
+    const sim = new JerzySim({ progress: p, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 3600, eeg: false, tuning: TUNING });
+    sim.start();
+    const held = { h: 0 }, rnd = mulberry32(9), step = 1 / 30;
+    let decide = 0, finale = 0, done = 0, visits = 0, at40 = -1, lvl40 = 0, bad = 0, end = 0;
+    const most = { brood: 0, scales: 0, drops: 0, prints: 0, smokes: 0, caltrops: 0, shots: 0, fx: 0 };
+    for (let tt = step; tt < 3600 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      end = tt;
+      sim.update(step, profileFrame(sim, 'avg', tt, held), tt);
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale++;
+        else if (e.type === 'done') done++;
+        else if (e.type === 'boss') visits++;
+      }
+      if ((decide += step) >= 0.3) { decide = 0; botStep(sim, 'casual', rnd); }
+      most.brood = Math.max(most.brood, sim.brood.length);
+      most.scales = Math.max(most.scales, sim.scales.length);
+      most.drops = Math.max(most.drops, sim.drops.length);
+      most.prints = Math.max(most.prints, sim.prints.length);
+      most.smokes = Math.max(most.smokes, sim.smokes.length);
+      most.caltrops = Math.max(most.caltrops, sim.caltrops.length);
+      most.shots = Math.max(most.shots, sim.lances.length + sim.hammers.length + sim.horses.length + sim.balls.length + sim.flames.length + sim.rain.length);
+      most.fx = Math.max(most.fx, sim.sweeps.length + sim.rings.length + sim.splashes.length + sim.zones.length + sim.walls.length);
+      const k = sim.knight;
+      if (![sim.score, k.x, k.y, k.hearts, sim.run.t, sim.run.xp, sim.charge, sim.auraR, sim.boss.damage].every(Number.isFinite)) bad++;
+      if (at40 < 0 && tt >= 2400) { at40 = sim.score; lvl40 = Math.max(sim.topLevel, sim.run.level); }
+    }
+    expect(bad).toBe(0);
+    expect([finale, done, sim.phase]).toEqual([1, 1, 'done']);
+    expect(end).toBeLessThan(3600 + RULES.settle);
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    // the last twenty minutes still pay: scales, a level or more, dragons on the roads beyond the first
+    expect(sim.score).toBeGreaterThan(at40 * 1.2);
+    expect(Math.max(sim.topLevel, sim.run.level)).toBeGreaterThan(lvl40);
+    expect(visits).toBeGreaterThanOrEqual(20);
+    expect(sim.drivenNow.length).toBeGreaterThanOrEqual(12);
+    // bounded as at 30 minutes, the brood by its cap, the log by its last 120 lines
+    expect(most.brood).toBeLessThanOrEqual(RULES.cap + 40);
+    expect(most.scales).toBeLessThanOrEqual(RULES.scaleCap + 60);
+    expect(most.drops).toBeLessThan(40);
+    expect(most.prints).toBeLessThan(400);
+    expect(most.smokes).toBeLessThanOrEqual(60);
+    expect(most.caltrops).toBeLessThanOrEqual(61);
+    expect(most.shots).toBeLessThan(300);
+    expect(most.fx).toBeLessThan(200);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(120);
+    const r = sim.result();
+    expect(Number.isFinite(r.score)).toBe(true);
+    expect(r.highlights.length).toBeLessThanOrEqual(6);
+    for (const h of r.highlights) expect(h.length, h).toBeLessThanOrEqual(90);
+    expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+    expect(p.best['3600']).toBe(sim.score);
+  }, 300_000);
+
+  it('far round the legend\'s roads a 30-minute session still drives dragons off (the roads held)', () => {
+    const p: JerzyProgress = { ...freshProgress(), sessions: 40, pushes: 3, seen: SEEN, driven: 60, cleared: Array(8).fill(16) };
+    p.land = 0;
+    p.tier = 16;
+    const sim = new JerzySim({ progress: p, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 1800, eeg: false, tuning: TUNING });
+    sim.start();
+    const held = { h: 0 }, rnd = mulberry32(9), step = 1 / 30;
+    let decide = 0;
+    for (let tt = step; tt < 1800 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      sim.update(step, profileFrame(sim, 'avg', tt, held), tt);
+      sim.take();
+      if ((decide += step) >= 0.3) { decide = 0; botStep(sim, 'casual', rnd); }
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.drivenNow.length).toBeGreaterThanOrEqual(3);
+  }, 300_000);
+});
+
+describe('long sessions (45–60 min), drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: JerzySim }).sim;
+    const held = { h: 0 }, rnd = mulberry32(9);
+    let decide = 0;
+    const { early, late } = hourFrames({
+      module: jerzy, progress: { ...jerzy.freshProgress(), sessions: 5, pushes: 3, seen: SEEN }, tuning: TUNING,
+      frame: (game, t) => profileFrame(simOf(game), 'avg', t, held),
+      each: game => { if ((decide += 0.05) >= 0.3) { decide = 0; botStep(simOf(game), 'casual', rnd); } },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
 });

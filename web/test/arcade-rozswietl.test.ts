@@ -1387,6 +1387,100 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the finale: light and gazing alternating, ending on gazing, a pair about every minute', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  /** A session of `planned` s at a focus held `share` of each 16 s (a tap every 2.5 s); the share of its tiles broken. */
+  function fitRun(planned: number, share: number, progress: Partial<RozProgress>, seed = 9) {
+    const sim = new RozSim({
+      progress: { ...freshProgress(), seen: [...ALL_SEEN], lastDay: DAY, ...progress },
+      rng: mulberry32(seed), day: DAY, daySeed: 3, plannedSec: planned, eeg: false, tuning: TUNING, aspect: 1,
+    });
+    sim.start();
+    let hold = 0, tap = 1, made = sim.pic.tiles.length, maxSaid = 0;
+    const heard = new Map<string, number>();
+    let lastLine: unknown = null, minGap = Infinity, late = 0;
+    for (let i = 1; i <= (planned + 4) / STEP; i++) {
+      const tt = i * STEP;
+      const on = tt % 16 < 16 * share;
+      hold = on ? hold + STEP : 0;
+      sim.update(STEP, on ? frame({ level: 0.7, activity: 3.5, focused: true, hold, calm: 0.2 }) : frame({ level: 0.3, activity: 1, calm: 0.7 }), tt);
+      if (sim.story && sim.story.t > 1.5) sim.tapCard();
+      if (tt >= tap) {
+        tap += 2.5;
+        sim.tap(centre(sim));
+      }
+      for (const e of sim.take()) if (e.type === 'picture' && i > 1) made += e.tiles;
+      const line = sim.talk.line;
+      if (line && line !== lastLine && line.moment !== 'own') {
+        const prev = heard.get(line.text);
+        if (prev !== undefined) minGap = Math.min(minGap, tt - prev);
+        heard.set(line.text, tt);
+        if (tt > planned - 600) late++;
+      }
+      lastLine = line;
+      maxSaid = Math.max(maxSaid, sim.talk.said.length);
+    }
+    return { sim, share: sim.tilesBroken / made, made, minGap, late, maxSaid };
+  }
+
+  it('plays a whole hour: picture after picture to a bright end, no throw, numbers that fit, a short summary, the firefly not looping', () => {
+    const { sim, share, minGap, late, maxSaid } = fitRun(3600, 0.66, { sessions: 10, pushes: 60, pace: 0.9 });
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.tilesBroken, sim.picturesDone, sim.flares, sim.light, sim.flare, sim.goldShare()]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.picturesDone).toBeGreaterThanOrEqual(12);
+    expect(sim.picturesDone).toBeLessThanOrEqual(60);
+    expect(share).toBeGreaterThanOrEqual(0.9);
+    expect(albumCount(sim.p)).toBe(PAIR_IDS.length);
+    expect(maxSaid).toBeLessThan(3600 / RULES.talkGap + 10);
+    // the firefly still speaks in the last ten minutes; a line comes back as at any length (a block's or a flare's cue
+    // after its moment's other variants), never twice in a row
+    expect(late).toBeGreaterThan(5);
+    expect(minGap).toBeGreaterThan(10);
+    const r = sim.result();
+    expect(r.score).toBe(sim.score);
+    expect(String(r.score).length).toBeLessThanOrEqual(7);
+    expect(r.highlights.length).toBeLessThanOrEqual(11);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  }, 60_000);
+
+  it('fits the work to 45 and 60 minutes: the tiles a session makes are broken (≥ 90 % once the pace is learnt)', () => {
+    const rows: string[] = [];
+    for (const planned of [2700, 3600]) {
+      for (const share of [0.3, 0.5, 0.66]) {
+        const learnt = fitRun(600, share, { sessions: 4, pace: 0 }).sim.p.pace;
+        for (const sessions of [0, 1, 4, 12]) {
+          const run = fitRun(planned, share, sessions ? { sessions, pace: learnt } : { sessions: 0, pace: 0 });
+          rows.push(`${planned} ${share} s${sessions + 1}: ${run.share.toFixed(2)} (${run.sim.picturesDone} pics, ${run.made} tiles)`);
+          // measured (round 24): 0.98–1.00 in every case, the first session too
+          expect(run.share, rows.at(-1)).toBeGreaterThanOrEqual(sessions ? 0.9 : 0.85);
+        }
+      }
+    }
+  }, 300_000);
+});
+
 describe('the picture fits the time (round 20, DESIGN §24.4)', () => {
   it('a room for a whole picture gives the design; less room cuts the tiles by the square root of the work’s share', () => {
     const full = RULES.picBase + RULES.picPerTile * 72;

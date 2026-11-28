@@ -11,7 +11,8 @@
  * battle reached, the records), so it is kept; the new fields start fresh, and fields of a wrong
  * type are reset rather than trusted.
  */
-import { BOSS_IDS, HOST, HOST_IDS, RULES, type BossId, type HostId } from './rules';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
+import { BOSS_IDS, HOST, HOST_IDS, LEVELS, RULES, type BossId, type HostId, type ZastepyLevel } from './rules';
 
 export interface ZastepyProgress {
   ver: 2;
@@ -45,6 +46,12 @@ export interface ZastepyProgress {
   taught: number;
   /** the day's gift */
   giftDay: string;
+  /**
+   * the difficulty level chosen in the lobby (kit/difficulty.ts; an older save has none: 'regular', the game as it
+   * was).  The campaign — the battle reached, the stars, the gold, the gate and the host — is one across the levels:
+   * a player may switch at any time; only the records are kept per level.
+   */
+  difficulty: Difficulty;
 }
 
 const freshUnits = (): Record<HostId, number> =>
@@ -53,7 +60,7 @@ const freshUnits = (): Record<HostId, number> =>
 export function freshProgress(): ZastepyProgress {
   return {
     ver: 2, sessions: 0, total: 0, won: 0, bosses: 0, trumpets: 0, pillars: 0, battle: 0, stars: [], gold: 0, goldAll: 0, gate: 1,
-    units: freshUnits(), hero: 1, calls: 0, best: {}, lastLen: 0, seen: 0, taught: 0, giftDay: '',
+    units: freshUnits(), hero: 1, calls: 0, best: {}, lastLen: 0, seen: 0, taught: 0, giftDay: '', difficulty: 'regular',
   };
 }
 
@@ -100,8 +107,12 @@ export function migrate(p: ZastepyProgress): ZastepyProgress {
   for (const k of Object.keys(best)) if (typeof best[k] !== 'number' || !Number.isFinite(best[k])) delete best[k];
   p.stars = p.stars.map(v => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(3, Math.round(v))) : 0));
   p.battle = Math.max(0, Math.floor(p.battle));
+  p.difficulty = difficultyOf(p.difficulty);
   return p;
 }
+
+/** The level a save plays at (an old or odd save: REGULAR). */
+export const levelOf = (p: ZastepyProgress): Difficulty => difficultyOf(p.difficulty);
 
 // ── the coach marks ──────────────────────────────────────────────
 export const TEACH = ['card', 'pillar', 'counter', 'trumpet', 'upgrade', 'boss', 'rest'] as const;
@@ -201,7 +212,9 @@ export function buyHero(p: ZastepyProgress): boolean {
 }
 
 // ── the numbers of the gate and the pillar ───────────────────────
-export const wallsFor = (gate: number, retreats = 0): number => RULES.walls + RULES.wallsPerLevel * (gate - 1) + RULES.wallsPerRetreat * retreats;
+/** The gate of light's walls at a gate level after `retreats` withdrawals, at a level's knobs (REGULAR: as designed). */
+export const wallsFor = (gate: number, retreats = 0, L: ZastepyLevel = LEVELS.regular): number =>
+  Math.round((RULES.walls + RULES.wallsPerLevel * (gate - 1)) * L.walls + RULES.wallsPerRetreat * L.grace * retreats);
 export const flowFor = (gate: number): number => RULES.flow + RULES.flowPerLevel * (gate - 1);
 export const lightMaxFor = (gate: number): number => RULES.lightMax + RULES.lightMaxPerLevel * (gate - 1);
 export const beamFor = (gate: number): { dmg: number; rate: number; range: number } => ({
@@ -222,18 +235,23 @@ export function unitStats(id: HostId, level: number, age: number): { hp: number;
 }
 
 // ── records ──────────────────────────────────────────────────────
-export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
+/** A record's key: the planned seconds, and the level past REGULAR ("300", "300@hardcore": kit/difficulty `recordKey`). */
+export const lenKey = (plannedSec: number, d: Difficulty = 'regular'): string => recordKey(String(Math.round(plannedSec)), d);
 
-/** The record for a session length (null: none yet). */
+/** The level a record's key belongs to. */
+const keyLevel = (k: string): Difficulty => difficultyOf(k.includes('@') ? k.slice(k.indexOf('@') + 1) : 'regular');
+
+/** The record for a session length at the save's level (null: none yet). */
 export function bestFor(p: ZastepyProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[lenKey(plannedSec, levelOf(p))];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline at the save's level: the length last played, else the best of any length (null: never played). */
 export function bestOf(p: ZastepyProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = levelOf(p);
+  const all = Object.entries(p.best).filter(([k, v]) => keyLevel(k) === d && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }

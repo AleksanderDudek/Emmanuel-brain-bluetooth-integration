@@ -6,7 +6,9 @@
  * already been shown (so later sessions explain only new things) and the day's gift — and, from
  * version 3: the mode (the valley or the clock tower) and the tower's floor, the companions found,
  * their bond and the party chosen, the gear in its four slots, the provisions left, the missions on
- * offer.  No DOM; the only randomness is the chest's roll, from the generator it is given.
+ * offer.  Round 25: the difficulty level chosen in the lobby (kit/difficulty.ts; absent in an older save:
+ * REGULAR, the run as it was) — the records are kept per level, the valley and the tower are one for every level.
+ * No DOM; the only randomness is the chest's roll, from the generator it is given.
  *
  * Version 2 (the rebuild after Hell Escape) replaced version 1's eras-and-sword meta; version 3 keeps
  * everything version 2 saved and adds its new fields.  An old save is migrated in place on first use.
@@ -14,6 +16,7 @@
 import {
   BUFFS, COMPS, GEAR, MISSIONS, MISSION_GOALS, UPGRADES, isComp, type BuffId, type CompId, type GearSlot, type MissionKind, type UpId,
 } from './content';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 import { RULES } from './rules';
 
 /** A mission on offer: what to do, how much, how much is done, and the rung of its kind's ladder. */
@@ -71,6 +74,8 @@ export interface DolinaProgress {
   missionSeq: number;
   missionsDone: number;
   rungs: Record<string, number>;
+  /** the difficulty level (kit/difficulty.ts) */
+  difficulty: Difficulty;
 }
 
 const freshUps = (): Record<UpId, number> => Object.fromEntries(UPGRADES.map(id => [id, 0])) as Record<UpId, number>;
@@ -82,7 +87,7 @@ export function freshProgress(): DolinaProgress {
     ver: 3, sessions: 0, total: 0, sparks: 0, sparksAll: 0, ups: freshUps(), level: 1, top: 0, stars: {},
     lambs: 0, guards: 0, dawns: 0, pushes: 0, best: {}, lastLen: 0, bestCombo: 0, seen: [], giftDay: '',
     mode: 'valley', tower: { floor: 1, best: 0, night: 0 }, found: [], bond: {}, party: [], gear: freshGear(), chests: 0,
-    buffs: freshBuffs(), missions: [], missionSeq: 0, missionsDone: 0, rungs: {},
+    buffs: freshBuffs(), missions: [], missionSeq: 0, missionsDone: 0, rungs: {}, difficulty: 'regular',
   };
   fillMissions(p);
   return p;
@@ -112,7 +117,7 @@ export function migrate(p: DolinaProgress): DolinaProgress {
   // the runner merges a save over a fresh progress, so a version-1 save arrives with the fresh `ver`
   // and its own `v: 1`; a version-2 save arrives with its own `ver: 2`
   if (o.v !== undefined || (o.ver !== 2 && o.ver !== 3)) {
-    const keep = { sessions: Math.round(num(o.sessions)), best: records(o.best), lastLen: num(o.lastLen) };
+    const keep = { sessions: Math.round(num(o.sessions)), best: records(o.best), lastLen: num(o.lastLen), difficulty: difficultyOf(o.difficulty) };
     for (const k of Object.keys(o)) delete o[k];
     Object.assign(o, freshProgress(), keep);
     return p;
@@ -123,6 +128,7 @@ export function migrate(p: DolinaProgress): DolinaProgress {
     else if (typeof v === 'string' && typeof o[k] !== 'string') o[k] = v;
   }
   o.ver = 3;
+  o.difficulty = difficultyOf(o.difficulty);
   for (const k of ['sessions', 'total', 'sparks', 'sparksAll', 'top', 'lambs', 'guards', 'dawns', 'pushes', 'lastLen', 'bestCombo', 'chests', 'missionSeq', 'missionsDone'] as const) {
     o[k] = num(o[k]);
   }
@@ -226,17 +232,24 @@ export function setStars(p: DolinaProgress, level: number, n: number): void {
 // ── records ──────────────────────────────────────────────────────
 export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
 
-/** The record for a session length (null: none yet). */
+/** A record's key: the session length at the level chosen (REGULAR: the length alone, as before levels came). */
+export const bestKey = (p: DolinaProgress, plannedSec: number): string => recordKey(lenKey(plannedSec), difficultyOf(p.difficulty));
+
+/** Whether a record's key belongs to a level (REGULAR's have no "@level"). */
+const ofLevel = (key: string, d: Difficulty): boolean => (d === 'regular' ? !key.includes('@') : key.endsWith(`@${d}`));
+
+/** The record for a session length at the level chosen (null: none yet). */
 export function bestFor(p: DolinaProgress, plannedSec: number): number | null {
-  const v = p.best?.[lenKey(plannedSec)];
+  const v = p.best?.[bestKey(p, plannedSec)];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline for the length last played, else the best of any length — at the level chosen (null: never played). */
 export function bestOf(p: DolinaProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best ?? {}).filter(v => typeof v === 'number' && v > 0);
+  const d = difficultyOf(p.difficulty);
+  const all = Object.entries(p.best ?? {}).filter(([k, v]) => ofLevel(k, d) && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }
 

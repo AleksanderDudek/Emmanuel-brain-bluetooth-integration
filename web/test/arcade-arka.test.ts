@@ -10,7 +10,7 @@ import { pacerBox, pacerProblems, pacerSizeAt } from '../src/arcade/kit/pacerspo
 import { SANS, font, fontPx } from '../src/arcade/arka/paint';
 import { clearLevel, freshProgress, homestead, migrate, settle, totalStars, type ArkaProgress } from '../src/arcade/arka/meta';
 import { DX, DY, RULES, parFor, sightShare, starsFor } from '../src/arcade/arka/rules';
-import { ArkaSim, planBlocks, type SimEvent } from '../src/arcade/arka/sim';
+import { ArkaSim, planBlocks, ROUND_SEC, roundFor, type SimEvent } from '../src/arcade/arka/sim';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
@@ -1184,6 +1184,132 @@ describe('Arka at 15–30 minutes', () => {
       expect(out.highlights.length).toBeLessThanOrEqual(6);
       for (const s of out.highlights) expect(s.length).toBeLessThan(100);
       for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});
+
+// ── long sessions (45–60 min, round 24) ──────────────────────────
+
+describe('Arka at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the finale: Mgła/Tęcza pairs at their design lengths, ending on a Tęcza', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('keeps the raven\'s lines in turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('plays a whole 60-min session, first ever and at level 30: the saga keeps dealing, bounded, a short summary, the raven not looping', () => {
+    for (const fresh of [true, false]) {
+      const sim = fresh ? makeSim({ planned: 3600, seed: 4 }) : returning(30, { planned: 3600, seed: 4 });
+      let nextTap = 0.5, evs = 0, maxShore = 0, maxAnimals = 0, soonest = Infinity;
+      const heard = new Map<string, number>();
+      const quarters = [0, 0, 0, 0];
+      const dt = 1 / 30;
+      for (let i = 0; i < 3603 / dt; i++) {
+        const t = sim.now + dt;
+        sim.update(dt, sim.block.kind === 'rest' ? REST : FOCUS, t);
+        if (t >= nextTap) {
+          nextTap += 0.7;
+          if (sim.levelState === 'clear') sim.skip();
+          else {
+            const open = (x: (typeof sim.animals)[number]) => x.lockedBy < 0 || sim.animals[x.lockedBy].out;
+            const a = sim.animals.find(x => !x.out && open(x) && (x.asleep || sim.way(x).blocker < 0));
+            if (a) sim.tap(a.id); else sim.dove();
+          }
+        }
+        for (const e of sim.take()) {
+          evs++;
+          if (e.type !== 'say') continue;
+          const was = heard.get(e.text);
+          if (was !== undefined) soonest = Math.min(soonest, t - was);
+          heard.set(e.text, t);
+          quarters[Math.min(3, Math.floor(t / 900))]++;
+        }
+        maxShore = Math.max(maxShore, sim.shore.length);
+        maxAnimals = Math.max(maxAnimals, sim.animals.length);
+      }
+      const name = fresh ? 'first ever' : 'level 30';
+      expect(sim.phase, name).toBe('finale');
+      expect(evs, name).toBeGreaterThan(1000);
+      // a deck about every 25 s all hour (the boards stop growing at 9 × 11)
+      expect(sim.levels, name).toBeGreaterThan(120);
+      expect(sim.pairs, name).toBeGreaterThan(2000);
+      expect(maxShore, name).toBeLessThanOrEqual(KINDS.length);
+      expect(maxAnimals, name).toBeLessThanOrEqual(9 * 11);
+      expect(levelSpec(sim.levelN).cols).toBeLessThanOrEqual(9);
+      // the raven talks in every quarter of the hour, and no line twice within ten minutes
+      for (const q of quarters) expect(q, name).toBeGreaterThan(15);
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      for (const v of [sim.pairs, sim.levelN, sim.starsSession]) expect(Number.isFinite(v), name).toBe(true);
+      const out = sim.result();
+      expect(out.score, name).toBeLessThan(10_000_000);
+      expect(out.highlights.length, name).toBeLessThanOrEqual(6);
+      for (const s of out.highlights) expect(s.length, name).toBeLessThan(100);
+      for (const [, v] of out.stats) expect(v.length, name).toBeLessThanOrEqual(8);
+      for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s, name).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('the whole game runs 60 minutes on the runner\'s clock (an animal every 0.7 s, drawn every 2 s): the view\'s lists stay small', () => {
+    const sizes: { text: string; px: number }[] = [];
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+    const original = proto.getContext;
+    proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this, sizes); };
+    try {
+      const insets = { top: 48, right: 0, bottom: 0, left: 0 };
+      const env: GameEnv<ArkaProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: { ...freshProgress(), sessions: 5, level: 12, taught: ['tap', 'bump', 'hearts', 'pair', 'dove', 'mist', 'rainbow', 'file', 'sleepy', 'turner', 'locked'] },
+        rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 3600, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+        tuning: TUNING, hint: () => undefined, hudTop: () => insets.top, insets: () => insets, touch: true,
+      };
+      const game = arka.create(env);
+      game.resize(390, 844, 1);
+      game.start();
+      const inner = game as unknown as { sim: ArkaSim; view: Record<'leavers' | 'walkers' | 'heartFx' | 'cardQ', unknown[]> };
+      const sim = inner.sim;
+      let nextTap = 0.5, k = 0, most = 0;
+      const dt = 0.1;
+      while (sim.now < 3603) {
+        const t = sim.now + dt;
+        game.update(dt, sim.block.kind === 'rest' ? REST : FOCUS, t);
+        if (t >= nextTap) {
+          nextTap += 0.7;
+          if (sim.levelState === 'clear') sim.skip();
+          else {
+            const open = (x: (typeof sim.animals)[number]) => x.lockedBy < 0 || sim.animals[x.lockedBy].out;
+            const a = sim.animals.find(x => !x.out && open(x) && (x.asleep || sim.way(x).blocker < 0));
+            if (a) sim.tap(a.id); else sim.dove();
+          }
+        }
+        if (++k % 20 === 0) { game.draw(); sizes.length = 0; }
+        const v = inner.view;
+        most = Math.max(most, v.leavers.length, v.walkers.length, v.heartFx.length, v.cardQ.length);
+      }
+      expect(sim.phase).toBe('finale');
+      expect(sim.levels).toBeGreaterThan(100);
+      expect(most).toBeLessThan(40);
+      expect(game.canStop()).toBe(true);
+      const r = game.result();
+      expect(r.score).toBeGreaterThan(1000);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    } finally {
+      proto.getContext = original;
     }
   });
 });

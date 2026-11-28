@@ -7,19 +7,25 @@
  *   the bonfire  the ability ladder (steep silver costs, capped by the bonfire's level)
  *   the forge    the weapons' levels (an evolution every five levels; capped by the forge's level)
  *   the party    companions joined through the story, their friendship (stars), who walks along
- *   records      XP per session length, the shepherd's tally of beasts driven off, the cave's deepest floor
+ *   records      XP per session length and difficulty, the shepherd's tally of beasts driven off, the cave's deepest floor
+ *   the story    what the chain has found so far (`got`), the answers given at the story's choices
+ *   difficulty   Na start · Zwykły · Zaawansowany · Hardcore (kit/difficulty.ts; REGULAR, the game as it was, by default)
  *
- * Version 1.  The placeholder of round 5 saved `{ sessions: n }`: it is read as a fresh save that
- * keeps its session count.  Fields of a wrong type are reset rather than trusted.  No DOM, no randomness.
+ * Version 2 (round 25: the lands became levels of three areas, with longer chains).  A version-1 save keeps
+ * everything; its place in the old chain is carried to the same place in the new one (`remapQuest`: the guardian
+ * stays the guardian, the gate the gate, a companion not yet met is still met).  The placeholder of round 5 saved
+ * `{ sessions: n }`: it is read as a fresh save that keeps its session count.  Fields of a wrong type are reset rather
+ * than trusted.  No DOM, no randomness.
  */
 import {
-  ABILITIES, ABILITY_CAP, BUILDINGS, COMPANIONS, CRAFT, GUARDS, LANDS, LAND_COUNT, STAR_AT, STORE_K, TIER_K, WEAPONS, WEAPON_CAP,
+  ABILITIES, ABILITY_CAP, BUILDINGS, COMPANIONS, CRAFT, GUARDS, LANDS, LAND_COUNT, QUESTS, STAR_AT, STORE_K, TIER_K, WEAPONS, WEAPON_CAP,
   ability, building, slotsAt, type AbilityId, type BuildingId, type CompanionId, type LandSpec, type WeaponId,
 } from './content';
 import { RULES } from './rules';
+import { DEFAULT_DIFFICULTY, difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 
 export interface DawidProgress {
-  ver: 1;
+  ver: 2;
   /** sessions saved */
   sessions: number;
   /** David's level, the XP into it, all-time XP, and rested XP waiting (a bonus pool) */
@@ -61,13 +67,20 @@ export interface DawidProgress {
   lastLen: number;
   /** first-time explanations already given (coach marks) */
   seen: string[];
+  /** the difficulty chosen in the lobby */
+  difficulty: Difficulty;
+  /** the current quest's things found so far (a find of several), its spots */
+  got: string[];
+  /** the answers given at the story's choices (quest id → 'a' | 'b') */
+  choices: Record<string, string>;
 }
 
 export function freshProgress(): DawidProgress {
   return {
-    ver: 1, sessions: 0, level: 1, xp: 0, total: 0, rested: 0, silver: 0, wood: 0, stone: 0, pushes: 0,
+    ver: 2, sessions: 0, level: 1, xp: 0, total: 0, rested: 0, silver: 0, wood: 0, stone: 0, pushes: 0,
     land: 0, wounds: 0, quest: 0, questN: 0, ab: {}, bd: {}, wp: { proca: 1 }, joined: [], friend: {}, party: [],
     tally: {}, guards: 0, stones: 0, thieves: 0, quests: 0, floor: 0, best: {}, lastLen: 0, seen: [],
+    difficulty: DEFAULT_DIFFICULTY, got: [], choices: {},
   };
 }
 
@@ -83,13 +96,52 @@ const strs = (v: unknown, allowed?: readonly string[]): string[] =>
   Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && (!allowed || allowed.includes(x))))] : [];
 
 /**
- * Bring a loaded save to version 1, in place (idempotent).  The placeholder's `{ sessions }` keeps its
- * count; every field of a wrong type falls back to its fresh value; levels and lists are cleaned.
+ * The round-5 chains (versions 1): each land's quest kinds in order — what a version-1 save's quest index meant.
+ * Later circles' chains did not change.
+ */
+const OLD_CHAINS: readonly (readonly string[])[] = [
+  ['hunt', 'build', 'buy', 'hunt', 'gather', 'build', 'forge', 'visit', 'hunt', 'level', 'guard', 'gate'],
+  ['hunt', 'visit', 'build', 'hunt', 'visit', 'buy', 'hunt', 'level', 'guard', 'gate'],
+  ['visit', 'hunt', 'visit', 'visit', 'hunt', 'level', 'guard', 'visit', 'gate'],
+  ['hunt', 'forge', 'hunt', 'build', 'level', 'guard', 'gate'],
+  ['hunt', 'visit', 'hunt', 'visit', 'level', 'guard', 'gate'],
+  ['visit', 'hunt', 'visit', 'hunt', 'level', 'guard', 'gate'],
+];
+
+/**
+ * A version-1 save's place in its land's old chain, carried to the new chain (the first circle only): the gate stays
+ * the gate, the guardian the guardian (its wounds kept), a quest after the guardian the first after it; before the
+ * guardian the same share of the way — but never past a companion not yet met (or Jonathan's bow not yet given).
+ */
+export function remapQuest(p: DawidProgress): number {
+  const { idx, circle } = landAt(p.land);
+  if (circle > 0) return p.quest;
+  const old = OLD_CHAINS[idx], chain = QUESTS[LANDS[idx].id];
+  const q = Math.max(0, Math.min(old.length - 1, Math.floor(p.quest)));
+  const og = old.indexOf('guard'), ng = chain.findIndex(c => c.kind === 'guard');
+  let at: number;
+  if (old[q] === 'gate') at = chain.length - 1;
+  else if (q > og) at = ng + 1;
+  else if (q === og) at = ng;
+  else at = Math.floor((q / Math.max(1, og)) * ng);
+  for (let i = 0; i < at; i++) {
+    const c = chain[i];
+    if ((c.joins && !p.joined.includes(c.joins)) || (c.gives && !(num(p.wp[c.gives]) > 0))) { at = i; break; }
+  }
+  return Math.max(0, Math.min(chain.length - 1, at));
+}
+
+/**
+ * Bring a loaded save to version 2, in place (idempotent).  A version 1 keeps everything and moves to the same
+ * place in its land's new chain; the placeholder's `{ sessions }` keeps its count; every field of a wrong type falls
+ * back to its fresh value; levels and lists are cleaned.
  */
 export function migrate(p: DawidProgress): DawidProgress {
   const raw = p as unknown as Record<string, unknown>;
   const f = freshProgress() as unknown as Record<string, unknown>;
-  if (raw.ver !== 1) {
+  const v1 = raw.ver === 1;
+  if (v1) raw.ver = 2;
+  if (raw.ver !== 2) {
     // the placeholder (or anything older): only the session count means something
     const keep = { sessions: Math.floor(nonNeg(raw.sessions)) };
     for (const k of Object.keys(raw)) delete raw[k];
@@ -121,6 +173,20 @@ export function migrate(p: DawidProgress): DawidProgress {
   const best: Record<string, number> = {};
   if (isObj(raw.best)) for (const [k, v] of Object.entries(raw.best)) if (num(v) > 0) best[k] = num(v);
   p.best = best;
+  p.difficulty = difficultyOf(raw.difficulty);
+  p.got = strs(p.got);
+  const choices: Record<string, string> = {};
+  if (isObj(raw.choices)) for (const [k, v] of Object.entries(raw.choices)) if (v === 'a' || v === 'b') choices[k] = v;
+  p.choices = choices;
+  if (v1) {
+    // the old chain's place, carried to the new chain; what the old quest had counted starts again
+    p.quest = remapQuest(p);
+    p.questN = 0;
+    p.got = [];
+  }
+  const chain = landAt(p.land);
+  const len = chain.circle === 0 ? QUESTS[chain.spec.id].length : 4;
+  p.quest = Math.min(p.quest, len - 1);
   return p;
 }
 
@@ -316,20 +382,28 @@ export const bagCap = (p: DawidProgress): number =>
   Math.round(RULES.bagBase * RULES.bagGrow ** abilityLevel(p, 'torba') * STORE_K[Math.min(3, buildingLevel(p, 'spichlerz'))]);
 
 // ── records ──────────────────────────────────────────────────────
-export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
+/** A record's key: the session's length, per difficulty (REGULAR keeps the old key: the records before levels came are its). */
+export const lenKey = (plannedSec: number, d: Difficulty = DEFAULT_DIFFICULTY): string => recordKey(String(Math.round(plannedSec)), d);
 
-export function bestFor(p: DawidProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+/** Whether a record's key is the given difficulty's ("300", "300@hardcore"). */
+const keyOf = (k: string, d: Difficulty): boolean => (d === DEFAULT_DIFFICULTY ? !k.includes('@') : k.endsWith(`@${d}`));
+
+export function bestFor(p: DawidProgress, plannedSec: number, d: Difficulty = p.difficulty ?? DEFAULT_DIFFICULTY): number | null {
+  const v = p.best[lenKey(plannedSec, d)];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
-export function bestOf(p: DawidProgress): number | null {
-  const last = bestFor(p, p.lastLen);
+/** The best headline at the chosen difficulty: for the length last played, else of any length (null: none yet). */
+export function bestOf(p: DawidProgress, d: Difficulty = p.difficulty ?? DEFAULT_DIFFICULTY): number | null {
+  const last = bestFor(p, p.lastLen, d);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const all = Object.entries(p.best).filter(([k, v]) => keyOf(k, d) && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }
+
+/** The best of any length at a difficulty (0: none). */
+export const bestAny = (p: DawidProgress, d: Difficulty = p.difficulty ?? DEFAULT_DIFFICULTY): number =>
+  Math.max(0, ...Object.entries(p.best).filter(([k, v]) => keyOf(k, d) && typeof v === 'number').map(([, v]) => v));
 
 /** Something the treasury can buy now (for the summary's nudge and the lobby). */
 export function anyAffordable(p: DawidProgress): boolean {

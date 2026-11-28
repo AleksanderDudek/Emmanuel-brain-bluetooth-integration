@@ -20,10 +20,16 @@ export class Talk {
   private seq = 0;
   private readonly queue: Ask[] = [];
   private readonly left = new Map<Moment, number[]>();
+  /** when each line was last said (only with `fresh`) */
+  private readonly saidAt = new Map<string, number>();
   /** every line said this session, in order (the tests read it) */
   readonly said: string[] = [];
 
-  constructor(private readonly rng: () => number, private readonly lines: (m: Moment) => readonly string[] = linesOf) {}
+  /**
+   * `fresh` (round 24): in a session over 30 minutes a line comes back only this long (s) after it was said — till then
+   * its moment passes in silence; 0 (every shorter session): as before
+   */
+  constructor(private readonly rng: () => number, private readonly lines: (m: Moment) => readonly string[] = linesOf, private readonly fresh = 0) {}
 
   ask(moment: Moment, pri = 1, ttl = 4): void {
     const i = this.queue.findIndex(a => a.moment === moment);
@@ -65,6 +71,13 @@ export class Talk {
         [left[i], left[j]] = [left[j], left[i]];
       }
       this.left.set(m, left);
+    }
+    if (this.fresh > 0) {
+      const k = left.findIndex(i => this.now - (this.saidAt.get(all[i]) ?? -Infinity) >= this.fresh);
+      if (k < 0) return '';
+      const [i] = left.splice(k, 1);
+      this.saidAt.set(all[i], this.now);
+      return all[i];
     }
     return all[left.shift()!];
   }

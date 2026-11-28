@@ -48,13 +48,15 @@
  *                  for three runs, missions, and forms that each bring a perk.
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
-import { Companion, type Moment } from './companion';
+import { Companion, roundFor, type Moment } from './companion';
 import {
   ANSWER, COMPS, ERAS, ERA_SHADOWS, GUARDS, GUARD_ERA, KEEPERS, POWER, SEQ, SHADOWS, TIPS, compName, eraName, eraOfLevel, floorName, gearName, guardLevel,
   guardName, lapOfLevel, lookName, powerOf, tierName,
@@ -63,12 +65,12 @@ import {
 } from './content';
 import { sparks as sparksText, t, type Key } from './i18n';
 import {
-  activeBuffs, applyChest, bestFor, bondLevel, clockTime, compBond, completeMission, gearTier, lenKey, lookOf, missionReward, nightOf, partyFor,
+  activeBuffs, applyChest, bestFor, bestKey, bondLevel, clockTime, compBond, completeMission, gearTier, lookOf, missionReward, nightOf, partyFor,
   rollChest, setStars, slotsFor, starsOf, upLevel,
   type ChestDrop, type ChestSource, type DolinaProgress, type GearResult, type Mission, type Mode,
 } from './meta';
 import { WARM_PLAN, eraOfFloor, floorKind, floorLevel, keeperFloor, stagePlan, towerPlan, type Beat } from './plan';
-import { RULES, span } from './rules';
+import { LEVELS, RULES, span, type DolLevel } from './rules';
 
 export { RULES } from './rules';
 export { WARM_PLAN, stagePlan, type Beat } from './plan';
@@ -365,6 +367,11 @@ export class DolinaSim {
   private readonly restLead: number;
   readonly dawnNeed: number;
   readonly finaleSec: number;
+  /** the difficulty level of this run (chosen in the lobby) and its knobs (rules.ts LEVELS) */
+  readonly challenge: Difficulty;
+  private readonly lv: DolLevel;
+  /** the shadows the road's beats owe at this level (count < 1 leaves some beats empty, > 1 brings pairs) */
+  private shadowCredit = 0;
 
   started = false;
   readonly session: number;
@@ -562,6 +569,10 @@ export class DolinaSim {
     this.lead = RULES.leadIn[band];
     this.restLead = RULES.restLead[band];
     this.finaleSec = finaleFor(init.plannedSec);
+    this.challenge = difficultyOf(p.difficulty);
+    this.lv = LEVELS[this.challenge];
+    // (Na start: the first beat still brings its shadow)
+    this.shadowCredit = this.lv.count < 1 ? 1 - this.lv.count : 0;
     this.bestBefore = bestFor(p, init.plannedSec);
     this.session = p.sessions + 1;
     this.first = this.session === 1;
@@ -578,7 +589,7 @@ export class DolinaSim {
     this.tier = startTier(this.ups.forge);
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.first, init.rng, init.rhythm);
-    this.talk = new Companion(init.rng);
+    this.talk = new Companion(init.rng, roundFor(init.plannedSec));
     this.slots = slotsFor(p.guards);
     for (const id of partyFor(p, this.slots)) this.party.push(this.mate(id));
     if (this.mode === 'tower') {
@@ -1157,8 +1168,12 @@ export class DolinaSim {
       case 'walker':
       case 'special': {
         const kind = ERA_SHADOWS[era][beat === 'walker' ? 'walker' : 'special'];
-        this.flat(x + 1.2);
-        this.spawnShadow(kind, x + 0.6, this.genY, L, st);
+        // the level's count: a beat brings this many on average (REGULAR: one, every beat)
+        this.shadowCredit += this.lv.count;
+        const n = Math.floor(this.shadowCredit + 1e-9);
+        this.shadowCredit -= n;
+        this.flat(n > 1 ? x + 1.2 + 1.1 * (n - 1) : x + 1.2);
+        for (let i = 0; i < n; i++) this.spawnShadow(kind, i ? x + 0.6 + 1.1 * i : x + 0.6, this.genY, L, st);
         break;
       }
       case 'gate':
@@ -1355,7 +1370,7 @@ export class DolinaSim {
   // ── the shadows ─────────────────────────────────────────────────
   private spawnShadow(kind: ShadowKind, x: number, y: number, level: number, stage: number): void {
     const S = SHADOWS[kind];
-    const hp = Math.max(1, Math.round(RULES.shadowStrikes[S.strikes > 1 ? 1 : 0] * powerOf(expectedTier(stage)) * RULES.levelHp ** (level - 1) * 0.9));
+    const hp = Math.max(1, Math.round(RULES.shadowStrikes[S.strikes > 1 ? 1 : 0] * powerOf(expectedTier(stage)) * RULES.levelHp ** (level - 1) * 0.9 * this.lv.foe));
     this.shadows.push({
       id: this.nextId++, kind, x, y: y + S.air, r: S.r, h: S.h, hp, max: hp, state: 'walk', age: 0, hitT: 0, stun: 0,
       inLight: false, burn: 0, throwT: 0.6 + this.rng() * RULES.throwEvery, bob: this.rng() * 6,
@@ -1373,7 +1388,7 @@ export class DolinaSim {
       const d = s.x - this.px;
       const k = (s.inLight ? R.lightSlow : 1) * (s.stun > 0 ? 0 : 1);
       if (S.speed > 0 && d < 14 && d > -1 && !this.meadow) {
-        const nx = s.x - S.speed * k * w;
+        const nx = s.x - S.speed * this.lv.speed * k * w;
         if (s.kind === 'kruk') s.x = nx;
         else {
           // walkers keep to the ground: they stop at a pit's rim, a ledge's edge, a block or a wall
@@ -1389,7 +1404,7 @@ export class DolinaSim {
         s.throwT -= w * k;
         if (s.throwT <= 0) {
           s.throwT = R.throwEvery;
-          this.shots.push({ id: this.nextId++, kind: 'roll', x: s.x - s.r, y0: s.y, y1: s.y + R.rollH, w: 0.5, vx: -R.rollV, alive: true, passed: false, guard: false, t: 0 });
+          this.shots.push({ id: this.nextId++, kind: 'roll', x: s.x - s.r, y0: s.y, y1: s.y + R.rollH, w: 0.5, vx: -R.rollV * this.lv.speed, alive: true, passed: false, guard: false, t: 0 });
           this.emit({ type: 'throw', id: s.id, x: s.x, y: s.y + s.h * 0.7 });
         }
       }
@@ -1722,10 +1737,10 @@ export class DolinaSim {
   private harm(kind: HarmKind, x: number, y: number, force = false): void {
     if ((this.safe > 0 && !force) || this.state === 'fallen') return;
     if (kind !== 'pit' && this.umbrella(x, y)) return;
-    const loss = harmWith(kind, this.ups.oil, this.gear.cloak, this.buffs.has('dates'));
+    const loss = harmWith(kind, this.ups.oil, this.gear.cloak, this.buffs.has('dates')) * this.lv.harm;
     this.oil = Math.max(0, this.oil - loss);
     this.combo = 0;
-    this.safe = RULES.safeSec;
+    this.safe = RULES.safeSec * this.lv.grace;
     this.stumble = RULES.stumbleSec;
     this.emit({ type: 'harm', kind, oil: this.oil, x, y });
     if (this.oil <= 0.001 && this.state === 'run') this.fall();
@@ -1749,9 +1764,10 @@ export class DolinaSim {
     this.state = 'run';
     this.oil = R.riseOil;
     this.oilWarned = false;
-    this.safe = R.safeSec * 1.5;
-    for (const s of this.shadows) if (s.state !== 'gone' && Math.abs(s.x - this.px) < R.clearNear) this.kill(s, 'fade');
-    for (const s of this.shots) if (s.alive && Math.abs(s.x - this.px) < R.clearNear) this.breakShot(s, 'dawn');
+    this.safe = R.safeSec * 1.5 * this.lv.grace;
+    const clear = R.clearNear * this.lv.clear;
+    for (const s of this.shadows) if (s.state !== 'gone' && Math.abs(s.x - this.px) < clear) this.kill(s, 'fade');
+    for (const s of this.shots) if (s.alive && Math.abs(s.x - this.px) < clear) this.breakShot(s, 'dawn');
     if (this.tideOn) this.tideX = Math.min(this.tideX, this.px - R.tideStart);
     const g = this.guard;
     if (g && g.state === 'fight') {
@@ -2320,7 +2336,7 @@ export class DolinaSim {
     const on = this.tideOn && this.phase === 'play' && this.block.kind !== 'rest' && !this.inArena && this.story <= 0 && !(this.first && this.warmBlock);
     if (!on) return;
     if (!Number.isFinite(this.tideX)) this.tideX = this.px - R.tideStart;
-    let v = (R.tideV + R.tideLevel * (this.difficulty - 1)) * (this.tower && this.floorKind === 'tide' ? R.tower.tideFast : 1);
+    let v = (R.tideV + R.tideLevel * (this.difficulty - 1)) * (this.tower && this.floorKind === 'tide' ? R.tower.tideFast : 1) * this.lv.tide;
     const d = this.px - this.tideX;
     if (this.live && d < this.lampR) v = this.level01 > 0.5 ? -R.tidePush * above(this.level01) : v * R.tideSlow;
     this.tideX += v * w;
@@ -2390,7 +2406,7 @@ export class DolinaSim {
     }
     // the fight: its clock slows in a live light, quickens when angry
     const lit = this.live;
-    const clock = w * (g.angry ? R.angry : 1) * (lit ? R.lightSlow + (1 - R.lightSlow) * (1 - this.level01) : 1);
+    const clock = w * this.lv.speed * (g.angry ? R.angry : 1) * (lit ? R.lightSlow + (1 - R.lightSlow) * (1 - this.level01) : 1);
     g.dawnOpen = Math.max(0, g.dawnOpen - w);
     if (lit && this.level01 > 0.5) this.hurtGuard(g, R.guardBurn * above(this.level01) * this.power * w, 'light');
     if (g.state !== 'fight') return;
@@ -2426,8 +2442,8 @@ export class DolinaSim {
     const era = GUARD_ERA[id];
     const T = RULES.tower;
     const hp = a.keeper
-      ? Math.max(10, Math.round(T.keeperStrikes * powerOf(this.tier) * (this.plannedSec < 70 ? RULES.guardShort : 1) * (1 + T.keeperNight * (nightOf(a.level) - 1))))
-      : guardHpFor(a.level, this.plannedSec, this.tier);
+      ? Math.max(10, Math.round(T.keeperStrikes * powerOf(this.tier) * (this.plannedSec < 70 ? RULES.guardShort : 1) * (1 + T.keeperNight * (nightOf(a.level) - 1)) * this.lv.boss))
+      : this.lv.boss === 1 ? guardHpFor(a.level, this.plannedSec, this.tier) : Math.max(10, Math.round(guardHpFor(a.level, this.plannedSec, this.tier) * this.lv.boss));
     a.guard = {
       id, era, hp, max: hp, state: 'enter', st: 0, rel: 14, seq: SEQ[id].calm, i: 0, moveT: 0, acted: false, acted2: false, begun: false,
       dawnOpen: 0, hitT: 0, angry: false,
@@ -2443,7 +2459,7 @@ export class DolinaSim {
     const x = this.px + g.rel - 0.2;
     const kind: ShotKind = mv === 'pair' ? (second ? 'wall' : 'roll') : mv === 'wall' ? 'wall' : mv === 'high' ? 'high' : 'roll';
     const [y0, y1] = kind === 'roll' ? [y, y + 0.7] : kind === 'wall' ? [y, y + R.wallH] : [y + R.highY[0], y + R.highY[1]];
-    this.shots.push({ id: this.nextId++, kind, x, y0, y1, w: kind === 'high' ? 1.6 : 0.6, vx: -R.throwV, alive: true, passed: false, guard: true, t: 0 });
+    this.shots.push({ id: this.nextId++, kind, x, y0, y1, w: kind === 'high' ? 1.6 : 0.6, vx: -R.throwV * this.lv.speed, alive: true, passed: false, guard: true, t: 0 });
   }
 
   /** A jump that comes down on the open weak point: a stomp, three times as hard. */
@@ -2685,7 +2701,7 @@ export class DolinaSim {
 
   private gain(sparks: number): void {
     if (sparks <= 0 || this.settled) return;
-    const n = Math.round(sparks * (1 + RULES.incomeStep * this.ups.income) * (this.buffs.has('raisins') ? RULES.buff.raisins : 1));
+    const n = Math.round(sparks * (1 + RULES.incomeStep * this.ups.income) * (this.buffs.has('raisins') ? RULES.buff.raisins : 1) * this.lv.reward);
     this.sparks += n;
     this.levelSparks += n;
   }
@@ -2776,7 +2792,7 @@ export class DolinaSim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      const key = bestKey(p, this.plannedSec);
       p.best = { ...p.best, [key]: Math.max(p.best[key] ?? 0, this.score) };
       p.bestCombo = Math.max(p.bestCombo, this.bestCombo);
     }
@@ -2796,6 +2812,8 @@ export class DolinaSim {
       [t('stat.look'), lookName(lookOf(p.sparksAll))],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
+    // a level other than REGULAR is named first (the record is that level's)
+    if (this.challenge !== 'regular') stats.unshift([t('stat.difficulty'), difficultyName(this.challenge)]);
     return {
       score: this.score, unit: t('unit'), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

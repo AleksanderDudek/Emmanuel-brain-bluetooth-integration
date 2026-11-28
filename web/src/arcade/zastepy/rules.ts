@@ -8,6 +8,8 @@
  * World units are metres of the road, seen from the side: x from the gate of light (0) to the gate
  * of ash (`road`).
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the road and the gates ───────────────────────────────────
   /** the road's length between the gates (m) */
@@ -223,6 +225,45 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The difficulty levels (kit/difficulty.ts, DESIGN §29) on Zastępy's own knobs — multipliers on REGULAR, which is
+ * all ones (the game as it was, number for number).  What a level never touches is the training: the flow's
+ * multiplier, the trumpet's hold, calm's mending and shields, a passed Cisza's walls and gold, the blind block's
+ * pay, the blocks themselves; nor the host the player built (the gate's beam, the cards, the pillar, the trumpet).
+ *
+ * The shared scale is bent for a lane battler, where the numbers compound: stronger demons that also come more
+ * often meet a host that reaches the gate of ash later, so its surges and the waves that grow with the battle's
+ * length pile up — at SCALE's own numbers (foe ×1.4 / ×2, waves ×1.25 / ×1.5) a focused player who answers every
+ * wave lost the first battle at Hardcore and the campaign stalled (5 battles in four 10-minute sessions where
+ * REGULAR made 31).  Measured with the session bots (test/arcade-zastepy.test.ts, "levels"): a focused player who
+ * answers the waves reaches about battle 42 / 31 / 26 / 17 in four 10-minute sessions from Na start to Hardcore, a
+ * player without the band and without the counters 35 / 18 / 12 / 8.
+ *   foe      the demons' hp and damage (the bosses, their specials and the embers of the gate of ash too)
+ *   ash      the gate of ash's walls (only Na start's falls sooner)
+ *   waves    how often the waves come (their gap ÷ this)
+ *   count    how big the cracking gate's surges are (×)
+ *   speed    the demons' walk and the pace of their strikes — SCALE.speed bent to half its step
+ *   walls    the gate of light's walls — SCALE.self, a little gentler at Hardcore
+ *   grace    a withdrawal's stronger walls (×) — the help a lost battle gives; none at Hardcore
+ *   light    the light a battle starts with (×; at Hardcore still a strażnik's price: the first card is never a wait)
+ *   lift     the answering card lifts and glows when its shade comes (a hint; Hardcore reads the wave's icons alone)
+ *   reward   the gold a won battle, its stars and a beaten demon pay — SCALE.reward
+ */
+export interface ZastepyLevel {
+  foe: number; ash: number; waves: number; count: number; speed: number; walls: number;
+  grace: number; light: number; lift: boolean; reward: number;
+}
+
+export const LEVELS: Readonly<Record<Difficulty, ZastepyLevel>> = {
+  start: { foe: 0.6, ash: 0.8, waves: 0.8, count: 0.8, speed: 0.85, walls: 1.5, grace: 1.5, light: 1.5, lift: true, reward: 0.9 },
+  regular: { foe: 1, ash: 1, waves: 1, count: 1, speed: 1, walls: 1, grace: 1, light: 1, lift: true, reward: 1 },
+  advanced: { foe: 1.2, ash: 1, waves: 1.05, count: 1.2, speed: 1.05, walls: 0.85, grace: 0.6, light: 0.8, lift: true, reward: 1.15 },
+  hardcore: { foe: 1.4, ash: 1, waves: 1.1, count: 1.4, speed: 1.1, walls: 0.75, grace: 0, light: 0.5, lift: false, reward: 1.3 },
+};
+
+/** A level's knobs (an unknown value: REGULAR). */
+export const levelKnobs = (d: Difficulty | undefined): ZastepyLevel => LEVELS[d ?? 'regular'] ?? LEVELS.regular;
 
 /** The host's units, in the cards' order (keys 1–7). */
 export const HOST_IDS = ['straznik', 'lucznik', 'tarczownik', 'wlocznik', 'jezdziec', 'serafin', 'archaniol'] as const;

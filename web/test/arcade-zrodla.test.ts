@@ -16,6 +16,7 @@ import type { ZrodlaView } from '../src/arcade/zrodla/render';
 import { bestOf, freshProgress, migrate, recordValley, type ZrodlaProgress } from '../src/arcade/zrodla/meta';
 import { RULES, cellSecOf, countdownOf, goalOf, gridOf, isGarden, paceOf, starsFor } from '../src/arcade/zrodla/rules';
 import { ZrodlaSim, planBlocks, type ZrodlaEvent } from '../src/arcade/zrodla/sim';
+import { ROUND_SEC, roundFor } from '../src/arcade/zrodla/talk';
 import { catalogProblems, LANGS } from '../src/i18n';
 import mod, { howto } from '../src/arcade/zrodla/index';
 
@@ -1101,6 +1102,114 @@ describe('Źródła at 15–30 minutes', () => {
       const r = sim.result();
       expect(r.highlights.length).toBeLessThanOrEqual(10);
       for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});
+
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+
+describe('Źródła at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the end: push/rest pairs at their design lengths, ending on a Sela', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, rng(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('keeps the pool\'s turn up to 30 minutes and the ten-minute rule past it', () => {
+    for (const sec of [40, 180, 600, 1800]) expect(roundFor(sec)).toBe(0);
+    for (const sec of [2700, 3600]) expect(roundFor(sec)).toBe(ROUND_SEC);
+  });
+
+  it('walks a whole 60-min session: valleys keep coming past the last station, bounded, a short summary, Kumka not looping', () => {
+    for (const progress of [freshProgress(), returning({ valley: 55 }), returning({ valley: 400 })]) {
+      const name = `valley ${progress.valley}`;
+      const sim = newSim({ progress, plannedSec: 3600, seed: 8 });
+      sim.start();
+      let evs = 0, valleys = 0, lastSpace = -1, maxSegs = 0, maxQueue = 0, maxAhead = 0, soonest = Infinity, lastLine: unknown = null;
+      const heard = new Map<string, number>();
+      const quarters = [0, 0, 0, 0];
+      const dt = 0.1;
+      for (let t = 0; t < 3600 + 1e-9; t += dt) {
+        if (t - lastSpace >= 0.5) { lastSpace = t; sim.space(); }
+        sim.update(dt, sim.restBlock ? resting() : focusing(), t + dt);
+        for (const e of sim.take()) { evs++; if (e.type === 'valley') valleys++; }
+        maxSegs = Math.max(maxSegs, sim.segs.length);
+        maxQueue = Math.max(maxQueue, sim.queue.length);
+        maxAhead = Math.max(maxAhead, sim.ahead.length);
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          const was = heard.get(line.text);
+          if (was !== undefined) soonest = Math.min(soonest, t - was);
+          heard.set(line.text, t);
+          quarters[Math.min(3, Math.floor(t / 900))]++;
+        }
+        lastLine = line;
+      }
+      expect(sim.ended, name).toBe(true);
+      expect(evs, name).toBeGreaterThan(1000);
+      expect(valleys, name).toBeGreaterThan(80);
+      if (progress.valley === 0) expect(sim.valleysWon, name).toBeGreaterThan(16);
+      expect(maxSegs, name).toBeLessThan(200);
+      expect(maxQueue, name).toBeLessThan(10);
+      expect(maxAhead, name).toBeLessThan(200);
+      expect(sim.trace.samples.length, name).toBeLessThan(400);
+      // Kumka talks all hour, never a line twice within ten minutes
+      for (const q of quarters) expect(q, name).toBeGreaterThan(10);
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      expect(sim.talk.said.length, name).toBeLessThan(1000);
+      expect(Number.isFinite(sim.score), name).toBe(true);
+      const r = sim.result();
+      expect(r.score, name).toBeLessThan(10_000_000);
+      expect(r.highlights.length, name).toBeLessThanOrEqual(10);
+      for (const [, v] of r.stats) expect(v.length, name).toBeLessThanOrEqual(14);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s, name).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('the whole game runs 60 minutes on the runner\'s clock (Space every half second, drawn every 2 s) and settles; the hints stay few', () => {
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+    const original = proto.getContext;
+    proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); };
+    try {
+      const insets = { top: 48, right: 0, bottom: 0, left: 0 };
+      const env: GameEnv<ZrodlaProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: freshProgress(), rng: rng(5), day: '2026-11-27', daySeed: 7, plannedSec: 3600, tool: 'fnirs', simulated: true,
+        reducedMotion: false, haptics: false, tuning: TUNING, hint: () => undefined, hudTop: () => insets.top, insets: () => insets, touch: true,
+      };
+      const game = mod.create(env);
+      game.resize(390, 844, 1);
+      game.start();
+      const inner = game as unknown as { sim: ZrodlaSim; later: unknown[] };
+      const sim = inner.sim;
+      let k = 0, most = 0;
+      const dt = 0.1;
+      for (let t = dt; t < 3604; t += dt) {
+        game.update(dt, sim.restBlock ? resting() : focusing(), t);
+        if (++k % 5 === 0) { game.key!(' ', true); game.key!(' ', false); }
+        if (k % 20 === 0) { game.draw(); drawn.length = 0; }
+        most = Math.max(most, inner.later.length);
+      }
+      expect(sim.ended).toBe(true);
+      expect(sim.valleysWon).toBeGreaterThan(8);
+      expect(most).toBeLessThan(12);
+      expect(game.canStop()).toBe(true);
+      const r = game.result();
+      expect(r.score).toBeGreaterThan(0);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    } finally {
+      proto.getContext = original;
     }
   });
 });

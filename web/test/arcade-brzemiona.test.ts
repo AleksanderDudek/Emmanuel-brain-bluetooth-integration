@@ -12,7 +12,8 @@ import { DAILY, WAROWNIA_TOPICS, themeTopics, warowniaTopics } from '../src/arca
 import { ownTargets } from '../src/arcade/brzemiona/render';
 import { WAROWNIE } from '../src/arcade/kit/warownie';
 import { RULES, WindowMean, depthFor, needFor, readTime, restTargetFor, turnRate } from '../src/arcade/brzemiona/rules';
-import { BrzSim, pageOf, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/brzemiona/sim';
+import { BrzSim, finaleFor, pageOf, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/brzemiona/sim';
+import { Talk } from '../src/arcade/brzemiona/talk';
 import { BREATH_PRESETS, breathCycle } from '../src/arcade/kit/breath';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -1337,5 +1338,122 @@ describe('the own way’s picture at every size (round 16, layout.ts)', () => {
         expect(inFig, `${tag} smoke in the player at ${u.toFixed(2)}`).toBe(false);
       }
     }
+  });
+});
+
+describe('45–60 minutes (round 24)', () => {
+  /** The average player of "the pace" (the kit's FocusInput, a rise of `amp` % in a push, noise and the Mayer wave), with
+   *  every narrator line and when it came, and every burden carried. */
+  const hour = (planned: number, way: 'others' | 'own', amp = 2, seed = 1) => {
+    const sim = later({ planned, seed, progress: { way } });
+    const fi = new FocusInput(TUNING);
+    const rnd = mulberry32(seed * 7 + 1);
+    let act = 0, noise = 0, prev: unknown = null, most = 0;
+    const lines: [number, string][] = [];
+    const carried: number[] = [];
+    drive(sim, planned + 5, (tt, s) => {
+      act += ((s.pushBlock ? amp : 0) - act) * (1 - Math.exp(-STEP / 4));
+      noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+      return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+    }, { t: 0 }, tt => {
+      const evs = sim.take();
+      most = Math.max(most, evs.length);
+      for (const e of evs) if (e.type === 'carried') carried.push(sim.t);
+      const l = sim.talk.line;
+      if (l && l !== prev) lines.push([tt, l.text]);
+      prev = l;
+      reader(sim)();
+    });
+    return { sim, lines, carried, most };
+  };
+  /** The shortest time between two showings of the same line (Infinity: none came twice). */
+  const repeatGap = (lines: [number, string][]): number => {
+    const at = new Map<string, number>();
+    let gap = Infinity;
+    for (const [t0, s] of lines) { const a = at.get(s); if (a !== undefined) gap = Math.min(gap, t0 - a); at.set(s, t0); }
+    return gap;
+  };
+
+  it('the plan deepens as 30 minutes does: three circles a burden, rests of ~30 s, the full need, the finale in the last 16 s', () => {
+    const p = freshProgress();
+    for (const planned of [2700, 3600]) {
+      expect(depthFor(planned)).toBe(3);
+      expect(restTargetFor(planned)).toBeCloseTo(restTargetFor(1800), 9);
+      expect(restOf(p, planned).cycles).toBe(restOf(p, 1800).cycles);
+      expect(needFor(planned)).toBe(RULES.needSec);
+      expect(finaleFor(planned)).toBe(RULES.finale.long);
+    }
+  });
+
+  it('a full hour, both ways: burdens carried all through it (the last near the end), blocks alternate, a clean result', () => {
+    const want: Record<string, [number, number]> = { 'others 2700': [12, 15], 'others 3600': [16, 20], 'own 2700': [16, 21], 'own 3600': [22, 27] };
+    for (const way of ['others', 'own'] as const) {
+      for (const planned of [2700, 3600]) {
+        const name = `${way} ${planned}`;
+        const { sim, carried, most } = hour(planned, way);
+        expect(sim.phase, name).toBe('done');
+        const [lo, hi] = want[name];
+        expect(sim.carriedNow, name).toBeGreaterThanOrEqual(lo);
+        expect(sim.carriedNow, name).toBeLessThanOrEqual(hi);
+        // spread over the hour, the last one near its end
+        expect(carried.at(-1)!, name).toBeGreaterThan(planned * 0.9);
+        expect(carried.filter(t => t < planned / 2).length, name).toBeLessThanOrEqual(Math.ceil(sim.carriedNow * 0.6));
+        // blocks alternate and stay a bounded list (a push and its rest a circle: ~2 a minute at most)
+        sim.blocks.forEach((b, i) => { if (i) expect(b.kind).not.toBe(sim.blocks[i - 1].kind); });
+        expect(sim.blocks.length, name).toBeLessThan(planned / 30);
+        expect(most, name).toBeLessThan(12);
+        for (const v of [sim.x, sim.shown, sim.glow, sim.gold, sim.waiting]) expect(Number.isFinite(v)).toBe(true);
+        // the own way: one small light at the foot of the Cross per burden given — three rows of twelve at the most
+        if (way === 'own') expect(ownTargets(sim, sim.x).lights, name).toBeLessThanOrEqual(36);
+        const a = sim.result(), b = sim.result();
+        expect(a).toEqual(b);
+        expect(a.score).toBe(sim.carriedNow);
+        expect(String(a.score).length).toBeLessThanOrEqual(3);
+        expect(a.stats.length).toBeLessThanOrEqual(6);
+        for (const [k, v] of a.stats) expect(`${k} ${v}`, name).not.toMatch(/undefined|NaN|Infinity/);
+        expect(a.highlights.length).toBeGreaterThan(0);
+        expect(a.highlights.length).toBeLessThanOrEqual(5);
+        for (const h of a.highlights) expect(h.length, name).toBeLessThan(140);
+      }
+    }
+  });
+
+  it('the narrator over 30 minutes: a line comes back only after 10 minutes (till then the moment passes quietly)', () => {
+    for (const way of ['others', 'own'] as const) {
+      for (const planned of [2700, 3600]) {
+        const { sim, lines } = hour(planned, way);
+        expect(repeatGap(lines), `${way} ${planned}`).toBeGreaterThanOrEqual(RULES.talkFresh - 0.5);
+        // still a voice through the hour: lines in its last quarter too
+        expect(lines.filter(([t0]) => t0 > planned * 0.75).length, `${way} ${planned}`).toBeGreaterThan(2);
+        expect(sim.talk.said.length).toBeLessThan(planned / 20);
+      }
+    }
+    // 30 minutes and less keep the narrator as it was (no wait): the sims build their Talk without one
+    for (const planned of [180, 600, 1800]) expect((later({ planned }).talk as unknown as { fresh: number }).fresh).toBe(0);
+    expect((later({ planned: 2700 }).talk as unknown as { fresh: number }).fresh).toBe(RULES.talkFresh);
+    // the rule itself: a moment asked every 60 s for 30 minutes says each of its lines at most once in 10 minutes
+    const lines3 = ['a', 'b', 'c'];
+    const said: [number, string][] = [];
+    const talk = new Talk(mulberry32(3), () => lines3, 600);
+    let prev: unknown = null;
+    for (let t0 = 0; t0 < 1800; t0 += 0.5) {
+      if (t0 % 60 === 0) talk.ask('rest', 2, 10);
+      talk.update(0.5, t0, false);
+      if (talk.line && talk.line !== prev) said.push([t0, talk.line.text]);
+      prev = talk.line;
+    }
+    expect(repeatGap(said)).toBeGreaterThanOrEqual(600);
+    expect(said.length).toBeGreaterThanOrEqual(8);
+    // without the wait (every session of 30 minutes and less): the same moment repeats at its own pace, as before
+    const plain = new Talk(mulberry32(3), () => lines3);
+    const said0: [number, string][] = [];
+    prev = null;
+    for (let t0 = 0; t0 < 1800; t0 += 0.5) {
+      if (t0 % 60 === 0) plain.ask('rest', 2, 10);
+      plain.update(0.5, t0, false);
+      if (plain.line && plain.line !== prev) said0.push([t0, plain.line.text]);
+      prev = plain.line;
+    }
+    expect(said0.length).toBe(30);
   });
 });

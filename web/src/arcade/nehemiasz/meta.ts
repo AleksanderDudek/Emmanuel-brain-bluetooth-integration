@@ -7,7 +7,10 @@
  *   the city       the buildings inside the wall (kept from gate to gate), the stores, the people,
  *                  their strength, the decrees in force
  *   the meta       stars per gate, the star bank and the king's letters bought with it, the chronicle
- *   records        cubits per session length, totals and counters
+ *   records        cubits per session length and difficulty level (kit/difficulty.ts: REGULAR keeps the old keys),
+ *                  totals and counters
+ *   the level      the difficulty chosen in the lobby (absent in an older save: REGULAR, the game as it was); the
+ *                  campaign is one for every level — a player may switch at any dawn
  *
  * Version 1.  The placeholder module saved `{ sessions: n }`; such a save (or anything without
  * `ver: 1`) keeps its session count and starts the campaign fresh.  A v1 save with fields of a wrong
@@ -17,6 +20,7 @@ import {
   CITY_START, COSTS, GATES, GATE_SEG, HOUSE_IDS, MAX_LEVEL, PERKS, SEGS, SLOTS, STRETCH_IDS, gateDays, perkCost, tierCubits,
   type Cost, type DecreeId, type Kind, type PerkId,
 } from './content';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 import { RULES } from './rules';
 
 export interface WallSeg {
@@ -33,6 +37,8 @@ export type TowerKind = '' | 'far' | 'quick';
 export interface NehProgress {
   ver: 1;
   sessions: number;
+  /** the difficulty level (kit/difficulty.ts) */
+  difficulty: Difficulty;
   /** nights begun, all time: every 4th is moonless from the 3rd session */
   pushes: number;
   // the campaign
@@ -89,7 +95,7 @@ const seg0 = (): WallSeg => ({ tier: 0, done: 0, prog: 0, hp: 0 });
 
 export function freshProgress(): NehProgress {
   const p: NehProgress = {
-    ver: 1, sessions: 0, pushes: 0,
+    ver: 1, sessions: 0, pushes: 0, difficulty: 'regular',
     year: 0, day: 1, gate: 0, gateDay: 0,
     wall: SEGS.map(seg0), stretch: {}, towerKind: {}, breached: false,
     city: { ...CITY_START }, stone: RULES.start.stone, timber: RULES.start.timber, bread: RULES.start.bread,
@@ -113,7 +119,7 @@ const clampInt = (v: unknown, lo: number, hi: number, d: number): number => Math
 export function migrate(p: NehProgress): NehProgress {
   const raw = p as unknown as Record<string, unknown>;
   if (raw.ver !== 1) {
-    const keep = { sessions: Math.max(0, Math.floor(num(raw.sessions))), pushes: Math.max(0, Math.floor(num(raw.pushes))) };
+    const keep = { sessions: Math.max(0, Math.floor(num(raw.sessions))), pushes: Math.max(0, Math.floor(num(raw.pushes))), difficulty: difficultyOf(raw.difficulty) };
     for (const k of Object.keys(raw)) delete raw[k];
     Object.assign(p, freshProgress(), keep);
     return p;
@@ -125,6 +131,7 @@ export function migrate(p: NehProgress): NehProgress {
     if (Array.isArray(v) && !Array.isArray(raw[k])) raw[k] = JSON.parse(JSON.stringify(v));
     if (isObj(v) && !isObj(raw[k])) raw[k] = JSON.parse(JSON.stringify(v));
   }
+  p.difficulty = difficultyOf(raw.difficulty);
   p.year = clampInt(p.year, 0, 99, 0);
   p.gate = clampInt(p.gate, 0, GATES.length - 1, 0);
   p.day = clampInt(p.day, 1, 52, 1);
@@ -279,17 +286,24 @@ export const decreeOn = (p: NehProgress, id: DecreeId): boolean => (p.decrees[id
 // ── records ──────────────────────────────────────────────────────
 export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
 
-/** The record for a session length (null: none yet). */
+/** A record's key: the session length at the level chosen (REGULAR: the length alone, as before levels came). */
+export const bestKey = (p: NehProgress, plannedSec: number): string => recordKey(lenKey(plannedSec), difficultyOf(p.difficulty));
+
+/** Whether a record's key belongs to a level (REGULAR's have no "@level"). */
+const ofLevel = (key: string, d: Difficulty): boolean => (d === 'regular' ? !key.includes('@') : key.endsWith(`@${d}`));
+
+/** The record for a session length at the level chosen (null: none yet). */
 export function bestFor(p: NehProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[bestKey(p, plannedSec)];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline for the length last played, else the best of any length — at the level chosen (null: never played). */
 export function bestOf(p: NehProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = difficultyOf(p.difficulty);
+  const all = Object.entries(p.best).filter(([k, v]) => ofLevel(k, d) && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }
 

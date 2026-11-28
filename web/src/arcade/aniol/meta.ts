@@ -3,12 +3,14 @@
  * (all feathers ever — it widens the pool of gifts and makes the room cosier), the wallet of feathers
  * and the upgrade tree they buy, the campaign of dreams (each session is the next night; three nights
  * a dream, a boss at each night's end, one to three stars a night), the coach marks already seen,
- * the records per session length, the bosses banished and the day's gift.  No DOM, no randomness.
+ * the records per session length (and difficulty level, kit/difficulty.ts — the campaign is one for every level),
+ * the bosses banished and the day's gift.  No DOM, no randomness.
  *
  * Version 2 (2026-11-07) added the wallet, the tree, the dreams and the coach marks.  A version-1
  * save (it carries `v: 1`) keeps its records, sessions, feathers and counters, and starts the
  * campaign at the first dream with a welcome of feathers in the wallet.
  */
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 import { CHAPTERS, GIFTS, ROOM, UPS, type Chapter, type Gift, type RoomItem, type UpId } from './content';
 import { RULES } from './rules';
 
@@ -43,6 +45,8 @@ export interface AniolProgress {
   seen: string[];
   /** the day's gift: the day it was given */
   giftDay: string;
+  /** the difficulty level (kit/difficulty.ts; absent in an older save: REGULAR); records are kept per level */
+  difficulty: Difficulty;
 }
 
 const noUps = (): Record<UpId, number> => ({ reach: 0, perfect: 0, aura: 0, flame: 0, sen: 0, lull: 0 });
@@ -51,6 +55,7 @@ export function freshProgress(): AniolProgress {
   return {
     ver: 2, sessions: 0, total: 0, feathers: 0, wallet: 0, up: noUps(), pushes: 0, best: {}, lastLen: 0,
     bestCombo: 0, bestLevel: 0, koszmary: 0, flames: 0, calmNights: 0, perfects: 0, night: 0, stars: [], seen: [], giftDay: '',
+    difficulty: 'regular',
   };
 }
 
@@ -74,6 +79,7 @@ export function migrate(p: AniolProgress): AniolProgress {
     sessions: whole(raw.sessions), total: whole(raw.total), feathers: whole(raw.feathers), pushes: whole(raw.pushes), best,
     lastLen: whole(raw.lastLen), bestCombo: whole(raw.bestCombo), bestLevel: whole(raw.bestLevel), koszmary: whole(raw.koszmary),
     flames: whole(raw.flames), calmNights: whole(raw.calmNights), giftDay: typeof raw.giftDay === 'string' ? raw.giftDay : '',
+    difficulty: difficultyOf(raw.difficulty),
   };
   if (old) {
     for (const k of Object.keys(raw)) if (!(k in fresh)) delete raw[k];
@@ -169,16 +175,23 @@ export function upShare(id: UpId, lvl: number): number {
 // ── records ──────────────────────────────────────────────────────
 export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
 
-/** The record for a session length (null: none yet). */
+/** A record's key: the session length at the level chosen (REGULAR: the length alone, as before levels came). */
+export const bestKey = (p: AniolProgress, plannedSec: number): string => recordKey(lenKey(plannedSec), difficultyOf(p.difficulty));
+
+/** Whether a record's key belongs to a level (REGULAR's have no "@level"). */
+const ofLevel = (key: string, d: Difficulty): boolean => (d === 'regular' ? !key.includes('@') : key.endsWith(`@${d}`));
+
+/** The record for a session length at the level chosen (null: none yet). */
 export function bestFor(p: AniolProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[bestKey(p, plannedSec)];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline for the length last played, else the best of any length — at the level chosen (null: never played). */
 export function bestOf(p: AniolProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = difficultyOf(p.difficulty);
+  const all = Object.entries(p.best).filter(([k, v]) => ofLevel(k, d) && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }

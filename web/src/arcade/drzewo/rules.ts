@@ -92,6 +92,9 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 2.6,
+  /** sessions over talkFrom s (45 and 60 minutes): a narrator's line comes back only after talkFresh s (round 24) */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
   /** the picker closes itself after this long untouched (s) */
   pickerIdle: 20,
@@ -131,7 +134,11 @@ const TABLE: readonly Row[] = [
   { upTo: 1049, cue: 9, layers: 5, roots: 3, trunk: 3, steps: 1, fruits: 9, rest: 26, extra: 1 },
   { upTo: 1349, cue: 10, layers: 5, roots: 4, trunk: 3, steps: 2, fruits: 9, rest: 20, extra: 1 },
   { upTo: 1649, cue: 10, layers: 6, roots: 5, trunk: 3, steps: 2, fruits: 9, rest: 26, extra: 1 },
-  { upTo: Infinity, cue: 10, layers: 6, roots: 6, trunk: 3, steps: 2, fruits: 9, rest: 30, extra: 1 },
+  { upTo: 2249, cue: 10, layers: 6, roots: 6, trunk: 3, steps: 2, fruits: 9, rest: 30, extra: 1 },
+  // round 24 (45 and 60 minutes): the stations' needs reach `needMax` from ~40 minutes, so nine fruits alone ended the
+  // planned arc at 65 % of an hour — the plan is paced for more fruit (the nine, then again), never at a rest's cost
+  { upTo: 3149, cue: 10, layers: 6, roots: 6, trunk: 3, steps: 2, fruits: 14, rest: 30, extra: 1 },
+  { upTo: Infinity, cue: 10, layers: 6, roots: 6, trunk: 3, steps: 2, fruits: 18, rest: 30, extra: 1 },
 ];
 
 export interface Plan {
@@ -173,6 +180,21 @@ export const rowFor = (plannedSec: number): Row => TABLE.find(r => plannedSec <=
 export function planFor(plannedSec: number, pattern: BreathPattern, eeg = false, rhythm?: { restAfter?: number; restBreaths?: number | null }): Plan {
   const T = Math.max(10, plannedSec);
   const r = rowFor(T);
+  if (r.fruits <= FRUITS_ONCE) return planRow(T, r, pattern, eeg, rhythm);
+  // a long session's row paces more than the nine — as many as keep the player's rest whole (a long rest dial would be
+  // cut by the extra stations' rests) and let each fruit still ask for real focus (never a need held up at its least)
+  const base = planRow(T, { ...r, fruits: FRUITS_ONCE }, pattern, eeg, rhythm);
+  for (let f = r.fruits; f > FRUITS_ONCE; f--) {
+    const p = planRow(T, { ...r, fruits: f }, pattern, eeg, rhythm);
+    if (p.restCycles >= base.restCycles && p.needFruit > RULES.needMin) return p;
+  }
+  return base;
+}
+
+/** The nine fruits of the Spirit: the planned arc of a session up to 37 minutes. */
+const FRUITS_ONCE = 9;
+
+function planRow(T: number, r: Row, pattern: BreathPattern, eeg: boolean, rhythm?: { restAfter?: number; restBreaths?: number | null }): Plan {
   const R = RULES;
   const lead = eeg ? R.leadIn.eeg : R.leadIn.fnirs;
   const N = Math.max(1, Math.round(rhythm?.restAfter ?? 1));

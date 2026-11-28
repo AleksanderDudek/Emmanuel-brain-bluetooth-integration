@@ -12,7 +12,9 @@
  * freed (Ćma reacts first: `c.<id>`), when joining, when their power fires, now and then on the road
  * (a quip), when their bond reaches a level, and Babcia when her umbrella takes a hit; Ćma has new
  * lines for the clock tower, its floors and its dawn, a mission done and a chest.  Each moment has
- * several variants and a session never repeats one: when a moment's variants are spent, it keeps quiet.
+ * several variants and a session never repeats one: when a moment's variants are spent, it keeps quiet.  A session
+ * over half an hour (45 and 60 minutes, DESIGN §28) takes §17.1's rule instead: a variant comes round again ten
+ * minutes after it was said, so Ćma and the companions still talk in the second half hour.
  *
  * Pure (no DOM, no canvas): the sim owns it, the view draws `current` over its speaker.
  */
@@ -62,6 +64,10 @@ export function speakerOf(m: Moment): Speaker {
   return MATES.includes(id) ? id : 'cma';
 }
 
+/** A variant said comes round again only this long after (s) in a session over half an hour; 0: never in a session. */
+export const ROUND_SEC = 600;
+export const roundFor = (plannedSec: number): number => (plannedSec > 1800 ? ROUND_SEC : 0);
+
 export interface Line { moment: Moment; who: Speaker; text: string; t: number; dur: number }
 
 /** A line's time on screen: 2–4 s by its length. */
@@ -70,14 +76,15 @@ export const lineSec = (text: string): number => Math.max(2, Math.min(4, 1.4 + t
 export class Companion {
   current: Line | null = null;
   private readonly queue: { moment: Moment; prio: number; until: number }[] = [];
-  private readonly used = new Set<string>();
+  /** each variant said, and when (the companion's clock) */
+  private readonly used = new Map<string, number>();
   private clock = 0;
   /** seconds since the last line ended */
   private since = 99;
   /** lines spoken this session (for the tests and the summary) */
   readonly said: Line[] = [];
 
-  constructor(private readonly rng: () => number) {}
+  constructor(private readonly rng: () => number, private readonly roundSec = 0) {}
 
   /** Seconds since the last line ended (0 while one is on screen). */
   get quietFor(): number { return this.current ? 0 : this.since; }
@@ -126,14 +133,17 @@ export class Companion {
     }
   }
 
-  /** An unused variant of the moment, or null when all were said this session. */
+  /** An unused variant of the moment (or one said `roundSec` ago), or null when all were said. */
   private pick(m: Moment): string | null {
     const n = SAY[m];
     const free: number[] = [];
-    for (let i = 1; i <= n; i++) if (!this.used.has(`${m}.${i}`)) free.push(i);
+    for (let i = 1; i <= n; i++) {
+      const at = this.used.get(`${m}.${i}`);
+      if (at === undefined || (this.roundSec > 0 && this.clock - at >= this.roundSec)) free.push(i);
+    }
     if (!free.length) return null;
     const i = free[Math.floor(this.rng() * free.length) % free.length];
-    this.used.add(`${m}.${i}`);
+    this.used.set(`${m}.${i}`, this.clock);
     return t(`say.${m}.${i}` as Key);
   }
 }

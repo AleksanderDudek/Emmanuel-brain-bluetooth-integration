@@ -30,7 +30,7 @@ import {
 } from './meta';
 import { RULES, gradeAt, needleSpeed, shapeStars, starsOf, type FireGrade } from './rules';
 import { Pot, RINGS, type Target } from './shape';
-import { Talk } from './talk';
+import { roundFor, Talk } from './talk';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -279,7 +279,7 @@ export class GlinaSim {
     this.bestBefore = p.best;
     this.openBefore = openCount(p);
     this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(LINES, init.rng, roundFor(init.plannedSec));
     this.steady = this.base;
     this.brush = { glaze: p.glazes[0] ?? 'biel', pattern: p.patterns[0] ?? 'pas' };
     if (init.day) p.lastDay = init.day;

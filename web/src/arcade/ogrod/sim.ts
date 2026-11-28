@@ -258,7 +258,7 @@ export class GardenSim {
       });
     });
     this.block = P.blocks[0];
-    this.talk = new Talk(o.rng);
+    this.talk = new Talk(o.rng, undefined, o.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0);
     this.bestBefore = bestOf(this.p);
     this.session = this.p.sessions + 1;
     this.before = cleanWeight(this.view.before ?? this.p.prep.before);

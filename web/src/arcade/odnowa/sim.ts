@@ -1262,7 +1262,8 @@ export class OdnowaSim {
     else if (this.bestBefore !== null && this.atp > 0 && this.bestBefore - this.atp <= Math.max(30, this.bestBefore * 0.25)) {
       add(1, t('hl.toBest', { atp: atpText(this.bestBefore - this.atp) }));
     }
-    for (const tr of this.upsNow) add(2, t(`hl.up.${tr}` as 'hl.up.mito'));
+    // each kind of upgrade once (round 24: an hour's fifty stages give the same upgrade more than once)
+    for (const tr of new Set(this.upsNow)) add(2, t(`hl.up.${tr}` as 'hl.up.mito'));
     if (this.cardsNow.length) add(3, t('hl.cards', { n: this.cardsNow.length }));
     if (this.goldSec >= 5) add(4, t('hl.gold', { n: Math.round(this.goldSec) }));
     if (this.partsNow > 0) add(5, t('hl.recycled', { n: this.partsNow }));

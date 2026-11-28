@@ -375,7 +375,7 @@ export class HealthView {
     return {
       scene, g, deep: sim.deep, light: sim.blind ? RULES.baseLight : sim.light, growing: sim.growing && scene === sim.scene && !sim.blind,
       time: this.time, after: sim.afterSec, breath: sim.restBlock ? sim.breath.k : 0.5, blind: sim.blind,
-      reduced: this.o.reducedMotion, px, look: sim.p.look,
+      reduced: this.o.reducedMotion, px, look: sim.p.look, arc: sim.arc, session: sim.sessionGrowth,
     };
   }
 

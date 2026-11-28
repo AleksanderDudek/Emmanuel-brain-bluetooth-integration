@@ -154,7 +154,7 @@ export class JestemSim {
   readonly plannedSec: number;
   /** the finale's length: nominal until it begins, then what the session has left */
   finaleSec: number;
-  /** the cells the window is cut into (the player's pace × the session's minutes of push and rest, 48…144) */
+  /** the cells the window is cut into (the player's pace × the session's minutes of push and rest, 10…432: `planCells`) */
   readonly cellsWanted: number;
   readonly lead: number;
   private readonly rng: () => number;
@@ -269,7 +269,7 @@ export class JestemSim {
     this.day = init.day;
     this.lead = init.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.judge = RoundJudge.from(init.tuning);
-    this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsLongMax
+    this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsHourMax
       ? Math.round(init.cells) : planCells(this.p.pace, playSecOf(init.plannedSec, this.session === 1));
     this.talk = new Talk(LINES, init.rng);
     this.pieces = pieceMean(init.rhythm?.focus);

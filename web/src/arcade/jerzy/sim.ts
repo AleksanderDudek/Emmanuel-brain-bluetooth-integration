@@ -26,6 +26,8 @@
  * No DOM: the view and the sound read the state and the event queue (`take()`).
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -38,14 +40,24 @@ import {
   type GearId, type ItemId, type Pattern, type TreasureId, type WeaponId,
 } from './content';
 import { t, unit, scales as scalesText } from './i18n';
-import { RULES, span } from './rules';
+import { RULES, levelKnobs, span, type JerzyLevel } from './rules';
 import {
-  affordable, bestFor, clearFight, earnArmour, earnCompanions, fightOf, findTreasure, forgeLevel, hasArmour, hpOf, lenKey, road,
-  slots, woundKey, woundsOf, type JerzyProgress,
+  affordable, bestFor, bestRunAt, clearFight, dragonHp, earnArmour, earnCompanions, fightOf, findTreasure, forgeLevel, hasArmour, keepRun,
+  lenKey, road, slots, woundKey, woundsOf, type JerzyProgress,
 } from './meta';
 import { Talk } from './talk';
 
 export { RULES } from './rules';
+
+/**
+ * A level's name for the summary's tile: the long ones get soft hyphens, so a narrow tile (two to a row on a phone,
+ * 30 px type) breaks "Zaawan-sowany" rather than clipping it.
+ */
+const SOFT: Readonly<Record<string, string>> = { Zaawansowany: 'Zaawan\u00adsowany', Fortgeschritten: 'Fort\u00adge\u00adschrit\u00adten' };
+const levelValue = (d: Difficulty): string => {
+  const n = difficultyName(d);
+  return SOFT[n] ?? n;
+};
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -302,6 +314,9 @@ export interface SimInit {
 export class JerzySim {
   readonly p: JerzyProgress;
   readonly plannedSec: number;
+  /** the session's difficulty level (chosen in the lobby; fixed for the session) and its knobs (rules.ts LEVELS) */
+  readonly difficulty: Difficulty;
+  readonly knobs: JerzyLevel;
   private readonly rng: () => number;
   private readonly judge: RoundJudge;
   readonly contrast = new BlockContrast(4);
@@ -428,6 +443,8 @@ export class JerzySim {
 
   constructor(init: SimInit) {
     const p = (this.p = init.progress);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.knobs = levelKnobs(this.difficulty);
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
@@ -438,7 +455,7 @@ export class JerzySim {
     this.restLead = RULES.restLead[band];
     this.finaleSec = finaleFor(init.plannedSec);
     this.bestBefore = bestFor(p, init.plannedSec);
-    this.bestRunBefore = p.bestRun;
+    this.bestRunBefore = bestRunAt(p, this.difficulty);
     this.bankBefore = p.bank;
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
@@ -499,7 +516,8 @@ export class JerzySim {
       pulseDmg: RULES.pulseDmg + g('tarcza'),
       armour: 1 - GEAR.zbroja.per * g('zbroja'),
       xp: 1 + 0.1 * forgeLevel(p, 'nauka'),
-      hearts: RULES.hearts + forgeLevel(p, 'serce') + arm('helm'),
+      // the level's hearts (+2 / 0 / −1 / −2), never under two
+      hearts: Math.max(2, RULES.hearts + forgeLevel(p, 'serce') + arm('helm') + this.knobs.hearts),
       area: 1 + GEAR.plaszcz.per * g('plaszcz'),
       amount: quiverOf(g('kolczan')),
       crit: RULES.crit + GEAR.pierscien.per * g('pierscien') + 0.05 * arm('karwasz'),
@@ -511,7 +529,7 @@ export class JerzySim {
 
   private makeBoss(land: number, tier: number, damage: number): Boss {
     const spec = DRAGONS[Math.max(0, Math.min(DRAGONS.length - 1, land))];
-    const all = hpOf(spec, tier);
+    const all = dragonHp(spec, tier, this.difficulty);
     const dmg = clamp(damage, 0, all - 1);
     return {
       land, tier, spec, state: 'away', st: 0, dur: 0, x: 0, y: -20, tx: 0, ty: 0, face: 0, air: 1, all, damage: dmg,
@@ -533,8 +551,9 @@ export class JerzySim {
     }
     this.statCache = null;
     return {
-      n, t: 0, scales: 0, level: 1, xp: 0, apples: hasArmour(this.p, 'kosz') ? 2 : 1, items, order, driven: 0,
-      pals, treasures: [], rerolls: RULES.rerolls + forgeLevel(this.p, 'los'), duets: [], dmg: {},
+      // the level's helps: Linda's apples and the reshuffles (none at Hardcore)
+      n, t: 0, scales: 0, level: 1, xp: 0, apples: Math.max(0, (hasArmour(this.p, 'kosz') ? 2 : 1) + this.knobs.revive), items, order, driven: 0,
+      pals, treasures: [], rerolls: Math.max(0, RULES.rerolls + forgeLevel(this.p, 'los') + this.knobs.rerolls), duets: [], dmg: {},
     };
   }
 
@@ -931,7 +950,7 @@ export class JerzySim {
   private hurt(v: number, x: number, y: number): void {
     const k = this.knight;
     if (k.safe > 0 || k.down > 0 || this.tally || !(v > 0)) return;
-    k.hearts = Math.max(0, k.hearts - v * this.stats.armour);
+    k.hearts = Math.max(0, k.hearts - v * this.knobs.hurt * this.stats.armour);
     k.safe = RULES.safe;
     k.hit = 0.25;
     this.emit({ type: 'hurt', x, y });
@@ -981,8 +1000,7 @@ export class JerzySim {
     this.bestRunNow = Math.max(this.bestRunNow, r.scales);
     const before = Math.max(this.bestRunBefore, ...this.runScores);
     this.runScores.push(r.scales);
-    this.p.bestRun = Math.max(this.p.bestRun, r.scales);
-    this.p.bestTime = Math.max(this.p.bestTime, Math.round(r.t));
+    keepRun(this.p, this.difficulty, r.scales, r.t);
     this.tally = {
       t: 0, dur: RULES.tallySec, run: r.n, scales: r.scales, time: r.t, level: r.level,
       best: r.scales > before && before > 0, toBest: Math.max(0, before - r.scales), top: this.topSources(),
@@ -1045,7 +1063,7 @@ export class JerzySim {
   /** The waves: a steady stream that thickens with the run, a ring closing in every half minute, an elite now and then. */
   private director(w: number): void {
     const R = RULES, rt = this.run.t;
-    const rate = Math.min(R.spawnMax, R.spawnBase + R.spawnPerSec * rt) * this.mood;
+    const rate = Math.min(R.spawnMax, R.spawnBase + R.spawnPerSec * rt) * this.mood * this.knobs.count;
     this.spawnAcc += rate * w;
     while (this.spawnAcc >= 1) {
       this.spawnAcc -= 1;
@@ -1056,7 +1074,7 @@ export class JerzySim {
       if (rt >= R.waveFrom && this.waveT >= R.waveSec) {
         this.waveT = 0;
         this.wave++;
-        this.ringWave(Math.round(R.waveBase + rt / R.wavePer));
+        this.ringWave(Math.round((R.waveBase + rt / R.wavePer) * this.knobs.count));
       }
       this.eliteT += w;
       if (rt >= R.eliteFrom && this.eliteT >= R.eliteSec && !this.bossPresent) {
@@ -1095,14 +1113,14 @@ export class JerzySim {
   private spawn(kind: BroodKind, a: number, elite = false, ringK = 1, at?: { x: number; y: number }): Creature | null {
     const spec = BROOD[kind], k = this.knight, R = RULES;
     const grow = (1 + this.run.t / R.hpGrow) * road(this.boss.tier).brood * (1 + 0.06 * this.boss.land);
-    const hp = Math.round(spec.hp * grow * (elite ? R.eliteHp : 1) * 10) / 10;
+    const hp = Math.round(spec.hp * grow * (elite ? R.eliteHp : 1) * this.knobs.brood * 10) / 10;
     // on the edge of sight (a box around the view, one step beyond it), or nearer when they hatch
     const ca = Math.cos(a), sa = Math.sin(a);
     const edge = Math.min((this.viewHW + R.spawnOut) / Math.max(1e-6, Math.abs(ca)), (this.viewHH + R.spawnOut) / Math.max(1e-6, Math.abs(sa)));
     const rr = ringK < 1 ? Math.min(edge, this.ringR) * ringK : edge;
     const c: Creature = {
       id: this.nextId++, kind, spec, x: at ? at.x + ca * 0.5 : k.x + ca * rr, y: at ? at.y + sa * 0.5 : k.y + sa * rr, kx: 0, ky: 0,
-      hp, max: hp, r: spec.r * (elite ? R.eliteR : 1), speed: spec.speed * (0.9 + 0.2 * this.rng()) * (elite ? 0.85 : 1),
+      hp, max: hp, r: spec.r * (elite ? R.eliteR : 1), speed: spec.speed * (0.9 + 0.2 * this.rng()) * (elite ? 0.85 : 1) * this.knobs.speed,
       elite, hit: 0, touchT: 0, spitT: (spec.spit ?? 3) * (0.5 + this.rng()), birdT: -9, hogT: -9, wallT: -9, slow: false, age: 0, hatch: ringK < 1 || !!at,
     };
     this.brood.push(c);
@@ -1140,7 +1158,8 @@ export class JerzySim {
         c.spitT -= w * drowsy;
         if (c.spitT <= 0) {
           c.spitT = c.spec.spit * (0.8 + 0.4 * this.rng());
-          this.balls.push({ id: this.nextId++, x: c.x, y: c.y, vx: (dx / d) * R.ballSpeed, vy: (dy / d) * R.ballSpeed, r: R.ballR, life: R.ballLife });
+          const bs = R.ballSpeed * this.knobs.speed;
+          this.balls.push({ id: this.nextId++, x: c.x, y: c.y, vx: (dx / d) * bs, vy: (dy / d) * bs, r: R.ballR, life: R.ballLife });
           if (!this.p.seen.includes('quench') && this.pushBlock) this.coach('quench', c.x, c.y);
         }
       }
@@ -1255,7 +1274,7 @@ export class JerzySim {
       this.stop = Math.max(this.stop, RULES.stopElite);
       this.coach('chest', c.x, c.y);
     } else {
-      const r = this.rng(), apple = RULES.appleChance * (this.has('jablon') ? 2 : 1);
+      const r = this.rng(), apple = RULES.appleChance * (this.has('jablon') ? 2 : 1) * this.knobs.drops;
       if (r < apple) this.drops.push({ id: this.nextId++, kind: 'apple', x: c.x, y: c.y, t: 0, pulled: false });
       else if (r < apple + RULES.gustChance) this.drops.push({ id: this.nextId++, kind: 'gust', x: c.x, y: c.y, t: 0, pulled: false });
     }
@@ -2411,7 +2430,7 @@ export class JerzySim {
     b.breathQ = 0;
     b.missed = false;
     const bark = this.palLevel('pies') > 0 ? R.dogBark : 0;
-    const dur = R.tele[p] * fast * (this.session === 1 && b.visits <= 1 ? 1.25 : 1) + bark;
+    const dur = (R.tele[p] * fast * (this.session === 1 && b.visits <= 1 ? 1.25 : 1)) / this.knobs.speed + bark;
     if (p === 'breath') {
       b.aim = Math.atan2(k.y - b.y, k.x - b.x);
       this.zone({ kind: 'cone', x: b.x, y: b.y, a: b.aim, len: R.coneLen, w: R.coneHalf, dur: dur + R.breathSec });
@@ -2700,7 +2719,8 @@ export class JerzySim {
     p.sessions = Math.max(p.sessions, this.session);
     p.pushes = Math.max(p.pushes, this.pushesBase + this.pushesBegun);
     p.total += this.score;
-    p.bank += this.score + this.bankBonus;
+    // the level's reward on the treasury (REGULAR: the scales as they are)
+    p.bank += this.knobs.reward === 1 ? this.score + this.bankBonus : Math.round((this.score + this.bankBonus) * this.knobs.reward);
     if (b.damage > 0) p.wounds[woundKey(b.land, b.tier)] = Math.floor(Math.min(b.damage, b.all - 1));
     const slotsBefore = slots(p);
     p.driven += this.drivenNow.length;
@@ -2710,8 +2730,7 @@ export class JerzySim {
     // the run still going counts as a run
     if (!this.tally) {
       p.runs += this.runs + 1;
-      p.bestRun = Math.max(p.bestRun, this.run.scales);
-      p.bestTime = Math.max(p.bestTime, Math.round(this.run.t));
+      keepRun(p, this.difficulty, this.run.scales, this.run.t);
     } else p.runs += this.runs;
     p.bestLevel = Math.max(p.bestLevel, this.topLevel, this.run.level);
     p.lastLen = this.plannedSec;
@@ -2790,15 +2809,19 @@ export class JerzySim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      // records per level: REGULAR keeps the old keys, a level past it its own ("300@hardcore", runs2)
+      const key = lenKey(this.plannedSec, this.difficulty);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
       p.bestLevel = Math.max(p.bestLevel, this.topLevel, this.run.level);
-      p.bestRun = Math.max(p.bestRun, this.run.scales, this.bestRunNow);
+      if (this.difficulty === 'regular') p.bestRun = Math.max(p.bestRun, this.run.scales, this.bestRunNow);
+      else keepRun(p, this.difficulty, Math.max(this.run.scales, this.bestRunNow), 0);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const dl = this.dragonLeft;
     const top = this.topSources(this.sessionDmg, 1)[0];
     const stats: [string, string][] = [
+      // a level past REGULAR is named first (REGULAR's summary stays as it was)
+      ...(this.difficulty === 'regular' ? [] : [[t('stat.difficulty'), levelValue(this.difficulty)] as [string, string]]),
       [t('stat.runs'), String(this.runs + (this.tally ? 0 : 1))],
       [t('stat.bestRun'), scalesText(this.bestRunSoFar)],
       [t('stat.level'), String(Math.max(this.topLevel, this.run.level))],
@@ -2807,7 +2830,7 @@ export class JerzySim {
       [t('stat.dragonLeft', { name: cap(dragonName(this.boss.spec.kind)), road: roadName(this.boss.tier) }), t('pct', { n: Math.round(((dl.all - dl.left) / Math.max(1, dl.all)) * 100) })],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
-    if (top) stats.splice(5, 0, [t('stat.top'), this.sourceName(top.src)]);
+    if (top) stats.splice(this.difficulty === 'regular' ? 5 : 6, 0, [t('stat.top'), this.sourceName(top.src)]);
     return {
       score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

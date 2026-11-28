@@ -8,12 +8,14 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import type { Difficulty } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import { dayKey } from '../kit/progress';
 import { AGES, DEMON_NAME, HOST_NAME } from './content';
-import { gold as goldText, t } from './i18n';
+import { gold as goldText, t, type Key } from './i18n';
 import {
   ageOf, bestOf, bossOf, buyGate, buyHero, buyUnit, chapterOf, chapterStars, gateLevel, gatePrice, heroLevel, heroPrice, isBossBattle,
-  migrate, nextCardGate, pillarFor, unitLevel, unitPrice, type ZastepyProgress,
+  levelOf, migrate, nextCardGate, pillarFor, unitLevel, unitPrice, type ZastepyProgress,
 } from './meta';
 import { POSE, paintHost } from './paint';
 import { BANE, HOST, HOST_IDS, RULES, type HostId } from './rules';
@@ -102,11 +104,29 @@ function buyButton(label: string, can: boolean, onBuy: () => void): HTMLButtonEl
   return b;
 }
 
-export function progressPanel(p: ZastepyProgress, save: () => void): HTMLElement {
+/** What a difficulty level means in Zastępy (rules.ts LEVELS), in the page's language. */
+export const levelLine = (d: Difficulty): string => t(`level.${d}` as Key);
+
+/**
+ * The card.  `o.levels`: the difficulty row at its top (kit/difficultypanel.ts) — the lobby's card has it (index.ts);
+ * a choice saves at once and redraws the rest of the card (the record shown is the chosen level's) while the row,
+ * and the keyboard's focus on it, stay.
+ */
+export function progressPanel(p: ZastepyProgress, save: () => void, o: { levels?: boolean } = {}): HTMLElement {
   migrate(p);
   const root = h('div', { class: 'arcade-panel' });
+  const levels = o.levels
+    ? difficultyPanel({
+      value: levelOf(p), line: levelLine, onChange: d => {
+        p.difficulty = d;
+        save();
+        render();
+      },
+    })
+    : null;
+  if (levels) root.appendChild(levels);
   const render = (): void => {
-    while (root.firstChild) root.removeChild(root.firstChild);
+    while (root.lastChild && root.lastChild !== levels) root.removeChild(root.lastChild);
     for (const el of build(p, () => {
       save();
       render();

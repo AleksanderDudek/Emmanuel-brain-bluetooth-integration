@@ -1,18 +1,27 @@
 /**
- * What Dobry bój remembers between sessions (DESIGN.md §25), and the pure rules of its meta:
+ * What Dobry bój remembers between sessions (DESIGN.md §25, §29), and the pure rules of its meta:
  *
  *   the fighter  the style (boxing or MMA), the division (ona / on), the skin tone and the hair — the lobby's choices
- *   the ladder   the next opponent (beat one → the next; lose → the same one again), the champion's belts won
- *   records      fights, wins, knockouts, the most landed strikes in a session, landed strikes and counters in all
+ *   the view     from the side (the ring as it was) or through the boxer's eyes (first person); an older save: the side
+ *   the level    the difficulty (kit/difficulty.ts; an older save: REGULAR, the game as it was)
+ *   the ladder   the next opponent (beat one → the next; lose → the same one again), the champion's belts won — one
+ *                ladder for every level (a player may change the level at any time)
+ *   records      fights, wins, knockouts, landed strikes and counters in all (every level); the most landed strikes in
+ *                a session per level (`best` is REGULAR's, as before levels came; the others under `recordKey`)
  *
  * Anything broken becomes a fresh progress keeping only a session count; every field of a wrong type is repaired, never
  * trusted.  No DOM, no randomness.
  */
+import { difficultyOf, isDifficulty, recordKey, type Difficulty } from '../kit/difficulty';
 import { HAIRS, LADDER, SKINS } from './content';
 import { STYLES, type Style } from './moves';
 
 export type Sex = 'ona' | 'on';
 export const SEXES: readonly Sex[] = ['ona', 'on'];
+
+/** How the fight is seen: from the side (the ring as round 21 drew it) or through the boxer's eyes. */
+export type ViewMode = 'side' | 'fp';
+export const VIEWS: readonly ViewMode[] = ['side', 'fp'];
 
 export interface BojProgress {
   ver: 1;
@@ -37,6 +46,12 @@ export interface BojProgress {
   seen: string[];
   /** the last session's length (s): the lobby's guess before the length buttons are read */
   lastLen: number;
+  /** how the fight is seen (an older save: from the side) */
+  view: ViewMode;
+  /** the difficulty level (an older save: REGULAR) */
+  difficulty: Difficulty;
+  /** the most landed strikes in a session at the other levels, by `recordKey('best', level)` (REGULAR's is `best`) */
+  records: Record<string, number>;
 }
 
 /** The hair a division starts with: tied back for her, short for him. */
@@ -46,6 +61,7 @@ export function freshProgress(): BojProgress {
   return {
     ver: 1, sessions: 0, style: 'boks', sex: 'on', skin: 1, hair: hairDefault('on'), ladder: 0, titles: 0,
     fights: 0, wins: 0, kos: 0, best: 0, strikes: 0, counters: 0, seen: [], lastLen: 0,
+    view: 'side', difficulty: 'regular', records: {},
   };
 }
 
@@ -62,8 +78,9 @@ export function migrate(p: BojProgress): BojProgress {
   const f = freshProgress();
   if (raw.ver !== 1) {
     const sessions = int(raw.sessions);
+    const keep = { sessions, view: viewOf(raw.view), difficulty: difficultyOf(raw.difficulty) };
     for (const k of Object.keys(raw)) delete raw[k];
-    Object.assign(p, f, { sessions });
+    Object.assign(p, f, keep);
     return p;
   }
   p.sessions = int(raw.sessions);
@@ -81,11 +98,51 @@ export function migrate(p: BojProgress): BojProgress {
   p.counters = int(raw.counters);
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string').map(s => s.slice(0, 40)))].slice(0, 40) : [];
   p.lastLen = int(raw.lastLen);
+  p.view = viewOf(raw.view);
+  p.difficulty = difficultyOf(raw.difficulty);
+  const rec: Record<string, number> = {};
+  if (raw.records && typeof raw.records === 'object' && !Array.isArray(raw.records)) {
+    for (const d of ['start', 'advanced', 'hardcore'] as const) {
+      const k = recordKey('best', d), v = (raw.records as Record<string, unknown>)[k];
+      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) rec[k] = Math.floor(v);
+    }
+  }
+  p.records = rec;
   return p;
 }
 
-/** The best so far (null: never played). */
-export const bestOf = (p: BojProgress): number | null => (p.sessions > 0 ? p.best : null);
+/** A saved view, or the side (an older save, anything broken). */
+export const viewOf = (v: unknown): ViewMode => (v === 'fp' ? 'fp' : 'side');
+
+export function setView(p: BojProgress, v: unknown): boolean {
+  if (!(VIEWS as readonly unknown[]).includes(v)) return false;
+  p.view = v as ViewMode;
+  return true;
+}
+
+export function setDifficulty(p: BojProgress, d: unknown): boolean {
+  if (!isDifficulty(d)) return false;
+  p.difficulty = d;
+  return true;
+}
+
+/** The most landed strikes in a session at a level (null: never played there; REGULAR's is `best`). */
+export function bestAt(p: BojProgress, d: Difficulty): number | null {
+  if (d === 'regular') return p.sessions > 0 ? p.best : null;
+  const v = p.records?.[recordKey('best', d)];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/** A session's landed strikes into the level's record (records only rise). */
+export function recordAt(p: BojProgress, d: Difficulty, score: number): void {
+  const n = Math.max(0, Math.floor(Number.isFinite(score) ? score : 0));
+  if (d === 'regular') { p.best = Math.max(p.best, n); return; }
+  const k = recordKey('best', d);
+  p.records = { ...(p.records ?? {}), [k]: Math.max(p.records?.[k] ?? 0, n) };
+}
+
+/** The best so far at the chosen level (null: never played there). */
+export const bestOf = (p: BojProgress): number | null => bestAt(p, difficultyOf(p.difficulty));
 
 export function setStyle(p: BojProgress, s: unknown): boolean {
   if (!(STYLES as readonly unknown[]).includes(s)) return false;

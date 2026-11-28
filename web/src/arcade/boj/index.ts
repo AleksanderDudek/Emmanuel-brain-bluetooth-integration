@@ -27,13 +27,22 @@ import { layout, type Layout } from './layout';
 import { bestOf, freshProgress, migrate, type BojProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
+import { FirstPersonView, drawFpPreview } from './fpv';
 import { RingView } from './render';
+import { STRIKES } from './moves';
 import { CYC, RULES, readBreathsIn, readTime } from './rules';
 import { BojSim, KIND, optionWords, type CoachMark, type SimEvent, type Stage } from './sim';
+import type { FightView } from './view';
+
+/** The picture of the fight: from the side (render.ts) or through the boxer's eyes (fpv.ts) — the same contract. */
+interface Picture {
+  resize(l: Layout, dpr: number): void;
+  draw(ctx: CanvasRenderingContext2D, v: FightView, dt: number, time: number): void;
+}
 
 class BojGame implements ArcadeGame {
   readonly sim: BojSim;
-  private readonly ring: RingView;
+  private readonly ring: Picture;
   private readonly sound: RingSound;
   private readonly cards = new Cards();
   private readonly introView = new BojIntro();
@@ -53,7 +62,8 @@ class BojGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<BojProgress>) {
     migrate(env.progress);
     this.sim = new BojSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm ?? null });
-    this.ring = new RingView({ reduced: env.reducedMotion });
+    // the view chosen in the lobby (DESIGN §29): the same fight, another picture
+    this.ring = env.progress.view === 'fp' ? new FirstPersonView({ reduced: env.reducedMotion }) : new RingView({ reduced: env.reducedMotion });
     this.sound = new RingSound(env.audio, { reducedMotion: env.reducedMotion });
     this.ctx = env.canvas.getContext('2d');
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) Object.assign(globalThis, { __boj: this.sim });
@@ -111,7 +121,7 @@ class BojGame implements ArcadeGame {
   /** A tap on an option of the slow motion chooses it (the energy goes into it); anywhere else nothing. */
   pointer(e: PointerInput): void {
     const l = this.l, ex = this.sim.ex;
-    const open = this.sim.stage === 'slow' && !!ex && !ex.released;
+    const open = this.sim.choiceOpen && !!ex;
     const i = l && open ? optionAt(l, ex!.opts.length, e.x, e.y) : -1;
     if (!this.env.touch) this.env.canvas.style.cursor = i >= 0 ? 'pointer' : '';
     if (e.type !== 'down' || i < 0) return;
@@ -127,10 +137,29 @@ class BojGame implements ArcadeGame {
 
   private drain(): void {
     for (const e of this.sim.take()) {
-      if (e.type === 'cue') this.sound.cue(e.cue, e.strength);
+      if (e.type === 'cue') this.sound.cue(e.cue, e.strength, CONTACT.has(e.cue) ? this.panNow() : 0);
       else if (e.type === 'coach') this.hints.push(e.what);
       if (this.env.haptics) haptic(e);
     }
+  }
+
+  /**
+   * Where a blow of this moment is heard (DESIGN §29), through the boxer's eyes: the player's own lead hand on the
+   * left and the rear on the right; the opponent's lead hand comes from the right (it is their left), their rear from
+   * the left.  The side view keeps its sound as it was (the middle).
+   */
+  private panNow(): number {
+    if (this.env.progress.view !== 'fp') return 0;
+    const s = this.sim, last = s.impacts[s.impacts.length - 1];
+    if (!last || last.t < s.t - 1e-6) return 0;
+    const who = last.on === 'foe' ? s.player : s.foe;
+    const a = who.act;
+    if (a.kind !== 'strike') return 0;
+    const lead = STRIKES[a.strike].limb === 'leadHand' || STRIKES[a.strike].limb === 'leadLeg';
+    const rear = STRIKES[a.strike].limb === 'rearHand' || STRIKES[a.strike].limb === 'rearLeg';
+    if (!lead && !rear) return 0;
+    const mine = last.on === 'foe';
+    return (lead ? -1 : 1) * (mine ? 1 : -1) * 0.6;
   }
 
   /** The runner's coach mark: one at a time, never over a banner; the choice's mark points at the options. */
@@ -197,7 +226,7 @@ class BojGame implements ArcadeGame {
   /** The slow motion's options while they are open (the layout's slots). */
   targets(): TapTarget[] {
     const l = this.l, ex = this.sim.ex;
-    if (!l || this.sim.stage !== 'slow' || !ex || ex.released) return [];
+    if (!l || !this.sim.choiceOpen || !ex) return [];
     return optionTargets(l, ex.opts.map(o => optionWords(o).label));
   }
 
@@ -206,6 +235,9 @@ class BojGame implements ArcadeGame {
     this.env.canvas.style.cursor = '';
   }
 }
+
+/** The cues of a blow that lands or is answered: heard from its side. */
+const CONTACT = new Set<string>(['jab', 'punch', 'body', 'kick', 'blocked', 'slip', 'takedown']);
 
 /** Whether a coach mark still fits the moment (it waited for a banner or another mark). */
 function hintFits(what: CoachMark, stage: Stage): boolean {
@@ -267,7 +299,8 @@ const mod: ArcadeModule<BojProgress> = {
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, time, p) => {
     const q = p ? migrate(p) : null;
-    drawPreview(ctx, w, h, time, q ? playerLook(q.sex, q.skin, q.hair) : undefined, q?.style);
+    // the lobby's hero shows the chosen view; the cards the ring from the side
+    (q?.view === 'fp' ? drawFpPreview : drawPreview)(ctx, w, h, time, q ? playerLook(q.sex, q.skin, q.hair) : undefined, q?.style);
   },
   howto: () => howto(),
   rhythm: () => bojRhythm(),

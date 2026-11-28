@@ -31,25 +31,30 @@ import type { ArcadeOutcome } from '../kit/types';
 import {
   ABILITIES, BEASTS, BEAST_KINDS, BONDS, BUILDINGS, COMPANIONS, CRAFT, FOLD_INCOME, GUARDS, LINES, QUESTS, STORE_K, TAUNTS, TIPS, WEAPONS,
   WEAPON_IDS, WELL_K, ability, abilityName, beastCount, buildingName, circleQuests, companionName, companionSpec, guardName, kitName,
-  landName, landStory, linesFor, weaponName,
+  landName, linesFor, weaponName,
   type AbilityId, type BeastKind, type BeastSpec, type BuildingId, type CompanionId, type GuardKind, type GuardSpec, type Kit, type LandSpec,
-  type NodeKind, type Pattern, type QuestSpec, type Spot, type WeaponId,
+  type NodeKind, type Pattern, type QuestSpec, type WeaponId,
 } from './content';
+import { CHAPTER_VERSE, sceneVerse, type ChoiceEffect } from './chains';
 import { count, silverText, t, xpText, type Key } from './i18n';
+import { PASS_HALF, areaAt, type AreaSpec } from './lands';
 import {
   abilityCost, abilityLevel, abilityWhy, bagCap, baseDmg, baseHp, bestFor, build, buildingCost, buildingLevel, buildingWhy, buyAbility, fillParty,
   forge, guardHp, join, landAt, landK, lenKey, partyNow, partySlots, reached, stars, tierOf, toggleParty, weaponCap, weaponCost, weaponK,
   weaponLevel, weaponWhy, xpNeed, anyAffordable, hasJoined, type BuyWhy, type DawidProgress,
 } from './meta';
 import { RULES } from './rules';
+import { areaLine, areaName, chapterText, choiceWords, questWords, sceneLines, thingName, type SceneLine } from './story';
 import { Talk } from './talk';
+import { DEFAULT_DIFFICULTY, difficultyOf, scaleFor, type Difficulty, type DifficultyScale } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 
 export { RULES } from './rules';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
 export type Phase = 'play' | 'finale' | 'done';
-export type Coach = 'move' | 'hunt' | 'coins' | 'bag' | 'camp' | 'quest' | 'sling' | 'stone' | 'harp' | 'guard' | 'bearer' | 'thief' | 'level' | 'gate' | 'cave';
+export type Coach = 'move' | 'hunt' | 'coins' | 'bag' | 'camp' | 'quest' | 'sling' | 'stone' | 'harp' | 'guard' | 'bearer' | 'thief' | 'level' | 'gate' | 'cave' | 'log';
 /** how the sling's ring looks: dim at its base, live in a sighted push, waiting in the lead-in, grey without signal, a dark ember on a moonless night, put away by the fire */
 export type RingLook = 'base' | 'live' | 'wait' | 'grey' | 'night' | 'rest';
 export type Mode = 'none' | 'hunt' | 'go' | 'home';
@@ -76,11 +81,14 @@ export interface Beast {
   id: number; kind: BeastKind; spec: BeastSpec; den: number;
   x: number; y: number; kx: number; ky: number; hx: number; hy: number;
   hp: number; max: number; atk: number; xp: number; silver: number; speed: number; r: number;
+  /** the area it keeps to (-1: none, the cave) */
+  area: number;
   state: BeastState; st: number; bite: number; cd: number; ax: number; ay: number; hit: number;
   /** a viper still hidden in the grass; a flyer's height (u); drawn to Shammah (s) */
   hidden: boolean; air: number; taunt: number; age: number; face: number; flee: number; fx: number; fy: number;
 }
-export interface Den { kind: BeastKind; x: number; y: number; n: number; k: number; wait: number[] }
+/** A beast camp: its kind, place and size, its strength, its area, whether it lives now (David's area or the next) and its refills. */
+export interface Den { kind: BeastKind; x: number; y: number; n: number; k: number; area: number; live: boolean; wait: number[] }
 export interface Coin { id: number; kind: CoinKind; v: number; x: number; y: number; vx: number; vy: number; z: number; vz: number; t: number; pulled: boolean }
 export interface Shot {
   id: number; kind: ShotKind; x: number; y: number; vx: number; vy: number; speed: number;
@@ -104,7 +112,25 @@ export interface Print { x: number; y: number; t: number; above: boolean; phase:
 export interface Puff { x: number; y: number; t: number; kind: BeastKind | 'thief' | 'dust'; dir: number; air: number }
 export interface Ring { x: number; y: number; r: number; t: number; dur: number; kind: 'great' | 'roar' | 'level' | 'stomp' | 'shield' | 'heal' | 'sweep' | 'dash' | 'gate' }
 export interface Note { x: number; y: number; t: number; n: number }
-export interface Story { kind: 'open' | 'land' | 'guard' | 'visit' | 'circle'; t: number; dur: number; title: string; text: string; verse?: PassageId; then?: 'armour' | 'land' }
+/**
+ * A card over the world (it holds the world while it shows): the opening and a land's chapter card, a guardian
+ * driven off, and the story's scenes — lines of dialogue with their speakers, read one by one (a tap goes on, each
+ * goes on by itself after its reading time), the last perhaps a choice of two answers, each with its reply.
+ */
+export interface Story {
+  kind: 'open' | 'land' | 'guard' | 'visit' | 'circle' | 'scene';
+  t: number; dur: number; title: string; text: string; verse?: PassageId; then?: 'armour' | 'land';
+  /** a scene: its id, its lines, the line shown and how long it has shown */
+  scene?: string;
+  lines?: SceneLine[];
+  i?: number;
+  lt?: number;
+  /** a choice at the scene's end: its quest's id, its words and effects, and the answer once given */
+  choice?: { id: string; a: string; b: string; ra: readonly SceneLine[]; rb: readonly SceneLine[]; fa: ChoiceEffect; fb: ChoiceEffect; picked?: 'a' | 'b' };
+}
+
+/** Someone walking along with David on an escort (Jesse's donkey, the families of Ziklag): waiting, following, home. */
+export interface Escort { x: number; y: number; face: number; walking: number; follow: boolean; id: string }
 export interface Cave { floor: number; t: number; state: 'fight' | 'clear'; clearT: number; best: number }
 export interface Tile { kind: 'ab' | 'bd' | 'wp' | 'mate' | 'cave'; id: string; title: string; lv: number; fx: string; cost: string; why: BuyWhy | 'in' | 'out' | 'later'; price?: readonly [number, number, number] }
 
@@ -160,6 +186,11 @@ export type SimEvent =
   | { type: 'floor'; floor: number }
   | { type: 'caveOut'; floor: number }
   | { type: 'story' }
+  | { type: 'area'; index: number; name: string }
+  | { type: 'found'; x: number; y: number; name: string }
+  | { type: 'carry'; name: string }
+  | { type: 'choice'; id: string; pick: 'a' | 'b' }
+  | { type: 'defend'; x: number; y: number }
   | { type: 'coach'; what: Coach; x: number; y: number };
 
 const NO_EVENTS: readonly SimEvent[] = [];
@@ -277,6 +308,11 @@ export interface SimInit {
   rhythm?: { focus: number; rest: number } | null;
 }
 
+/** A den's beasts that are not of a den: the cave's, a rescue's pack, a defence's waves. */
+const CAVE_DEN = -1;
+const PACK_DEN = -2;
+const WAVE_DEN = -3;
+
 export class DawidSim {
   readonly p: DawidProgress;
   readonly plannedSec: number;
@@ -290,6 +326,8 @@ export class DawidSim {
   private readonly holdNeed: number;
   private readonly restLead: number;
   readonly finaleSec: number;
+  /** a session of a minute or less (a test, the smoke): the chapter's title for a moment, no scenes — play comes first */
+  readonly quick: boolean;
 
   started = false;
   readonly session: number;
@@ -328,6 +366,21 @@ export class DawidSim {
   guard: Guard;
   thief: Thief | null = null;
   cave: Cave | null = null;
+  /** the area David is in (its index), the areas whose line was said this session */
+  area = 0;
+  private readonly areaSaid = new Set<number>();
+  /** an escort's companion (Jesse's donkey, the families), a defence going on, a rescue's pack out */
+  escort: Escort | null = null;
+  defending = false;
+  private waveT = 0;
+  private packOut = false;
+  /** the quest log over the world (it holds the world while it shows) */
+  logOpen = false;
+  /** the difficulty and its scale (REGULAR: every factor 1, the game as it was) */
+  readonly difficulty: Difficulty;
+  readonly diff: DifficultyScale;
+  /** where David went into the cave from (the area) */
+  private caveFrom = 0;
   private stash: { coins: Coin[] } | null = null;
 
   // input and motion
@@ -405,6 +458,8 @@ export class DawidSim {
 
   constructor(init: SimInit) {
     const p = (this.p = init.progress);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.diff = scaleFor(this.difficulty);
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
@@ -414,7 +469,8 @@ export class DawidSim {
     this.holdNeed = RULES.holdNeed[band];
     this.restLead = RULES.restLead[band];
     this.finaleSec = finaleFor(init.plannedSec);
-    this.bestBefore = bestFor(p, init.plannedSec);
+    this.quick = init.plannedSec <= 60;
+    this.bestBefore = bestFor(p, init.plannedSec, this.difficulty);
     this.levelBefore = p.level;
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
@@ -444,7 +500,7 @@ export class DawidSim {
   get sighted(): boolean { return this.pushBlock && !this.block.blind && this.blockT >= this.lead; }
   get leadIn(): number { return this.lead; }
   /** the world is held (a story card on screen; one still waiting to show lets the world run — a giant's fall plays first) */
-  get frozen(): boolean { return !!this.story && this.story.t >= 0; }
+  get frozen(): boolean { return (!!this.story && this.story.t >= 0) || this.logOpen; }
   /** David sits by the fire (a rest block): no walking, no throwing */
   get sitting(): boolean { return this.restBlock && this.blockT >= RULES.sitDelay; }
   get quests(): readonly QuestSpec[] { return questsOf(this.p.land); }
@@ -457,25 +513,46 @@ export class DawidSim {
   get guardActive(): boolean { return this.quest?.kind === 'guard' && !this.cave; }
   get gateOpen(): boolean { return this.quest?.kind === 'gate'; }
   get guardFighting(): boolean { return ['wake', 'move', 'tele', 'act', 'daze'].includes(this.guard.state) && !this.cave; }
-  get campX(): number { return this.cave ? CAVE_MOUTH[0] : this.land.camp[0]; }
-  get campY(): number { return this.cave ? CAVE_MOUTH[1] : this.land.camp[1]; }
+  get campX(): number { return this.cave ? CAVE_MOUTH[0] : this.campOf(this.area)[0]; }
+  get campY(): number { return this.cave ? CAVE_MOUTH[1] : this.campOf(this.area)[1]; }
+  /** an area's spec, and its fire */
+  areaSpec(i: number): AreaSpec { return this.land.areas[Math.max(0, Math.min(this.land.areas.length - 1, i))]; }
+  campOf(i: number): readonly [number, number] { return this.areaSpec(i).camp; }
+  /** how many areas are open: all on a later circle; else the first and one more for each pass behind the chain */
+  get areasOpen(): number {
+    if (this.circle > 0) return this.land.areas.length;
+    const qs = this.quests;
+    let n = 1;
+    for (let i = 0; i < Math.min(this.p.quest, qs.length); i++) if (qs[i].kind === 'pass') n++;
+    return Math.min(this.land.areas.length, n);
+  }
+  /** whether the pass between area i and i + 1 lets David through (open behind the chain, or the chain's pass now) */
+  gapOpen(i: number): boolean {
+    if (this.areasOpen > i + 1) return true;
+    const q = this.quest;
+    return q?.kind === 'pass' && (q.area ?? 0) === i;
+  }
   get inCave(): boolean { return !!this.cave; }
 
   private makeGuard(): Guard {
     const spec = GUARDS[this.land.guard];
-    const max = guardHp(this.p.land);
-    const xp = Math.round(GUARD_XP * this.k);
+    const max = Math.round(guardHp(this.p.land) * this.diff.foe);
+    const xp = Math.round(GUARD_XP * this.k * this.diff.reward);
     const [hx, hy] = this.land.lair;
     const qs = this.quests, gi = qs.findIndex(q => q.kind === 'guard');
     const gone = gi >= 0 && this.p.quest > gi;
     return {
       kind: spec.kind, spec, name: guardName(spec.kind, this.circle), state: gone ? 'gone' : 'sleep', st: 0, dur: 0,
-      x: hx, y: hy, hx, hy, face: Math.PI, r: spec.r, hp: Math.max(1, max - this.p.wounds), max, atk: spec.atk * this.k, xp,
+      x: hx, y: hy, hx, hy, face: Math.PI, r: spec.r, hp: Math.max(1, max - this.p.wounds), max, atk: spec.atk * this.k * this.diff.foe, xp,
       pattern: null, zone: null, ax: 0, ay: 0, x0: 0, y0: 0, hit: 0, bearerA: Math.PI, bite: 0, fall: 0, taunt: '', tauntT: 0,
     };
   }
 
-  /** The land's map comes alive: dens full of beasts, heaps, the chest; David just outside the camp. */
+  /**
+   * The land's map comes alive: the dens of David's area and the next one full of beasts, heaps, the chest; David
+   * just outside the fire of the area the chain is in (a returning player picks up where the road is).  The far
+   * dens are tougher by the spread of the round-5 maps (the distance scaled to their 64 u).
+   */
   private setupLand(): void {
     const L = this.land;
     this.bounds = { x0: 0.6, y0: 0.6, x1: L.w - 0.6, y1: L.h - 0.6 };
@@ -485,15 +562,21 @@ export class DawidSim {
     this.zones.length = 0;
     this.chests.length = 0;
     this.thief = null;
-    this.dens = L.camps.map(([kind, x, y, n]) => ({
-      kind, x, y, n, k: this.k * (1 + dist(x, y, L.camp[0], L.camp[1]) / RULES.campDist), wait: [] as number[],
-    }));
-    this.dens.forEach((d, i) => { for (let j = 0; j < d.n; j++) this.spawnBeast(i, false); });
+    this.escort = null;
+    this.defending = false;
+    this.packOut = false;
+    const spread = 64 / L.w;
+    this.dens = L.areas.flatMap((a, ai) => a.dens.map(([kind, x, y, n]) => ({
+      kind, x, y, n: Math.max(1, Math.round(n * this.diff.count)), area: ai, live: false,
+      k: this.k * (1 + (dist(x, y, L.camp[0], L.camp[1]) * spread) / RULES.campDist), wait: [] as number[],
+    })));
+    this.area = Math.max(0, Math.min(this.areasOpen - 1, this.quest?.area ?? 0));
+    this.refreshDens();
     this.nodes = L.nodes.map(([kind, x, y]) => ({ kind, x, y, back: 0 }));
     this.chests.push(this.landChest());
-    const d = this.david;
-    d.x = L.camp[0] + RULES.campR + 0.8;
-    d.y = L.camp[1] + 0.4;
+    const d = this.david, [cx, cy] = this.campOf(this.area);
+    d.x = cx + RULES.campR + 0.8;
+    d.y = cy + 0.4;
     d.face = 0;
     this.lastPx = d.x;
     this.lastPy = d.y;
@@ -512,9 +595,26 @@ export class DawidSim {
     });
   }
 
+  /** The land's chest, in the area David is in. */
   private landChest(): Chest {
-    const [x, y] = this.land.chest;
-    return { id: this.uid++, kind: 'land', x, y, t: 0, life: Infinity, silver: Math.round(25 * this.k * (1 + this.circle)), wood: 3, stone: 3, xp: Math.round(10 * this.k) };
+    const [x, y] = this.areaSpec(this.area).chest;
+    return { id: this.uid++, kind: 'land', x, y, t: 0, life: Infinity, silver: Math.round(25 * this.k * (1 + this.circle) * this.diff.reward), wood: 3, stone: 3, xp: Math.round(10 * this.k * this.diff.reward) };
+  }
+
+  /**
+   * The dens that live now: those of David's area and the next ones open (a den comes alive full; one left behind
+   * empties, its beasts gone home — the far areas cost nothing).
+   */
+  private refreshDens(): void {
+    const open = this.areasOpen;
+    this.dens.forEach((dn, i) => {
+      const live = !this.cave && dn.area < open && Math.abs(dn.area - this.area) <= 1;
+      if (live === dn.live) return;
+      dn.live = live;
+      dn.wait = [];
+      if (live) for (let j = 0; j < dn.n; j++) this.spawnBeast(i, false);
+      else for (let j = this.beasts.length - 1; j >= 0; j--) if (this.beasts[j].den === i) this.beasts.splice(j, 1);
+    });
   }
 
   private spawnBeast(den: number, fresh = true, cave?: { kind: BeastKind; x: number; y: number; k: number }): Beast {
@@ -524,9 +624,11 @@ export class DawidSim {
     const k = cave ? cave.k : d.k;
     const a = this.rng() * TAU, rr = this.rng() * 1.4;
     const hx = cave ? cave.x : d.x + Math.cos(a) * rr, hy = cave ? cave.y : d.y + Math.sin(a) * rr * 0.8;
+    const D = this.diff;
     const b: Beast = {
-      id: this.uid++, kind, spec, den: cave ? -1 : den, x: hx, y: hy, kx: 0, ky: 0, hx, hy,
-      hp: spec.hp * k, max: spec.hp * k, atk: spec.atk * k, xp: spec.xp * k, silver: spec.silver * k, speed: spec.speed, r: spec.r,
+      id: this.uid++, kind, spec, den: cave ? CAVE_DEN : den, x: hx, y: hy, kx: 0, ky: 0, hx, hy,
+      hp: spec.hp * k * D.foe, max: spec.hp * k * D.foe, atk: spec.atk * k * D.foe, xp: spec.xp * k * D.reward, silver: spec.silver * k * D.reward,
+      speed: spec.speed * D.speed, r: spec.r, area: cave ? -1 : d.area,
       state: this.restBlock ? 'doze' : 'idle', st: this.rng() * 2, bite: 0, cd: 1 + this.rng() * 2, ax: hx, ay: hy, hit: 0,
       hidden: spec.habit === 'ambush', air: spec.flies ? 1.1 : 0, taunt: 0, age: fresh ? 0 : 1, face: this.rng() < 0.5 ? -1 : 1, flee: 0, fx: 0, fy: 0,
     };
@@ -539,7 +641,8 @@ export class DawidSim {
     if (this.started) return;
     this.started = true;
     this.refreshStats(true);
-    if (this.session === 1) this.showStory({ kind: 'open', t: 0, dur: RULES.openSec, title: t('story.open.title'), text: t('story.open.text'), verse: '1sa17.37' });
+    if (this.session === 1) this.chapter(true);
+    else this.enterArea(this.area, false);
     this.startBlock(0);
     this.talk.ask('open', 3, 12);
     this.emit({ type: 'quest', index: this.p.quest });
@@ -568,8 +671,13 @@ export class DawidSim {
    */
   tap(wx?: number, wy?: number): boolean {
     if (!this.started || this.phase === 'done') return false;
+    if (this.logOpen) {
+      this.logOpen = false;
+      return true;
+    }
     if (this.story) {
-      if (this.story.t >= 0.6) this.closeStory();
+      if (this.story.kind === 'scene') this.nextLine(false);
+      else if (this.story.t >= 0.6) this.closeStory();
       return true;
     }
     if (this.david.down > 0 || this.sitting) return false;
@@ -616,7 +724,7 @@ export class DawidSim {
     if (!this.started || this.phase === 'done' || this.story || this.david.down > 0 || this.sitting || this.cave) return false;
     const q = this.quest, at = this.questTarget(), d = this.david;
     if (!q || !at) return this.hunt();
-    if (dist(at.x, at.y, this.land.camp[0], this.land.camp[1]) < 1) return this.inCamp ? true : this.goHome();
+    if (dist(at.x, at.y, this.campX, this.campY) < 1) return this.inCamp ? true : this.goHome();
     let gx = at.x, gy = at.y;
     if (q.kind === 'guard' || this.dens.some(dn => dist(dn.x, dn.y, at.x, at.y) < 0.5)) {
       // beasts there (a den, the guardian): stop short, the hunt takes it from the sling's reach
@@ -643,8 +751,16 @@ export class DawidSim {
       return true;
     }
     if (!down) return k === ' ' || k === 'Enter';
+    if (k === 'Escape' && this.story?.kind === 'scene') return this.skipScene();
+    if (k === 'Escape' && this.logOpen) { this.logOpen = false; return true; }
+    if (kk === 'l') return this.toggleLog();
     if (k === ' ' || k === 'Enter' || k === 'Spacebar') {
-      if (this.story || this.stoneReady || !this.inCamp) {
+      const st = this.story;
+      if (st?.kind === 'scene' && st.choice && !st.choice.picked && (st.i ?? 0) >= (st.lines?.length ?? 0) - 1 && (st.lt ?? 0) >= 0.35) {
+        this.choose('a');
+        return true;
+      }
+      if (this.story || this.logOpen || this.stoneReady || !this.inCamp) {
         this.tap();
         return true;
       }
@@ -676,7 +792,102 @@ export class DawidSim {
     }
   }
 
+  /** The quest log over the world (the minimap's tap, L): open or closed. */
+  toggleLog(open = !this.logOpen): boolean {
+    if (!this.started || this.phase === 'done' || this.story || this.cave) return false;
+    this.logOpen = open;
+    return true;
+  }
+
+  /**
+   * A scene of the story (its lines from the land's words; none: nothing to show).  A choice of the quest's id
+   * ends it when the words give one.
+   */
+  private showScene(id: string, choice?: { a: ChoiceEffect; b: ChoiceEffect }, quest?: string, verse?: PassageId): void {
+    if (this.circle > 0 || this.quick) return;
+    const lines = [...sceneLines(this.land.id, id)];
+    if (!lines.length) return;
+    const cw = choice && quest ? choiceWords(this.land.id, quest) : null;
+    this.showStory({
+      kind: 'scene', t: 0, dur: Infinity, title: '', text: '', scene: id, lines, i: 0, lt: 0, verse: verse ?? sceneVerse(this.land.id, id),
+      choice: cw && choice && quest ? { id: quest, a: cw.a, b: cw.b, ra: cw.ra, rb: cw.rb, fa: choice.a, fb: choice.b } : undefined,
+    });
+  }
+
+  /** How long a scene's line stays before it goes on by itself (s): reading time. */
+  static lineSec(text: string): number { return clamp(2.4 + text.length / 17, 3.4, 8.5); }
+
+  /** The scene's next line (a tap, or its time); at a choice not yet answered it waits (`auto`: the first answer after a while). */
+  private nextLine(auto: boolean): void {
+    const st = this.story;
+    if (!st || st.kind !== 'scene' || !st.lines) return;
+    if ((st.lt ?? 0) < 0.35) return;
+    const i = st.i ?? 0, last = i >= st.lines.length - 1;
+    if (last && i < st.lines.length && st.choice && !st.choice.picked) {
+      if (auto) this.choose('a');
+      return;
+    }
+    // after the last line, the scene's passage (when it has one) on a page of its own
+    if (last && st.verse && i < st.lines.length) { st.i = st.lines.length; st.lt = 0; return; }
+    if (last) { this.closeStory(); return; }
+    st.i = (st.i ?? 0) + 1;
+    st.lt = 0;
+  }
+
+  /** The scene's "skip" (its button, Escape): it closes at once — a choice not yet answered takes its first answer. */
+  skipScene(): boolean {
+    if (this.story?.kind !== 'scene') return false;
+    this.closeStory();
+    return true;
+  }
+
+  /** An answer at a scene's choice: its reply follows, its gift is given, the answer kept. */
+  choose(pick: 'a' | 'b'): boolean {
+    const st = this.story;
+    if (!st || st.kind !== 'scene' || !st.choice || st.choice.picked || !st.lines) return false;
+    const c = st.choice;
+    c.picked = pick;
+    this.p.choices[c.id] = pick;
+    const reply = pick === 'a' ? c.ra : c.rb;
+    st.lines.push(...reply);
+    if (reply.length) { st.i = (st.i ?? 0) + 1; st.lt = 0; } else st.lt = 99;
+    const fx = pick === 'a' ? c.fa : c.fb, p = this.p;
+    if (fx === 'silver') {
+      const v = Math.round(20 * this.k * this.diff.reward);
+      p.silver += v;
+      this.silverIn += v;
+    } else if (fx === 'rested') {
+      const need = xpNeed(p.level);
+      p.rested = Math.min(need * RULES.restedCap, p.rested + RULES.restGift * 2 * need);
+    } else if (fx === 'charge') this.charge = Math.min(0.95, this.charge + 0.35);
+    else if (fx === 'armour') st.then = 'armour';
+    this.emit({ type: 'choice', id: c.id, pick });
+    return true;
+  }
+
+  /** A land's chapter card (the first session's opening, or the road's next land), then its opening scene. */
+  private chapter(first: boolean): void {
+    const L = this.land, idx = this.landIdx;
+    const title = t('story.chapter', { n: idx + 1, name: landName(L.id) });
+    const text = this.circle > 0 ? `${t('story.circle', { n: this.circle + 1 })} ${chapterText(L.id)}` : chapterText(L.id);
+    if (this.quick) this.showStory({ kind: first ? 'open' : 'land', t: 0, dur: 2.5, title, text: '' });
+    else this.showStory({ kind: first ? 'open' : 'land', t: 0, dur: first ? RULES.openSec : RULES.storySec + 2, title, text, verse: CHAPTER_VERSE[L.id] });
+    this.showScene('open');
+  }
+
+  /** David comes into an area: its name on a banner, the lamb's line about it (once a session). */
+  private enterArea(i: number, say = true): void {
+    this.emit({ type: 'area', index: i, name: areaName(this.land.id, this.areaSpec(i).id) });
+    if (say && !this.areaSaid.has(i) && this.circle === 0) {
+      const line = areaLine(this.land.id, this.areaSpec(i).id);
+      if (line) this.talk.tell(line, 3, 8);
+    }
+    this.areaSaid.add(i);
+  }
+
   private closeStory(): void {
+    const st = this.story;
+    if (st?.kind === 'scene' && st.choice && !st.choice.picked) this.choose('a');
     const then = this.story?.then;
     this.story = this.storyQueue.shift() ?? null;
     if (this.story) this.emit({ type: 'story' });
@@ -693,8 +904,14 @@ export class DawidSim {
     this.t = t;
     this.stop = Math.max(0, this.stop - dt);
     if (this.story) {
-      this.story.t += dt;
-      if (this.story.t >= this.story.dur) this.closeStory();
+      const st = this.story;
+      st.t += dt;
+      if (st.kind === 'scene' && st.lines && st.t >= 0) {
+        st.lt = (st.lt ?? 0) + dt;
+        const line = st.lines[st.i ?? 0];
+        const atChoice = (st.i ?? 0) === st.lines.length - 1 && st.choice && !st.choice.picked;
+        if (st.lt >= (atChoice ? 16 : line ? DawidSim.lineSec(line[1]) : 9)) this.nextLine(true);
+      } else if (st.t >= st.dur) this.closeStory();
     }
     this.timeScale = this.frozen || this.stop > 0 ? 0 : 1;
     const w = dt * this.timeScale;
@@ -703,6 +920,7 @@ export class DawidSim {
     else if (this.phase === 'finale' && t >= this.plannedSec) this.endFinale();
     if (w > 0 && this.phase !== 'done') {
       this.moveDavid(w);
+      this.trackArea();
       this.moveParty(w);
       this.denLife(w);
       this.moveBeasts(w);
@@ -714,6 +932,7 @@ export class DawidSim {
       this.surprises(w);
       this.campLife(w);
       this.caveLife(w);
+      this.storyLife(w);
       this.checkQuest();
     }
     this.fx(dt, w);
@@ -917,6 +1136,7 @@ export class DawidSim {
     this.zones.length = 0;
     if (!this.cave) {
       this.dens.forEach((d, i) => {
+        if (!d.live) return;
         const have = this.beasts.filter(b => b.den === i && b.state !== 'flee').length;
         for (let j = have; j < d.n; j++) {
           const b = this.spawnBeast(i, true);
@@ -975,8 +1195,9 @@ export class DawidSim {
     d.my = my;
     if (m > 0.05) {
       const sp = this.stats.speed * (d.slow > 0 ? R.tauntSlow : 1) * (d.armour > 0 ? 0.25 : 1);
-      d.x = clamp(d.x + mx * sp * w, this.bounds.x0, this.bounds.x1);
+      const ox = d.x;
       d.y = clamp(d.y + my * sp * w, this.bounds.y0, this.bounds.y1);
+      d.x = this.fence(clamp(d.x + mx * sp * w, this.bounds.x0, this.bounds.x1), d.y, ox, RULES.davidR + 0.1);
       d.face = Math.atan2(my, mx);
       d.walked += w;
       this.walkDir = d.face;
@@ -991,11 +1212,14 @@ export class DawidSim {
   private autoStep(): { x: number; y: number } {
     const d = this.david;
     const toward = (x: number, y: number, stopAt = 0.35): { x: number; y: number } => {
+      // through the passes when the place is in another area
+      const via = this.route(x, y);
+      if (via) { x = via.x; y = via.y; stopAt = 0.2; }
       const dx = x - d.x, dy = y - d.y, l = Math.hypot(dx, dy);
       return l <= stopAt ? { x: 0, y: 0 } : { x: dx / l, y: dy / l };
     };
-    // first: out of any telegraphed shape
-    for (const z of this.zones) {
+    // first: out of any telegraphed shape (not on HARDCORE: no helps, the hands dodge)
+    if (this.diff.helps > 0.3) for (const z of this.zones) {
       if (z.live || !this.inZone(z, d.x, d.y, 0.3)) continue;
       if (z.kind === 'lane') {
         const nx = -Math.sin(z.a), ny = Math.cos(z.a);
@@ -1033,10 +1257,11 @@ export class DawidSim {
       if (dist(th.x, th.y, d.x, d.y) < 10) return toward(th.x, th.y, range * 0.6);
     }
     // the quest's beasts first (as XP Hero's quest button leads), then whatever is near
-    const want = this.quest?.kind === 'hunt' ? this.quest.what : undefined;
-    let best: Beast | null = null, bd: number = RULES.huntSeek, close = false;
+    const qk = this.quest?.kind;
+    const want = qk === 'hunt' ? this.quest!.what : (qk === 'rescue' || qk === 'defend') && (this.packOut || this.defending) ? this.quest!.beast : undefined;
+    let best: Beast | null = null, bd: number = this.huntSeek, close = false;
     for (const b of this.beasts) {
-      if (b.state === 'flee' || b.state === 'doze' || b.hidden) continue;
+      if (b.state === 'flee' || b.state === 'doze' || b.hidden || (b.area >= 0 && b.area !== this.area)) continue;
       const dd = dist(b.x, b.y, d.x, d.y);
       const threat = dd < 3 && (b.state === 'chase' || b.state === 'tele' || b.state === 'dash');
       const fit = threat || !want || b.kind === want;
@@ -1048,15 +1273,64 @@ export class DawidSim {
     return den ? toward(den.x, den.y, range * 0.6) : { x: 0, y: 0 };
   }
 
-  /** The nearest den (of a kind), preferring those with beasts at home. */
+  /** The hunt's reach (u): the rules' on REGULAR, farther with more helps, the sling's reach with none. */
+  get huntSeek(): number {
+    const h = this.diff.helps;
+    return h === 1 ? RULES.huntSeek : RULES.huntSeek * (0.6 + 0.4 * h);
+  }
+
+  /**
+   * The fences between the areas: a walker at x (coming from ox, y the row) is held on its side of a barrier unless
+   * the pass is open and it walks through the gap.  Returns the x allowed.
+   */
+  fence(nx: number, ny: number, ox: number, r: number): number {
+    if (this.cave) return nx;
+    const A = this.land.areas;
+    for (let i = 0; i < A.length - 1; i++) {
+      const bx = A[i].x1, gap = A[i].pass;
+      if (Math.abs(nx - bx) >= r && (ox < bx) === (nx < bx)) continue;
+      if (gap && this.gapOpen(i) && Math.abs(ny - gap.y) <= PASS_HALF - r * 0.5) continue;
+      nx = ox < bx ? bx - r : bx + r;
+    }
+    return nx;
+  }
+
+  /**
+   * The way to a place in another area: the next waypoint (before the pass, in line with its gap; then just beyond
+   * it), or null when the place is in David's area.
+   */
+  route(x: number, _y: number): { x: number; y: number } | null {
+    if (this.cave) return null;
+    const d = this.david, a = areaAt(this.land, d.x), b = areaAt(this.land, x);
+    if (a === b) return null;
+    const i = b > a ? a : a - 1, A = this.land.areas[i], gy = A.pass?.y ?? this.land.h / 2, bx = A.x1;
+    const side = b > a ? -1 : 1;
+    if (Math.abs(d.y - gy) > 0.8 && Math.abs(d.x - bx) < 2.2) return { x: bx + side * 2.4, y: gy };
+    if (Math.abs(d.y - gy) > 0.8) return { x: bx + side * 1.6, y: gy };
+    return { x: bx - side * 1.8, y: gy };
+  }
+
+  /** David's area: a new one comes alive (its dens, its banner, the lamb's line about it). */
+  private trackArea(): void {
+    if (this.cave) return;
+    const a = areaAt(this.land, this.david.x);
+    if (a === this.area) return;
+    this.area = a;
+    this.refreshDens();
+    this.enterArea(a);
+  }
+
+  /** The nearest den (of a kind) in the open areas, preferring those with beasts at home (a den in another area is farther by its passes). */
   private nearestDen(x: number, y: number, aliveOnly: boolean, kind?: string): Den | null {
     let best: Den | null = null, bd = Infinity;
+    const open = this.areasOpen;
     for (let i = 0; i < this.dens.length; i++) {
       const dn = this.dens[i];
+      if (dn.area >= open) continue;
       if (kind && kind !== 'any' && dn.kind !== kind) continue;
-      const alive = this.beasts.some(b => b.den === i && b.state !== 'flee');
+      const alive = !dn.live || this.beasts.some(b => b.den === i && b.state !== 'flee');
       if (aliveOnly && !alive) continue;
-      const dd = dist(dn.x, dn.y, x, y) + (alive ? 0 : 20);
+      const dd = dist(dn.x, dn.y, x, y) + (alive ? 0 : 20) + Math.abs(dn.area - this.area) * 12;
       if (dd < bd) { bd = dd; best = dn; }
     }
     return best;
@@ -1072,8 +1346,15 @@ export class DawidSim {
     d.unhurt = 0;
     this.emit({ type: 'hurt', x, y });
     if (d.hp <= 0) {
-      d.down = RULES.downSec;
+      const h = this.diff.helps;
+      d.down = h === 1 ? RULES.downSec : RULES.downSec * (2 - h);
       this.mode = 'none';
+      if (h <= 0 && !this.cave) {
+        // HARDCORE: no mercy for the bag — its silver spills where David fell (it waits on the grass)
+        const silver = this.bag.silver;
+        this.bag.silver = 0;
+        if (silver > 0) this.dropCoins(d.x, d.y, 'silver', silver);
+      }
       this.emit({ type: 'down' });
       this.talk.ask('down', 4, 3);
     } else if (d.hp <= d.max * 0.25 && this.t - this.nearSaid > 20) {
@@ -1086,12 +1367,13 @@ export class DawidSim {
     const d = this.david;
     d.down = 0;
     d.hp = d.max;
-    d.safe = RULES.wakeSafe;
+    d.safe = RULES.wakeSafe * this.diff.helps;
     if (this.cave) {
       this.exitCave();
     } else {
-      d.x = this.land.camp[0] + 0.8;
-      d.y = this.land.camp[1] + 1.2;
+      const [cx, cy] = this.campOf(this.area);
+      d.x = cx + 0.8;
+      d.y = cy + 1.2;
       this.lamb.x = d.x - 0.8;
       this.lamb.y = d.y + 0.3;
       for (const m of this.mates) { m.x = d.x + (this.rng() - 0.5) * 2; m.y = d.y + 1 + this.rng(); }
@@ -1139,6 +1421,7 @@ export class DawidSim {
     if (this.cave || this.restBlock) return;
     const d = this.david;
     this.dens.forEach((den, i) => {
+      if (!den.live) return;
       const have = this.beasts.filter(b => b.den === i).length;
       while (den.wait.length < den.n - have) den.wait.push(BEASTS[den.kind].respawn);
       for (let j = den.wait.length - 1; j >= 0; j--) {
@@ -1298,13 +1581,15 @@ export class DawidSim {
       if (b.spec.flies && b.spec.habit !== 'leap') b.air = 1.1 + Math.sin(this.t * 3 + b.id) * 0.12;
       b.x = clamp(b.x, this.bounds.x0, this.bounds.x1);
       b.y = clamp(b.y, this.bounds.y0, this.bounds.y1);
+      if (b.area >= 0 && !this.cave) { const A = this.areaSpec(b.area); b.x = clamp(b.x, A.x0 + 0.7, A.x1 - 0.7); }
     }
-    // the camp is safe ground: beasts stay outside it
+    // the fires are safe ground: beasts stay outside them
     if (!this.cave) for (const b of this.beasts) {
-      const dx = b.x - this.land.camp[0], dy = b.y - this.land.camp[1], l = Math.hypot(dx, dy);
+      const [cx, cy] = this.campOf(b.area >= 0 ? b.area : this.area);
+      const dx = b.x - cx, dy = b.y - cy, l = Math.hypot(dx, dy);
       if (l < RULES.campR && l > 0.01 && b.state !== 'flee') {
-        b.x = this.land.camp[0] + (dx / l) * RULES.campR;
-        b.y = this.land.camp[1] + (dy / l) * RULES.campR;
+        b.x = cx + (dx / l) * RULES.campR;
+        b.y = cy + (dy / l) * RULES.campR;
         if (b.state === 'chase') b.state = 'home';
       }
     }
@@ -1319,8 +1604,11 @@ export class DawidSim {
     if (Math.abs(dx) > 0.05) b.face = dx > 0 ? 1 : -1;
   }
 
+  /** Within the fire of the area at x (the camp: safe ground, the treasury, the card). */
   private inCampCircle(x: number, y: number): boolean {
-    return !this.cave && dist(x, y, this.land.camp[0], this.land.camp[1]) < RULES.campR;
+    if (this.cave) return false;
+    const [cx, cy] = this.campOf(areaAt(this.land, x));
+    return dist(x, y, cx, cy) < RULES.campR;
   }
 
   /** Strike a beast: its spirit drops; at none it loses heart and runs off into the hills, dropping XP and silver. */
@@ -1354,6 +1642,7 @@ export class DawidSim {
     this.emit({ type: 'driven', x: b.x, y: b.y, kind: b.kind, xp, mult });
     const q = this.quest;
     if (q?.kind === 'hunt' && (q.what === b.kind || q.what === 'any')) this.p.questN++;
+    else if ((q?.kind === 'rescue' && b.den === PACK_DEN) || (q?.kind === 'defend' && b.den === WAVE_DEN)) this.p.questN++;
     if (this.cave && !this.beasts.some(x => x.state !== 'flee')) this.floorCleared();
   }
 
@@ -1390,7 +1679,7 @@ export class DawidSim {
     g.bite = Math.max(0, g.bite - w);
     g.tauntT = Math.max(0, g.tauntT - w);
     const dd = dist(g.x, g.y, d.x, d.y);
-    const pace = 1 + 0.12 * Math.min(4, this.circle);
+    const pace = (1 + 0.12 * Math.min(4, this.circle)) * this.diff.speed;
     // the shield-bearer turns toward David (not while Goliath reels)
     if (g.spec.giant && g.state !== 'daze') {
       const want = Math.atan2(d.y - g.y, d.x - g.x);
@@ -1410,13 +1699,13 @@ export class DawidSim {
         return;
       case 'wake':
         g.face = d.x >= g.x ? 0 : Math.PI;
-        if (g.st >= 1) { g.state = 'move'; g.st = 0; g.dur = R.guardRest[0] + this.rng() * (R.guardRest[1] - R.guardRest[0]); }
+        if (g.st >= 1) { g.state = 'move'; g.st = 0; g.dur = (R.guardRest[0] + this.rng() * (R.guardRest[1] - R.guardRest[0])) / this.diff.speed; }
         return;
       case 'home': {
         const l = dist(g.x, g.y, g.hx, g.hy);
         if (l < 0.3) { g.state = 'sleep'; g.st = 0; return; }
-        g.x += ((g.hx - g.x) / l) * Math.min(l, g.spec.speed * w);
-        g.y += ((g.hy - g.y) / l) * Math.min(l, g.spec.speed * w);
+        g.x += ((g.hx - g.x) / l) * Math.min(l, g.spec.speed * this.diff.speed * w);
+        g.y += ((g.hy - g.y) / l) * Math.min(l, g.spec.speed * this.diff.speed * w);
         return;
       }
       case 'driven': {
@@ -1491,7 +1780,7 @@ export class DawidSim {
     g.pattern = pat;
     g.state = 'tele';
     g.st = 0;
-    g.dur = R.tele[pat] * (this.circle > 0 ? 0.88 : 1);
+    g.dur = (R.tele[pat] * (this.circle > 0 ? 0.88 : 1)) / this.diff.speed;
     const a = Math.atan2(d.y - g.y, d.x - g.x);
     g.face = a;
     let z: Zone | null = null;
@@ -1605,6 +1894,7 @@ export class DawidSim {
     if (q?.kind === 'guard') this.completeQuest();
     const title = g.spec.giant ? t('story.fall.title', { name: g.name }) : t('story.driven.title', { name: g.name });
     this.showStory({ kind: 'guard', t: -1.6, dur: RULES.storySec + 1.6, title, text: t(`story.${g.kind}` as Key), verse: g.spec.giant ? '1sa17.45' : '1sa17.37' });
+    this.showScene('end');
   }
 
   // ── weapons ─────────────────────────────────────────────────────
@@ -1986,12 +2276,8 @@ export class DawidSim {
       this.chestT += w;
       if (this.chestT >= R.chestBack) { this.chestT = 0; this.chests.push(this.landChest()); }
     }
-    // visits: the people the quests send David to
-    const q = this.quest;
-    if (q?.kind === 'visit' && !this.cave && d.down <= 0) {
-      const at = this.land.spots[q.what as Spot];
-      if (at && dist(at[0], at[1], d.x, d.y) < 1.7) this.visit(q);
-    }
+    // the story's places: people, things, deliveries, escorts
+    if (!this.cave && d.down <= 0) this.arrivals();
   }
 
   private openChest(i: number): void {
@@ -2011,10 +2297,73 @@ export class DawidSim {
     if (c.kind === 'land') this.chestT = 0;
   }
 
+  /** A spot of the land (null: none — a typo in the chains, which the tests catch). */
+  spot(id: string | undefined): { x: number; y: number } | null {
+    if (!id) return null;
+    if (id === 'camp') { const [x, y] = this.campOf(this.quest?.area ?? this.area); return { x, y }; }
+    const at = this.land.spots[id];
+    return at ? { x: at[0], y: at[1] } : null;
+  }
+
+  /** The story's places as David reaches them: a person (talk, visit, a word), a thing, a delivery, an escort's end. */
+  private arrivals(): void {
+    const q = this.quest, d = this.david, p = this.p;
+    if (!q) return;
+    const near = (id: string | undefined, r = 1.7): boolean => {
+      const at = this.spot(id);
+      return !!at && dist(at.x, at.y, d.x, d.y) < r;
+    };
+    switch (q.kind) {
+      case 'visit': case 'talk':
+        if (near(q.at ?? q.what)) this.visit(q);
+        break;
+      case 'find': {
+        const spots = q.spots ?? (q.at ? [q.at] : []);
+        for (const sp of spots) {
+          if (p.got.includes(sp) || !near(sp, 1.4)) continue;
+          p.got.push(sp);
+          p.questN = p.got.length;
+          const at = this.spot(sp)!;
+          this.emit({ type: 'found', x: at.x, y: at.y, name: thingName(this.land.id, this.thingOf(q)) });
+          this.gainXp(Math.round(xpNeed(p.level) * 0.04 * this.diff.reward), at.x, at.y - 0.8);
+        }
+        if (spots.length && spots.every(sp => p.got.includes(sp))) this.completeQuest();
+        break;
+      }
+      case 'deliver': case 'word': {
+        if (p.questN === 0) {
+          const atCamp = q.at === 'camp' && this.inCampCircle(d.x, d.y);
+          if (atCamp || near(q.at)) {
+            p.questN = 1;
+            if (q.kind === 'word' && q.at !== 'camp') this.emit({ type: 'carry', name: '' });
+            else this.emit({ type: 'carry', name: thingName(this.land.id, this.thingOf(q)) });
+            this.emit({ type: 'quest', index: p.quest });
+          }
+        } else if (near(q.to)) this.completeQuest();
+        break;
+      }
+      case 'escort': {
+        const e = this.escort;
+        if (e && dist(e.x, e.y, d.x, d.y) < 2.6 && !e.follow) {
+          e.follow = true;
+          if (p.questN === 0) { p.questN = 1; this.emit({ type: 'quest', index: p.quest }); }
+        }
+        const to = this.spot(q.to);
+        if (e && to && dist(e.x, e.y, to.x, to.y) < 2.2) this.completeQuest();
+        break;
+      }
+      default: break;
+    }
+  }
+
+  /** The thing a quest finds or carries (its id in the words: the quest's own, or the first thing of the land). */
+  private thingOf(q: QuestSpec): string {
+    const map: Record<string, string> = { stones: 'stone', arrows: 'arrow', families: 'families', flock: 'flock' };
+    return map[q.id ?? ''] ?? q.id ?? '';
+  }
+
+  /** A person the quest sends David to: a companion joins, a gift is given; the scene plays. */
   private visit(q: QuestSpec): void {
-    const say = q.say ?? q.what!;
-    const name = q.joins ? companionName(q.joins) : t(`q.visit.${say}` as Key);
-    let then: Story['then'];
     if (q.joins && join(this.p, q.joins)) {
       this.joinedNow.push(q.joins);
       this.placeMates();
@@ -2026,10 +2375,82 @@ export class DawidSim {
       this.p.wp[q.gives] = 1;
       this.emit({ type: 'forge', id: q.gives, level: 1, evolved: false });
     }
-    if (say === 'saul') then = 'armour';
-    if (say === 'brook') this.charge = Math.max(this.charge, 0.6);
-    this.showStory({ kind: 'visit', t: 0, dur: RULES.storySec + 3, title: q.joins ? t('story.joined.title', { name }) : name, text: t(`npc.${say}` as Key), then });
     this.completeQuest();
+  }
+
+  /**
+   * The story's quests that live in the world: an escort's companion waits and follows; a rescue's pack comes out
+   * when David is near; a defence brings waves of beasts at its place while David holds it.
+   */
+  private storyLife(w: number): void {
+    const q = this.quest, d = this.david, p = this.p;
+    if (this.cave || !q) return;
+    if (q.kind === 'escort') {
+      if (!this.escort) {
+        const at = this.spot(q.at);
+        if (at) this.escort = { x: at.x + 0.6, y: at.y + 0.4, face: -1, walking: 0, follow: false, id: q.id ?? '' };
+      }
+      const e = this.escort;
+      if (e && e.follow) {
+        const dd = dist(e.x, e.y, d.x, d.y);
+        if (dd > 12) { e.follow = false; e.walking = 0; }
+        else if (dd > 1.6) {
+          const sp = Math.min(dd - 1.4, (this.stats.speed * 1.05 + (dd - 1.6)) * w);
+          const ox = e.x;
+          e.y += ((d.y - e.y) / dd) * sp;
+          e.x = this.fence(e.x + ((d.x - e.x) / dd) * sp, e.y, ox, 0.3);
+          if (Math.abs(d.x - e.x) > 0.05) e.face = d.x > e.x ? 1 : -1;
+          e.walking = 1;
+        } else e.walking = 0;
+      }
+    } else this.escort = null;
+    if (q.kind === 'rescue') {
+      const at = this.spot(q.at);
+      const left = (q.n ?? 1) - p.questN;
+      if (at && !this.packOut && left > 0 && dist(at.x, at.y, d.x, d.y) < 13) {
+        this.packOut = true;
+        for (let i = 0; i < left; i++) {
+          const a = (i / left) * TAU + this.rng() * 0.5, r = 1.6 + this.rng() * 1.2;
+          this.spawnStory(q.beast ?? 'wilk', at.x + Math.cos(a) * r, at.y + Math.sin(a) * r * 0.7, PACK_DEN, q.area ?? this.area, false);
+        }
+      }
+      if (this.packOut && !this.beasts.some(b => b.den === PACK_DEN && b.state !== 'flee') && p.questN < (q.n ?? 1)) this.packOut = false;
+    } else this.packOut = false;
+    if (q.kind === 'defend') {
+      const at = this.spot(q.at), n = q.n ?? 1;
+      if (at) {
+        const dd = dist(at.x, at.y, d.x, d.y);
+        if (!this.defending && dd < 5 && d.down <= 0 && !this.restBlock) {
+          this.defending = true;
+          this.waveT = 0.8;
+          this.emit({ type: 'defend', x: at.x, y: at.y });
+        }
+        if (this.defending && !this.restBlock && dd < 14) {
+          this.waveT -= w;
+          const out = this.beasts.filter(b => b.den === WAVE_DEN && b.state !== 'flee').length;
+          if (this.waveT <= 0 && p.questN + out < n && out < 3) {
+            this.waveT = 4 / this.diff.speed;
+            const k = Math.min(2, n - p.questN - out);
+            for (let i = 0; i < k; i++) {
+              const a = this.rng() * TAU, r = 8 + this.rng() * 2;
+              const x = this.inArea(at.x + Math.cos(a) * r), y = clamp(at.y + Math.sin(a) * r * 0.7, this.bounds.y0 + 1, this.bounds.y1 - 1);
+              this.spawnStory(q.beast ?? 'szakal', x, y, WAVE_DEN, q.area ?? this.area, true);
+            }
+          }
+        }
+      }
+    } else this.defending = false;
+  }
+
+  /** A beast of the story (a rescue's pack, a defence's wave): of the area's strength, no den to go back to. */
+  private spawnStory(kind: BeastKind, x: number, y: number, den: number, area: number, chase: boolean): void {
+    const dn = this.dens.find(dd => dd.area === area && dd.kind === kind) ?? this.dens.find(dd => dd.area === area);
+    const k = dn?.k ?? this.k;
+    const b = this.spawnBeast(0, true, { kind, x, y, k });
+    b.den = den;
+    b.area = area;
+    b.hidden = false;
+    if (chase && !this.restBlock) { b.state = 'chase'; b.st = 0; }
   }
 
   // ── surprises: the golden jackal, Jesse's bundle ────────────────
@@ -2042,7 +2463,7 @@ export class DawidSim {
       if (this.thiefT <= 0) {
         this.thiefT = R.thiefEvery[0] + this.rng() * (R.thiefEvery[1] - R.thiefEvery[0]);
         const a = this.rng() * TAU, r = 6 + this.rng() * 2;
-        const x = clamp(d.x + Math.cos(a) * r, this.bounds.x0 + 1, this.bounds.x1 - 1), y = clamp(d.y + Math.sin(a) * r * 0.7, this.bounds.y0 + 1, this.bounds.y1 - 1);
+        const x = this.inArea(clamp(d.x + Math.cos(a) * r, this.bounds.x0 + 1, this.bounds.x1 - 1)), y = clamp(d.y + Math.sin(a) * r * 0.7, this.bounds.y0 + 1, this.bounds.y1 - 1);
         if (!this.inCampCircle(x, y)) {
           const hp = BEASTS.szakal.hp * 3 * this.k;
           this.thief = { x, y, t: 0, hp, max: hp, dir: a, zig: 0, hit: 0 };
@@ -2061,7 +2482,7 @@ export class DawidSim {
       const dd = dist(th.x, th.y, d.x, d.y);
       const sp = R.thiefSpeed * (dd < 7 ? 1 : 0.55);
       th.dir = away;
-      th.x = clamp(th.x + Math.cos(away) * sp * w, this.bounds.x0, this.bounds.x1);
+      th.x = this.inArea(clamp(th.x + Math.cos(away) * sp * w, this.bounds.x0, this.bounds.x1));
       th.y = clamp(th.y + Math.sin(away) * sp * w, this.bounds.y0, this.bounds.y1);
       if (th.t >= R.thiefRun) {
         this.puffs.push({ x: th.x, y: th.y, t: 0, kind: 'thief', dir: 1, air: 0 });
@@ -2076,10 +2497,17 @@ export class DawidSim {
       if (this.giftT <= 0) {
         this.giftT = R.giftEvery;
         const a = this.rng() * TAU, r = 3 + this.rng() * 2;
-        const x = clamp(d.x + Math.cos(a) * r, this.bounds.x0 + 1, this.bounds.x1 - 1), y = clamp(d.y + Math.sin(a) * r * 0.7, this.bounds.y0 + 1, this.bounds.y1 - 1);
-        this.chests.push({ id: this.uid++, kind: 'gift', x, y, t: 0, life: R.giftLife, silver: Math.round(20 * this.k), wood: 2, stone: 2, xp: Math.round(8 * this.k) });
+        const x = this.inArea(clamp(d.x + Math.cos(a) * r, this.bounds.x0 + 1, this.bounds.x1 - 1)), y = clamp(d.y + Math.sin(a) * r * 0.7, this.bounds.y0 + 1, this.bounds.y1 - 1);
+        this.chests.push({ id: this.uid++, kind: 'gift', x, y, t: 0, life: R.giftLife, silver: Math.round(20 * this.k * this.diff.reward), wood: 2, stone: 2, xp: Math.round(8 * this.k * this.diff.reward) });
       }
     }
+  }
+
+  /** An x kept inside David's area (a surprise never lands behind a wall). */
+  private inArea(x: number): number {
+    if (this.cave) return x;
+    const A = this.areaSpec(this.area);
+    return clamp(x, A.x0 + 1.2, A.x1 - 1.2);
   }
 
   private catchThief(): void {
@@ -2224,6 +2652,7 @@ export class DawidSim {
   private refreshStats(full: boolean): void {
     const d = this.david, share = d.max > 0 ? d.hp / d.max : 1;
     this.stats = statsOf(this.p, partyNow(this.p));
+    if (this.diff.self !== 1) this.stats.hp = Math.round(this.stats.hp * this.diff.self);
     d.max = this.stats.hp;
     d.hp = full ? d.max : Math.min(d.max, Math.max(1, share * d.max));
   }
@@ -2280,36 +2709,47 @@ export class DawidSim {
       const p = this.p;
       let done = false;
       switch (q.kind) {
-        case 'hunt': case 'gather': case 'buy': done = p.questN >= (q.n ?? 1); break;
+        case 'hunt': case 'gather': case 'buy': case 'rescue': case 'defend': done = p.questN >= (q.n ?? 1); break;
         case 'build': done = buildingLevel(p, q.what as BuildingId) >= (q.n ?? 1); break;
         case 'forge': done = weaponLevel(p, q.what as WeaponId) >= 1; break;
         case 'level': done = p.level >= (q.n ?? 1); break;
         case 'visit': done = !!q.joins && hasJoined(p, q.joins) && !q.gives; break;
+        case 'pass': done = !this.cave && areaAt(this.land, this.david.x) > (q.area ?? 0); break;
         default: done = false;
       }
       if (!done) return;
-      this.completeQuest();
+      // a companion already met (an old save) passes without the meeting's scene
+      this.completeQuest(q.kind !== 'visit');
     }
   }
 
-  private completeQuest(): void {
+  private completeQuest(scene = true): void {
     const p = this.p, q = this.quest;
     if (!q) return;
-    const silver = Math.round(15 * this.k * (1 + p.quest * 0.4));
-    const xp = Math.round(xpNeed(p.level) * 0.2);
+    const silver = Math.round(15 * this.k * (1 + p.quest * 0.4) * this.diff.reward);
+    const xp = Math.round(xpNeed(p.level) * 0.2 * this.diff.reward);
     p.silver += silver;
     this.silverIn += silver;
     this.questsDone++;
     p.quests++;
     p.quest++;
     p.questN = 0;
+    p.got = [];
+    this.escort = null;
+    this.defending = false;
+    this.packOut = false;
     this.gainXp(xp, this.david.x, this.david.y - 1.2);
     this.emit({ type: 'questDone', xp, silver });
     this.talk.ask('questDone', 1, 3);
+    if (q.charge) this.charge = Math.max(this.charge, q.charge);
+    // the story's scene for it (a companion's, a talk's, a thing found…)
+    if (scene && q.id && q.scene !== null && this.circle === 0) this.showScene(q.scene ?? q.id, q.choice, q.id, q.verse);
+    if (q.kind === 'pass') this.refreshDens();
     if (this.quest) {
       this.emit({ type: 'quest', index: p.quest });
       this.talk.ask('quest', 1, 4);
       this.coach('quest', this.david.x, this.david.y);
+      if (this.quest.kind === 'pass' && !this.cave) this.coach('log', this.david.x, this.david.y);
       if (this.quest.kind === 'gate' && !this.cave) {
         this.emit({ type: 'gate' });
         this.coach('gate', this.land.gate[0], this.land.gate[1]);
@@ -2321,7 +2761,8 @@ export class DawidSim {
   questTarget(): { x: number; y: number } | null {
     const q = this.quest, d = this.david;
     if (!q || this.cave) return null;
-    const camp = { x: this.land.camp[0], y: this.land.camp[1] };
+    const [cx0, cy0] = this.campOf(this.area);
+    const camp = { x: cx0, y: cy0 };
     const nearestDen = (kind?: string): { x: number; y: number } | null => {
       const dn = this.nearestDen(d.x, d.y, false, kind);
       return dn ? { x: dn.x, y: dn.y } : null;
@@ -2339,6 +2780,36 @@ export class DawidSim {
       return camp;
     };
     switch (q.kind) {
+      case 'pass': {
+        const A = this.areaSpec(q.area ?? 0);
+        return { x: A.x1 + 1.2, y: A.pass?.y ?? this.land.h / 2 };
+      }
+      case 'talk': return this.spot(q.at);
+      case 'find': {
+        const left = (q.spots ?? (q.at ? [q.at] : [])).filter(sp => !this.p.got.includes(sp)).map(sp => this.spot(sp)!).filter(Boolean);
+        left.sort((a, b) => dist(a.x, a.y, d.x, d.y) - dist(b.x, b.y, d.x, d.y));
+        return left[0] ?? null;
+      }
+      case 'rescue': case 'defend': {
+        const at = this.spot(q.at);
+        if ((this.packOut || this.defending) && at) {
+          // the beasts that came: the nearest of them, else the place
+          let best: Beast | null = null, bd = Infinity;
+          for (const b of this.beasts) {
+            if ((b.den !== PACK_DEN && b.den !== WAVE_DEN) || b.state === 'flee') continue;
+            const dd = dist(b.x, b.y, d.x, d.y);
+            if (dd < bd) { bd = dd; best = b; }
+          }
+          if (best) return { x: best.x, y: best.y };
+        }
+        return at;
+      }
+      case 'deliver': case 'word': return this.p.questN === 0 ? (q.at === 'camp' ? camp : this.spot(q.at)) : this.spot(q.to);
+      case 'escort': {
+        const e = this.escort;
+        if (e && !e.follow) return { x: e.x, y: e.y };
+        return this.spot(q.to);
+      }
       case 'hunt': return nearestDen(q.what);
       case 'build': return forPrice(buildingCost(q.what as BuildingId, buildingLevel(this.p, q.what as BuildingId)));
       case 'forge': return forPrice(weaponLevel(this.p, q.what as WeaponId) <= 0 ? CRAFT[q.what as WeaponId] : null);
@@ -2349,10 +2820,7 @@ export class DawidSim {
         if (carried >= (q.n ?? 1) - this.p.questN) return camp;
         return this.nearestNode(kind) ?? camp;
       }
-      case 'visit': {
-        const at = this.land.spots[q.what as Spot];
-        return at ? { x: at[0], y: at[1] } : null;
-      }
+      case 'visit': return this.spot(q.at ?? q.what);
       case 'level': return nearestDen();
       case 'guard': return { x: this.guard.x, y: this.guard.y };
       case 'gate': return { x: this.land.gate[0], y: this.land.gate[1] };
@@ -2376,7 +2844,7 @@ export class DawidSim {
   questText(): { text: string; progress: string } {
     if (this.cave) {
       const c = this.cave;
-      return { text: t('hud.floor', { n: c.floor }), progress: c.state === 'fight' ? `${Math.max(0, Math.ceil(RULES.floorSec - c.t))} s` : '✓' };
+      return { text: t('hud.floor', { n: c.floor }), progress: c.state === 'fight' ? `${Math.max(0, Math.ceil(this.floorSec - c.t))} s` : '✓' };
     }
     const q = this.quest;
     if (!q) return { text: '', progress: '' };
@@ -2387,12 +2855,74 @@ export class DawidSim {
       case 'buy': return { text: t('q.buy', { what: abilityName(q.what as AbilityId) }), progress: n > 1 ? `${Math.min(n, p.questN)}/${n}` : '' };
       case 'forge': return { text: t('q.forge', { what: weaponName(q.what as WeaponId, 0) }), progress: '' };
       case 'gather': return { text: t('q.gather', { what: count(q.what === 'stone' ? 'stoneN' : 'woodN', n) }), progress: `${Math.min(n, p.questN)}/${n}` };
-      case 'visit': return { text: t(`q.visit.${q.say ?? q.what}` as Key), progress: '' };
+      case 'visit': return { text: q.id ? questWords(this.land.id, q.id) : t(`q.visit.${q.say ?? q.what}` as Key), progress: '' };
+      case 'talk': case 'escort': case 'deliver': case 'word': return { text: questWords(this.land.id, q.id ?? ''), progress: this.stageText(q) };
+      case 'find': {
+        const all = (q.spots ?? [q.at]).length;
+        return { text: questWords(this.land.id, q.id ?? ''), progress: all > 1 ? `${p.got.length}/${all}` : '' };
+      }
+      case 'rescue': case 'defend': return { text: questWords(this.land.id, q.id ?? ''), progress: `${Math.min(n, p.questN)}/${n}` };
+      case 'pass': return { text: t('q.pass', { what: areaName(this.land.id, this.areaSpec((q.area ?? 0) + 1).id) }), progress: '' };
       case 'level': return { text: t('q.level', { n }), progress: `${p.level}/${n}` };
       case 'guard': return { text: t(this.guard.spec.giant ? 'q.guardGiant' : 'q.guard', { what: this.guard.name }), progress: this.guard.max > 0 ? `${Math.round((1 - this.guard.hp / this.guard.max) * 100)}%` : '' };
       case 'gate': return { text: t('q.gate', { what: landName(landAt(p.land + 1).spec.id) }), progress: '' };
     }
     return { text: '', progress: '' };
+  }
+
+  /** A carried thing's or an escort's stage in words ("✓": picked up, on the way). */
+  private stageText(q: QuestSpec): string {
+    if (q.kind === 'deliver' || q.kind === 'word') return this.p.questN > 0 ? '✓' : '';
+    if (q.kind === 'escort') return this.escort?.follow ? '✓' : '';
+    return '';
+  }
+
+  /** Where the arrow points: the quest's place, or — in another area — the pass on the way to it. */
+  questWaypoint(): { x: number; y: number } | null {
+    const at = this.questTarget();
+    if (!at) return null;
+    const via = this.route(at.x, at.y);
+    if (!via) return at;
+    const d = this.david, a = areaAt(this.land, d.x), b = areaAt(this.land, at.x);
+    const i = b > a ? a : a - 1, A = this.land.areas[i];
+    return { x: A.x1, y: A.pass?.y ?? via.y };
+  }
+
+  /**
+   * The quest log: the chapter, the land's areas (gone through, here, open, closed), and its chain by area — done,
+   * now (with its count), the next one, the rest hidden — for the log's card.
+   */
+  log(): { title: string; areas: { name: string; state: 'done' | 'here' | 'open' | 'shut' }[]; quests: { text: string; state: 'done' | 'now' | 'next'; area: number }[] } {
+    const L = this.land, qs = this.quests, p = this.p, open = this.areasOpen;
+    const title = t('story.chapter', { n: this.landIdx + 1, name: landName(L.id) });
+    const areas = L.areas.map((a, i) => ({
+      name: areaName(L.id, a.id),
+      state: (i === this.area && !this.cave ? 'here' : i < open - 1 || (i < open && i < this.area) ? 'done' : i < open ? 'open' : 'shut') as 'done' | 'here' | 'open' | 'shut',
+    }));
+    const quests: { text: string; state: 'done' | 'now' | 'next'; area: number }[] = [];
+    for (let i = 0; i < qs.length && i <= p.quest + 1; i++) {
+      const q = qs[i], text = this.questWordsOf(q, i);
+      quests.push({ text, state: i < p.quest ? 'done' : i === p.quest ? 'now' : 'next', area: q.area ?? 0 });
+    }
+    return { title, areas, quests };
+  }
+
+  /** A quest's words for the log (its pill's words, without the count). */
+  private questWordsOf(q: QuestSpec, i: number): string {
+    if (i === this.p.quest && !this.cave) return this.questText().text;
+    const n = q.n ?? 1;
+    switch (q.kind) {
+      case 'hunt': return t('q.hunt', { what: beastCount(q.what as BeastKind, n) });
+      case 'build': return t('q.build', { what: buildingName(q.what as BuildingId) });
+      case 'buy': return t('q.buy', { what: abilityName(q.what as AbilityId) });
+      case 'forge': return t('q.forge', { what: weaponName(q.what as WeaponId, 0) });
+      case 'gather': return t('q.gather', { what: count(q.what === 'stone' ? 'stoneN' : 'woodN', n) });
+      case 'level': return t('q.level', { n });
+      case 'guard': return t(this.guard.spec.giant ? 'q.guardGiant' : 'q.guard', { what: this.guard.name });
+      case 'gate': return t('q.gate', { what: landName(landAt(this.p.land + 1).spec.id) });
+      case 'pass': return t('q.pass', { what: areaName(this.land.id, this.areaSpec((q.area ?? 0) + 1).id) });
+      default: return q.id ? questWords(this.land.id, q.id) : '';
+    }
   }
 
   // ── the road: the next land ─────────────────────────────────────
@@ -2416,15 +2946,26 @@ export class DawidSim {
     this.landsNow.push(p.land);
     this.emit({ type: 'land', idx: L.idx, circle: L.circle });
     this.talk.ask('land', 3, 8);
-    const text = L.idx === 0 && L.circle > 0 ? `${t('story.circle', { n: L.circle + 1 })} ${landStory(L.spec.id)}` : landStory(L.spec.id);
-    this.showStory({ kind: 'land', t: 0, dur: RULES.storySec + 2, title: t('story.land.title', { name: landName(L.spec.id) }), text });
+    this.chapter(false);
+    this.areaSaid.clear();
+    this.enterArea(this.area);
     this.emit({ type: 'quest', index: 0 });
   }
 
   // ── the cave of Adullam (the tower) ─────────────────────────────
+  /** A floor's time (s): the rules' on REGULAR, a little more with more helps, less with none (the tower's grace). */
+  get floorSec(): number {
+    const h = this.diff.helps;
+    return h === 1 ? RULES.floorSec : RULES.floorSec * (0.8 + 0.2 * h);
+  }
+
   enterCave(): void {
     if (this.cave || buildingLevel(this.p, 'jaskinia') <= 0 || this.sitting) return;
     this.deliver();
+    this.caveFrom = this.area;
+    this.escort = null;
+    this.defending = false;
+    this.packOut = false;
     this.stash = { coins: this.coins.splice(0) };
     this.beasts.length = 0;
     this.shots.length = 0;
@@ -2489,7 +3030,7 @@ export class DawidSim {
     const d = this.david;
     if (c.state === 'fight') {
       if (!this.restBlock) c.t += w;
-      if (c.t >= RULES.floorSec) { this.exitCave(); return; }
+      if (c.t >= this.floorSec) { this.exitCave(); return; }
     } else {
       c.clearT += w;
       if (c.clearT >= RULES.floorPause) {
@@ -2516,10 +3057,12 @@ export class DawidSim {
     this.stash = null;
     const L = this.land;
     this.bounds = { x0: 0.6, y0: 0.6, x1: L.w - 0.6, y1: L.h - 0.6 };
-    this.dens.forEach((dn, i) => { dn.wait = []; for (let j = 0; j < dn.n; j++) this.spawnBeast(i, false); });
-    const d = this.david;
-    d.x = L.camp[0] + 1;
-    d.y = L.camp[1] + 1.2;
+    this.area = this.caveFrom;
+    for (const dn of this.dens) dn.live = false;
+    this.refreshDens();
+    const d = this.david, [cx, cy] = this.campOf(this.area);
+    d.x = cx + 1;
+    d.y = cy + 1.2;
     this.lamb.x = d.x - 0.8;
     this.lamb.y = d.y + 0.3;
     for (const m of this.mates) { m.x = d.x + (this.rng() - 0.5) * 2; m.y = d.y + 1; }
@@ -2617,7 +3160,7 @@ export class DawidSim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      const key = lenKey(this.plannedSec, this.difficulty);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
@@ -2632,6 +3175,7 @@ export class DawidSim {
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
     if (this.floorsNow > 0) stats.push([t('stat.floor'), String(this.floorsNow)]);
+    if (this.difficulty !== DEFAULT_DIFFICULTY) stats.unshift([t('stat.difficulty'), difficultyName(this.difficulty)]);
     return {
       score: this.score, unit: t('unit'), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

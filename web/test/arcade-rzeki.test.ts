@@ -1501,6 +1501,86 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('grows the rivers with 45 and 60 minutes too (× length / 10 min), so they reach the edges about halfway', () => {
+    expect(riverFullFor(2700)).toBe(RULES.riverFull * 4.5);
+    expect(riverFullFor(3600)).toBe(RULES.riverFull * 6);
+    expect(later({ planned: 3600 }).riverFull).toBe(RULES.riverFull * 6);
+  });
+
+  it('walks the way for 45 and 60 minutes: a rest after every station to the end, round after round, the finale at the end, the rivers growing through it', () => {
+    for (const planned of [2700, 3600]) {
+      for (const level of [0.5, 0.9]) {
+        const sim = later({ planned, seed: 2 });
+        const clock = { t: 0 };
+        const lit: number[] = [];
+        let finale = -1, river10 = 0, riverHalf = 0, late = 0, lastLine: unknown = null, minGap = Infinity;
+        const heard = new Map<string, number>();
+        for (let i = 0; i < (planned + 5) / STEP; i++) {
+          clock.t += STEP;
+          sim.update(STEP, steady(level)(clock.t, sim), clock.t);
+          reader(sim)();
+          for (const e of sim.take()) {
+            if (e.type === 'full') lit.push(clock.t);
+            if (e.type === 'finale') finale = clock.t;
+          }
+          const line = sim.talk.line;
+          if (line && line !== lastLine) {
+            const prev = heard.get(line.text);
+            if (prev !== undefined) minGap = Math.min(minGap, clock.t - prev);
+            heard.set(line.text, clock.t);
+            if (clock.t > planned - 600) late++;
+          }
+          lastLine = line;
+          if (i === Math.round(planned / 5 / STEP)) river10 = sim.river;
+          if (i === Math.round(planned / 2 / STEP)) riverHalf = sim.river;
+        }
+        const tag = `${planned} · ${level}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(finale, tag).toBeGreaterThan(planned - RULES.finale.long - 0.5);
+        expect(finale, tag).toBeLessThan(planned - RULES.finale.long + 0.5);
+        for (const v of [sim.drops, sim.fill, sim.light, sim.river]) expect(Number.isFinite(v), tag).toBe(true);
+        expect(sim.placesNow, tag).toBeGreaterThanOrEqual(Math.floor(planned / 75));
+        expect(lit.filter(t => t > planned - 200).length, tag).toBeGreaterThanOrEqual(2);
+        expect(sim.restsNow, tag).toBeGreaterThanOrEqual(sim.placesNow);
+        const blocks = sim.blocks;
+        blocks.forEach((b, i) => { if (i) expect(b.kind).not.toBe(blocks[i - 1].kind); });
+        for (const b of blocks.filter(x => x.kind === 'push')) expect(b.len).toBeLessThanOrEqual(RULES.valveSec + 0.5);
+        expect(blocks.length, tag).toBeLessThan(planned / 10);
+        // the rivers: still growing a fifth of the way in, well on halfway, full at the end
+        expect(river10, tag).toBeLessThan(level > 0.6 ? 0.65 : 0.5);
+        expect(riverHalf, tag).toBeGreaterThan(0.6);
+        expect(sim.river, tag).toBe(1);
+        // the way goes round again (2–3 rounds an hour); the narrator still speaks in the last ten minutes, and a line
+        // comes back no sooner than a station later (measured: ≥ 42 s, as in shorter sessions)
+        expect(sim.round, tag).toBeGreaterThanOrEqual(2);
+        expect(late, tag).toBeGreaterThan(10);
+        expect(minGap, tag).toBeGreaterThan(30);
+        const r = sim.result();
+        expect(r.score).toBe(sim.score);
+        expect(String(r.score).length).toBeLessThanOrEqual(7);
+        expect(sim.p.best[String(planned)]).toBe(r.score);
+        expect(r.highlights.length).toBeLessThanOrEqual(5);
+        for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+        for (const h of r.highlights) {
+          expect(h).not.toMatch(/undefined|NaN/);
+          expect(h.length).toBeLessThan(140);
+        }
+        expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      }
+    }
+  }, 120_000);
+
+  it('never sticks in an hour without focus: the valve rests every push, nothing is lit, nothing is lost', () => {
+    const sim = later({ planned: 3600, seed: 3 });
+    drive(sim, 3605, (_t, s) => (s.pushBlock ? LOW : CALM), { t: 0 }, reader(sim));
+    expect(sim.phase).toBe('done');
+    expect(sim.placesNow).toBe(0);
+    expect(sim.valvesNow).toBeGreaterThanOrEqual(Math.floor(3600 / (RULES.valveStall + 40)));
+    for (const b of sim.blocks.filter(x => x.kind === 'push')) expect(b.len).toBeLessThanOrEqual(RULES.valveSec + 0.5);
+  }, 60_000);
+});
+
 describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
   it('offers two dials in the game’s words: a rest after 1–4 centres (1 by design), 1–12 whole breaths of the player’s own pattern', () => {
     const spec = rzekiRhythm(freshProgress());

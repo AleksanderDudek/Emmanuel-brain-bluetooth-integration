@@ -17,6 +17,8 @@
  * on the band.  No DOM: the view and the sound read the state and the event queue (`take()`).
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -33,10 +35,20 @@ import {
   addNotes, addXp, bestFor, campaignDone, equip, equipAll, familyBonus, growth, isBoonId, joiningAfter, lenKey,
   neededKinds, nextToEquip, powerOf, recordStars, type DziewiatkaProgress,
 } from './meta';
-import { RULES, span } from './rules';
-import { Talk } from './talk';
+import { RULES, levelKnobs, span, type DziewiatkaLevel } from './rules';
+import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
+
+/**
+ * A level's name for the summary's tile: the long ones get soft hyphens, so a narrow tile (two to a row on a phone,
+ * 30 px type) breaks "Zaawan-sowany" rather than clipping it.
+ */
+const SOFT: Readonly<Record<string, string>> = { Zaawansowany: 'Zaawan\u00adsowany', Fortgeschritten: 'Fort\u00adge\u00adschrit\u00adten' };
+const levelValue = (d: Difficulty): string => {
+  const n = difficultyName(d);
+  return SOFT[n] ?? n;
+};
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -183,6 +195,9 @@ export interface SimInit {
 export class DziewiatkaSim {
   readonly p: DziewiatkaProgress;
   readonly plannedSec: number;
+  /** the session's difficulty level (chosen in the lobby; fixed for the session) and its knobs (rules.ts LEVELS) */
+  readonly difficulty: Difficulty;
+  readonly knobs: DziewiatkaLevel;
   private readonly rng: () => number;
   private readonly judge: RoundJudge;
   readonly contrast = new BlockContrast(4);
@@ -275,6 +290,8 @@ export class DziewiatkaSim {
 
   constructor(init: SimInit) {
     const p = (this.p = init.progress);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.knobs = levelKnobs(this.difficulty);
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
@@ -288,8 +305,10 @@ export class DziewiatkaSim {
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, init.rhythm);
-    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng, roundFor(init.plannedSec));
     this.battle = new Battle(e => this.onBattle(e), init.rng);
+    // the level's pace of the Din (REGULAR: × 1)
+    this.battle.pace = this.knobs.speed;
     this.setTeam();
     this.mission = this.makeMission();
   }
@@ -339,7 +358,7 @@ export class DziewiatkaSim {
     const g = growth(this.p, h.kind);
     const power = powerOf(g);
     const share = keepShare && h.max > 0 ? h.hp / h.max : 1;
-    h.max = Math.round(HEROES[h.kind].hp * power * (1 + this.boonHp));
+    h.max = Math.round(HEROES[h.kind].hp * power * (1 + this.boonHp) * this.knobs.self);
     h.hp = h.down ? 0 : Math.max(1, Math.round(h.max * share));
     h.atk = HEROES[h.kind].atk * power;
     h.rank = g.rank;
@@ -366,7 +385,10 @@ export class DziewiatkaSim {
       : campaignMission(p.mission, RULES.powerStep);
     // the Din is shy against a team behind its pace (never more than shyFloor)
     const mean = this.battle.heroes.reduce((s, h) => s + powerOf(growth(p, h.kind)), 0) / Math.max(1, this.battle.heroes.length);
-    const shy = clamp(mean / Math.max(1, spec.power * 0.9), RULES.shyFloor, 1);
+    const shy0 = clamp(mean / Math.max(1, spec.power * 0.9), RULES.shyFloor, 1);
+    // the level's grace bends the shyness (more at Na start, none at Hardcore)
+    const g = this.knobs.grace;
+    const shy = g === 1 ? shy0 : clamp(1 - (1 - shy0) * g, 0.3, 1);
     return { spec, wave: -1, gap: 0.6, won: 0, fallen: new Set(), shy, heart: 1, stars: 3 };
   }
 
@@ -382,7 +404,16 @@ export class DziewiatkaSim {
     this.waveT = 0;
     const kinds = [...spec.waves[n].kinds];
     if (this.pushBlock) for (let i = 0; i < RULES.pushExtra; i++) kinds.push(this.smallKind());
-    const power = spec.power * m.shy * m.heart;
+    // the level's numbers: fewer shadows at Na start (never the boss, never none), more small ones past REGULAR
+    const c = this.knobs.count;
+    if (c < 1) {
+      for (let drop = Math.round(kinds.length * (1 - c)); drop > 0 && kinds.length > 1; drop--) {
+        const i = kinds.map(k => !DIN[k].boss).lastIndexOf(true);
+        if (i < 0) break;
+        kinds.splice(i, 1);
+      }
+    } else if (c > 1) for (let more = Math.round(kinds.length * (c - 1)); more > 0; more--) kinds.push(this.smallKind());
+    const power = spec.power * m.shy * m.heart * this.knobs.foe;
     kinds.forEach((k, i) => this.battle.spawn(k, power, i * RULES.spawnGap));
     this.battle.newWave();
     this.emit({ type: 'wave', n: n + 1, all: spec.waves.length });
@@ -438,7 +469,7 @@ export class DziewiatkaSim {
   /** XP to the five, now and then a piece of gear and a note. */
   private waveCleared(): void {
     const p = this.p;
-    const xp = RULES.xpWave + RULES.xpStep * this.missionIndexForXp;
+    const xp = (RULES.xpWave + RULES.xpStep * this.missionIndexForXp) * this.knobs.reward;
     for (const h of this.battle.heroes) {
       const up = addXp(growth(p, h.kind), xp);
       if (up > 0) {
@@ -818,7 +849,7 @@ export class DziewiatkaSim {
     if (b.kind === 'rest' && this.blockT >= R.bannerSec && this.blockT - dt < R.bannerSec) this.coach('well', { at: 'well' });
     // the push block's peak: as the lead-in ends the Din surges
     if (b.kind === 'push' && !b.blind && this.blockT >= this.lead && this.blockT - dt < this.lead && this.fighting && this.mission.wave >= 0 && this.mission.won <= 0) {
-      const power = this.mission.spec.power * this.mission.shy * this.mission.heart * 0.8;
+      const power = this.mission.spec.power * this.mission.shy * this.mission.heart * this.knobs.foe * 0.8;
       for (let i = 0; i < R.surge; i++) this.battle.spawn(this.smallKind(), power, 0.3 + i * 0.4);
       this.emit({ type: 'surge', n: R.surge });
       this.talk.ask('surge', 2, 4);
@@ -830,7 +861,7 @@ export class DziewiatkaSim {
       if (this.surgeT <= 0) {
         this.surgeT = R.surgeEvery;
         this.surgeN++;
-        this.battle.spawn(this.smallKind(), this.mission.spec.power * this.mission.shy * this.mission.heart * 0.8, 0);
+        this.battle.spawn(this.smallKind(), this.mission.spec.power * this.mission.shy * this.mission.heart * this.knobs.foe * 0.8, 0);
       }
     }
     const last = this.blockIndex >= this.plan.length - 1;
@@ -951,8 +982,10 @@ export class DziewiatkaSim {
 
   private standUp(): void {
     this.tally = null;
-    this.mission.heart *= RULES.wipeHeart;
-    this.battle.standUp(RULES.wipeUp, RULES.wipeHeart);
+    // the heart a wave loses after a wipe (the level's grace: more at Na start, none at Hardcore)
+    const g = this.knobs.grace, heart = g === 1 ? RULES.wipeHeart : clamp(1 - (1 - RULES.wipeHeart) * g, 0.5, 1);
+    this.mission.heart *= heart;
+    this.battle.standUp(RULES.wipeUp, heart);
     this.emit({ type: 'standUp' });
   }
 
@@ -1135,11 +1168,14 @@ export class DziewiatkaSim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      // records per level: REGULAR keeps the old key, a level past it its own ("300@hardcore")
+      const key = lenKey(this.plannedSec, this.difficulty);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const stats: [string, string][] = [
+      // a level past REGULAR is named first (REGULAR's summary stays as it was)
+      ...(this.difficulty === 'regular' ? [] : [[t('stat.difficulty'), levelValue(this.difficulty)] as [string, string]]),
       [t('stat.missions'), String(this.missionsWon)],
       [t('stat.stars'), `${this.starsNow}★`],
       [t('stat.ults'), String(this.ultsNow)],

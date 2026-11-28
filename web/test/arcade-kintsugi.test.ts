@@ -8,7 +8,9 @@ import { ALL_VERSES, OWN_LEN, OWN_MAX, SET_LEN, VERSES, WORD_SETS, cleanWord, cl
 import { HEART, buildHeart, clothSpots, inHeart, seamFill } from '../src/arcade/kintsugi/heart';
 import { CATALOGS, linesOf, t, unit } from '../src/arcade/kintsugi/i18n';
 import { howto, kintsugiRhythm } from '../src/arcade/kintsugi/index';
-import { guideHeight, layout } from '../src/arcade/kintsugi/layout';
+import { guideHeight, keepClear, layout } from '../src/arcade/kintsugi/layout';
+import { TAIL_MAX, planMusic } from '../src/arcade/kit/playlist';
+import { BUILTIN } from '../src/arcade/kintsugi/music/tracks';
 import { addWeight, bestOf, forgetOwn, freshProgress, migrate, setOwn, type KintsugiProgress } from '../src/arcade/kintsugi/meta';
 import { forecastLines, progressPanel } from '../src/arcade/kintsugi/panel';
 import { RULES, focusRate, piecesFor, planFor } from '../src/arcade/kintsugi/rules';
@@ -98,8 +100,8 @@ describe('Złote serce — the plan', () => {
       expect(p.taskNeed).toBeGreaterThan(0);
       // from 15 minutes the average player gathers every piece with care
       if (m >= 15) expect(p.planned).toBe(p.pieces);
-      // by design a short session washes in one breath, a long one in two
-      expect(p.wash).toBe(m * 60 < RULES.shortSec ? 1 : RULES.rest.def);
+      // by design a short session washes in one breath, a long one in two — 45 and 60 minutes in three and four
+      expect(p.wash).toBe(m * 60 < RULES.shortSec ? 1 : m === 45 ? 3 : m === 60 ? 4 : RULES.rest.def);
     }
   });
 
@@ -318,7 +320,7 @@ describe('Złote serce — the progress', () => {
     expect(migrate(freshProgress())).toEqual(freshProgress());
     for (const bad of [{}, { best: null }, { ver: 3, sessions: 4 }, { ver: 1, sessions: 'x', best: -3, words: 'hack', own: 'a, b, ' + 'x'.repeat(60), breath: null, before: 99, history: [{ after: 4, before: 'x' }, 7], music: 'no', seen: [1, 'a'] }]) {
       const p = migrate(bad as unknown as KintsugiProgress);
-      expect(p.ver).toBe(1);
+      expect(p.ver).toBe(2);
       expect(Number.isInteger(p.sessions) && p.sessions >= 0).toBe(true);
       expect(['heart', 'loss', 'betrayal', 'rejection', 'self', 'own', 'none']).toContain(p.words);
       expect(p.own.length).toBeLessThanOrEqual(OWN_MAX);
@@ -329,7 +331,67 @@ describe('Złote serce — the progress', () => {
       expect(Array.isArray(p.seen)).toBe(true);
     }
     expect(migrate({ sessions: 5 } as unknown as KintsugiProgress).sessions).toBe(5);
-    expect(migrate({ ver: 1, before: 12.7 } as unknown as KintsugiProgress).before).toBe(10);
+    // a version-1 rating said how much it hurt: 12.7 is cleaned to 10 (the most), then turned round to 0 (very heavy)
+    expect(migrate({ ver: 1, before: 12.7 } as unknown as KintsugiProgress).before).toBe(0);
+    expect(migrate({ ver: 2, before: 12.7 } as unknown as KintsugiProgress).before).toBe(10);
+  });
+
+  it('turns a version-1 save\'s ratings round once (feel = 10 − hurt): a returning player\'s history stays true', () => {
+    const old = {
+      ...freshProgress(), ver: 1, sessions: 3, before: 7,
+      history: [{ day: '2026-11-25', before: 8, after: 5 }, { day: '2026-11-26', before: null, after: 2 }, { day: '2026-11-27', before: 6, after: 6 }],
+    } as unknown as KintsugiProgress;
+    const p = migrate(old);
+    expect(p.ver).toBe(2);
+    expect(p.before).toBe(3);
+    expect(p.history).toEqual([{ day: '2026-11-25', before: 2, after: 5 }, { day: '2026-11-26', before: null, after: 8 }, { day: '2026-11-27', before: 4, after: 4 }]);
+    // once only: migrating again (the lobby, the preview and the session all migrate) changes nothing
+    expect(migrate(p)).toEqual(p);
+    expect(migrate(JSON.parse(JSON.stringify(p)))).toEqual(p);
+    // a fresh save is already version 2: nothing to turn
+    const f = freshProgress();
+    addWeight(f, DAY, 3, 7);
+    expect(migrate(f).history).toEqual([{ day: DAY, before: 3, after: 7 }]);
+  });
+
+  it('asks "Jak się teraz czujesz?" 0 (very heavy) … 10 (light and well), in four languages, without a word of pain', () => {
+    expect(t('rate.q')).toBe('Jak się teraz czujesz?');
+    expect(t('rate.sub')).toBe('0 — bardzo ciężko · 10 — lekko i dobrze');
+    expect(t('panel.feel')).toBe('Jak się teraz czujesz?');
+    const keys = ['rate.q', 'rate.sub', 'rate.label', 'panel.feel', 'panel.feelNote', 'stat.feel', 'howto.tap', 'howto.click', 'howto.keys'] as const;
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of keys) {
+        const v = String(cat[k]);
+        expect(v, `${lang} ${k}`).toBeTruthy();
+        expect(v, `${lang} ${k}`).not.toMatch(/boli|ból|hurt|pain|weh|schmerz|ont |smärta/i);
+      }
+      for (const old of ['panel.hurt', 'panel.hurtNote', 'stat.hurt']) expect(cat[old], `${lang} ${old}`).toBeUndefined();
+      expect(String((ARCADE_TEXTS as unknown as Record<string, Record<string, string>>)[lang]['kintsugi.how3'])).not.toMatch(/boli|hurt|weh|ont /);
+      expect(String((MOUSE_TEXTS as unknown as Record<string, Record<string, string>>)[lang]['kintsugi.how3'])).not.toMatch(/boli|hurt|weh|ont /);
+    }
+  });
+
+  it('the keyboard reaches 10: "1" then "0" is 10; "1" alone stands after a moment', () => {
+    for (const [keys, want] of [[['1', '0'], 10], [['1'], 1], [['7'], 7], [['0'], 0], [['1', '5'], 1]] as const) {
+      const sim = makeSim({ planned: 180, seed: 2 });
+      const clock = { t: 0 };
+      drive(sim, 180.2, LOW, clock);
+      expect(sim.rateOpen).toBe(true);
+      for (const k of keys) sim.key(k, true);
+      // a lone "1" waits a moment for a "0": the close waits with it
+      if (keys.length === 1 && keys[0] === '1') expect(sim.canStop()).toBe(false);
+      drive(sim, 1, LOW, clock);
+      expect(sim.rating, keys.join('')).toBe(want);
+    }
+  });
+
+  it('the summary says how the player felt before → after (rising is lighter)', () => {
+    const sim = makeSim({ planned: 300, progress: { before: 3 } });
+    drive(sim, 300.5, player(AVG));
+    sim.rate10(7);
+    sim.finish();
+    expect(sim.result().stats).toContainEqual(['Jak się czuję', '3 → 7']);
   });
 
   it('keeps own words clean, distinct and few; forgetting them returns to a set', () => {
@@ -517,5 +579,152 @@ describe('Złote serce — the layout and the lobby', () => {
     for (const b of el.querySelectorAll('button')) if (!b.closest('.kin-music')) expect((b as HTMLElement).style.minHeight).toBe('44px');
     expect(forecastLines(p, 600)[0]).toMatch(/10 min/);
     el.remove();
+  });
+});
+
+describe('Złote serce — the second card’s place for a cross-fade (round 24, layout.ts music2)', () => {
+  it('is over nothing the meditation shows, inside the screen, beside the first card — or null (the tracks change in one place)', () => {
+    const extra = [
+      { name: 'desk 1440 × 900', w: 1440, h: 900, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
+      { name: 'desk 1920 × 1080', w: 1920, h: 1080, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
+    ];
+    let some = 0;
+    for (const size of [...CHECK_SIZES, ...extra]) {
+      const l = layout(size.w, size.h, size.insets, true);
+      const off = layout(size.w, size.h, size.insets, false);
+      expect(off.music2).toBeNull();
+      const m2 = l.music2;
+      if (!m2) continue;
+      some++;
+      const m = l.music!;
+      const meets = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      expect(m2.w).toBe(m.w);
+      expect(m2.h).toBe(m.h);
+      expect(meets(m2, m), size.name).toBe(false);
+      expect(m2.x).toBeGreaterThanOrEqual(size.insets.left);
+      expect(m2.y).toBeGreaterThanOrEqual(size.insets.top);
+      expect(m2.x + m2.w).toBeLessThanOrEqual(size.w - size.insets.right + 0.5);
+      expect(m2.y + m2.h).toBeLessThanOrEqual(size.h - size.insets.bottom + 0.5);
+      for (const c of keepClear(l)) expect(meets(m2, c), `${size.name}: ${JSON.stringify(c)}`).toBe(false);
+    }
+    // a large desk has the room (above the first card); a phone never does
+    expect(some).toBeGreaterThanOrEqual(2);
+    for (const size of CHECK_SIZES.filter(z => z.w < 900)) expect(layout(size.w, size.h, size.insets, true).music2, size.name).toBeNull();
+  });
+});
+
+describe('Złote serce — 45–60 minutes (round 24)', () => {
+  it('the plan to its finale: 14 pieces, longer washes and a longer beat and radiance, a task no longer than at 30 minutes allows', () => {
+    const p30 = planFor({ plannedSec: 1800, cyc: CYC, eeg: false });
+    for (const [T, wash] of [[2700, 3], [3600, 4]] as const) {
+      for (const eeg of [false, true]) {
+        const p = planFor({ plannedSec: T, cyc: CYC, eeg });
+        const name = `${T} ${eeg ? 'eeg' : 'fnirs'}`;
+        expect(p.pieces, name).toBe(14);
+        expect(p.planned, name).toBe(14);
+        expect(p.wash, name).toBe(wash);
+        expect(p.taskSec, name).toBeLessThanOrEqual(RULES.long.task + 1e-6);
+        expect(p.taskSec, name).toBeGreaterThan(p30.taskSec);
+        const beat = p.beatEnd - p.goldEnd, rad = p.radianceEnd - p.beatEnd;
+        expect(beat, name).toBeGreaterThan(RULES.beatMax);
+        expect(beat, name).toBeLessThanOrEqual(RULES.beatMax + RULES.long.beat + CYC);
+        expect(rad, name).toBeGreaterThan(RULES.radianceMax);
+        expect(rad, name).toBeLessThanOrEqual(RULES.radianceMax + RULES.long.radiance + CYC);
+        expect(T - p.radianceEnd, name).toBeLessThanOrEqual(RULES.close.max + 1e-6);
+        // the gathering about half, the gold a quarter to a third
+        expect((p.gatherEnd - p.arriveEnd) / T, name).toBeGreaterThan(0.4);
+        expect((p.goldEnd - p.gatherEnd) / T, name).toBeGreaterThan(0.2);
+        expect(p.goldPushes, name).toBeGreaterThan(p30.goldPushes);
+      }
+    }
+    // the player's own washes are kept
+    expect(planFor({ plannedSec: 3600, cyc: CYC, eeg: false, focus: 20, rest: 1, custom: true }).wash).toBe(1);
+  });
+
+  it('a full hour, headless: every piece with care and the gold for the average and weaker player, pushes of about a minute at most, a clean result', () => {
+    const WEAK = frame({ level: 0.52, activity: 2.2, focused: true, hold: 3, calm: 0.3 });
+    for (const T of [2700, 3600]) {
+      for (const [name, f, pushMax] of [['weak', WEAK, 90], ['avg', AVG, 70], ['strong', HIGH, 50]] as const) {
+        const sim = makeSim({ planned: T, seed: T + 1 });
+        const clock = { t: 0 };
+        let pushFrom = -1, longest = 0, events = 0;
+        const cards: [string, number][] = [];
+        let lastCard: unknown = null;
+        const n = Math.round((T + RULES.rateWait + 1) / STEP);
+        for (let i = 0; i < n; i++) {
+          clock.t += STEP;
+          sim.update(STEP, sim.pushBlock ? f : LOW, clock.t);
+          events = Math.max(events, sim.take().length);
+          if (sim.stage === 'gather' && sim.block.kind === 'push') { if (pushFrom < 0) pushFrom = sim.block.t0; longest = Math.max(longest, clock.t - pushFrom); } else pushFrom = -1;
+          if (sim.card && sim.card !== lastCard) cards.push([sim.card.id, clock.t]);
+          lastCard = sim.card;
+        }
+        const tag = `${T} ${name}`;
+        expect(sim.stage, tag).toBe('close');
+        expect(sim.canStop(), tag).toBe(true);
+        expect(sim.pieces.every(p => p.state === 'home'), tag).toBe(true);
+        // the fit (§24.4b): ≥ 90 % of the work done by the average and the weaker player
+        expect(sim.gathered.care / sim.plan.planned, tag).toBeGreaterThanOrEqual(0.9);
+        expect(sim.score / sim.geo.seams.length, tag).toBeGreaterThanOrEqual(0.9);
+        // a push to lay one piece and lift the next stays about as long as at 30 minutes (≤ 46 s average there)
+        expect(longest, tag).toBeLessThanOrEqual(pushMax);
+        expect(events, tag).toBeLessThan(12);
+        // a rest's passage does not come back within ten minutes (the root and the close's verse aside)
+        const at = new Map<string, number>();
+        for (const [id, t0] of cards) {
+          const last = at.get(id);
+          if (last !== undefined) expect(t0 - last, `${tag}: ${id}`).toBeGreaterThanOrEqual(RULES.talkFresh - 1);
+          at.set(id, t0);
+        }
+        // the narrator: no line twice within ten minutes, except the help when the hands or the gold wait
+        expect(sim.talk.fresh).toBe(RULES.talkFresh);
+        sim.rate10(6);
+        sim.finish();
+        const r = sim.result();
+        expect(r.stats.length, tag).toBeLessThanOrEqual(6);
+        expect(r.highlights.length, tag).toBeLessThanOrEqual(4);
+        expect(String(r.score).length, tag).toBeLessThanOrEqual(3);
+        expect(JSON.stringify(r)).toBe(JSON.stringify(sim.result()));
+      }
+    }
+  });
+
+  it('the narrator speaks through the hour without a line twice in ten minutes; 30 minutes and less narrate as before', () => {
+    const waitLines = new Set([...linesOf('wait'), ...linesOf('goldWait')]);
+    for (const T of [1800, 2700, 3600]) {
+      const sim = makeSim({ planned: T, seed: 9 });
+      // a drifting player: focused for stretches, then not (the help when waiting speaks too)
+      const clock = { t: 0 };
+      const said: [string, number][] = [];
+      let n0 = 0;
+      const steps = Math.round((T + 1) / STEP);
+      for (let i = 0; i < steps; i++) {
+        clock.t += STEP;
+        const drift = Math.floor(clock.t / 45) % 4 === 3;
+        sim.update(STEP, sim.pushBlock && !drift ? AVG : LOW, clock.t);
+        sim.take();
+        while (n0 < sim.talk.said.length) said.push([sim.talk.said[n0++], clock.t]);
+      }
+      expect(sim.talk.fresh).toBe(T > RULES.long.from ? RULES.talkFresh : 0);
+      if (T <= RULES.long.from) continue;
+      const at = new Map<string, number>();
+      for (const [line, t0] of said) {
+        const last = at.get(line);
+        if (last !== undefined && !waitLines.has(line)) expect(t0 - last, `${T}: ${line}`).toBeGreaterThanOrEqual(RULES.talkFresh - 1);
+        at.set(line, t0);
+      }
+      expect(said.filter(([, t0]) => t0 > T * 0.75).length, `${T}: the last quarter`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the music fills an hour: tracks one after another, the session’s end faded or closed by a minute of ambient at most', () => {
+    for (const T of [2700, 3600]) {
+      for (let seed = 1; seed <= 10; seed++) {
+        const plan = planMusic({ total: T, tracks: BUILTIN, rng: mulberry32(seed) });
+        expect(plan.music / T, `${T} ${seed}`).toBeGreaterThan(0.93);
+        expect(plan.tail).toBeLessThanOrEqual(TAIL_MAX);
+        expect(plan.slots.length).toBeLessThanOrEqual(11);
+      }
+    }
   });
 });

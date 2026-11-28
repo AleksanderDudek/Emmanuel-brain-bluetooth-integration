@@ -6,6 +6,12 @@
  * `start()` and after `destroy()` (and on a recording context: throttled, budgeted, the street thinning in a heavy
  * moment, fading at the finish), and the street drawing every phase at every size with no text under 13 px and no
  * choice label cut.
+ *
+ * Round 25 (§29, the film — P2): every place of the day painted at every size and hour (and the street), each place's
+ * things where the camera can find them, every motif's thing for a close-up, the camera (a cut on a new place and its
+ * dissolve, the layers always covering the canvas, no move with reduced motion), a sense moment's close-up and a given
+ * moment's greying from `life`, the guide line as a subtitle over the card (≥ 13 px, never cut), the garland in sight
+ * in every place, and each place's sound (its beds crossfading, a given moment's hush and its bloom).
  */
 import { describe, expect, it } from 'vitest';
 import type { ArcadeAudio } from '../src/arcade/kit/audio';
@@ -22,6 +28,14 @@ import { StreetView } from '../src/arcade/passa/render';
 import { project } from '../src/arcade/passa/scene';
 import type { CardView, ChoiceView, PassaView, Phase } from '../src/arcade/passa/view';
 import { PER_SPAN } from '../src/arcade/passa/world';
+import { CUT_REDUCED_S, CUT_S, FilmCamera, layerXf } from '../src/arcade/passa/camera';
+import { LIFE_MOTIFS, PLACES, type LifeView, type Place } from '../src/arcade/passa/life';
+import { PLACE_SETS, aimIn, setOf } from '../src/arcade/passa/places';
+import { closeShot } from '../src/arcade/passa/render';
+import { stageOf } from '../src/arcade/passa/stage';
+import { SPOT_OBJECTS, THINGS, drawObject } from '../src/arcade/passa/things';
+import { PLACE_MIX } from '../src/arcade/passa/audio';
+import { roomAt } from '../src/arcade/passa/stage';
 
 type R = { x: number; y: number; w: number; h: number };
 const overlap = (a: R, b: R): number => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
@@ -398,5 +412,265 @@ describe('Złota passa picture', () => {
         expect(() => drawPreview(ctx, w, h, 2.5, lights, lights > 20 ? 7 : 0)).not.toThrow();
       }
     }
+  });
+});
+
+// ── round 25: the film of a day ───────────────────────────────────
+
+const FILM_SIZES = CHECK_SIZES.filter(z => ['small phone (Chrome)', 'iPhone (installed app, chart off)', 'phone on its side (chart on)', 'desktop', '2560 × 1440 monitor (the middle column)'].includes(z.name));
+
+describe('Złota passa film: the places of the day', () => {
+  it('has a set for every place but the street, each with its things where the camera can find them', () => {
+    for (const p of PLACES) {
+      const set = PLACE_SETS[p];
+      if (p === 'street') { expect(set).toBeUndefined(); continue; }
+      expect(set, p).toBeTruthy();
+      expect(set!.id).toBe(p);
+      // its heart within a phone's view (x ±1.6), over the card (y ≤ 0.2), under the HUD's edge (y ≥ −3.3)
+      expect(Math.abs(set!.aim[0]), `${p} aim`).toBeLessThanOrEqual(1.6);
+      expect(set!.spot[1]).toBeLessThanOrEqual(0.2);
+      expect(Math.abs(set!.spot[0])).toBeLessThanOrEqual(2);
+      for (const [m, at] of Object.entries(set!.hot)) {
+        expect(Math.abs(at![0]), `${p} ${m}`).toBeLessThanOrEqual(3.8);
+        expect(at![1], `${p} ${m}`).toBeGreaterThanOrEqual(-3.4);
+        expect(at![1], `${p} ${m}`).toBeLessThanOrEqual(0.8);
+      }
+      // every motif finds an aim (its own, the spot, the window, or the set's)
+      for (const m of MOTIFS) {
+        const a = aimIn(set!, m);
+        expect(a.every(Number.isFinite), `${p} ${m}`).toBe(true);
+      }
+      if (set!.win) expect(set!.win[2]).toBeGreaterThan(set!.win[0]);
+    }
+    expect(setOf('street')).toBeNull();
+    expect(setOf(undefined)).toBeNull();
+  });
+
+  it('paints every place at every hour on every kind of screen, with its live parts', () => {
+    for (const z of FILM_SIZES) {
+      const l = layout(z.w, z.h, z.insets, z.w < 900);
+      const S = stageOf(l);
+      expect(S.u).toBeGreaterThan(5);
+      // the strip over the card is ~2.9 units: the place's heart stands in it
+      expect(S.top).toBeLessThan(-1.5);
+      for (const p of PLACES) {
+        const set = PLACE_SETS[p];
+        if (!set) continue;
+        for (const day of [0.04, 0.3, 0.62, 0.95]) {
+          const R = roomAt(day, set.face);
+          const { ctx, calls } = fakeCtx();
+          expect(() => { set.back(ctx, S, R); set.front(ctx, S, R); }, `${p} ${day}`).not.toThrow();
+          expect(() => { set.beyond?.(ctx, S, R, 3.2, false); set.behind?.(ctx, S, R, 3.2, false); set.over?.(ctx, S, R, 3.2, false); }).not.toThrow();
+          expect(calls.n, `${p} paints`).toBeGreaterThan(20);
+        }
+      }
+    }
+  });
+
+  it('has a thing for every motif — a painting for a close-up, and real objects to set down in a place', () => {
+    for (const m of new Set([...MOTIFS, ...LIFE_MOTIFS])) {
+      const th = THINGS[m];
+      expect(th, m).toBeTruthy();
+      const R = roomAt(0.3);
+      for (const t of [0, 2.1]) {
+        const { ctx, calls } = fakeCtx();
+        if (th.kind === 'object') { th.still(ctx, R); th.live?.(ctx, R, t, 0.7); } else { th.still(ctx, R, 0, 0, 390, 420); th.live?.(ctx, R, 0, 0, 390, 420, t, 0.7); }
+        expect(calls.n, m).toBeGreaterThan(2);
+      }
+    }
+    for (const m of SPOT_OBJECTS) {
+      expect(THINGS[m].kind, m).toBe('object');
+      expect(() => drawObject(fakeCtx().ctx, m, roomAt(0.5), 0, 0, 0.5, 1)).not.toThrow();
+    }
+  });
+});
+
+describe('Złota passa film: the camera', () => {
+  const ask = (place: Place, o: Partial<{ push: number; lift: number }> = {}) => ({ place, aim: { x: 120, y: 300 }, push: o.push ?? 0, lift: o.lift ?? 0, w: 390, h: 844, M: 59, street: place === 'street' });
+
+  it('cuts on a new place and dissolves from the last frame of the one before', () => {
+    const cam = new FilmCamera(false);
+    cam.update(1 / 60, ask('bedroom'));
+    expect(cam.cutCount).toBe(0);
+    for (let i = 0; i < 120; i++) cam.update(1 / 60, ask('bedroom'));
+    cam.update(1 / 60, ask('kitchen'));
+    expect(cam.cutCount).toBe(1);
+    expect(cam.prev).toBe('bedroom');
+    expect(cam.mix).toBeLessThan(0.1);
+    for (let t = 0; t < CUT_S + 0.1; t += 1 / 60) cam.update(1 / 60, ask('kitchen'));
+    expect(cam.mix).toBe(1);
+    expect(cam.prev).toBeNull();
+    // the same place again is no cut
+    cam.update(1 / 60, ask('kitchen'));
+    expect(cam.cutCount).toBe(1);
+  });
+
+  it('dollies slowly, pushes in on the thing, looks up after a win — and keeps every layer covering the canvas', () => {
+    const cam = new FilmCamera(false);
+    const seen = { minZ: 9, maxZ: 0, minPx: 9e9, maxPx: -9e9 };
+    for (let i = 0; i < 60 * 50; i++) {
+      const push = i > 60 * 30 ? Math.min(1, (i - 1800) / 600) : 0;
+      const fr = cam.update(1 / 60, ask('office', { push, lift: i % 900 < 200 ? 1 : 0 }));
+      seen.minZ = Math.min(seen.minZ, fr.z); seen.maxZ = Math.max(seen.maxZ, fr.z);
+      seen.minPx = Math.min(seen.minPx, fr.px); seen.maxPx = Math.max(seen.maxPx, fr.px);
+      for (const d of [0.35, 0.55, 1]) {
+        const x = layerXf(fr, d, 390, 844, 59);
+        // the layer (59 px larger on every side) covers the canvas
+        expect(-59 * x.z + x.x).toBeLessThanOrEqual(0.01);
+        expect((390 + 59) * x.z + x.x).toBeGreaterThanOrEqual(389.99);
+        expect(-59 * x.z + x.y).toBeLessThanOrEqual(0.01);
+        expect((844 + 59) * x.z + x.y).toBeGreaterThanOrEqual(843.99);
+      }
+    }
+    expect(seen.minZ).toBeGreaterThanOrEqual(1 - 1e-9);
+    expect(seen.maxZ).toBeGreaterThan(1.3);
+    expect(seen.maxPx - seen.minPx).toBeGreaterThan(40);
+    // the street: a slow push along it, never under 1 (it has no overscan)
+    const st = new FilmCamera(false);
+    for (let i = 0; i < 600; i++) {
+      const fr = st.update(1 / 60, ask('street', { push: 0.3 }));
+      const x = layerXf(fr, 1, 390, 844, 0);
+      expect(x.x).toBeLessThanOrEqual(0.01);
+      expect(390 * x.z + x.x).toBeGreaterThanOrEqual(389.99);
+    }
+  });
+
+  it('holds still with reduced motion (the cuts are fades)', () => {
+    const cam = new FilmCamera(true);
+    for (let i = 0; i < 600; i++) {
+      const fr = cam.update(1 / 60, ask(i < 300 ? 'park' : 'garden', { push: 1, lift: 1 }));
+      expect(fr.z).toBe(1);
+      expect(fr.px).toBe(0);
+      expect(fr.py).toBe(0);
+    }
+    expect(cam.cutCount).toBe(1);
+    expect(CUT_REDUCED_S).toBeGreaterThan(CUT_S);
+  });
+});
+
+describe('Złota passa film: sense and given moments', () => {
+  const life = (o: Partial<LifeView>): LifeView => ({ place: 'kitchen', kind: 'sense', close: 0, sense: 'taste', guide: null, without: 0, ...o });
+
+  it('frames a sense moment from its close: pushes in, the close-up dissolves in, focus opens it', () => {
+    expect(closeShot(null).alpha).toBe(0);
+    expect(closeShot(life({ close: 0 })).alpha).toBe(0);
+    expect(closeShot(life({ close: 0.25 })).alpha).toBeGreaterThan(0.95);
+    const a = closeShot(life({ close: 0.3 })), b = closeShot(life({ close: 0.7 })), c = closeShot(life({ close: 1 }));
+    expect(a.open).toBeLessThan(b.open);
+    expect(b.open).toBeLessThan(c.open);
+    expect(c.open).toBeCloseTo(1, 5);
+    expect(c.size).toBeCloseTo(1, 5);
+    expect(c.push).toBeCloseTo(1, 5);
+    expect(c.grey).toBe(0);
+  });
+
+  it('greys a given moment as it is imagined away, and brings its colour back with focus', () => {
+    const g = (without: number, close = 0.3) => closeShot(life({ kind: 'given', sense: null, without, close }));
+    expect(g(0).grey).toBe(0);
+    expect(g(1).grey).toBe(1);
+    expect(g(0.5).grey).toBeGreaterThan(0.3);
+    expect(g(1).open).toBe(0);
+    expect(g(0).open).toBe(1);
+    // the close-up is there through the rest (P1: close 0.15–0.35)
+    expect(g(0.6, 0.15).alpha).toBeGreaterThan(0.7);
+  });
+
+  it('draws a day of the film at every size: sense close-ups with their guide as a subtitle, given greying, every place', () => {
+    const guide = 'Poczuj ciepło kubka w dłoniach — i pierwszy łyk, powoli, bez pośpiechu';
+    for (const z of FILM_SIZES) {
+      const l = layout(z.w, z.h, z.insets, z.w < 900);
+      for (const reduced of [false, true]) {
+        const sv = new StreetView({ reduced });
+        sv.resize(l, 2);
+        let n = 0;
+        for (const p of PLACES) {
+          const base = view('turn', { choices: [], place: p, reduced });
+          const card = { ...base.card!, kind: 'sense' as const, motif: 'tea' as const };
+          const warm = fakeCtx();
+          const lf = life({ place: p, close: 0.6, guide });
+          for (let i = 0; i < 6; i++) sv.draw(warm.ctx, { ...base, card, life: lf }, 1 / 20, n++ / 20);
+          const { ctx, texts } = fakeCtx();
+          sv.draw(ctx, { ...base, card, life: lf }, 1 / 20, n++ / 20);
+          for (const t of texts) expect(t.px, `${z.name} ${p} "${t.text}"`).toBeGreaterThanOrEqual(MIN_READ);
+          expect(texts.filter(t => t.text.includes('…'))).toEqual([]);
+          // the subtitle: every word of the guide on the canvas, above the card
+          const cap = texts.filter(t => guide.includes(t.text) && t.text.length > 3);
+          expect(cap.map(t => t.text).join(' ').replace(/\s+/g, ' '), `${z.name} ${p}`).toBe(guide);
+          const free = l.cardFree ?? l.card;
+          for (const t of cap) expect(t.y, `${z.name} ${p} caption over the card`).toBeLessThan(free.y);
+          // a given moment greying, then coming back
+          const gv = { ...base, card: { ...card, kind: 'given' as const, motif: 'tap' as const } };
+          const g2 = fakeCtx();
+          for (const w of [0, 0.5, 1, 0.6, 0.2, 0]) sv.draw(g2.ctx, { ...gv, phase: w === 1 || w === 0.5 ? 'without' : 'turn', life: life({ place: p, kind: 'given', sense: null, close: 0.35, without: w, guide: w > 0.4 ? 'Wyobraź sobie ten poranek bez wody w kranie.' : null }) }, 1 / 20, n++ / 20);
+        }
+        expect(sv.film.cuts).toBeGreaterThanOrEqual(PLACES.length - 1);
+      }
+    }
+  });
+
+  it('keeps the garland in sight in every place, under the HUD and over the card', () => {
+    for (const z of CHECK_SIZES) {
+      const l = layout(z.w, z.h, z.insets, z.w < 900);
+      const sv = new StreetView({ reduced: true });
+      sv.resize(l, 1);
+      const free = l.cardFree ?? l.card;
+      for (const p of ['kitchen', 'street'] as const) {
+        const cam = sv.garlandCam(p);
+        const seen = Array.from({ length: PER_SPAN }, (_, i) => {
+          const b = bulbAt(i);
+          const [x, y] = project(cam, b.x, b.y, b.z);
+          return x > 0 && x < z.w && y > z.insets.top && y < free.y;
+        }).filter(Boolean).length;
+        expect(seen, `${z.name} ${p}`).toBeGreaterThanOrEqual(PER_SPAN / 2);
+      }
+    }
+  });
+});
+
+describe('Złota passa film: the places\' sound', () => {
+  it('knows every place but the street (whose sound is round 22\'s)', () => {
+    for (const p of PLACES) {
+      if (p === 'street') expect((PLACE_MIX as Record<string, unknown>)[p]).toBeUndefined();
+      else expect(PLACE_MIX[p as Exclude<Place, 'street'>], p).toBeTruthy();
+    }
+  });
+
+  it('crossfades the beds as the film travels; a given moment hushes the place and blooms when it comes back', () => {
+    const { a, ctx } = fakeAudio();
+    const s = new StreetSound(a, { reducedMotion: false });
+    s.start();
+    const run = (sec: number, o: Partial<Parameters<StreetSound['update']>[1]>) => {
+      for (let i = 0; i < sec * 30; i++) { ctx.currentTime += 1 / 30; s.update(1 / 30, { ...st({ phase: 'turn', day: 0.3 }), ...o }); }
+    };
+    run(2, { place: 'bus' });
+    expect(s.debug.place).toBe('bus');
+    const lastOf = (pred: (g: { gain: FParam }) => boolean) => ctx.gains.filter(pred).map(g => g.gain.last);
+    const targets = () => ctx.gains.map(g => g.gain.last);
+    const busLevels = targets();
+    run(2, { place: 'garden' });
+    const gardenLevels = targets();
+    // something rose and something fell between the bus and the garden
+    expect(gardenLevels.some((v, i) => v > busLevels[i] + 1e-4)).toBe(true);
+    expect(gardenLevels.some((v, i) => v < busLevels[i] - 1e-4)).toBe(true);
+    void lastOf;
+    // the bedroom's clock ticks by itself
+    const n0 = ctx.sources.length;
+    run(5, { place: 'bedroom' });
+    expect(ctx.sources.length).toBeGreaterThan(n0 + 3);
+    // a given moment: its rest thins the place, its return blooms
+    const given = (without: number): LifeView => ({ place: 'kitchen', kind: 'given', close: 0.35, sense: null, guide: null, without });
+    run(3, { place: 'kitchen', phase: 'without', life: given(1) });
+    expect(s.debug.thin).toBeGreaterThan(0.6);
+    const n1 = ctx.sources.length;
+    run(0.2, { place: 'kitchen', phase: 'turn', life: given(0) });
+    expect(ctx.sources.length - n1).toBeGreaterThanOrEqual(4);
+    run(4, { place: 'kitchen', phase: 'savor', life: null });
+    expect(s.debug.thin).toBeLessThan(0.2);
+    // a hearing moment's own sound comes forward (a song)
+    const n2 = ctx.sources.length;
+    run(3, { place: 'car', motif: 'music', life: { place: 'car', kind: 'sense', close: 0.8, sense: 'hearing', guide: null, without: 0 } });
+    expect(ctx.sources.length).toBeGreaterThan(n2 + 3);
+    s.finish();
+    s.destroy();
   });
 });

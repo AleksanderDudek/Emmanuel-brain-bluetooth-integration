@@ -1,10 +1,10 @@
 /**
- * Rozkwit's own words (DESIGN.md §24) in Polish (the source), English, German and Swedish: the six meditations and
- * their eighteen scenes — each scene's name, what it teaches (plain physiology with the real numbers, every one
+ * Rozkwit's own words (DESIGN.md §24) in Polish (the source), English, German and Swedish: the seven meditations
+ * and their twenty-two scenes („Wszystko naraz”, round 25, first; DESIGN §29) — each scene's name, what it teaches (plain physiology with the real numbers, every one
  * sourced in the design notes), the picture for the head in a push and the narrator's line — its own parts, the
  * opening cards, the how-to and the lobby's "not a treatment".  What Rozkwit borrows is copied, not typed: the names
  * of the parts on the other games' pictures, each meditation's everyday step (one source game's own line) and the
- * figure's look (Lekkość i siła's words) come from the source catalogs (sources.ts, borrow.ts).  Everything generic
+ * person's looks (Nowe siły's words) come from the source catalogs (sources.ts, borrow.ts).  Everything generic
  * is the engine's catalog (kit/healthlib/i18n.ts).
  *
  * The tone: beauty as health and as the work God made, offered in thanks ("Dziękuję za…") — never a comparison, never
@@ -13,7 +13,7 @@
  * German and Swedish).  Quotation marks: pl „…”, de „…“, sv ”…”, en “…”.
  */
 import { LANGS, type Catalog, type Lang, type Msg } from '../../i18n';
-import { BORROWS, CARE, HAIR as HAIR_SCENES, KSZTALT, LOOK_KEYS, hairPart } from './sources';
+import { BORROWS, CARE, HAIR as HAIR_SCENES, LOOK_KEYS, SILY, hairPart } from './sources';
 import { borrowedParts, copied, mergeWords } from './borrow';
 import { CATALOGS as HAIR_WORDS } from '../wlosy/i18n';
 import { SCENE as HAIR_SCENE } from '../wlosy/content';
@@ -24,7 +24,9 @@ const N = '\u00a0';
 const pl = {
   'unit': { one: `{n}${N}płatek`, few: `{n}${N}płatki`, many: `{n}${N}płatków`, other: `{n}${N}płatka` },
 
-  // the six meditations
+  // the seven meditations
+  'med.naraz': 'Wszystko naraz',
+  'med.naraz.line': 'Cała postać w jednym obrazie: ciało prostuje się i rozkwita, a radość z serca mnoży się w ludziach wokół.',
   'med.komorki': 'Komórki',
   'med.postawa': 'Postawa',
   'med.sylwetka': 'Sylwetka',
@@ -36,10 +38,13 @@ const pl = {
   'med.sylwetka.line': 'Tłuszcz odchodzi z oddechem, mięsień rośnie w odpoczynku — ciało lekkie i silne.',
   'med.skora.line': 'Naskórek odnawia się od spodu, kolagen trzyma skórę, a włos rośnie od korzenia w swoim kolorze.',
   'med.radosc.line': 'Dostrzeżone dobro, wdzięczność i radość, która płynie do innych.',
-  'med.cale.line': 'Wszystko naraz: komórki, kręgosłup, włosy, skóra, siła — i radość z serca.',
+  'med.cale.line': 'Na koniec drogi razem: komórki, kręgosłup, włosy, skóra, siła — i radość z serca.',
 
   // "Ciało słucha": three words for the body per meditation, read on the out-breath in a rest (kit/inner.ts) —
   // Rozkwit's own (they gather the whole person; the source games' words stay theirs)
+  'word.naraz.1': 'Teraz w Twoim ciele wszystko pracuje razem — bez Twojego wysiłku.',
+  'word.naraz.2': 'Każdego dnia Twoje ciało zastępuje miliardy komórek nowymi.',
+  'word.naraz.3': 'Radość, którą dzielisz z bliskimi, płynie dalej i rośnie.',
   'word.komorki.1': 'W każdej Twojej komórce trwa teraz cicha praca: energia i naprawa.',
   'word.komorki.2': 'Dniem i nocą Twoje komórki poprawiają w DNA błędne litery.',
   'word.komorki.3': 'Twoje komórki pracują także wtedy, gdy śpisz — bez Twojego wysiłku.',
@@ -60,6 +65,28 @@ const pl = {
   'word.cale.3': 'Twoje ciało i Twoja radość są darem od Boga.',
 
   // ── 1. Komórki ──
+  'scene.naraz': 'Światło w całym ciele',
+  'teach.naraz': `W ciele wszystko dzieje się naraz: każdego dnia ok. 330${N}miliardów komórek zastępują nowe — prawie 4${N}miliony na sekundę — a naprawa trwa w każdej tkance bez przerwy.`,
+  'tip.naraz': 'Zobacz całą postać naraz: ciepłe światło płynie z serca przez wszystkie tkanki, a ciało się prostuje.',
+  'say.at.naraz.1': 'Dziękuję za całe ciało — wszystko pracuje razem.',
+  'say.at.naraz.2': 'Światło płynie z serca do każdej tkanki.',
+  'scene.oblicze': 'Twarz i włosy',
+  'teach.oblicze': `Odpoczynek widać na twarzy: zdjęcia tych samych 23${N}osób po nocy snu oceniano jako zdrowsze i mniej zmęczone niż po nocy bez snu. Włos rośnie od korzenia ok. 1${N}cm w miesiąc.`,
+  'tip.oblicze': 'Zobacz twarz wypoczętą i świeżą, z kolorem na policzkach, i włosy pełne, lśniące w ciepłym świetle.',
+  'say.at.oblicze.1': 'Dziękuję za twarz i włosy — za kolor i świeżość.',
+  'say.at.oblicze.2': 'Wypoczęta twarz, lśniące włosy — dar odpoczynku.',
+  'scene.profil': 'Prosto i lekko',
+  'teach.profil': `Nie ma jednej idealnej postawy, ale wyprost pomaga: w badaniu 74${N}osób siedzący prosto mieli lepszy nastrój, więcej pewności siebie i mniej lęku niż zgarbieni.`,
+  'tip.profil': 'Poczuj lekki wyprost: czubek głowy w górę, barki miękko otwarte, ucho nad barkiem, oddech swobodny.',
+  'say.at.profil.1': 'Dziękuję za kręgosłup, który niesie mnie lekko.',
+  'say.at.profil.2': 'Czubek głowy w górę, barki miękko.',
+  'scene.miasto': 'Radość się mnoży',
+  'teach.miasto': `Radość przechodzi z człowieka na człowieka: w badaniu 4739${N}osób przez 20${N}lat szczęście bliskich sięgało aż trzech stopni znajomości, a radość przyjaciela mieszkającego blisko podnosiła szansę na szczęście o 25%.`,
+  'tip.miasto': 'Zobacz, jak radość z Twojego serca przechodzi do bliskich i dalej — aż zapalają się światła całego miasta.',
+  'say.at.miasto.1': 'Dziękuję za radość, która się mnoży.',
+  'say.at.miasto.2': 'Od serca do bliskich, od bliskich do całego miasta.',
+  'say.at.miasto.3': 'Dzielona radość rośnie.',
+
   'scene.energia': 'Energia',
   'teach.energia': `W każdej komórce mitochondria robią ATP. Wirnik syntazy ATP obraca się ok. 100${N}razy na sekundę; w ciągu doby ciało przerabia mniej więcej tyle ATP, ile samo waży.`,
   'tip.energia': 'Wyobraź sobie maleńki wirnik, który kręci się w każdej komórce i z każdym obrotem daje energię.',
@@ -163,6 +190,13 @@ const pl = {
   'say.at.rozkwit.3': 'Radość z serca płynie do innych.',
 
   // the parts named on its own picture
+  'part.tkanki': 'światło w tkankach',
+  'part.kolor': 'zdrowy kolor',
+  'part.twarz': 'twarz wypoczęta',
+  'part.blask': 'włosy w blasku',
+  'part.barki': 'barki otwarte',
+  'part.pion': 'prosto, lekko',
+  'part.miasto': 'miasto świateł',
   'part.cells': 'komórki',
   'part.spine': 'kręgosłup',
   'part.hair': 'włosy',
@@ -173,16 +207,20 @@ const pl = {
   'part.people': 'bliscy',
 
   // the counts on a picture's corner
+  'count.naraz': `prawie 4${N}mln nowych komórek na sekundę`,
+  'count.miasto': `4739${N}osób, 20${N}lat: radość płynie dalej`,
+  'panel.look': 'Postać',
+  'panel.lookNote': 'Obrazy przyjmą tę postać i ten kolor skóry; słowa są te same.',
   'count.cialo': `ok. 30${N}bilionów komórek · jedno ciało`,
   'count.rozkwit': `radość: do 3${N}stopni znajomości`,
 
   // the cards
   'story.open.title': 'Zdumiewające dzieło',
-  'story.open.text': 'Psalm 139 dziękuje Bogu za ciało utkane w łonie matki i zdumiewa się Jego dziełem. Rozkwit przechodzi przez całego człowieka — komórki, postawę, sylwetkę, skórę, włosy i radość — by zobaczyć to dzieło naraz.',
+  'story.open.text': 'Psalm 139 dziękuje Bogu za ciało utkane w łonie matki i zdumiewa się Jego dziełem. Rozkwit pokazuje najpierw całego człowieka naraz — ciało i radość, która się mnoży — a potem przechodzi przez komórki, postawę, sylwetkę, skórę, włosy i radość, by zobaczyć to dzieło z bliska.',
   'story.open2.title': 'Czym to jest',
   'story.open2.text': 'To wizualizacja i trening uwagi — nie leczenie, nie dieta i nie obietnica młodości. Piękno jest tu zdrowiem i darem, bez porównań. Gdy coś w zdrowiu niepokoi, porozmawiaj z lekarzem; gdy jedzenie lub wygląd ciała są trudne — także: 116 123.',
   'story.whole.text': 'Dziękuję za ciało i radość — za całe to zdumiewające dzieło.',
-  'howto.goal': 'Wybierz medytację i przejdź przez jej obrazy — całego człowieka po kolei: Twoje skupienie sprawia, że rosną.',
+  'howto.goal': 'Zacznij od „Wszystko naraz” albo wybierz inną medytację: Twoje skupienie sprawia, że obrazy rosną.',
   'howto.tip1': 'Patrz na to, co rośnie, i wyobrażaj to sobie w sobie: komórki, kręgosłup, skórę, włosy, sylwetkę i radość.',
   'howto.tip2': 'Opaska mierzy uwagę, nie zdrowie. To nie leczenie ani obietnica młodości.',
   'panel.not': 'To wizualizacja i trening uwagi — nie leczenie, nie dieta i nie obietnica młodości. Gdy coś w zdrowiu niepokoi — lekarz; gdy jedzenie lub wygląd ciała są trudne — także 116 123.',
@@ -208,6 +246,8 @@ type Cat = Catalog<Key>;
 const en: Cat = {
   'unit': { one: `{n}${N}petal`, other: `{n}${N}petals` },
 
+  'med.naraz': 'All at Once',
+  'med.naraz.line': 'The whole person in one picture: the body straightens and blossoms, and joy from the heart multiplies in the people around.',
   'med.komorki': 'Cells',
   'med.postawa': 'Posture',
   'med.sylwetka': 'Figure',
@@ -219,8 +259,11 @@ const en: Cat = {
   'med.sylwetka.line': 'Fat leaves with the breath, muscle grows in rest — a body light and strong.',
   'med.skora.line': 'The skin renews itself from below, collagen holds it, and hair grows from the root in its own colour.',
   'med.radosc.line': 'The good noticed, gratitude, and joy that flows on to others.',
-  'med.cale.line': 'All at once: cells, spine, hair, skin, strength — and joy from the heart.',
+  'med.cale.line': 'At the end of the walk, together: cells, spine, hair, skin, strength — and joy from the heart.',
 
+  'word.naraz.1': 'Right now everything in your body works together — with no effort of yours.',
+  'word.naraz.2': 'Every day your body replaces billions of cells with new ones.',
+  'word.naraz.3': 'The joy you share with those close to you flows on and grows.',
   'word.komorki.1': 'In every one of your cells quiet work goes on now: energy and repair.',
   'word.komorki.2': 'Day and night your cells correct wrong letters in their DNA.',
   'word.komorki.3': 'Your cells keep working even while you sleep — with no effort of yours.',
@@ -239,6 +282,28 @@ const en: Cat = {
   'word.cale.1': 'Everything in you works together: cells, spine, skin, muscles, heart.',
   'word.cale.2': 'Day and night, thirty trillion cells make up your one body.',
   'word.cale.3': 'Your body and your joy are gifts from God.',
+
+  'scene.naraz': 'Light Through the Whole Body',
+  'teach.naraz': `In the body everything happens at once: every day about 330${N}billion cells are replaced by new ones — nearly 4${N}million a second — and repair goes on in every tissue without a pause.`,
+  'tip.naraz': 'See the whole person at once: a warm light flows from the heart through every tissue, and the body straightens.',
+  'say.at.naraz.1': 'Thank you for the whole body — everything working together.',
+  'say.at.naraz.2': 'Light flows from the heart into every tissue.',
+  'scene.oblicze': 'Face and Hair',
+  'teach.oblicze': `Rest shows in the face: photos of the same 23${N}people after a night’s sleep were rated healthier and less tired than after a night without sleep. Hair grows from the root about 1${N}cm a month.`,
+  'tip.oblicze': 'See the face rested and fresh, colour in the cheeks, and the hair full and shining in the warm light.',
+  'say.at.oblicze.1': 'Thank you for face and hair — for colour and freshness.',
+  'say.at.oblicze.2': 'A rested face, shining hair — the gift of rest.',
+  'scene.profil': 'Upright and Light',
+  'teach.profil': `There is no single ideal posture, but sitting upright helps: in a study of 74${N}people, those sitting upright had better mood, more self-esteem and less fear than those slumped.`,
+  'tip.profil': 'Feel an easy uprightness: crown of the head up, shoulders softly open, ear over shoulder, the breath free.',
+  'say.at.profil.1': 'Thank you for the spine that carries me lightly.',
+  'say.at.profil.2': 'Crown of the head up, shoulders soft.',
+  'scene.miasto': 'Joy Multiplies',
+  'teach.miasto': `Joy passes from person to person: in a study of 4739${N}people over 20${N}years, happiness reached as far as three degrees of acquaintance, and a happy friend nearby raised the chance of happiness by 25%.`,
+  'tip.miasto': 'See the joy from your heart pass to those close to you and on — until the lights of the whole town shine.',
+  'say.at.miasto.1': 'Thank you for joy that multiplies.',
+  'say.at.miasto.2': 'From the heart to those close, from them to the whole town.',
+  'say.at.miasto.3': 'Joy shared grows.',
 
   'scene.energia': 'Energy',
   'teach.energia': `In every cell, mitochondria make ATP. The rotor of ATP synthase turns about 100${N}times a second; in a day the body turns over roughly its own weight in ATP.`,
@@ -337,6 +402,13 @@ const en: Cat = {
   'say.at.rozkwit.2': 'Everything at once — in light.',
   'say.at.rozkwit.3': 'Joy from the heart flows on to others.',
 
+  'part.tkanki': 'light in the tissues',
+  'part.kolor': 'a healthy colour',
+  'part.twarz': 'a rested face',
+  'part.blask': 'hair with a sheen',
+  'part.barki': 'open shoulders',
+  'part.pion': 'upright, lightly',
+  'part.miasto': 'a town of lights',
   'part.cells': 'cells',
   'part.spine': 'spine',
   'part.hair': 'hair',
@@ -346,15 +418,19 @@ const en: Cat = {
   'part.blossom': 'blossoming',
   'part.people': 'people close to you',
 
+  'count.naraz': `nearly 4${N}million new cells a second`,
+  'count.miasto': `4739${N}people, 20${N}years: joy flows on`,
+  'panel.look': 'The person',
+  'panel.lookNote': 'The pictures take this person and this skin tone; the words stay the same.',
   'count.cialo': `about 30${N}trillion cells · one body`,
   'count.rozkwit': `joy: up to 3${N}degrees apart`,
 
   'story.open.title': 'A Wonderful Work',
-  'story.open.text': 'Psalm 139 thanks God for the body knit together in the mother’s womb and marvels at His work. Flourishing walks through the whole person — cells, posture, figure, skin, hair and joy — to see that work all at once.',
+  'story.open.text': 'Psalm 139 thanks God for the body knit together in the mother’s womb and marvels at His work. Flourishing first shows the whole person at once — the body and a joy that multiplies — and then walks through the cells, posture, figure, skin, hair and joy, to see that work up close.',
   'story.open2.title': 'What This Is',
   'story.open2.text': 'This is visualisation and attention training — not a treatment, not a diet and not a promise of youth. Beauty here means health and a gift, without comparison. If something about your health worries you, talk to a doctor; if eating or the shape of your body is a struggle, talk to a doctor or an eating-disorder helpline.',
   'story.whole.text': 'Thank you for body and joy — for all this wonderful work.',
-  'howto.goal': 'Choose a meditation and walk through its pictures — the whole person, one part at a time: your focus makes them grow.',
+  'howto.goal': 'Begin with “All at Once” or choose another meditation: your focus makes the pictures grow.',
   'howto.tip1': 'Look at what grows and picture it in yourself: the cells, the spine, the skin, the hair, the figure and joy.',
   'howto.tip2': 'The headband measures attention, not health. This is not a treatment or a promise of youth.',
   'panel.not': 'This is visualisation and attention training — not a treatment, not a diet and not a promise of youth. If your health worries you, see a doctor; if eating or your body’s shape is a struggle, also an eating-disorder helpline.',
@@ -376,6 +452,8 @@ const en: Cat = {
 const de: Cat = {
   'unit': { one: `{n}${N}Blütenblatt`, other: `{n}${N}Blütenblätter` },
 
+  'med.naraz': 'Alles zugleich',
+  'med.naraz.line': 'Der ganze Mensch in einem Bild: Der Körper richtet sich auf und blüht auf, und die Freude aus dem Herzen vervielfacht sich in den Menschen ringsum.',
   'med.komorki': 'Zellen',
   'med.postawa': 'Haltung',
   'med.sylwetka': 'Gestalt',
@@ -387,8 +465,11 @@ const de: Cat = {
   'med.sylwetka.line': 'Fett geht mit dem Atem, Muskeln wachsen in der Ruhe — ein Körper leicht und stark.',
   'med.skora.line': 'Die Haut erneuert sich von unten, Kollagen hält sie, und das Haar wächst von der Wurzel in seiner Farbe.',
   'med.radosc.line': 'Das bemerkte Gute, Dankbarkeit und Freude, die zu anderen weiterfließt.',
-  'med.cale.line': 'Alles zugleich: Zellen, Wirbelsäule, Haar, Haut, Kraft — und Freude aus dem Herzen.',
+  'med.cale.line': 'Am Ende des Weges vereint: Zellen, Wirbelsäule, Haar, Haut, Kraft — und Freude aus dem Herzen.',
 
+  'word.naraz.1': 'Jetzt arbeitet in deinem Körper alles zusammen — ohne deine Mühe.',
+  'word.naraz.2': 'Jeden Tag ersetzt dein Körper Milliarden Zellen durch neue.',
+  'word.naraz.3': 'Die Freude, die du mit deinen Lieben teilst, fließt weiter und wächst.',
   'word.komorki.1': 'In jeder deiner Zellen geht jetzt stille Arbeit weiter: Energie und Reparatur.',
   'word.komorki.2': 'Tag und Nacht berichtigen deine Zellen falsche Buchstaben in ihrer DNA.',
   'word.komorki.3': 'Deine Zellen arbeiten auch, während du schläfst — ohne deine Mühe.',
@@ -407,6 +488,28 @@ const de: Cat = {
   'word.cale.1': 'In dir arbeitet alles zusammen: Zellen, Wirbelsäule, Haut, Muskeln, Herz.',
   'word.cale.2': 'Tag und Nacht bilden dreißig Billionen Zellen deinen einen Körper.',
   'word.cale.3': 'Dein Körper und deine Freude sind Geschenke Gottes.',
+
+  'scene.naraz': 'Licht im ganzen Körper',
+  'teach.naraz': `Im Körper geschieht alles zugleich: Jeden Tag werden etwa 330${N}Milliarden Zellen durch neue ersetzt — fast 4${N}Millionen pro Sekunde —, und die Reparatur geht in jedem Gewebe ohne Pause weiter.`,
+  'tip.naraz': 'Sieh den ganzen Menschen zugleich: Warmes Licht fließt vom Herzen durch alle Gewebe, der Körper richtet sich auf.',
+  'say.at.naraz.1': 'Danke für den ganzen Körper — alles arbeitet zusammen.',
+  'say.at.naraz.2': 'Licht fließt vom Herzen in jedes Gewebe.',
+  'scene.oblicze': 'Gesicht und Haar',
+  'teach.oblicze': `Ruhe sieht man im Gesicht: Fotos derselben 23${N}Menschen wirkten nach einer Nacht mit Schlaf gesünder und weniger müde als nach einer Nacht ohne Schlaf. Haar wächst etwa 1${N}cm im Monat.`,
+  'tip.oblicze': 'Sieh das Gesicht ausgeruht und frisch, Farbe auf den Wangen, das Haar voll und glänzend im warmen Licht.',
+  'say.at.oblicze.1': 'Danke für Gesicht und Haar — für Farbe und Frische.',
+  'say.at.oblicze.2': 'Ein ausgeruhtes Gesicht, glänzendes Haar — ein Geschenk der Ruhe.',
+  'scene.profil': 'Aufrecht und leicht',
+  'teach.profil': `Es gibt nicht die eine ideale Haltung, aber Aufrichten hilft: In einer Studie mit 74${N}Menschen hatten aufrecht Sitzende bessere Stimmung, mehr Selbstwert und weniger Angst als Zusammengesunkene.`,
+  'tip.profil': 'Spür ein leichtes Aufrichten: Scheitel nach oben, Schultern weich geöffnet, das Ohr über der Schulter, der Atem frei.',
+  'say.at.profil.1': 'Danke für die Wirbelsäule, die mich leicht trägt.',
+  'say.at.profil.2': 'Der Scheitel nach oben, die Schultern weich.',
+  'scene.miasto': 'Freude vervielfacht sich',
+  'teach.miasto': `Freude geht von Mensch zu Mensch: In einer Studie mit 4739${N}Menschen über 20${N}Jahre reichte Glück bis zu drei Grade der Bekanntschaft, und ein glücklicher Freund in der Nähe hob die Chance auf Glück um 25${N}%.`,
+  'tip.miasto': 'Sieh die Freude aus deinem Herzen zu deinen Lieben gehen und weiter — bis die Lichter der ganzen Stadt leuchten.',
+  'say.at.miasto.1': 'Danke für die Freude, die sich vervielfacht.',
+  'say.at.miasto.2': 'Vom Herzen zu den Lieben, von ihnen zur ganzen Stadt.',
+  'say.at.miasto.3': 'Geteilte Freude wächst.',
 
   'scene.energia': 'Energie',
   'teach.energia': `In jeder Zelle bilden Mitochondrien ATP. Der Rotor der ATP-Synthase dreht sich etwa 100${N}Mal pro Sekunde; an einem Tag setzt der Körper ungefähr sein eigenes Gewicht an ATP um.`,
@@ -505,6 +608,13 @@ const de: Cat = {
   'say.at.rozkwit.2': 'Alles zugleich — im Licht.',
   'say.at.rozkwit.3': 'Freude aus dem Herzen fließt zu anderen.',
 
+  'part.tkanki': 'Licht im Gewebe',
+  'part.kolor': 'gesunde Farbe',
+  'part.twarz': 'ausgeruhtes Gesicht',
+  'part.blask': 'glänzendes Haar',
+  'part.barki': 'offene Schultern',
+  'part.pion': 'aufrecht, leicht',
+  'part.miasto': 'Stadt der Lichter',
   'part.cells': 'Zellen',
   'part.spine': 'Wirbelsäule',
   'part.hair': 'Haar',
@@ -514,15 +624,19 @@ const de: Cat = {
   'part.blossom': 'Aufblühen',
   'part.people': 'Menschen nahebei',
 
+  'count.naraz': `fast 4${N}Millionen neue Zellen pro Sekunde`,
+  'count.miasto': `4739${N}Menschen, 20${N}Jahre: Freude fließt weiter`,
+  'panel.look': 'Die Person',
+  'panel.lookNote': 'Die Bilder nehmen diese Person und diesen Hautton an; die Worte bleiben gleich.',
   'count.cialo': `etwa 30${N}Billionen Zellen · ein Körper`,
   'count.rozkwit': `Freude: bis zu 3${N}Grade weit`,
 
   'story.open.title': 'Ein wunderbares Werk',
-  'story.open.text': 'Psalm 139 dankt Gott für den Körper, gewoben im Mutterleib, und staunt über sein Werk. Aufblühen geht durch den ganzen Menschen — Zellen, Haltung, Gestalt, Haut, Haar und Freude —, um dieses Werk auf einmal zu sehen.',
+  'story.open.text': 'Psalm 139 dankt Gott für den Körper, gewoben im Mutterleib, und staunt über sein Werk. Aufblühen zeigt zuerst den ganzen Menschen zugleich — den Körper und eine Freude, die sich vervielfacht — und geht dann durch Zellen, Haltung, Gestalt, Haut, Haar und Freude, um dieses Werk aus der Nähe zu sehen.',
   'story.open2.title': 'Was das ist',
   'story.open2.text': 'Das ist Visualisierung und Aufmerksamkeitstraining — keine Behandlung, keine Diät und kein Versprechen von Jugend. Schönheit heißt hier Gesundheit und Geschenk, ohne Vergleich. Wenn dich etwas an deiner Gesundheit sorgt, sprich mit deiner Ärztin oder deinem Arzt; wenn Essen oder dein Aussehen dir schwerfallen, auch: BIÖG-Infotelefon zu Essstörungen 0221 892031.',
   'story.whole.text': 'Danke für Körper und Freude — für dieses ganze wunderbare Werk.',
-  'howto.goal': 'Wähl eine Meditation und geh durch ihre Bilder — den ganzen Menschen, Teil für Teil: Dein Fokus lässt sie wachsen.',
+  'howto.goal': 'Beginne mit „Alles zugleich“ oder wähl eine andere Meditation: Dein Fokus lässt die Bilder wachsen.',
   'howto.tip1': 'Schau auf das, was wächst, und stell es dir in dir vor: die Zellen, die Wirbelsäule, die Haut, das Haar, die Gestalt und die Freude.',
   'howto.tip2': 'Das Stirnband misst Aufmerksamkeit, nicht Gesundheit. Das ist keine Behandlung und kein Versprechen von Jugend.',
   'panel.not': 'Das ist Visualisierung und Aufmerksamkeitstraining — keine Behandlung, keine Diät, kein Versprechen von Jugend. Bei Sorgen um die Gesundheit: Ärztin oder Arzt; bei Essstörungen: 0221 892031.',
@@ -544,6 +658,8 @@ const de: Cat = {
 const sv: Cat = {
   'unit': { one: `{n}${N}kronblad`, other: `{n}${N}kronblad` },
 
+  'med.naraz': 'Allt på en gång',
+  'med.naraz.line': 'Hela människan i en bild: kroppen rätar på sig och blommar, och glädjen från hjärtat mångfaldigas i människorna runt omkring.',
   'med.komorki': 'Celler',
   'med.postawa': 'Hållning',
   'med.sylwetka': 'Gestalt',
@@ -555,8 +671,11 @@ const sv: Cat = {
   'med.sylwetka.line': 'Fett lämnar med andningen, muskler växer i vila — en kropp lätt och stark.',
   'med.skora.line': 'Huden förnyas underifrån, kollagenet håller den, och håret växer från roten i sin egen färg.',
   'med.radosc.line': 'Det goda som syns, tacksamhet och glädje som flödar vidare till andra.',
-  'med.cale.line': 'Allt på en gång: celler, ryggrad, hår, hud, styrka — och glädje från hjärtat.',
+  'med.cale.line': 'Vid vägens slut, tillsammans: celler, ryggrad, hår, hud, styrka — och glädje från hjärtat.',
 
+  'word.naraz.1': 'Just nu arbetar allt i din kropp tillsammans — utan din möda.',
+  'word.naraz.2': 'Varje dag ersätter din kropp miljarder celler med nya.',
+  'word.naraz.3': 'Glädjen du delar med dina nära flödar vidare och växer.',
   'word.komorki.1': 'I varje cell i dig pågår nu ett stilla arbete: energi och reparation.',
   'word.komorki.2': 'Dag och natt rättar dina celler felaktiga bokstäver i sitt DNA.',
   'word.komorki.3': 'Dina celler arbetar även medan du sover — utan att du anstränger dig.',
@@ -575,6 +694,28 @@ const sv: Cat = {
   'word.cale.1': 'Allt i dig arbetar tillsammans: celler, ryggrad, hud, muskler, hjärta.',
   'word.cale.2': 'Dag och natt är trettio biljoner celler i dig en enda kropp.',
   'word.cale.3': 'Din kropp och din glädje är gåvor från Gud.',
+
+  'scene.naraz': 'Ljus i hela kroppen',
+  'teach.naraz': `I kroppen sker allt på en gång: varje dag ersätts cirka 330${N}miljarder celler av nya — nästan 4${N}miljoner i sekunden — och reparationen pågår i varje vävnad utan paus.`,
+  'tip.naraz': 'Se hela människan på en gång: ett varmt ljus flödar från hjärtat genom alla vävnader, och kroppen rätar på sig.',
+  'say.at.naraz.1': 'Tack för hela kroppen — allt arbetar tillsammans.',
+  'say.at.naraz.2': 'Ljuset flödar från hjärtat till varje vävnad.',
+  'scene.oblicze': 'Ansikte och hår',
+  'teach.oblicze': `Vila syns i ansiktet: foton av samma 23${N}personer efter en natts sömn bedömdes som friskare och mindre trötta än efter en natt utan sömn. Håret växer från roten cirka 1${N}cm i månaden.`,
+  'tip.oblicze': 'Se ansiktet utvilat och friskt, färg på kinderna, och håret fylligt och glänsande i det varma ljuset.',
+  'say.at.oblicze.1': 'Tack för ansikte och hår — för färg och friskhet.',
+  'say.at.oblicze.2': 'Ett utvilat ansikte, glänsande hår — vilans gåva.',
+  'scene.profil': 'Upprätt och lätt',
+  'teach.profil': `Det finns ingen enda ideal hållning, men att räta på sig hjälper: i en studie med 74${N}personer hade de som satt upprätt bättre humör, mer självkänsla och mindre rädsla än de ihopsjunkna.`,
+  'tip.profil': 'Känn en lätt upprätthet: hjässan uppåt, axlarna mjukt öppna, örat över axeln, andningen fri.',
+  'say.at.profil.1': 'Tack för ryggraden som bär mig lätt.',
+  'say.at.profil.2': 'Hjässan uppåt, axlarna mjuka.',
+  'scene.miasto': 'Glädjen mångfaldigas',
+  'teach.miasto': `Glädje går från människa till människa: i en studie med 4739${N}personer under 20${N}år nådde lycka upp till tre led av bekanta, och en glad vän i närheten höjde chansen till lycka med 25${N}%.`,
+  'tip.miasto': 'Se glädjen från ditt hjärta gå till dina nära och vidare från dem — tills ljusen i hela staden lyser.',
+  'say.at.miasto.1': 'Tack för glädjen som mångfaldigas.',
+  'say.at.miasto.2': 'Från hjärtat till de nära, från dem till hela staden.',
+  'say.at.miasto.3': 'Delad glädje växer.',
 
   'scene.energia': 'Energi',
   'teach.energia': `I varje cell gör mitokondrierna ATP. ATP-syntasets rotor snurrar ungefär 100${N}varv i sekunden; på ett dygn omsätter kroppen ungefär sin egen vikt i ATP.`,
@@ -673,6 +814,13 @@ const sv: Cat = {
   'say.at.rozkwit.2': 'Allt på en gång — i ljus.',
   'say.at.rozkwit.3': 'Glädje från hjärtat flödar till andra.',
 
+  'part.tkanki': 'ljus i vävnaderna',
+  'part.kolor': 'en frisk färg',
+  'part.twarz': 'ett utvilat ansikte',
+  'part.blask': 'glänsande hår',
+  'part.barki': 'öppna axlar',
+  'part.pion': 'upprätt, lätt',
+  'part.miasto': 'en stad av ljus',
   'part.cells': 'celler',
   'part.spine': 'ryggrad',
   'part.hair': 'hår',
@@ -682,15 +830,19 @@ const sv: Cat = {
   'part.blossom': 'blomstring',
   'part.people': 'nära och kära',
 
+  'count.naraz': `nästan 4${N}miljoner nya celler i sekunden`,
+  'count.miasto': `4739${N}personer, 20${N}år: glädjen flödar vidare`,
+  'panel.look': 'Personen',
+  'panel.lookNote': 'Bilderna tar den här personen och den här hudtonen; orden är desamma.',
   'count.cialo': `cirka 30${N}biljoner celler · en kropp`,
   'count.rozkwit': `glädje: upp till 3${N}led bort`,
 
   'story.open.title': 'Ett underbart verk',
-  'story.open.text': 'Psalm 139 tackar Gud för kroppen som vävdes i moderlivet och förundras över hans verk. Blomstring går genom hela människan — celler, hållning, gestalt, hud, hår och glädje — för att se det verket på en gång.',
+  'story.open.text': 'Psalm 139 tackar Gud för kroppen som vävdes i moderlivet och förundras över hans verk. Blomstring visar först hela människan på en gång — kroppen och en glädje som mångfaldigas — och går sedan genom celler, hållning, gestalt, hud, hår och glädje, för att se det verket på nära håll.',
   'story.open2.title': 'Vad det här är',
   'story.open2.text': 'Det här är visualisering och uppmärksamhetsträning — ingen behandling, ingen diet och inget löfte om ungdom. Skönhet betyder här hälsa och gåva, utan jämförelser. Om något i din hälsa oroar dig, tala med en läkare; om mat eller kroppens form är svårt, ring 1177 eller vänd dig till Frisk & Fri.',
   'story.whole.text': 'Tack för kropp och glädje — för hela detta underbara verk.',
-  'howto.goal': 'Välj en meditation och gå genom dess bilder — hela människan, del för del: ditt fokus får dem att växa.',
+  'howto.goal': 'Börja med ”Allt på en gång” eller välj en annan meditation: ditt fokus får bilderna att växa.',
   'howto.tip1': 'Titta på det som växer och föreställ dig det i dig själv: cellerna, ryggraden, huden, håret, gestalten och glädjen.',
   'howto.tip2': 'Pannbandet mäter uppmärksamhet, inte hälsa. Det här är ingen behandling och inget löfte om ungdom.',
   'panel.not': 'Det här är visualisering och uppmärksamhetsträning — ingen behandling, ingen diet, inget löfte om ungdom. Oro för hälsan: en läkare; om mat eller kroppen är svårt: 1177 eller Frisk & Fri.',
@@ -728,7 +880,7 @@ function hairParts(): Words {
   return out;
 }
 
-/** Each meditation's everyday step, and the figure's look, in the source games' words. */
+/** Each meditation's everyday step and the person's looks, in the source games' words (the looks are Nowe siły's). */
 function copiedLines(): Words {
   const out = blank();
   for (const [m, c] of Object.entries(CARE)) {
@@ -736,7 +888,7 @@ function copiedLines(): Words {
     for (const l of LANGS) out[l][`med.${m}.care`] = w[l];
   }
   for (const key of LOOK_KEYS) {
-    const w = copied(KSZTALT, key);
+    const w = copied(SILY, key);
     for (const l of LANGS) out[l][key] = w[l];
   }
   return out;

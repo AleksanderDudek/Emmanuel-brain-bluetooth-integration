@@ -31,7 +31,7 @@ import { landName } from './content';
 import { TABS, inRect, type SheetHit } from './hud';
 import { t, unit, xpText, type Key } from './i18n';
 import { grow, pacerAt, type Layout } from './layout';
-import { bestOf, freshProgress, migrate, type DawidProgress } from './meta';
+import { bestAny, bestOf, freshProgress, migrate, type DawidProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { DawidView } from './render';
@@ -44,11 +44,11 @@ const SLOP = 10;
 /** What a finger (or the mouse) does since it went down. */
 type Press =
   | { kind: 'field'; id: number; x0: number; y0: number; ox: number; oy: number; at: number; far: number }
-  | { kind: 'button'; what: 'bag' | 'stone' | 'quest'; id: number; x0: number; y0: number; far: number }
+  | { kind: 'button'; what: 'bag' | 'stone' | 'quest' | 'mini'; id: number; x0: number; y0: number; far: number }
   | { kind: 'sheet'; hit: SheetHit; id: number; x0: number; y0: number; far: number; scroll0: number; scrolling: boolean; lastY: number; lastT: number; v: number };
 
 /** The coach marks and cards that speak of the hands: a finger's words, and a mouse's and keys' (`.keys`). */
-const HANDS = ['coach.move', 'coach.hunt', 'coach.bag', 'coach.camp', 'coach.stone', 'coach.quest'] as const;
+const HANDS = ['coach.move', 'coach.hunt', 'coach.bag', 'coach.camp', 'coach.stone', 'coach.quest', 'coach.log'] as const;
 
 class DawidGame implements ArcadeGame {
   private readonly sim: DawidSim;
@@ -120,17 +120,26 @@ class DawidGame implements ArcadeGame {
     let cursor = '', tip: { text: string; x: number; y: number; below?: boolean } | null = null, what = '';
     if (!this.env.touch && ms && this.now - ms.t < 4) {
       if (this.press) cursor = this.press.kind === 'field' ? '' : 'pointer';
-      else if (sim.story) cursor = sim.story.t >= 0.6 ? 'pointer' : '';
+      else if (sim.logOpen) cursor = 'pointer';
+      else if (sim.story) {
+        cursor = sim.story.t >= 0.6 ? 'pointer' : '';
+        const at = sim.story.kind === 'scene' ? hud.sceneAt(ms.x, ms.y) : null;
+        if (at === 'skip') hud.hover = { kind: 'skip', i: 0 };
+        else if (at === 'a' || at === 'b') hud.hover = { kind: 'choice', i: at === 'b' ? 1 : 0 };
+      }
       else {
         const hit = this.hitAt(ms.x, ms.y);
-        if (hit === 'stone' || hit === 'bag' || hit === 'quest') {
+        if (hit === 'stone' || hit === 'bag' || hit === 'quest' || hit === 'mini') {
           hud.hover = { kind: hit, i: 0 };
           cursor = 'pointer';
           what = hit;
-          if (hit === 'quest' && hud.questBox) {
+          if (hit === 'mini' && hud.miniBox) {
+            const m = hud.miniBox;
+            tip = { text: t('hover.log'), x: m.x + m.w / 2, y: m.y + m.h + 2, below: true };
+          } else if (hit === 'quest' && hud.questBox) {
             const q = hud.questBox;
             tip = { text: t('hover.quest'), x: q.x + Math.min(q.w / 2, 120 * L.u), y: q.y + q.h + 2, below: true };
-          } else if (hit !== 'quest') {
+          } else if (hit === 'stone' || hit === 'bag') {
             const b = hit === 'stone' ? L.stone : L.bag;
             const text = hit === 'bag' ? t('hover.bag', { n: fmtNum(Math.round(sim.bagLoad)), max: fmtNum(sim.bagCap) })
               : sim.stoneReady ? t('hover.stone') : t('hover.stoneWait', { n: Math.round(sim.charge * 100) });
@@ -170,7 +179,7 @@ class DawidGame implements ArcadeGame {
   }
 
   /** What a press at (x, y) would land on now: a button, the quest pill, the camp's sheet, the field (as pointer() decides). */
-  private hitAt(x: number, y: number): 'stone' | 'bag' | 'quest' | SheetHit | 'field' | null {
+  private hitAt(x: number, y: number): 'stone' | 'bag' | 'quest' | 'mini' | SheetHit | 'field' | null {
     const sim = this.sim, view = this.view, hud = view.hud, L = view.L;
     if (view.sheetOpen(sim)) {
       const hit = hud.sheetAt(x, y);
@@ -180,6 +189,7 @@ class DawidGame implements ArcadeGame {
       if (inRect(L.bag.hit, x, y)) return 'bag';
     }
     if (hud.questBox && inRect(grow(hud.questBox), x, y)) return 'quest';
+    if (hud.miniBox && !view.sheetOpen(sim) && inRect(hud.miniBox, x, y)) return 'mini';
     return 'field';
   }
 
@@ -210,8 +220,16 @@ class DawidGame implements ArcadeGame {
     if (!this.env.touch) this.mouse = { x: e.x, y: e.y, t: this.now };
     if (e.type === 'down') {
       if (this.press) return;   // one finger plays; a second one waits
+      if (sim.logOpen) {
+        sim.toggleLog(false);
+        return;
+      }
       if (sim.story) {
-        sim.tap();
+        const at = sim.story.kind === 'scene' ? hud.sceneAt(e.x, e.y) : null;
+        if (at === 'skip') sim.skipScene();
+        else if (at === 'a' || at === 'b') {
+          if (sim.choose(at) && this.env.haptics) buzz(10);
+        } else sim.tap();
         this.drain();
         return;
       }
@@ -237,6 +255,11 @@ class DawidGame implements ArcadeGame {
       if (hud.questBox && inRect(grow(hud.questBox), e.x, e.y)) {
         this.press = { kind: 'button', what: 'quest', id: e.id, x0: e.x, y0: e.y, far: 0 };
         hud.pressed = { kind: 'quest', i: 0 };
+        return;
+      }
+      if (hud.miniBox && !view.sheetOpen(sim) && inRect(hud.miniBox, e.x, e.y)) {
+        this.press = { kind: 'button', what: 'mini', id: e.id, x0: e.x, y0: e.y, far: 0 };
+        hud.pressed = { kind: 'mini', i: 0 };
         return;
       }
       this.press = { kind: 'field', id: e.id, x0: e.x, y0: e.y, ox: e.x, oy: e.y, at: this.now, far: 0 };
@@ -320,9 +343,11 @@ class DawidGame implements ArcadeGame {
   }
 
   /** The great stone, the bag, the quest pill, lifted where they were pressed. */
-  private button(what: 'bag' | 'stone' | 'quest'): void {
+  private button(what: 'bag' | 'stone' | 'quest' | 'mini'): void {
     const sim = this.sim, view = this.view, hp = this.env.haptics;
-    if (what === 'bag') {
+    if (what === 'mini') {
+      if (sim.toggleLog(true) && hp) buzz(8);
+    } else if (what === 'bag') {
       if (sim.goHome()) {
         if (hp) buzz(10);
       } else view.hud.shake('bag');   // by the harp, or down: not now
@@ -455,6 +480,12 @@ class DawidGame implements ArcadeGame {
         break;
       }
       case 'level': at = { x: L.xp.x + L.xp.w / 2, y: L.xp.y - 4 }; band = true; break;
+      case 'log': {
+        const m = hud.miniBox;
+        if (!m || sim.inCave) { this.hints.shift(); return; }
+        at = { x: m.x + m.w / 2, y: m.y + m.h };
+        break;
+      }
       // the harp heals and fills rested XP: the bubble points at the health bar over the XP bar — and keeps the top
       // of the field to the runner's breath pacer
       case 'harp': at = { x: L.hp.x + L.hp.w / 2, y: L.hp.y - 4 }; band = true; break;
@@ -515,7 +546,7 @@ class DawidGame implements ArcadeGame {
 
   headline(): Headline {
     const s = this.sim, p = s.p;
-    const best = Math.max(0, ...Object.values(p.best).filter(v => typeof v === 'number'));
+    const best = bestAny(p);
     const toBest = best - s.score;
     let sub: string;
     if (s.ringLook === 'live' && s.mult > 1) sub = t('hud.subMult', { lv: p.level, m: fmtNum(s.mult, Number.isInteger(s.mult) ? 0 : 1) });

@@ -1333,3 +1333,97 @@ describe('Posłaniec at 15–30 minutes', () => {
     expect(sim.cities.map(c => c.city)).toEqual(passed);
   });
 });
+
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+
+describe('Posłaniec at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the inn: push/rest pairs at their design lengths, the finale last', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const last = plan[plan.length - 1];
+        expect(last.kind).toBe('finale');
+        expect(last.start + last.dur).toBeCloseTo(planned, 0);
+        for (let i = 1; i < plan.length; i++) expect(plan[i].start).toBeCloseTo(plan[i - 1].start + plan[i - 1].dur, 6);
+        const core = plan.filter(b => b.kind === 'push' || b.kind === 'rest');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual(cap(b.kind));
+        }
+      }
+    }
+  });
+
+  it('runs a whole 60-min session with a fair bot: the road made and forgotten, Klekot all hour without a line twice in ten minutes, the summary short', () => {
+    const sim = later({ planned: 3600, seed: 5 });
+    const dt = 1 / 30;
+    let t = 0, evs = 0, maxObs = 0, maxCoins = 0, maxPowers = 0, maxLetters = 0, maxTowers = 0, maxV = 0, lastLine: unknown = null;
+    const heard: { text: string; at: number }[] = [];
+    while (t < 3600) {
+      t += dt;
+      sim.update(dt, sim.block.kind === 'rest' ? calm() : focused(), t);
+      if (sim.phase === 'play' && !sim.flying) {
+        for (const o of sim.track.obstacles) {
+          const d = o.z - (o.ramp ? RULES.rampLen : 0) - sim.z;
+          if (o.hit || o.lane !== sim.r.lane || d < 0 || d > (o.kind === 'cart' ? 22 : 7)) continue;
+          if (o.kind === 'low' && d < 3.2 && sim.r.grounded) sim.act('jump');
+          else if (o.kind === 'high' && d < 2.5 && sim.r.grounded && sim.r.rollT <= 0) sim.act('roll');
+          else if ((o.kind === 'wagon' && !o.ramp && sim.r.y < 1) || o.kind === 'cart') {
+            for (const dir of [-1, 1] as const) {
+              const to = sim.r.lane + dir;
+              if (to < -1 || to > 1) continue;
+              const free = !sim.track.obstacles.some(q => q.lane === to && !q.hit && q.z + q.len > sim.z - 1 && q.z - (q.ramp ? RULES.rampLen : 0) < sim.z + 8 && (q.kind === 'wagon' || q.kind === 'cart'));
+              if (free) { sim.act(dir < 0 ? 'left' : 'right'); break; }
+            }
+          }
+          break;
+        }
+      }
+      evs += sim.take().length;
+      const l = sim.talk.current;
+      if (l && l !== lastLine) { lastLine = l; heard.push({ text: l.text, at: t }); }
+      maxObs = Math.max(maxObs, sim.track.obstacles.length);
+      maxCoins = Math.max(maxCoins, sim.track.coins.length);
+      maxPowers = Math.max(maxPowers, sim.track.powers.length);
+      maxLetters = Math.max(maxLetters, sim.track.letters.length);
+      maxTowers = Math.max(maxTowers, sim.towers.length);
+      maxV = Math.max(maxV, sim.v);
+    }
+    expect(sim.block.kind).toBe('finale');
+    expect(evs).toBeGreaterThan(2000);
+    expect(sim.metresAll).toBeGreaterThan(20000);
+    // Klekot talks in every quarter of the hour, and never says a line again within ten minutes
+    for (const q of [0, 900, 1800, 2700]) expect(heard.filter(h => h.at > q && h.at <= q + 900).length, `from ${q}`).toBeGreaterThan(5);
+    let soonest = Infinity;
+    const last = new Map<string, number>();
+    for (const h of heard) {
+      const was = last.get(h.text);
+      if (was !== undefined) soonest = Math.min(soonest, h.at - was);
+      last.set(h.text, h.at);
+    }
+    expect(soonest).toBeGreaterThanOrEqual(ROUND_SEC - 5);
+    expect(sim.talk.said.length).toBeLessThan(1000);
+    expect(maxObs).toBeLessThan(200);
+    expect(maxCoins).toBeLessThan(600);
+    expect(maxPowers).toBeLessThan(100);
+    expect(maxLetters).toBeLessThan(100);
+    expect(maxTowers).toBeLessThan(20);
+    expect(maxV).toBeLessThanOrEqual(RULES.vMax * RULES.flightSpeed + 1e-6);
+    // a station every few hundred metres: a short list of numbers, one per station passed
+    expect(sim.stations.length).toBeLessThanOrEqual(Math.ceil(sim.metresAll / RULES.stationEvery) + 1);
+    expect(sim.missionsDone.length).toBeLessThan(20);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    sim.finish();
+    const out = sim.result();
+    expect(out.score).toBeLessThan(10_000_000);
+    expect(out.highlights.length).toBeLessThanOrEqual(8);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    for (const [, v] of out.stats) expect(v.length).toBeLessThanOrEqual(14);
+    // every city on the way gets its letter
+    expect(sim.cities.map(c => c.city)).toEqual(citiesBetween(0, sim.p.metres).map(c => c.city));
+    expect(sim.cities.length).toBeGreaterThanOrEqual(8);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(110);
+  });
+});

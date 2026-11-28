@@ -1395,6 +1395,70 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the finale: pushes of 12–32 s and rests of whole breaths, alternating, ending on a rest', () => {
+    const cyc = breathCycle(BREATH_DEFAULT);
+    for (const sec of [2700, 3600]) {
+      for (const firstEver of [true, false]) {
+        const plan = planBlocks(sec, firstEver, mulberry32(sec + (firstEver ? 1 : 0)));
+        const body = firstEver ? plan.slice(1) : plan;
+        if (firstEver) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${sec} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 5);
+        for (const b of body) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        for (const b of body.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 1e-6);
+        for (const b of body.filter(x => x.kind === 'rest')) expect(b.dur).toBe(RULES.restBreaths * cyc);
+        expect(body.length / 2).toBeGreaterThanOrEqual(Math.floor((sec - 60) / 62));
+      }
+    }
+  });
+
+  it('plays a whole hour: division after division at the held needs, no throw, numbers that fit, bounded lanes, a short summary', () => {
+    const sim = later({ planned: 3600, seed: 4 });
+    const rnd = mulberry32(78);
+    const clock = { t: 0 };
+    let finale = false, maxLesions = 0, maxParts = 0, late = 0, lastLine: unknown = null;
+    const divisions: number[] = [];
+    for (let i = 0; i < 3608 / STEP; i++) {
+      clock.t += STEP;
+      const tt = clock.t;
+      sim.update(STEP, sim.restBlock ? (tt % 7 < 5 ? CALM : LOW) : tt % 9 < 6 ? HIGH : LOW, tt);
+      if (sim.story) sim.tap();
+      if (sim.openLesions.length && rnd() < 0.02) sim.repairNext();
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'cell') divisions.push(tt);
+      }
+      const line = sim.talk.line;
+      if (line && line !== lastLine && tt > 3000) late++;
+      lastLine = line;
+      maxLesions = Math.max(maxLesions, sim.lesions.length);
+      maxParts = Math.max(maxParts, sim.parts.length);
+    }
+    const r = sim.result();
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.atp, sim.stageAtp, sim.dna, sim.material, sim.bank, sim.spin, sim.angle, sim.stage]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.divisionsNow).toBeGreaterThanOrEqual(16);
+    expect(divisions.filter(t => t > 3000).length).toBeGreaterThanOrEqual(2);
+    expect(maxLesions).toBeLessThanOrEqual(RULES.laneCap + 6);
+    expect(maxParts).toBeLessThanOrEqual(RULES.partCap + 6);
+    expect(late).toBeGreaterThan(3);
+    expect(r.score).toBe(sim.atp);
+    expect(String(r.score).length).toBeLessThanOrEqual(7);
+    expect(sim.p.best['3600']).toBe(r.score);
+    expect(r.highlights.length).toBeLessThanOrEqual(5);
+    // each upgrade once in the summary (an hour's ~50 stages give some twice)
+    expect(sim.upsNow.length).toBeGreaterThan(new Set(sim.upsNow).size);
+    expect(new Set(r.highlights).size).toBe(r.highlights.length);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  }, 120_000);
+});
+
 describe('the rest’s rhythm and the breath guide (round 15)', () => {
   const cyc = breathCycle(BREATH_DEFAULT);
 

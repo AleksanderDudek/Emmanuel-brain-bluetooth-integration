@@ -9,6 +9,8 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import type { Difficulty } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import {
   ARMOUR, COMPANIONS, DRAGONS, DUETS, FORGE, TREASURES, armourHow, armourName, armourText, dragonName, duetName, duetText,
   flawHint, flawName, flawText, forgeCost, palHow, palName, palText, roadName, townName, treasureName, treasureText,
@@ -16,7 +18,8 @@ import {
 } from './content';
 import { t, type Key } from './i18n';
 import {
-  bestOf, buyForge, crowns, fightOf, fights, forgeLevel, hasArmour, hpOf, pickFight, slots, toggleParty, woundsOf, type JerzyProgress,
+  bestOf, bestRunAt, buyForge, crowns, dragonHp, fightOf, fights, forgeLevel, hasArmour, levelOf, pickFight, slots, toggleParty, woundsOf,
+  type JerzyProgress,
 } from './meta';
 import { paintTownTile } from './paint';
 
@@ -56,10 +59,28 @@ function row(title: string, text: string, right: HTMLElement | null, done = fals
   return h('div', { class: done ? 'arcade-daily done' : 'arcade-daily' }, h('div', null, h('b', null, title), text ? h('p', null, text) : null), right);
 }
 
-export function progressPanel(p: JerzyProgress, save: () => void): HTMLElement {
+/** What a difficulty level means in Jerzy i smok (rules.ts LEVELS), in the page's language. */
+export const levelLine = (d: Difficulty): string => t(`level.${d}` as Key);
+
+/**
+ * The card.  `o.levels`: the difficulty row at its top (kit/difficultypanel.ts) — the lobby's card has it (index.ts);
+ * a choice saves at once and redraws the rest of the card (the records shown are the chosen level's, the dragon's
+ * share its scales at that level) while the row, and the keyboard's focus on it, stay.
+ */
+export function progressPanel(p: JerzyProgress, save: () => void, o: { levels?: boolean } = {}): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
+  const levels = o.levels
+    ? difficultyPanel({
+      value: levelOf(p), line: levelLine, onChange: d => {
+        p.difficulty = d;
+        save();
+        render();
+      },
+    })
+    : null;
+  if (levels) root.appendChild(levels);
   const render = (): void => {
-    while (root.firstChild) root.removeChild(root.firstChild);
+    while (root.lastChild && root.lastChild !== levels) root.removeChild(root.lastChild);
     for (const el of build(p, () => {
       save();
       render();
@@ -72,7 +93,9 @@ export function progressPanel(p: JerzyProgress, save: () => void): HTMLElement {
 function build(p: JerzyProgress, changed: () => void): HTMLElement[] {
   const best = bestOf(p);
   const now = fightOf(p);
-  const pct = Math.round((woundsOf(p, now.land, now.tier) / Math.max(1, hpOf(now.spec, now.tier))) * 100);
+  // the share already knocked off the dragon at the chosen level (wounds from an easier level never pass his scales)
+  const all = Math.max(1, dragonHp(now.spec, now.tier, levelOf(p)));
+  const pct = Math.round((Math.min(woundsOf(p, now.land, now.tier), all - 1) / all) * 100);
   const open = fights(p);
   // the map: six lands
   const map = h('div', { class: 'arcade-album' }, DRAGONS.map((d, i) => {
@@ -136,7 +159,7 @@ function build(p: JerzyProgress, changed: () => void): HTMLElement[] {
     h('div', { class: 'arcade-stats' },
       stat(t('panel.bank'), fmtNum(p.bank)),
       stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
-      stat(t('panel.bestRun'), p.bestRun > 0 ? fmtNum(p.bestRun) : '—'),
+      stat(t('panel.bestRun'), bestRunAt(p, levelOf(p)) > 0 ? fmtNum(bestRunAt(p, levelOf(p))) : '—'),
       stat(t('panel.crowns'), fmtNum(crowns(p)))),
     h('p', { class: 'muted' }, t('panel.rules')),
     h('div', { class: 'arcade-sub' }, t('panel.map')), map,

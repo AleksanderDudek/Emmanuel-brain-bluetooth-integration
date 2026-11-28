@@ -49,6 +49,12 @@ export const fmtDur = (s: number | null | undefined): string => {
   return hh ? `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${mm}:${String(ss).padStart(2, '0')}`;
 };
 
+/** A length shown with the unit "min": minutes and seconds however long ("60:00", never "1:00:00 min"). */
+export const fmtMin = (s: number | null | undefined): string => {
+  const t = Math.max(0, Math.round(s ?? 0));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
+
 export const fmtBytes = (b: number | null): string => {
   if (b === null) return '—';
   const u = ['B', 'KB', 'MB', 'GB', 'TB'];

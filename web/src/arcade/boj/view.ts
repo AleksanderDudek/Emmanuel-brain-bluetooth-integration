@@ -62,6 +62,8 @@ export interface Option {
   chosen: boolean;
   /** the coach's pick — glows only while the player is learning (A decides when) */
   hint: boolean;
+  /** where a counter or an attack's lead strike lands on the opponent (the first-person view shows the gap) */
+  aim?: Target;
 }
 
 /** A hit that just landed or was answered, for the ring's effects (a flash, a shake, a small number). */
@@ -120,6 +122,15 @@ export interface FightView {
   /** rest's breath (0 out … 1 in) during read and corner, 0.5 otherwise */
   breath: number;
   reduced: boolean;
+  /**
+   * The quick-time choice's own time (a level that closes it a few seconds into the slow motion, DESIGN §29): the share
+   * of it left 0..1 and whether the options still take a tap; absent or null: open the whole slow motion.
+   */
+  choice?: { left: number; open: boolean } | null;
+  /** what comes or what opens, named over the opponent in the slow motion ("Nadchodzi: prawy sierpowy"), or null */
+  prompt?: string | null;
+  /** the line when the choice has closed with no "why" to show ("Wybór zamknięty — skupienie daje siłę"), or null */
+  closed?: string | null;
 }
 
 /** A rectangle in canvas CSS px. */

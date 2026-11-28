@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { HubSample } from '../src/hub';
+import { HISTORY_SEC } from '../src/training/scene';
+import { FocusSession } from '../src/training/session';
+import { fmtDur, fmtMin } from '../src/ui/dom';
 import { BreakLog, breakLine, topBreak } from '../src/training/breaks';
 import { ActivityMeter, FNIRS_METER } from '../src/training/meter';
 import {
@@ -245,5 +249,59 @@ describe('day score, streak, milestones', () => {
     const a = result({ points: 50 }), b = result({ points: 80 });
     expect(isTopSession([a, b], b)).toBe(true);
     expect(isTopSession([a, b], a)).toBe(false);
+  });
+});
+
+describe('the focus training at 45–60 minutes', () => {
+  const sample = (x: number | null, p: Partial<HubSample> = {}): HubSample => ({ tool: 'fnirs', x, reliable: true, reason: null, warning: null, dt: 0.1, epoch: 1, ...p });
+
+  it.each([2700, 3600])('plays a %i s session to its end: the curve on screen bounded, a value a second kept, a result of a few kilobytes', planned => {
+    const s = new FocusSession('fnirs', planned);
+    s.beginCalibration();
+    for (let i = 0; i < 200; i++) s.onSample(sample(0));
+    expect(s.phase).toBe('game');
+    let finished = false, maxHist = 0, stars = 0, i = 0;
+    for (; i < planned * 10 + 50 && !finished; i++) {
+      // a slow wave of focus with a lost second now and then (a blink of the band)
+      const lost = i % 997 < 10;
+      const out = s.onSample(lost ? sample(null, { reliable: false, reason: 'motion' }) : sample(0.4 + 0.5 * Math.sin(i / 300)));
+      finished = out.finished;
+      stars += out.star ? 1 : 0;
+      maxHist = Math.max(maxHist, s.history.length);
+    }
+    expect(finished).toBe(true);
+    expect(s.gameT).toBeCloseTo(planned, 0);
+    // the live curve keeps only the seconds on screen (HISTORY_SEC + 4 at 10 Hz), as at 3 minutes
+    expect(maxHist).toBeLessThanOrEqual((HISTORY_SEC + 4) * 10 + 2);
+    expect(stars).toBe(s.scorer.stars);
+    const r = s.toResult({ id: 'x', source: 'simulator', device: 'Symulator', scene: 'hills' });
+    expect(r.completed).toBe(true);
+    expect(r.played_sec).toBe(planned);
+    expect(r.series.length).toBeGreaterThanOrEqual(planned - 1);
+    expect(r.series.length).toBeLessThanOrEqual(planned + 1);
+    for (const v of [r.points, r.control_sec, r.activity_avg_pct ?? 0, r.activity_max_pct ?? 0]) expect(Number.isFinite(v)).toBe(true);
+    // at most 3 points a second: an hour stays under five digits
+    expect(r.points).toBeLessThan(10_800);
+    // the stored session (IndexedDB) with its curve of a value a second: some 20 kB for an hour
+    expect(JSON.stringify(r).length).toBeLessThan(40_000);
+  });
+
+  it('shows an hour as 60:00 min, never 1:00:00 min', () => {
+    expect(fmtMin(3600)).toBe('60:00');
+    expect(fmtMin(2700)).toBe('45:00');
+    expect(fmtMin(1799.6)).toBe('30:00');
+    expect(fmtMin(65)).toBe('1:05');
+    expect(fmtMin(null)).toBe('0:00');
+    // the clock's own format keeps its hours (a recording, the arcade's pause card)
+    expect(fmtDur(3600)).toBe('1:00:00');
+  });
+
+  it('gives the day score its full commitment after an hour, and the hour milestone at once', () => {
+    const hour = result({ played_sec: 3600, planned_sec: 3600, activity_avg_pct: 12 });
+    const day = dayScore([hour], NOW);
+    expect(day.minutes).toBe(60);
+    expect(day.commitment).toBeLessThanOrEqual(70);
+    expect(day.score).toBeLessThanOrEqual(100);
+    expect(newMilestones([], hour, NOW).map(m => m.id)).toEqual(['first', 'hour']);
   });
 });

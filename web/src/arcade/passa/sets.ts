@@ -11,6 +11,10 @@
  * same moments; the tests hold them to the same number of wins and to the limits.
  */
 import { lang, type Lang } from '../../i18n';
+import { LIFE_PL } from './life-sets';
+import { LIFE_DE } from './life-sets.de';
+import { LIFE_EN } from './life-sets.en';
+import { LIFE_SV } from './life-sets.sv';
 import type { MomentKind } from './moments';
 
 export interface SetWords { what: string; wins: readonly string[] }
@@ -232,3 +236,33 @@ export const OWN_WINS: Readonly<Record<Lang, Readonly<Record<MomentKind, readonl
     heavy: ['Gud är nära dem med förkrossat hjärta', 'Jag lär mig be om hjälp', 'Min historia kan en dag ge någon mod'],
   },
 };
+
+// ── round 25: the words of the groups' days (life-sets*.ts, P3) ─────
+
+/** The groups' day words by language: `<id>.what`, `<id>.win.<n>`, `<id>.guide.<n>`, `<id>.without`. */
+export const LIFE_TEXTS: Readonly<Record<Lang, Readonly<Record<string, string>>>> = { pl: LIFE_PL, en: LIFE_EN, de: LIFE_DE, sv: LIFE_SV };
+
+/** A group set moment's words: the grey side, the wins (1–3), a sense moment's guide lines, a given one's "without". */
+export interface LifeWords { what: string; wins: string[]; guide: string[]; without: string }
+
+/** The words of a group set moment in a language, Polish for a missing key (null: no grey side or no win at all). */
+export function lifeWords(id: string, l: Lang = lang): LifeWords | null {
+  const cat = LIFE_TEXTS[l] ?? LIFE_PL;
+  const get = (k: string): string => {
+    const v = Object.prototype.hasOwnProperty.call(cat, k) ? cat[k] : Object.prototype.hasOwnProperty.call(LIFE_PL, k) ? LIFE_PL[k] : '';
+    return typeof v === 'string' ? v.trim() : '';
+  };
+  const list = (key: string, max: number): string[] => {
+    const out: string[] = [];
+    for (let n = 1; n <= max; n++) {
+      const v = get(`${id}.${key}.${n}`);
+      if (!v) break;
+      out.push(v);
+    }
+    return out;
+  };
+  const what = get(`${id}.what`);
+  const wins = list('win', 3);
+  if (!what || !wins.length) return null;
+  return { what, wins, guide: list('guide', 4), without: get(`${id}.without`) };
+}

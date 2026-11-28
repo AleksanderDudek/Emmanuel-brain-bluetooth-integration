@@ -88,6 +88,20 @@ export const RULES = {
   furtkaMax: 4,
   /** the seeds: sow each, then tend the sprouts */
   tendMax: 2,
+  /**
+   * Round 24: a session longer than `longFrom` s (45 and 60 minutes) lets the repeated acts come a little more often —
+   * the waves, the kind word, the roses, the tending (the 30-minute caps left an hour's whole way "short": settles of
+   * nine breaths and a dawn of 17 minutes) — and a dawn that still grows past its frame gives the extra to the sunrise
+   * alone (the name, the prayer and the close keep a grown dawn's lengths: no ten-minute close).  30 minutes and less
+   * are as they were.
+   */
+  longFrom: 1800,
+  long: { wavesMax: 7, wavesExtra: 4, dlonMax: 5, furtkaMax: 6, tendMax: 4 },
+  /**
+   * …and calls its way "short" only when more than this share of the session is left over (the whole way with the
+   * player's words is not; at 60 minutes with only the default words it is — its settles grow, the lobby says so)
+   */
+  longShort: 0.05,
   /** flowers: one for an act done with focus, one more for each `abideSec` focus-seconds held after it, ≤ abideMax */
   abideSec: 5,
   abideMax: 2,
@@ -118,6 +132,9 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 3,
+  /** a session over `talkFrom` s (45 and 60 minutes, round 24): a narrator's line comes back only after `talkFresh` s */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
   /** a tap makes the words glow again for this long (s) */
   reshowSec: 2.4,
@@ -147,9 +164,12 @@ export const needFor = (push: number, lead: number): number => Math.max(0.5, RUL
 /** What the preparation brings to the stations: how many words each has (prep.ts `PrepView`). */
 export interface Counts { feelings: number; stones: number; lanterns: number; seeds: number }
 
-/** A station's acts: the least (1), the player's own (`want`) and the most a long session may give (`max`). */
-export function actsRange(s: StationId, c: Counts): { want: number; max: number } {
-  const R = RULES;
+/**
+ * A station's acts: the least (1), the player's own (`want`) and the most a long session may give (`max`) — a session
+ * over 30 minutes (`long`) a little more of the repeated ones (RULES.long).
+ */
+export function actsRange(s: StationId, c: Counts, long = false): { want: number; max: number } {
+  const R = long ? { ...RULES, ...RULES.long } : RULES;
   const n = (v: number) => Math.max(1, Math.floor(fin(v, 1)));
   switch (s) {
     case 'lzy': { const f = n(c.feelings); return { want: f, max: Math.max(f, Math.min(R.wavesMax, f + R.wavesExtra)) }; }
@@ -242,6 +262,7 @@ export function planFor(o: PlanOpts): Plan {
   const lead = leadOf(o.eeg);
   const counts: Counts = { ...COUNTS0, ...(o.counts ?? {}) };
   const custom = !!o.custom;
+  const long = !test && T > R.longFrom;
   const way = stationsFor(T, o.way ?? null);
   const frame = frameOf(T);
 
@@ -272,7 +293,7 @@ export function planFor(o: PlanOpts): Plan {
     stations = [{ id, open, acts: [{ push: p, breaths: 1, rest: Math.max(0, S - open - p) }] }];
   } else {
     let open = cyc;
-    const ranges = way.map(s => actsRange(s, counts));
+    const ranges = way.map(s => actsRange(s, counts, long));
     const acts = way.map(() => 1);
     const rests: number[][] = way.map(() => [breaths]);
     const pushes: number[][] = way.map(() => [push]);
@@ -348,7 +369,7 @@ export function planFor(o: PlanOpts): Plan {
     }
     // a longer dawn takes what is left; a way much too short for the length lets its settles grow first, then the
     // dawn takes the rest (the sunrise in the garden) — the lobby may say the way is short (`short`)
-    if (left > frame.dawn * (R.dawnGrow - 1) + 1e-6) {
+    if (left > frame.dawn * (R.dawnGrow - 1) + (long ? R.longShort * T : 0) + 1e-6) {
       short = true;
       const keep = frame.dawn * (R.dawnGrow - 1);
       left -= keep;
@@ -378,14 +399,16 @@ export function planFor(o: PlanOpts): Plan {
   });
   const dawnStart = t;
   const D = Math.max(1, T - dawnStart);
+  // a long session (over 30 minutes) shares out a dawn grown at most `dawnGrow` × its frame; the rest is the sunrise's
+  const Dp = long ? Math.min(D, frame.dawn * R.dawnGrow) : D;
   // a short dawn (under `prayerFrom` s) says the prayer in the close; a longer one gives it a rest of its own
-  const sh = D >= R.prayerFrom || test ? R.dawn : R.dawnShort;
-  const close0 = test ? D * sh.close : Math.min(D * 0.5, Math.max(R.closeMin, D * sh.close));
-  const restD = Math.max(0, D - close0);
+  const sh = Dp >= R.prayerFrom || test ? R.dawn : R.dawnShort;
+  const close0 = test ? Dp * sh.close : Math.min(Dp * 0.5, Math.max(R.closeMin, Dp * sh.close));
+  const restD = Math.max(0, Dp - close0);
   const sum = sh.sunrise + sh.call + sh.prayer;
   // the receptive parts in whole breaths where a part is near a breath or longer (a test: shares)
   const whole = (x: number): number => (test || x < 0.75 * cyc ? x : Math.max(1, Math.round(x / cyc)) * cyc);
-  let sunrise = whole((restD * sh.sunrise) / sum);
+  let sunrise = whole((restD * sh.sunrise) / sum + (D - Dp));
   let call = whole((restD * sh.call) / sum);
   let prayer = sh.prayer > 0 ? whole((restD * sh.prayer) / sum) : 0;
   // the rounding never eats the close

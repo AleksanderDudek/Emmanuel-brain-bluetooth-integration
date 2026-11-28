@@ -144,8 +144,16 @@ export const verseFor = (k: VerseKey, session: number): PassageId => {
   return list[(Math.max(1, Math.floor(session)) - 1) % list.length];
 };
 
+/**
+ * The verse of a "more" stage's blessing from the second round of the people on (round 24: an hour after a whole way
+ * holds up to four rounds — the one ring-5 verse would come every few minutes): each group its own word.
+ */
+export const MORE_VERSES = {
+  suffer: 'psa34.18', lonely: 'isa41.10', sick: 'isa53.4', dying: 'psa23.4', born: 'psa139.13-14',
+} as const satisfies Record<(typeof ARCS)[number], PassageId>;
+
 /** Every passage the game names (the tests check each exists in four languages). */
-export const ALL_VERSES: readonly PassageId[] = [...new Set(Object.values(VERSES).flat() as PassageId[])];
+export const ALL_VERSES: readonly PassageId[] = [...new Set([...Object.values(VERSES).flat(), ...Object.values(MORE_VERSES)] as PassageId[])];
 
 // ── the rings' words ────────────────────────────────────────────
 export const ringName = (r: 0 | Ring): string => t(`ring.${r}` as Key);

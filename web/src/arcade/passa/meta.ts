@@ -9,13 +9,21 @@
  *                only in this progress, on this device, never in a session's result; they come first, in turn
  *   the hard     "Także to, co trudne": off by default; only with it on does a heavy moment come (≤ 1 a day)
  *   carried      the set moments a session carried (focus did not turn them) — a few come back next time
+ *   the group    (round 25) the age group whose day the session tells (kit/ages.ts, shared with Stop-klatka): the
+ *                device's choice is the default and is taken whenever there is one (`syncAge`); a choice here is
+ *                saved for every game (`setAge`); never in a result
  *
  * Anything broken becomes a fresh progress keeping only a session count; every field of a wrong type is repaired, never
- * trusted; text is cleaned (no control characters, one line, a length limit).  No DOM, no randomness.
+ * trusted; text is cleaned (no control characters, one line, a length limit).  No DOM, no randomness (the shared age
+ * is read only by `syncAge` and written only by `setAge`).
  */
+import { isAge, loadAge, saveAge, type Age } from '../kit/ages';
 import type { MomentKind } from './moments';
 import { RULES, cleanDay, streakAfter, type Streak } from './rules';
-import { HEAVIES, setById } from './content';
+import { anySetById } from './content';
+
+/** The group a day is told for when none was ever chosen (Stop-klatka's too). */
+export const DEFAULT_AGE: Age = 'adult';
 
 export const KINDS: readonly MomentKind[] = ['joy', 'snag', 'heavy'];
 
@@ -47,6 +55,9 @@ export interface PassaProgress {
   seen: string[];
   /** the last session's length (s): the lobby's guess before the length buttons are read */
   lastLen: number;
+  /** (round 25) the age group the day is told for, and whether it was chosen (here, in Stop-klatka or on the card) */
+  age: Age;
+  ageSet: boolean;
 }
 
 export const freshStreak = (): Streak => ({ days: 0, last: '', grace: '', best: 0 });
@@ -54,7 +65,7 @@ export const freshStreak = (): Streak => ({ days: 0, last: '', grace: '', best: 
 export function freshProgress(): PassaProgress {
   return {
     ver: 1, sessions: 0, best: 0, wins: 0, bestRun: 0, trusts: 0, moments: 0, streak: freshStreak(), own: [], ownNext: 0,
-    hard: false, carried: [], heavyNext: 0, recent: [], seen: [], lastLen: 0,
+    hard: false, carried: [], heavyNext: 0, recent: [], seen: [], lastLen: 0, age: DEFAULT_AGE, ageSet: false,
   };
 }
 
@@ -104,10 +115,10 @@ function cleanStreak(v: unknown): Streak {
   return { days, last: days > 0 ? last : '', grace: cleanDay(v.grace), best: Math.max(int(v.best), days) };
 }
 
-/** Set moment ids from a saved list: known ones only, no repeats, at most `max`. */
+/** Set moment ids from a saved list (round 22's and the groups'): known ones only, no repeats, at most `max`. */
 function cleanIds(v: unknown, max: number): string[] {
   if (!Array.isArray(v)) return [];
-  return [...new Set(v.filter((s): s is string => typeof s === 'string' && !!setById(s)))].slice(-max);
+  return [...new Set(v.filter((s): s is string => typeof s === 'string' && !!anySetById(s)))].slice(-max);
 }
 
 /** Bring a loaded save to version 1, in place (idempotent): every field repaired; a broken save keeps its session count. */
@@ -133,10 +144,12 @@ export function migrate(p: PassaProgress): PassaProgress {
     ownNext: int(raw.ownNext),
     hard: raw.hard === true,
     carried: cleanIds(raw.carried, RULES.carryKeep),
-    heavyNext: int(raw.heavyNext) % HEAVIES.length,
+    heavyNext: int(raw.heavyNext) % HEAVY_TURNS,
     recent: cleanIds(raw.recent, RULES.recentMax),
     seen: Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string').map(s => s.slice(0, 40)))].slice(0, 40) : [],
     lastLen: int(raw.lastLen),
+    age: isAge(raw.age) ? raw.age : DEFAULT_AGE,
+    ageSet: raw.ageSet === true && isAge(raw.age),
   };
   clean.wins = Math.max(clean.wins, clean.best);
   clean.moments = Math.max(clean.moments, clean.wins);
@@ -147,6 +160,26 @@ export function migrate(p: PassaProgress): PassaProgress {
   for (const k of Object.keys(raw)) delete raw[k];
   Object.assign(p, clean);
   return p;
+}
+
+/** The heavy set's turn counts up to this and round again (the group's heavy moments and round 22's take turns by it). */
+export const HEAVY_TURNS = 840;
+
+/** The player picks a group (the lobby's chips or the opening card): theirs from now on, in every game on this device. */
+export function setAge(p: PassaProgress, a: unknown): boolean {
+  if (!isAge(a)) return false;
+  p.age = a;
+  p.ageSet = true;
+  saveAge(a);
+  return true;
+}
+
+/** The device's choice of group, when there is one, becomes this progress's (picked here or in Stop-klatka). */
+export function syncAge(p: PassaProgress): void {
+  const a = loadAge();
+  if (!a) return;
+  p.age = a;
+  p.ageSet = true;
 }
 
 /** The best so far (null: never played). */

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import type { PlayerState } from '../src/arcade/kit/music';
-import { longestFit } from '../src/arcade/kit/playlist';
+import { introOf } from '../src/arcade/kit/playlist';
 import type { GameEnv } from '../src/arcade/kit/types';
 import { HeartAmbient, impulse } from '../src/arcade/kintsugi/music/ambient';
 import { PLAYER_MIN, TITLE_H, cornerPlace, fitPlayer } from '../src/arcade/kintsugi/music/card';
@@ -126,8 +126,11 @@ describe('kintsugi music: the active list', () => {
     expect(addOwn(m, 'https://example.com/x', '4:39', '', id => id)).toEqual({ ok: false, error: 'link' });
     expect(addOwn(m, 'https://www.youtube.com/watch?v=abcdefghijk', 'soon', '', id => id)).toEqual({ ok: false, error: 'length' });
     expect(addOwn(m, 'qD3P7RULGIY', '3:10', '', id => id)).toEqual({ ok: false, error: 'dup' });
-    const ok = addOwn(m, 'https://www.youtube.com/watch?v=abcdefghijk&t=10', '45:00', '', id => `YT ${id}`);
-    expect(ok).toMatchObject({ ok: true, tooLong: true, track: { id: 'abcdefghijk', sec: 2700, title: 'YT abcdefghijk' } });
+    // 45 min fits the longest session (60 min) whole; 90 min never does (it plays only as a last track, faded)
+    expect(addOwn(m, 'https://www.youtube.com/watch?v=abcdefghij0', '45:00', '', id => id)).toMatchObject({ ok: true, tooLong: false, track: { sec: 2700 } });
+    removeOwn(m, 'abcdefghij0');
+    const ok = addOwn(m, 'https://www.youtube.com/watch?v=abcdefghijk&t=10', '90:00', '', id => `YT ${id}`);
+    expect(ok).toMatchObject({ ok: true, tooLong: true, track: { id: 'abcdefghijk', sec: 5400, title: 'YT abcdefghijk' } });
     expect(addOwn(m, 'abcdefghijk', '3:00', '', id => id)).toEqual({ ok: false, error: 'dup' });
     for (let i = m.own.length; i < OWN_MAX; i++) expect(addOwn(m, `b${String(i).padStart(10, '0')}`, '3:00', `n${i}`, id => id).ok).toBe(true);
     expect(addOwn(m, 'ccccccccccc', '3:00', '', id => id)).toEqual({ ok: false, error: 'full' });
@@ -247,31 +250,37 @@ describe('kintsugi music: the lobby section', () => {
     const el = musicPanel(m, () => undefined, () => minutes() * 60);
     document.body.append(el);
     const fit = () => el.querySelector('.kin-music-fit')!.textContent!;
-    expect(fit()).toBe('Na 3 min żaden utwór się nie zmieści — gra muzyka tła. Utwory mieszczą się od 5 min.');
-    // every row is marked "nie zmieści się w 3 min", none hidden
+    // a 3-minute session holds one track, faded under the close (every one of the eleven is longer than 2:52)
+    expect(fit()).toBe('Na 3 min zagra 1 utwór. Utwór dłuższy niż reszta sesji łagodnie cichnie razem z jej końcem.');
+    // every row is marked as longer than the session, none hidden
     expect(el.querySelectorAll('.kin-music-row.nofit')).toHaveLength(11);
+    expect(el.querySelector('[data-id="KGiwGcmBv1Q"] .kin-music-warn')!.textContent).toBe('dłuższy niż sesja 3 min — gdy zagra, ucichnie z jej końcem');
     box.querySelector<HTMLButtonElement>('[data-min="5"]')!.click();
-    expect(fit()).toMatch(/^Na 5 min zmieści się 1 utwór \(w całości\), resztę czasu gra muzyka tła\.$/);
-    // at 5 min only the short ones fit (longestFit(300) = 249 s)
+    expect(fit()).toMatch(/^Na 5 min (zagra 1 utwór\.|zagrają 1–2 utwory pod rząd, z łagodnymi przejściami\.)( Utwór dłuższy niż reszta sesji łagodnie cichnie razem z jej końcem\.)?$/);
+    // at 5 min the room after the short opening is 4:48: the longer ones are marked
     const nofit = [...el.querySelectorAll<HTMLElement>('.kin-music-row.nofit')].map(r => r.dataset.id);
-    expect(nofit).toEqual(BUILTIN.filter(b => b.sec > longestFit(300)).map(b => b.id));
-    expect(el.querySelector('[data-id="KGiwGcmBv1Q"] .kin-music-warn')!.textContent).toBe('nie zmieści się w 5 min');
+    expect(nofit).toEqual(BUILTIN.filter(b => b.sec > 300 - introOf(300)).map(b => b.id));
     box.querySelector<HTMLButtonElement>('[data-min="15"]')!.click();
-    expect(fit()).toMatch(/^Na 15 min zmieszczą się \d(–\d)? utwory \(w całości\), resztę czasu gra muzyka tła\.$/);
-    // only Ong Namo (13:01) is longer than a 15-minute session leaves room for (12:27)
-    expect([...el.querySelectorAll<HTMLElement>('.kin-music-row.nofit')].map(r => r.dataset.id)).toEqual(['c1XCS0g6J4A']);
+    expect(fit()).toMatch(/^Na 15 min zagrają \d–\d utwory pod rząd, z łagodnymi przejściami\.( Utwór dłuższy niż reszta sesji łagodnie cichnie razem z jej końcem\.)?$/);
+    // every one of the eleven fits a 15-minute session whole (Ong Namo, 13:01, the longest)
+    expect(el.querySelectorAll('.kin-music-row.nofit')).toHaveLength(0);
   });
 
   it('fitOf / fitLine: none on, none fits now, none fits ever, some', () => {
     expect(fitOf([], 600)).toEqual({ kind: 'empty' });
-    expect(fitOf([{ id: 'a', sec: 2400 }], 600)).toEqual({ kind: 'never' });
-    expect(fitLine({ kind: 'never' }, 600)).toBe('Żaden z włączonych utworów nie mieści się nawet w 30 min — gra muzyka tła.');
-    expect(fitOf([{ id: 'a', sec: 400 }], 300)).toEqual({ kind: 'none', from: 10 });
-    const f = fitOf(BUILTIN, 1800);
-    expect(f.kind).toBe('some');
-    if (f.kind === 'some') { expect(f.lo).toBeGreaterThanOrEqual(2); expect(f.hi).toBeLessThanOrEqual(8); expect(f.lo).toBeLessThanOrEqual(f.hi); }
-    expect(fitLine({ kind: 'some', lo: 2, hi: 5 }, 1200)).toBe('Na 20 min zmieści się 2–5 utworów (w całości), resztę czasu gra muzyka tła.');
-    expect(fitLine({ kind: 'some', lo: 3, hi: 3 }, 900)).toBe('Na 15 min zmieszczą się 3 utwory (w całości), resztę czasu gra muzyka tła.');
+    // a track longer than the session plays from its start, faded under the close
+    expect(fitOf([{ id: 'a', sec: 2400 }], 600)).toEqual({ kind: 'some', lo: 1, hi: 1, cut: true });
+    // only a test of a minute has no room for a track
+    expect(fitOf([{ id: 'a', sec: 400 }], 60)).toEqual({ kind: 'none', from: 3 });
+    expect(fitLine({ kind: 'none', from: 3 }, 60)).toBe('Na 1 min gra tylko muzyka tła — utwory grają w sesjach od 3 min.');
+    for (const [min, lo, hi] of [[30, 3, 7], [45, 5, 9], [60, 7, 11]]) {
+      const f = fitOf(BUILTIN, min * 60);
+      expect(f.kind).toBe('some');
+      if (f.kind === 'some') { expect(f.lo, `${min}`).toBeGreaterThanOrEqual(lo); expect(f.hi, `${min}`).toBeLessThanOrEqual(hi); expect(f.lo).toBeLessThanOrEqual(f.hi); }
+    }
+    expect(fitLine({ kind: 'some', lo: 2, hi: 5, cut: false }, 1200)).toBe('Na 20 min zagra 2–5 utworów pod rząd, z łagodnymi przejściami.');
+    expect(fitLine({ kind: 'some', lo: 3, hi: 3, cut: true }, 900)).toBe('Na 15 min zagrają 3 utwory pod rząd, z łagodnymi przejściami. Utwór dłuższy niż reszta sesji łagodnie cichnie razem z jej końcem.');
+    expect(fitLine({ kind: 'some', lo: 1, hi: 1, cut: true }, 180)).toBe('Na 3 min zagra 1 utwór. Utwór dłuższy niż reszta sesji łagodnie cichnie razem z jej końcem.');
   });
 
   it('adding own tracks: valid, a bad link, a bad length, the limit; removing one', () => {
@@ -327,10 +336,12 @@ class FakePlayer implements SessionPlayer {
   error: number | null = null;
   blocked = false;
   loads: string[] = [];
+  cues: string[] = [];
   volume = -1;
   destroyed = false;
   constructor(readonly host: HTMLElement) {}
-  load(id: string): void { this.loads.push(id); this.state = 'unstarted'; this.time = 0; }
+  load(id: string): void { this.loads.push(id); this.state = 'unstarted'; this.time = 0; this.duration = 0; }
+  cue(id: string): void { this.cues.push(id); this.state = 'cued'; this.time = 0; this.duration = 0; }
   play(): void { this.state = 'playing'; }
   pause(): void { this.state = 'paused'; }
   setVolume(v: number): void { this.volume = v; }
@@ -350,17 +361,29 @@ function sessionEnv(o: { level?: number; sec?: number } = {}): { env: GameEnv<ob
 const consented = (): MusicPrefs => ({ ...freshMusic(), youtube: true });
 const mood = { stage: 'gather' as MusicStage, light: 0.5, rest: false };
 
+/** The session's music with fake players: `players` in the order they were made (one per card). */
+function session(o: { sec?: number; ios?: boolean; prefs?: MusicPrefs } = {}) {
+  const { env, hud } = sessionEnv({ sec: o.sec ?? 900 });
+  const players: FakePlayer[] = [];
+  const music = new SessionMusic(env, o.prefs ?? consented(), {
+    player: host => { const p = new FakePlayer(host); players.push(p); return p; }, online: () => true, ios: () => o.ios ?? false,
+  });
+  const cards = () => [...hud.querySelectorAll<HTMLElement>('.kin-player')];
+  const shown = () => cards().filter(c => c.classList.contains('on'));
+  return { env, hud, music, players, cards, shown };
+}
+
 describe('kintsugi music: SessionMusic', () => {
   beforeEach(() => { document.body.replaceChildren(); });
 
-  it('no player without consent, offline, with the sound off, in "ambient" or "silence", or when nothing fits', () => {
+  it('no player without consent, offline, with the sound off, in "ambient" or "silence", or in a test of a minute', () => {
     const cases: [MusicPrefs, { level?: number; sec?: number }, boolean][] = [
       [freshMusic(), {}, true],
       [consented(), {}, false],
       [consented(), { level: 0 }, true],
       [{ ...consented(), mode: 'ambient' }, {}, true],
       [{ ...consented(), mode: 'silence' }, {}, true],
-      [consented(), { sec: 180 }, true],
+      [consented(), { sec: 60 }, true],
       [{ ...consented(), off: BUILTIN.map(b => b.id) }, {}, true],
     ];
     cases.forEach(([prefs, e, online], i) => {
@@ -379,41 +402,53 @@ describe('kintsugi music: SessionMusic', () => {
     });
   });
 
-  it('with consent: the card shows while a track loads and plays, fades between, the rotation remembers it', () => {
-    const { env, hud } = sessionEnv({ sec: 900 });
+  it('two players take turns: the next is cued, hidden, while a track plays — and shows in the same place as it begins', () => {
+    const { music, players, cards, shown } = session({ sec: 900 });
     const prefs = consented();
-    prefs.recent = { Pclv31cDTTc: 3, qD3P7RULGIY: 1 };
-    let player: FakePlayer | null = null;
-    const music = new SessionMusic(env, prefs, { player: host => (player = new FakePlayer(host)), online: () => true });
     expect(music.plan).not.toBeNull();
-    const first = music.plan!.slots[0];
+    const [first, second] = music.plan!.slots;
+    expect(second).toBeDefined();
     music.place({ x: 20, y: 400, w: 320, h: 228 });
     music.start();
-    const card = hud.querySelector<HTMLElement>('.kin-player')!;
-    expect(card).not.toBeNull();
-    expect(card.classList.contains('on')).toBe(false);
-    expect(player!.host.parentElement).toBe(card);
-    // the frame is at least 200 × 200 inside the place given
-    const frame = card.querySelector<HTMLElement>('.kin-player-frame')!;
-    expect(parseFloat(frame.style.width)).toBeGreaterThanOrEqual(PLAYER_MIN);
-    expect(parseFloat(frame.style.height)).toBeGreaterThanOrEqual(PLAYER_MIN);
+    expect(players).toHaveLength(2);
+    expect(cards()).toHaveLength(2);
+    expect(shown()).toHaveLength(0);
+    for (const p of players) expect(cards()).toContain(p.host.parentElement);
+    // each frame is at least 200 × 200 inside the place given
+    for (const c of cards()) {
+      const frame = c.querySelector<HTMLElement>('.kin-player-frame')!;
+      expect(parseFloat(frame.style.width)).toBeGreaterThanOrEqual(PLAYER_MIN);
+      expect(parseFloat(frame.style.height)).toBeGreaterThanOrEqual(PLAYER_MIN);
+    }
+    const [a, b] = players;
     music.update(first.at - 1, 1, mood);
-    expect(player!.loads).toEqual([]);
+    expect(a.loads).toEqual([]);
     music.update(first.at, 1, mood);
-    expect(player!.loads).toEqual([first.id]);
-    expect(card.classList.contains('on')).toBe(true);
-    expect(card.querySelector('.kin-player-title')!.textContent).toMatch(/^♪ /);
-    player!.state = 'playing';
-    player!.duration = first.sec;
-    music.update(first.at + 1, 1, mood);
+    expect(a.loads).toEqual([first.id]);
+    expect(shown()).toEqual([a.host.parentElement]);
+    expect(shown()[0].querySelector('.kin-player-title')!.textContent).toMatch(/^♪ /);
+    a.state = 'playing';
+    a.duration = first.sec;
+    let t = first.at + 1;
+    music.update(t, 1, mood);
     expect(music.now.phase).toBe('track');
-    player!.time = 40;
-    music.update(first.at + 2, 1, mood);
+    // 20 s before its end the next is made ready in the other player — not playing, its card hidden
+    for (; t < first.at + first.sec - 20; t += 1) { a.time = t - first.at; music.update(t, 1, mood); }
+    expect(b.cues).toEqual([second.id]);
+    expect(b.state).toBe('cued');
+    expect(b.volume).toBe(0);
+    expect(shown()).toEqual([a.host.parentElement]);
     expect(music.played).toEqual([first.id]);
-    player!.state = 'ended';
-    music.update(first.at + first.sec, 1, mood);
-    expect(music.now.show).toBe(false);
-    expect(card.classList.contains('on')).toBe(false);
+    // its last seconds fall; it ends; the next starts in the same place, the first card hides
+    for (; t < first.at + first.sec; t += 0.5) { a.time = t - first.at; music.update(t, 0.5, mood); }
+    expect(a.volume).toBeLessThan(15);
+    a.state = 'ended';
+    music.update(t, 0.5, mood);
+    expect(b.state).toBe('playing');
+    expect(music.now.deck).toBe(1);
+    expect(shown()).toEqual([b.host.parentElement]);
+    expect(b.host.parentElement!.style.left).toBe(a.host.parentElement!.style.left);
+    expect(b.host.parentElement!.style.top).toBe(a.host.parentElement!.style.top);
     const after = music.recentAfter();
     expect(after[first.id]).toBe(1);
     expect(music.recentAfter()).toEqual(after);              // idempotent
@@ -421,55 +456,113 @@ describe('kintsugi music: SessionMusic', () => {
     expect(music.recentAfter()).toEqual(after);              // … and it does not age twice
     expect(music.stat()).toEqual(['Muzyka', '1 utwór i muzyka tła']);
     music.destroy();
-    expect(hud.querySelector('.kin-player')).toBeNull();
-    expect(player!.destroyed).toBe(true);
+    expect(cards()).toHaveLength(0);
+    expect(players.every(p => p.destroyed)).toBe(true);
     expect(music.played).toEqual([first.id]);
   });
 
+  it('with room for two cards: a cross-fade shows both, the next in the second place, then it takes the first place', () => {
+    vi.useFakeTimers();
+    const { music, players, shown } = session({ sec: 900 });
+    const [first, second] = music.plan!.slots;
+    const main = { x: 1100, y: 600, w: 264, h: 236 }, side = { x: 1100, y: 352, w: 264, h: 236 };
+    music.place(main, side);
+    music.start();
+    const [a, b] = players;
+    music.update(first.at, 1, mood);
+    a.state = 'playing';
+    a.duration = first.sec;
+    let t = first.at + 1;
+    for (; t < first.at + first.sec - 7; t += 0.5) { a.time = t - first.at; music.update(t, 0.5, mood); }
+    expect(b.state).toBe('cued');
+    // FADE + a moment before the end the next starts: both cards on screen, the next one in the second place
+    for (; b.state !== 'playing' && t < first.at + first.sec; t += 0.25) { a.time = t - first.at; music.update(t, 0.25, mood); }
+    expect(b.loads.length + b.cues.length).toBe(1);
+    expect(b.state).toBe('playing');
+    expect(music.now.next).toEqual({ id: second.id, deck: 1 });
+    expect(shown()).toHaveLength(2);
+    const cardB = b.host.parentElement!;
+    expect(parseFloat(cardB.style.top)).toBeLessThan(400);
+    // the next rises while the first falls
+    b.time = 0.5;
+    for (let k = 0; k < 12; k++, t += 0.25) { a.time = t - first.at; b.time += 0.25; music.update(t, 0.25, mood); }
+    expect(b.volume).toBeGreaterThan(20);
+    expect(a.volume).toBeLessThan(50);   // (from 80, the app's level)
+    a.state = 'ended';
+    music.update(t, 0.25, mood);
+    expect(music.now.deck).toBe(1);
+    expect(music.now.next).toBeNull();
+    expect(shown()).toEqual([cardB]);
+    // once the first card has faded away (not over it while it fades), it glides into the first card's place
+    expect(parseFloat(cardB.style.top)).toBeLessThan(400);
+    vi.advanceTimersByTime(1000);
+    expect(cardB.classList.contains('glide')).toBe(true);
+    expect(parseFloat(cardB.style.top)).toBeGreaterThan(560);
+    vi.advanceTimersByTime(1000);
+    expect(cardB.classList.contains('glide')).toBe(false);
+    music.destroy();
+    vi.useRealTimers();
+  });
+
+  it('on an iPhone: one card and one player — the next track loads into it (the one tap keeps counting)', () => {
+    const { music, players, cards } = session({ sec: 900, ios: true });
+    const [first, second] = music.plan!.slots;
+    music.start();
+    expect(players).toHaveLength(1);
+    expect(cards()).toHaveLength(1);
+    const [a] = players;
+    music.update(first.at, 1, mood);
+    a.state = 'playing';
+    a.duration = first.sec;
+    let t = first.at + 1;
+    for (; t < first.at + first.sec; t += 1) { a.time = t - first.at; music.update(t, 1, mood); }
+    expect(a.cues).toEqual([]);
+    a.state = 'ended';
+    music.update(t, 1, mood);
+    expect(a.loads).toEqual([first.id, second.id]);
+    music.destroy();
+  });
+
   it('when the browser wants a tap: the card asks once, and "Tylko muzyka tła" ends the tracks for this session', () => {
-    const { env, hud } = sessionEnv({ sec: 1800 });
-    let player: FakePlayer | null = null;
-    const music = new SessionMusic(env, consented(), { player: host => (player = new FakePlayer(host)), online: () => true });
+    const { music, players, hud, cards } = session({ sec: 1800 });
     music.start();
     const first = music.plan!.slots[0];
     music.update(first.at, 1, mood);
-    player!.blocked = true;
+    players[0].blocked = true;
     music.update(first.at + 1, 1, mood);
     expect(music.now.tap).toBe(true);
-    const tap = hud.querySelector<HTMLElement>('.kin-player-tap')!;
+    const tap = hud.querySelector<HTMLElement>('.kin-player.on .kin-player-tap')!;
     expect(tap.hidden).toBe(false);
     expect(tap.textContent).toContain('Stuknij ▶ w odtwarzaczu');
     tap.querySelector<HTMLButtonElement>('button')!.click();
-    expect(hud.querySelector('.kin-player')).toBeNull();
-    expect(player!.destroyed).toBe(true);
+    expect(cards()).toHaveLength(0);
+    expect(players.every(p => p.destroyed)).toBe(true);
     expect(music.now.phase).toBe('done');
     for (let t = first.at + 2; t < 1800; t += 10) music.update(t, 10, mood);
-    expect(player!.loads).toEqual([first.id]);
+    expect(players[0].loads).toEqual([first.id]);
     expect(music.canStop()).toBe(true);
     music.destroy();
   });
 
   it('pause pauses the track; finish stops it; canStop waits only for a closing fade', () => {
-    const { env } = sessionEnv({ sec: 600 });
-    let player: FakePlayer | null = null;
-    const music = new SessionMusic(env, consented(), { player: host => (player = new FakePlayer(host)), online: () => true });
+    const { music, players } = session({ sec: 600 });
     music.start();
     const first = music.plan!.slots[0];
+    const a = players[0];
     music.update(first.at, 1, mood);
-    player!.state = 'playing';
+    a.state = 'playing';
     music.update(first.at + 1, 1, mood);
     music.pause(true);
-    expect(player!.state).toBe('paused');
+    expect(a.state).toBe('paused');
     music.pause(false);
-    expect(player!.state).toBe('playing');
+    expect(a.state).toBe('playing');
     expect(music.canStop()).toBe(true);
     music.finish();
-    expect(player!.state).toBe('paused');
-    expect(player!.volume).toBe(0);
+    expect(a.state).toBe('paused');
+    expect(a.volume).toBe(0);
     expect(music.now.phase).toBe('done');
     music.destroy();
   });
-
   it('the card falls back to a lower corner, and keeps the player at least 200 × 200 in any place', () => {
     expect(fitPlayer({ x: 0, y: 0, w: 120, h: 90 })).toMatchObject({ w: 200, h: 200 });
     expect(fitPlayer({ x: 0, y: 0, w: 400, h: 253 })).toEqual({ x: 0, y: 0, w: 400, h: 225 });

@@ -169,8 +169,10 @@ export class KintsugiSim {
   qualities: Quality[] = [];
   /** the passage on the band (rests only) */
   card: Card | null = null;
-  /** the 0–10 after, and the before this session carries */
+  /** "how do you feel now", 0 (very heavy) … 10 (light and well): the after, and the before this session carries */
   rating: number | null = null;
+  /** a "1" typed in the close waits a moment for a "0" (10) */
+  private keyOne = -1;
   readonly before: number | null;
   /** a tap makes the words glow again until this time */
   reshowUntil = 0;
@@ -215,6 +217,7 @@ export class KintsugiSim {
     this.geo.order.forEach((id, i) => { this.pieces[id].word = words[i] ?? ''; });
     this.queue = [...this.geo.order];
     this.talk = new Talk(o.rng);
+    this.talk.fresh = this.plan.T > RULES.long.from ? RULES.talkFresh : 0;
     this.beatEnd = this.plan.beatEnd;
     this.radianceEnd = this.plan.radianceEnd;
     this.bestBefore = bestOf(this.p);
@@ -275,12 +278,24 @@ export class KintsugiSim {
 
   private showVerse(id: PassageId, dur?: number): void {
     this.card = { id, t0: this.t, dur: dur ?? Math.max(6, readTime(passage(id).text)) };
+    this.shownAt.set(id, this.t);
+  }
+
+  /** When each passage was last shown (the long sessions' rule: a rest's passage comes back after talkFresh s). */
+  private readonly shownAt = new Map<PassageId, number>();
+
+  /** A rest's passage may show now: always in sessions of 30 minutes and less; over that, not twice within talkFresh. */
+  private verseOk(id: PassageId): boolean {
+    if (this.T <= RULES.long.from) return true;
+    const at = this.shownAt.get(id);
+    return at === undefined || this.t - at >= RULES.talkFresh;
   }
 
   update(dt: number, f: FocusFrame, now: number): void {
     if (!this.started) return;
     const step = Math.max(0, Math.min(0.25, dt));
     this.t = now;
+    if (this.keyOne >= 0 && now - this.keyOne > RULES.keyTen) this.commitOne();
     this.blockT += step;
     this.reliable = f.reliable;
     if (f.reliable) this.mean.push(f.level, step);
@@ -441,7 +456,7 @@ export class KintsugiSim {
     const home = this.pieces.filter(pc => pc.state === 'home').length;
     const half = home >= Math.ceil(this.pieces.length / 2) && home - 1 < Math.ceil(this.pieces.length / 2);
     const id: PassageId = this.washes === 1 ? VERSES.lift[0] : half ? verseFor('join', this.session) : verseFor('wash', this.session, this.washes);
-    this.showVerse(id, Math.max(2, this.block.dur - this.blockT));
+    if (this.verseOk(id)) this.showVerse(id, Math.max(2, this.block.dur - this.blockT));
   }
 
   /** The grace's sweep: every piece not yet home rises, is washed and laid in turn, gently. */
@@ -556,7 +571,8 @@ export class KintsugiSim {
         const restSec = this.plan.goldRest * this.cyc;
         this.setBlock('rest', 'cool', Math.min(restSec, this.plan.goldEnd - this.t));
         this.cools++;
-        if (this.cools % 2 === 1 || this.plan.goldRest >= 2) this.showVerse(verseFor('gold', this.session, this.cools - 1), Math.max(3, this.block.dur));
+        const gv = verseFor('gold', this.session, this.cools - 1);
+        if ((this.cools % 2 === 1 || this.plan.goldRest >= 2) && this.verseOk(gv)) this.showVerse(gv, Math.max(3, this.block.dur));
       } else if (this.plan.goldEnd - this.t >= this.lead + RULES.pushTail) this.startPour();
       else this.endGold();
     }
@@ -672,7 +688,7 @@ export class KintsugiSim {
   /** The 0–10 row shows in the close. */
   get rateOpen(): boolean { return this.stage === 'close'; }
 
-  /** The player's "how much does it hurt now" (0–10), once. */
+  /** The player's "how do you feel now" (0 very heavy … 10 light and well), once. */
   rate10(n: number): boolean {
     if (!this.rateOpen || this.rating !== null) return false;
     const v = cleanWeight(n);
@@ -680,6 +696,12 @@ export class KintsugiSim {
     this.rating = v;
     this.emit({ type: 'rated', n: v });
     return true;
+  }
+
+  /** A "1" typed alone: after a moment it stands. */
+  private commitOne(): void {
+    this.keyOne = -1;
+    this.rate10(1);
   }
 
   // ── input ─────────────────────────────────────────────────────
@@ -694,7 +716,13 @@ export class KintsugiSim {
 
   key(key: string, down: boolean): boolean {
     if (!down) return false;
-    if (/^[0-9]$/.test(key) && this.rateOpen) return this.rate10(Number(key));
+    if (/^[0-9]$/.test(key) && this.rateOpen && this.rating === null) {
+      const n = Number(key);
+      // "1" then "0" is 10 (light and well); "1" alone, after a moment, is 1
+      if (this.keyOne >= 0) { this.keyOne = -1; return this.rate10(n === 0 ? 10 : 1); }
+      if (n === 1) { this.keyOne = this.t; return true; }
+      return this.rate10(n);
+    }
     if (key === ' ' || key === 'Enter') return this.stay();
     return false;
   }
@@ -703,6 +731,7 @@ export class KintsugiSim {
 
   canStop(): boolean {
     if (this.t < this.T) return false;
+    if (this.keyOne >= 0) return false;
     return this.rating !== null || this.overT >= RULES.rateWait || this.stage !== 'close';
   }
 
@@ -772,6 +801,7 @@ export class KintsugiSim {
   /** Settle the session once (the runner's finish(), or the close's end): the records, the before → after. */
   finish(): void {
     if (this.credited || !this.started) return;
+    if (this.keyOne >= 0) this.commitOne();
     this.credited = true;
     const p = this.p;
     const g = this.gathered;
@@ -793,7 +823,7 @@ export class KintsugiSim {
     stats.push([t('stat.pieces'), t('stat.piecesV', { care: g.care, of: this.pieces.length })]);
     stats.push([t('stat.gold'), t('stat.goldV', { n: this.score, of: all })]);
     if (this.beatStart !== null) stats.push([t('stat.beat'), t('pulse', { n: Math.round(this.pulseLed ? this.bpmSeen : RULES.bpmCalm) })]);
-    if (this.before !== null && this.rating !== null) stats.push([t('stat.hurt'), t('stat.hurtV', { a: this.before, b: this.rating })]);
+    if (this.before !== null && this.rating !== null) stats.push([t('stat.feel'), t('stat.feelV', { a: this.before, b: this.rating })]);
     const highlights: string[] = [];
     if (all > 0 && this.gilded) highlights.push(t('hl.whole'));
     else highlights.push(t('hl.part'));

@@ -9,6 +9,9 @@ import type { Moment } from './content';
 import { linesOf } from './i18n';
 import { RULES, readTime } from './rules';
 
+/** how many said lines the log keeps (a session of any length) */
+export const SAID_KEEP = 120;
+
 export interface Line { moment: Moment | 'why'; text: string; t: number; dur: number }
 
 interface Ask { moment: Moment | 'why'; text?: string; pri: number; until: number; seq: number }
@@ -20,7 +23,7 @@ export class Talk {
   private seq = 0;
   private readonly queue: Ask[] = [];
   private readonly left = new Map<Moment, number[]>();
-  /** every line said this session, in order (the tests read it) */
+  /** the lines said this session, in order, the last SAID_KEEP of them (the tests read it; an hour says ~400) */
   readonly said: string[] = [];
 
   constructor(private readonly rng: () => number, private readonly lines: (m: Moment) => readonly string[] = linesOf) {}
@@ -73,6 +76,7 @@ export class Talk {
     if (!text) return;
     this.line = { moment: a.moment, text, t: 0, dur: readTime(text) };
     this.said.push(text);
+    if (this.said.length > SAID_KEEP) this.said.splice(0, this.said.length - SAID_KEEP);
   }
 
   private pick(m: Moment): string {

@@ -213,7 +213,8 @@ export class AniolView {
         this.rings.push({ x, y, t: 0, dur: big ? 0.9 : 0.4, r0: 10 * u, r1: (big ? 180 : 60) * u, color: 'rgba(255,240,190,', width: big ? 6 : 3 });
         const nf = Math.min(5, Math.max(1, Math.round(e.feathers / 2)));
         for (let i = 0; i < (rm ? 1 : nf); i++) this.feather(x, y);
-        if (e.via !== 'flame' && e.via !== 'dawn') this.hud.float(`+${e.feathers}`, x, y - 26 * u, C.goldLight, 13, 0.8, 30);
+        // (a harder level's feathers come in whole ones: a banish may bring none this time — no "+0")
+        if (e.via !== 'flame' && e.via !== 'dawn' && e.feathers > 0) this.hud.float(`+${e.feathers}`, x, y - 26 * u, C.goldLight, 13, 0.8, 30);
         this.shake.add(big ? 0.6 : 0.16);
         if (big) this.flashOn(0.9);
         this.reveal.delete(e.id);

@@ -28,6 +28,9 @@ const PAPER = {
   joy: { a: '#e6e3dc', b: '#ccc8c0', ink: '#454852', edge: '#b8b4ac' },
   snag: { a: '#d3d7df', b: '#b0b6c2', ink: '#3a404c', edge: '#9aa0ac' },
   heavy: { a: '#626a80', b: '#454b60', ink: '#eceef6', edge: '#7c8298' },
+  /** (round 25) a sense moment's grey side: a quiet lilac grey (not yet noticed); a given one's: a worn warm grey */
+  sense: { a: '#e6e4ec', b: '#c9c6d4', ink: '#44465a', edge: '#b2aec4' },
+  given: { a: '#e9e5dd', b: '#cdc6ba', ink: '#4a463e', edge: '#bab2a4' },
   gold: { a: '#fff7e2', b: '#f6d38a', ink: '#6b4410', edge: '#d9a646' },
   dawn: { a: '#faeef2', b: '#f4d8b6', ink: '#5a3448', edge: '#d4a6a8' },
   trust: { a: '#2c3456', b: '#40365c', ink: '#f8ecd4', edge: '#e8b870' },
@@ -168,7 +171,7 @@ export class CardPainter {
   face(ctx: CanvasRenderingContext2D, card: CardLike, gold: boolean, w: number, h: number, o: CardOpts): void {
     const heavy = card.kind === 'heavy';
     const trust = !!card.trust && gold;
-    const P: Paper = !gold ? PAPER[card.kind] ?? PAPER.snag : trust ? PAPER.trust : heavy ? PAPER.dawn : PAPER.gold;
+    const P: Paper = !gold ? PAPER[card.kind as 'joy'] ?? PAPER.snag : trust ? PAPER.trust : heavy ? PAPER.dawn : PAPER.gold;
     const k = Math.max(0.6, h / 130);
     const rad = Math.min(12 * o.k, h * 0.1);
     // the paper

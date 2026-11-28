@@ -44,6 +44,10 @@ export interface Layout {
   guide: { cx: number; cy: number; r: number; layout: 'stack' | 'row'; maxW: number };
   /** the music's player card (only when a track will play) */
   music: Rect | null;
+  /** the second card's place for a cross-fade between two tracks (both players on screen for a few seconds): beside
+   * or above the first, over nothing the meditation shows — the heart at any stage, the cloth, the words, the guide;
+   * null where the screen has no such room (then the music passes from track to track in the card's one place) */
+  music2: Rect | null;
   /** the close's question line and its 0–10 buttons, the blessing's (and the closing verse's) place above them, and the
    * heart's middle and scale in the close (moved up out of their way where they reach into the scene) */
   rateQ: Rect;
@@ -195,7 +199,34 @@ export function layout(w: number, h: number, ins: Insets, tracks: boolean): Layo
     sX = Math.max(28, Math.min(heart.sC, room / (HH + 0.24)));   // (room for the beat's swell)
     cyX = scene.y + Math.max(0, (room - HH * sX) / 2) - HEART.top * sX;
   }
-  return { w: W, h: H, kind, ...heart, scene, band, guide, music, rateQ, rate: rateRow(rateArea), closeText, cyX, sX, font };
+  const base = { w: W, h: H, kind, ...heart, scene, band, guide, music, rateQ, rate: rateRow(rateArea), closeText, cyX, sX, font };
+  return { ...base, music2: music ? secondPlace(base, music, { L, R, T, B }) : null };
+}
+
+/** What the second card must never cover (canvas CSS px): the heart wherever it stands, the cloth, the words, the guide. */
+export function keepClear(l: Omit<Layout, 'music2'>): Rect[] {
+  const box = (cx: number, cy: number, s: number): Rect => ({ x: cx - 1.08 * s, y: cy + (HEART.top - 0.06) * s, w: 2.16 * s, h: (HH + 0.12) * s });
+  const g = l.guide, gh = guideHeight(g.r, g.layout);
+  return [
+    box(l.cx, l.cy, l.s), box(l.cx, l.cyC, l.sC), box(l.cx, l.cyX, l.sX),
+    { x: l.cx + l.cloth.x0 * l.s, y: l.cy + l.cloth.y0 * l.s, w: (l.cloth.x1 - l.cloth.x0) * l.s, h: (l.cloth.y1 - l.cloth.y0 + 0.1) * l.s },
+    l.band,
+    g.layout === 'row' ? { x: g.cx - g.r - 4, y: g.cy - gh / 2, w: 2 * g.r + 8 + g.maxW, h: gh } : { x: g.cx - Math.max(g.r, g.maxW / 2), y: g.cy - g.r - 4, w: 2 * Math.max(g.r, g.maxW / 2), h: gh },
+  ];
+}
+
+const meets = (a: Rect, b: Rect, pad = 0): boolean => a.x < b.x + b.w + pad && b.x < a.x + a.w + pad && a.y < b.y + b.h + pad && b.y < a.y + a.h + pad;
+
+/** The second card's place: above the first, else to its left, else to its right — inside the screen, over nothing kept clear. */
+function secondPlace(l: Omit<Layout, 'music2'>, m: Rect, box: { L: number; R: number; T: number; B: number }): Rect | null {
+  const gap = 12;
+  const tries: Rect[] = [
+    { x: m.x, y: m.y - gap - m.h, w: m.w, h: m.h },
+    { x: m.x - gap - m.w, y: m.y, w: m.w, h: m.h },
+    { x: m.x + m.w + gap, y: m.y, w: m.w, h: m.h },
+  ];
+  const clear = keepClear(l);
+  return tries.find(r => r.x >= box.L - 0.5 && r.x + r.w <= box.R + 0.5 && r.y >= box.T - 0.5 && r.y + r.h <= box.B + 0.5 && !clear.some(c => meets(r, c, 6))) ?? null;
 }
 
 /** A heart point (heart units) on the screen for a heart centred at (cx, cy). */

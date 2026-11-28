@@ -9,6 +9,8 @@
  * World units ("u", about a metre) on one terrace of the hillside: x across it (0..laneW), y up the
  * hill from the boy's basket (0) to the tables of the hungry (laneH).
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the terrace ──────────────────────────────────────────────
   laneW: 10,
@@ -191,6 +193,9 @@ export const RULES = {
   hungerPerLevel: 28,
   hungerMax: 900,
   circleHunger: 0.3,
+  /** the rounds of the path that still grow the hunger and the bosses' pouches: from the 5th round (level 96) they hold
+   *  (hour-long sessions reach them in days; without the cap level 240 fed some 8 terraces an hour, level 960 four) */
+  circleTop: 4,
   /** a boss terrace is this much hungrier */
   bossHunger: 1.15,
   /** two tables (left and right) on a terrace from this level, on every other terrace */
@@ -295,6 +300,35 @@ export const RULES = {
   hintEvery: 9,
   hintTimes: 3,
 } as const;
+
+/**
+ * The four difficulty levels (kit/difficulty.ts, DESIGN §29) on Chleby i ryby's own knobs — multipliers on the rules
+ * above, REGULAR all ones (the hillside as it was).  A level changes the gulls and the bosses, never the training: the
+ * golden gate from the level, the champion from a held focus and the crumbs from calm are the same everywhere, and so
+ * is the hunger of the tables (the work, fitted to the session as it was).
+ *
+ *   foe        the loaves a gull snatches before it flies (the shared `foe`: a common gull's one loaf becomes two on
+ *              some gulls at Zaawansowany and on every gull at Hardcore; it never falls under one), Gerwazy's and
+ *              Mirka's too
+ *   pouch      a boss's pouch — bent below `foe`: it is fed by the same runners the tables wait for
+ *   count      gulls in a wave (`count`)
+ *   speed      the gulls' waddle and a boss's whole clock: its walk, aim, charge, stab and dive (`speed`)
+ *   jam        how long a peck jams the basket — the basket's own strength (`self`) turned into a time
+ *   grace      the disciples' help on a long terrace (it begins after helpAfter / grace s: sooner at Na start,
+ *              never at Hardcore — the shared `helps`)
+ *   reinforce  Posiłki, the loaves that pour by themselves at a terrace's start (`helps`: none at Hardcore)
+ *   pomoc      the people fed that fill the Pomoc card: the card is the player's own tool (it is in the deck), so it
+ *              is slowed at the harder levels, not taken away
+ *   reward     baskets for a level and a boss (`reward`, rounded: Hardcore pays a basket more for two)
+ */
+export interface ChlebyLevel { foe: number; pouch: number; count: number; speed: number; jam: number; grace: number; reinforce: number; pomoc: number; reward: number }
+
+export const LEVELS: Readonly<Record<Difficulty, ChlebyLevel>> = {
+  start:    { foe: 0.6, pouch: 0.7,  count: 0.75, speed: 0.85, jam: 0.67, grace: 1.5, reinforce: 1.5, pomoc: 0.75, reward: 0.9 },
+  regular:  { foe: 1,   pouch: 1,    count: 1,    speed: 1,    jam: 1,    grace: 1,   reinforce: 1,   pomoc: 1,    reward: 1 },
+  advanced: { foe: 1.4, pouch: 1.25, count: 1.25, speed: 1.1,  jam: 1.2,  grace: 0.6, reinforce: 0.6, pomoc: 1.2,  reward: 1.15 },
+  hardcore: { foe: 2,   pouch: 1.5,  count: 1.5,  speed: 1.2,  jam: 1.4,  grace: 0,   reinforce: 0,   pomoc: 1.5,  reward: 1.3 },
+};
 
 /** The golden gate's multiplier for a level: ×1 below the threshold (never less), ×2 at it, up to ×5; in halves. */
 export function goldMult(level: number): number {

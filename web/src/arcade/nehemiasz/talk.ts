@@ -11,6 +11,14 @@ import { RULES } from './rules';
 
 export interface Line { moment: Moment; speaker: Speaker; text: string; t: number; dur: number }
 
+/**
+ * A line said comes round again only this long after (s) in a session over half an hour (DESIGN §17.1, §28): an
+ * hour never hears a line twice within ten minutes; when a moment's lines are all younger, it keeps quiet.
+ * Sessions of 30 minutes and less keep the pool's turn (0), as before.
+ */
+export const ROUND_SEC = 600;
+export const roundFor = (plannedSec: number): number => (plannedSec > 1800 ? ROUND_SEC : 0);
+
 interface Ask { moment: Moment; pri: number; until: number; seq: number }
 
 export class Talk {
@@ -23,8 +31,10 @@ export class Talk {
   private readonly left = new Map<Moment, number[]>();
   /** every line said this session, in order (the tests read it) */
   readonly said: string[] = [];
+  /** when each line was last said (the talk's clock), for `roundSec` */
+  private readonly saidAt = new Map<string, number>();
 
-  constructor(private readonly lines: Readonly<Record<Moment, readonly string[]>>, private readonly rng: () => number) {}
+  constructor(private readonly lines: Readonly<Record<Moment, readonly string[]>>, private readonly rng: () => number, private readonly roundSec = 0) {}
 
   /** Ask for a line: `pri` orders the queue (higher first), `ttl` is how long (s) it stays worth saying. */
   ask(moment: Moment, pri = 1, ttl = 4): void {
@@ -59,12 +69,13 @@ export class Talk {
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
+    if (text === null) return;
     this.line = { moment: a.moment, speaker: SPEAKER[a.moment], text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
     this.said.push(text);
   }
 
   /** The next unused variant of a moment (a new shuffle once all were said). */
-  private pick(m: Moment): string {
+  private pick(m: Moment): string | null {
     const all = this.lines[m];
     let left = this.left.get(m);
     if (!left || !left.length) {
@@ -75,6 +86,11 @@ export class Talk {
       }
       this.left.set(m, left);
     }
-    return all[left.shift()!];
+    if (!this.roundSec) return all[left.shift()!];
+    const k = left.findIndex(i => this.now - (this.saidAt.get(all[i]) ?? -Infinity) >= this.roundSec);
+    if (k < 0) return null;
+    const text = all[left.splice(k, 1)[0]];
+    this.saidAt.set(text, this.now);
+    return text;
   }
 }

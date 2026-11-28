@@ -450,6 +450,23 @@ export type PassageId =
   | 'psa16.6'
   | 'eph5.20'
   | '2co4.17'
+  | 'pro15.1'
+  | 'pro14.29'
+  | 'pro19.11'
+  | 'mat5.9'
+  | 'jas1.19-20'
+  | '1th5.23'
+  | '1jn1.7'
+  | 'psa116.16'
+  | 'psa129.4'
+  | 'psa107.14'
+  | '1co12.12'
+  | 'rom12.4-5'
+  | '1sa16.13'
+  | '1sa18.1'
+  | '1sa25.32-33'
+  | '1sa30.6'
+  | '1sa30.24'
   ;
 
 export interface Passage {
@@ -3091,6 +3108,108 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['For our light and momentary affliction is producing for us an eternal weight of glory that is far beyond comparison.', '2 Corinthians 4:17'],
     de: ['Denn unsre Trübsal, die zeitlich und leicht ist, schafft eine ewige und über alle Maßen wichtige Herrlichkeit…', '2. Korinther 4,17'],
     sv: ['Ty vår bedrövelse, som varar ett ögonblick och väger föga, bereder åt oss, i översvinnligen rikt mått, en härlighet som väger översvinnligen tungt och varar i evighet -…', '2 Kor 4:17'],
+  },
+  'pro15.1': {
+    pl: ['Odpowiedź łagodna uśmierza gniew; ale słowa przykre wzruszają popędliwość.', 'Prz 15,1'],
+    en: ['A gentle answer turns away wrath, but a harsh word stirs up anger.', 'Proverbs 15:1'],
+    de: ['Eine linde Antwort stillt den Zorn; aber ein hartes Wort richtet Grimm an.', 'Sprüche 15,1'],
+    sv: ['Ett mjukt svar stillar vrede, men ett hårt ord kommer harm åstad.', 'Ords 15:1'],
+  },
+  'pro14.29': {
+    pl: ['Nierychły do gniewu jest bogaty w rozum; ale porywczy pokazuje głupstwo.', 'Prz 14,29'],
+    en: ['A patient man has great understanding, but a quick-tempered man promotes folly.', 'Proverbs 14:29'],
+    de: ['Wer geduldig ist, der ist weise; wer aber ungeduldig ist, der offenbart seine Torheit.', 'Sprüche 14,29'],
+    sv: ['Den som är tålmodig visar gott förstånd, men den som är snar till vrede går långt i oförnuft.', 'Ords 14:29'],
+  },
+  'pro19.11': {
+    pl: ['Rozum człowieczy zawściąga gniew jego, a ozdoba jego jest mijać przestępstwo.', 'Prz 19,11'],
+    en: ['A man’s insight gives him patience, and his virtue is to overlook an offense.', 'Proverbs 19:11'],
+    de: ['Wer geduldig ist, der ist ein kluger Mensch, und ist ihm eine Ehre, daß er Untugend überhören kann.', 'Sprüche 19,11'],
+    sv: ['Förstånd gör en människa tålmodig, och det är hennes ära att tillgiva vad någon har brutit.', 'Ords 19:11'],
+  },
+  'mat5.9': {
+    pl: ['Błogosławieni pokój czyniący; albowiem oni synami Bożymi nazwani będą.', 'Mt 5,9'],
+    en: ['Blessed are the peacemakers, for they will be called sons of God.', 'Matthew 5:9'],
+    de: ['Selig sind die Friedfertigen; denn sie werden Gottes Kinder heißen.', 'Matthäus 5,9'],
+    sv: ['Saliga äro de fridsamma, ty de skola kallas Guds barn.', 'Matt 5:9'],
+  },
+  'jas1.19-20': {
+    pl: ['A tak, bracia moi mili! niech będzie każdy człowiek prędki ku słuchaniu, ale nierychły ku mówieniu i nierychły ku gniewowi. Bo gniew męża nie sprawuje sprawiedliwości Bożej.', 'Jk 1,19–20'],
+    en: ['My beloved brothers, understand this: Everyone should be quick to listen, slow to speak, and slow to anger, for man’s anger does not bring about the righteousness that God desires.', 'James 1:19–20'],
+    de: ['Darum, liebe Brüder, ein jeglicher Mensch sei schnell, zu hören, langsam aber, zu reden, und langsam zum Zorn. Denn des Menschen Zorn tut nicht, was vor Gott recht ist.', 'Jakobus 1,19–20'],
+    sv: ['Det veten I, mina älskade bröder. Men var människa vare snar till att höra och sen till att tala och sen till vrede. Ty en mans vrede kommer icke åstad vad rätt är inför Gud.', 'Jak 1:19–20'],
+  },
+  '1th5.23': {
+    pl: ['A sam Bóg pokoju niech was zupełnie poświęci; a cały duch wasz, i dusza, i ciało niech będą bez nagany na przyjście Pana naszego, Jezusa Chrystusa, zachowane.', '1 Tes 5,23'],
+    en: ['Now may the God of peace Himself sanctify you completely, and may your entire spirit, soul, and body be kept blameless at the coming of our Lord Jesus Christ.', '1 Thessalonians 5:23'],
+    de: ['Er aber, der Gott des Friedens, heilige euch durch und durch, und euer Geist ganz samt Seele und Leib müsse bewahrt werden unsträflich auf die Zukunft unsers HERRN Jesu Christi.', '1. Thessalonicher 5,23'],
+    sv: ['Men fridens Gud själv helge eder till hela eder varelse, så att hela eder ande och eder själ och eder kropp finnas bevarade ostraffliga vid vår Herres, Jesu Kristi, tillkommelse.', '1 Tess 5:23'],
+  },
+  '1jn1.7': {
+    pl: ['A jeźli w światłości chodzimy, jako on jest w światłości, społeczność mamy między sobą, a krew Jezusa Chrystusa, Syna jego, oczyszcza nas od wszelkiego grzechu.', '1 J 1,7'],
+    en: ['But if we walk in the light as He is in the light, we have fellowship with one another, and the blood of Jesus His Son cleanses us from all sin.', '1 John 1:7'],
+    de: ['So wir aber im Licht wandeln, wie er im Licht ist, so haben wir Gemeinschaft untereinander, und das Blut Jesu Christi, seines Sohnes, macht uns rein von aller Sünde.', '1. Johannes 1,7'],
+    sv: ['Men om vi vandra i ljuset, såsom han är i ljuset, så hava vi gemenskap med varandra, och Jesu, hans Sons, blod renar oss från all synd.', '1 Joh 1:7'],
+  },
+  'psa116.16': {
+    pl: ['O mój Panie! żem ja sługą twoim, jam sługą twoim, synem służebnicy twojej, rozwiązałeś związki moje.', 'Ps 116,16'],
+    en: ['Truly, O LORD, I am Your servant; I am Your servant, the son of Your maidservant; You have broken my bonds.', 'Psalm 116:16'],
+    de: ['O HERR, ich bin dein Knecht; ich bin dein Knecht, deiner Magd Sohn. Du hast meine Bande zerrissen.', 'Psalm 116,16'],
+    sv: ['Ack HERRE, jag är ju din tjänare, jag är din tjänare, din tjänarinnas son; du har lossat mina band.', 'Ps 116:16'],
+  },
+  'psa129.4': {
+    pl: ['Ale Pan sprawiedliwy poprzecinał powrozy niezbożników.', 'Ps 129,4'],
+    en: ['The LORD is righteous; He has cut me from the cords of the wicked.', 'Psalm 129:4'],
+    de: ['Der HERR, der gerecht ist, hat der Gottlosen Seile abgehauen.', 'Psalm 129,4'],
+    sv: ['Men HERREN är rättfärdig och har huggit av de ogudaktigas band.', 'Ps 129:4'],
+  },
+  'psa107.14': {
+    pl: ['Wywodził ich z ciemności, i z cienia śmierci, a związki ich potargał.', 'Ps 107,14'],
+    en: ['He brought them out of darkness and the shadow of death and broke away their chains.', 'Psalm 107:14'],
+    de: ['…und führte sie aus der Finsternis und Dunkel und zerriß ihre Bande…', 'Psalm 107,14'],
+    sv: ['…han förde dem ut ur mörkret och dödsskuggan, och deras bojor slet han sönder.', 'Ps 107:14'],
+  },
+  '1co12.12': {
+    pl: ['Albowiem jako ciało jedno jest, a członków ma wiele, ale wszystkie członki ciała jednego, choć ich wiele jest, są jednym ciałem: tak i Chrystus.', '1 Kor 12,12'],
+    en: ['The body is a unit, though it is composed of many parts. And although its parts are many, they all form one body. So it is with Christ.', '1 Corinthians 12:12'],
+    de: ['Denn gleichwie ein Leib ist, und hat doch viele Glieder, alle Glieder aber des Leibes, wiewohl ihrer viel sind, doch ein Leib sind: also auch Christus.', '1. Korinther 12,12'],
+    sv: ['Ty likasom kroppen är en och likväl har många lemmar, och likasom kroppens alla lemmar, fastän de äro många, likväl utgöra en enda kropp, likaså är det med Kristus.', '1 Kor 12:12'],
+  },
+  'rom12.4-5': {
+    pl: ['Albowiem jako w jednem ciele wiele członków mamy, ale wszystkie członki nie jednoż dzieło mają: Tak wiele nas jest jednem ciałem w Chrystusie, aleśmy z osobna jedni drugich członkami.', 'Rz 12,4–5'],
+    en: ['Just as each of us has one body with many members, and not all members have the same function, so in Christ we who are many are one body, and each member belongs to one another.', 'Romans 12:4–5'],
+    de: ['Denn gleicherweise als wir in einem Leibe viele Glieder haben, aber alle Glieder nicht einerlei Geschäft haben, also sind wir viele ein Leib in Christus, aber untereinander ist einer des andern Glied…', 'Römer 12,4–5'],
+    sv: ['Ty såsom vi i en och samma kropp hava många lemmar, men alla lemmarna icke hava samma förrättning, så utgöra ock vi, fastän många, en enda kropp i Kristus, men var för sig äro vi lemmar, varandra till tjänst.', 'Rom 12:4–5'],
+  },
+  '1sa16.13': {
+    pl: ['Wziąwszy tedy Samuel róg z oliwą, pomazał go w pośród braci jego. I został Duch Pański nad Dawidem od onegoż dnia, i na potem. Zatem Samuel wstał, i poszedł do Ramaty.', '1 Sm 16,13'],
+    en: ['So Samuel took the horn of oil and anointed him in the presence of his brothers, and the Spirit of the LORD rushed upon David from that day forward. Then Samuel set out and went to Ramah.', '1 Samuel 16:13'],
+    de: ['Da nahm Samuel sein Ölhorn und salbte ihn mitten unter seinen Brüdern. Und der Geist des HERRN geriet über David von dem Tage an und fürder. Samuel aber machte sich auf und ging gen Rama.', '1. Samuel 16,13'],
+    sv: ['Då tog Samuel sitt oljehorn och smorde honom mitt ibland hans bröder; och HERRENS Ande kom över David, från den dagen och allt framgent. Sedan stod Samuel upp och gick till Rama.', '1 Sam 16:13'],
+  },
+  '1sa18.1': {
+    pl: ['I stało się, gdy przestał mówić do Saula, że dusza Jonatanowa spoiła się z duszą Dawidową, i umiłował go Jonatan, jako duszę swoję.', '1 Sm 18,1'],
+    en: ['After David had finished speaking with Saul, the souls of Jonathan and David were knit together, and Jonathan loved him as himself.', '1 Samuel 18:1'],
+    de: ['Und da er hatte ausgeredet mit Saul, verband sich das Herz Jonathans mit dem Herzen Davids, und Jonathan gewann ihn lieb wie sein eigen Herz.', '1. Samuel 18,1'],
+    sv: ['Sedan, efter det att David hade talat ut med Saul, fäste sig Jonatans hjärta så vid Davids hjärta, att Jonatan hade honom lika kär som sitt eget liv.', '1 Sam 18:1'],
+  },
+  '1sa25.32-33': {
+    pl: ['I rzekł Dawid do Abigaili: Błogosławiony Pan, Bóg Izraelski, który cię dziś posłał przeciwko mnie. Błogosławiona wymowa twoja, i błogosławionaś ty, któraś mię zawściągnęła dzisiaj, żem nie szedł na rozlanie krwi, a żem się sam nie mścił krzywdy swojej.', '1 Sm 25,32–33'],
+    en: ['Then David said to Abigail, Blessed be the LORD, the God of Israel, who sent you to meet me this day! Blessed is your discernment, and blessed are you, because today you kept me from bloodshed and from avenging myself by my own hand.', '1 Samuel 25:32–33'],
+    de: ['Da sprach David zu Abigail: Gelobt sei der HERR, der Gott Israels, der dich heutigestages hat mir entgegengesandt; und gesegnet sei deine Rede, und gesegnet seist du, daß du mir heute gewehrt hast, daß ich nicht in Blutschuld gekommen bin und mir mit eigener Hand geholfen habe.', '1. Samuel 25,32–33'],
+    sv: ['Då sade David till Abigal: Välsignad vare HERREN, Israels Gud som i dag har sänt dig mig till mötes! Och välsignat vare ditt förstånd, och välsignad vare du själv, som i dag har hindrat mig från att ådraga mig blodskuld och skaffa mig rätt med egen hand!', '1 Sam 25:32–33'],
+  },
+  '1sa30.6': {
+    pl: ['I był utrapiony Dawid bardzo; bo się zmawiał lud ukamionować go, gdyż gorzkości pełna była dusza wszystkiego ludu, każdego dla synów swych, i dla córek swych; wszakże Dawid zmocnił się w Panu, Bogu swoim.', '1 Sm 30,6'],
+    en: ['And David was greatly distressed because the people spoke of stoning him, because the soul of every man grieved for his sons and daughters. But David found strength in the LORD his God.', '1 Samuel 30:6'],
+    de: ['Und David war sehr geängstet, denn das Volk wollte ihn steinigen; denn des ganzen Volkes Seele war unwillig, ein jeglicher um seine Söhne und Töchter willen. David aber stärkte sich in dem HERRN, seinem Gott…', '1. Samuel 30,6'],
+    sv: ['Och David kom i stor nöd, ty folket tänkte stena honom; så förbittrat var allt folket, var och en för sina söners och döttrars skull. Men David hämtade styrka hos HERREN, sin Gud.', '1 Sam 30:6'],
+  },
+  '1sa30.24': {
+    pl: ['I któż was w tem usłucha? Bo jaki dział tego, który wyszedł na wojnę, taki dział i tego, który został przy tłomokach; równo się podzielą.', '1 Sm 30,24'],
+    en: ['Who will listen to your proposal? The share of the one who went to battle will match the share of the one who stayed with the supplies. They will share alike.', '1 Samuel 30:24'],
+    de: ['Wer sollte euch darin gehorchen? Wie das Teil derjenigen, die in den Streit hinabgezogen sind, so soll auch sein das Teil derjenigen, die bei dem Geräte geblieben sind, und soll gleich geteilt werden.', '1. Samuel 30,24'],
+    sv: ['Och vem skulle för övrigt härutinnan vilja lyssna till eder? Nej, sådan deras lott är, som draga med i striden, sådan skall deras lott vara, som stanna vid trossen; de skola dela jämnt med varandra.', '1 Sam 30:24'],
   },
 };
 

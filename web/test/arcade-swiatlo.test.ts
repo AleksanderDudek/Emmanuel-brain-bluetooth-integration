@@ -678,6 +678,70 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('walks every meditation round and round for an hour: whole after whole, each with its card, the finale at the end, a short summary', () => {
+    for (const variant of VARIANTS) {
+      for (const planned of [2700, 3600]) {
+        const sim = later({ planned, progress: { variant } });
+        const clock = { t: 0 };
+        const go = ideal(sim);
+        let finale = false, wholes = 0, maxStory = 0, storyT = 0, late = 0, lastLine: unknown = null, lastWhole = 0;
+        for (let i = 0; i < (planned + 5) / STEP; i++) {
+          clock.t += STEP;
+          sim.update(STEP, go(), clock.t);
+          for (const e of sim.take()) {
+            if (e.type === 'finale') finale = true;
+            if (e.type === 'whole') { wholes++; lastWhole = clock.t; }
+          }
+          const line = sim.talk.line;
+          if (line && line !== lastLine && clock.t > planned - 600) late++;
+          lastLine = line;
+          storyT = sim.story ? storyT + STEP : 0;
+          maxStory = Math.max(maxStory, storyT);
+        }
+        const tag = `${variant} ${planned}`;
+        expect(finale, tag).toBe(true);
+        expect(sim.phase, tag).toBe('done');
+        for (const v of [sim.lux, sim.fill, sim.light, sim.fillSec, sim.calmSec]) expect(Number.isFinite(v), tag).toBe(true);
+        expect(sim.round, tag).toBe(wholes);
+        expect(sim.wholeNow, tag).toHaveLength(wholes);
+        expect(sim.litNow.length, tag).toBeLessThanOrEqual(count(variant));
+        // measured: 3–11 wholes in 45 minutes, 5–15 in an hour, the last within the last ten minutes or so; the voice
+        // still speaks to the end
+        expect(wholes, tag).toBeGreaterThanOrEqual(planned >= 3600 ? 5 : 3);
+        expect(lastWhole, tag).toBeGreaterThan(planned - 600);
+        expect(late, tag).toBeGreaterThan(10);
+        expect(maxStory, tag).toBeLessThanOrEqual(RULES.closeSec + 1);
+        const r = sim.result();
+        expect(r.score).toBe(sim.score);
+        expect(String(r.score).length, tag).toBeLessThanOrEqual(7);
+        expect(r.highlights.length).toBeLessThanOrEqual(5);
+        for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+        for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+        expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      }
+    }
+  }, 180_000);
+
+  it('keeps every push and rest in its bounds for an hour, even when focus never comes (the valve)', () => {
+    const sim = later({ planned: 3600 });
+    const clock = { t: 0 };
+    const starts: { kind: string; t: number }[] = [];
+    for (let i = 0; i < 3605 / STEP; i++) {
+      clock.t += STEP;
+      sim.update(STEP, LOW, clock.t);
+      for (const e of sim.take()) if (e.type === 'blockStart') starts.push({ kind: e.block.kind, t: clock.t });
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.fill).toBe(0);
+    starts.forEach((s, i) => { if (i) expect(s.kind).not.toBe(starts[i - 1].kind); });
+    const valve = maxPushFor(RULES.perPush);
+    for (let i = 1; i < starts.length; i++) expect(starts[i].t - starts[i - 1].t).toBeLessThanOrEqual(valve + 0.5);
+    expect(3600 - RULES.finale.long - starts.at(-1)!.t).toBeLessThanOrEqual(valve + 0.5);
+    expect(starts.length).toBeGreaterThan(2 * Math.floor(3600 / (valve + restFor(600) + 4)) - 2);
+  }, 60_000);
+});
+
 describe('the rest’s rhythm and the breath guide (round 15)', () => {
   it('offers two dials in the game’s words: rest after 1–4 places (2), 1–6 breaths of 4 in, 6 out (2: 20 s)', () => {
     const spec = rhythm();

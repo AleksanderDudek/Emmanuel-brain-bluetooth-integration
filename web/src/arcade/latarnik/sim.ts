@@ -1487,7 +1487,11 @@ export class LatarnikSim {
       const pieces = this.newAmber.map(i => AMBER[i]).sort((a, b) => TIERS.indexOf(b.tier) - TIERS.indexOf(a.tier));
       add(pieces[0].tier === 'legend' || pieces[0].tier === 'epic' ? 1 : 4, amberLine(pieces));
     }
-    if (this.builtNow.length) add(1, t('port.grows', { names: this.builtNow.map(s => VILLAGE[s].name).join(', ') }));
+    if (this.builtNow.length) {
+      // a long first session may light the whole harbour: three names, then "+N" (the summary stays a few lines)
+      const names = this.builtNow.map(s => VILLAGE[s].name);
+      add(1, t('port.grows', { names: names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '') }));
+    }
     if (this.upgradesNow.length) add(2, t('hl.upgrade', { names: [...new Set(this.upgradesNow)].map(u => UPGRADE_NAME[u]).join(', ') }));
     if (this.bestBefore !== null) {
       const one: string[] = [], part: string[] = [];
@@ -1518,8 +1522,11 @@ export class LatarnikSim {
 
 /** "Nowy bursztyn: jaszczurka (legendarny)", or the session's new pieces in one line, the rarest first. */
 function amberLine(pieces: readonly AmberPiece[]): string {
-  const named = pieces.slice(0, 3).map(a => t('hl.piece', { name: a.name, tier: TIER_NAME[a.tier] })).join(', ');
+  // the same inclusion from both sets reads once (a long session may fill the whole album: "jaszczurka, jaszczurka" read as a slip)
+  const labels = pieces.map(a => t('hl.piece', { name: a.name, tier: TIER_NAME[a.tier] }));
+  const shown = [...new Set(labels)].slice(0, 3);
+  const named = shown.join(', ');
   if (pieces.length === 1) return t('hl.amber', { piece: named });
-  const more = pieces.length - 3;
+  const more = labels.filter(l => !shown.includes(l)).length;
   return more > 0 ? t('hl.ambersMore', { pieces: named, n: more }) : t('hl.ambers', { pieces: named });
 }

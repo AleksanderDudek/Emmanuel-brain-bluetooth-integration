@@ -16,19 +16,21 @@ import { fmtNum } from '../../i18n';
 import { Floaters, Particles, Shake, approach, clamp, ease, lerp } from '../kit/juice';
 import { NO_INSETS } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
-import { companionName, guardName, kitName, weaponName, type BuildingId, type CompanionId, type Spot } from './content';
+import { companionName, guardName, kitName, weaponName, type BuildingId, type CompanionId } from './content';
+import { PASS_HALF } from './lands';
 import { Hud } from './hud';
 import { t, xpText } from './i18n';
 import { DawidIntro } from './intro';
 import { layout, type Layout } from './layout';
 import { buildingLevel, tierOf, type DawidProgress } from './meta';
 import {
-  C, LOOKS, SANS, decorate, ellipse, font, glow, hash, paintBeast, paintBearer, paintBuilding, paintCave, paintChest, paintCoin, paintDeco,
+  C, GROUND, LOOKS, SANS, decorate, ellipse, font, glow, hash, paintAnimal, paintBeast, paintBearer, paintBuilding, paintCave, paintChest, paintCoin, paintDeco,
   paintDen, paintFire, paintGate, paintGiant, paintGround, paintHeap, paintLair, paintLamb, paintPerson, paintTent, paintThief,
   type Deco, type Look, type PersonPose,
 } from './paint';
 import { RULES } from './rules';
 import type { DawidSim, SimEvent } from './sim';
+import { FLAT, paintBarrier, paintLandmark, paintPassGlow, paintPassShut, paintPath, paintThing, type Thing } from './world';
 
 const TAU = Math.PI * 2;
 
@@ -38,9 +40,10 @@ interface Banner { text: string; color: string; t: number; dur: number; big: boo
 export const PLOTS: Readonly<Record<BuildingId, readonly [number, number]>> = {
   ognisko: [0, 0], kuznia: [-2.3, -1.3], spichlerz: [2.3, -1.4], studnia: [-2.5, 1.4], owczarnia: [2.6, 1.5], jaskinia: [0.2, -2.7],
 };
-const PEOPLE: Partial<Record<Spot, keyof typeof LOOKS>> = {
-  jesse: 'jesse', asahel: 'asahel', sluga: 'sluga', abiszaj: 'abiszaj', eliab: 'eliab', saul: 'saul', jonatan: 'jonatan',
-  abigail: 'abigail', benajasz: 'benajasz', itaj: 'itaj', szamma: 'szamma',
+/** What a quest's thing looks like where it lies (its id → the picture). */
+const THINGS: Readonly<Record<string, Thing>> = {
+  lamb: 'lamb', jar: 'jar', ewe: 'ewe', stones: 'stone', rope: 'rope', arrows: 'arrow', water: 'water', kid: 'kid', flock: 'flock',
+  bread: 'bread', donkey: 'donkey', families: 'families',
 };
 
 /** A ring on the ground where a tap sent David ('go'), around him when he went hunting ('hunt'). */
@@ -327,6 +330,7 @@ export class DawidView {
       }
       case 'quest':
         this.questPop = 1;
+        if (sim.quest?.kind === 'pass' && !sim.inCave) this.say(t('hud.pass'), C.goldLight, 2);
         break;
       case 'buy': case 'build': case 'forge': {
         // gold from the tile that was bought (else the sheet's top)
@@ -388,6 +392,22 @@ export class DawidView {
         break;
       case 'caveOut':
         this.say(t('hud.caveOut', { n: e.floor }), '#ffe3b0', 2);
+        break;
+      case 'area':
+        this.say(e.name, '#fff3d6', 2.4, true);
+        break;
+      case 'found': {
+        const p = P(e.x, e.y);
+        this.say(t('hud.found', { name: e.name }), C.goldLight, 1.8);
+        fx.burst(p.x, p.y - s * 0.4, 24, { color: C.goldLight, size: 3, speed: 200, life: 0.8, g: 120, shape: 'spark' });
+        break;
+      }
+      case 'carry':
+        this.say(e.name ? t('hud.carry', { name: e.name }) : t('hud.word'), '#fff3d6', 1.8);
+        break;
+      case 'defend':
+        this.say(t('hud.defend'), '#ffb8a0', 1.8);
+        this.shake.add(0.2);
         break;
       default: break;
     }
@@ -454,6 +474,7 @@ export class DawidView {
     if (sim.inCave) paintCave(ctx, P, s, this.w, this.h, 22, 15, now);
     else {
       paintGround(ctx, sim.land, P, s, this.w, this.h, this.camX, this.camY, now);
+      for (const path of sim.land.paths) paintPath(ctx, path.map(([x, y]) => P(x, y)), s, GROUND[sim.land.ground].dust);
       this.drawLandGround(ctx, sim, now, P, inView);
     }
     this.drawPrints(ctx, sim);
@@ -502,6 +523,7 @@ export class DawidView {
       });
     }
     this.pushPeople(ctx, figs, sim, now, P, inView);
+    if (!sim.inCave) this.pushWorld(ctx, figs, sim, now, P, inView);
     const d = sim.david, dp = P(d.x, d.y);
     if (sim.sitting) {
       const fp = P(d.x + 0.95, d.y + 0.25);
@@ -518,6 +540,8 @@ export class DawidView {
         if (d.safe > 0 && d.down <= 0 && Math.floor(now * 14) % 2 === 0) ctx.globalAlpha = 0.65;
         paintPerson(ctx, dp.x, dp.y, s, look, pose);
         ctx.restore();
+        const q = sim.quest, carried = q?.kind === 'deliver' && sim.p.questN > 0 && q.id ? THINGS[q.id] : null;
+        if (carried && !sim.sitting) paintThing(ctx, carried, dp.x - pose.flip * s * 0.3, dp.y - s * 1.05, s * 0.75, now, false);
       },
     });
     const lb = sim.lamb, lp = P(lb.x, lb.y);
@@ -605,11 +629,13 @@ export class DawidView {
     // the game's own bits: the top band, the bottom band (under the camp's sheet when it is up), the sheet
     const campK = this.campEff;
     const sheet = L.sheet, side = sheet.dock === 'right';
-    const qt = sim.questTarget();
-    const lift = sim.quest?.kind === 'guard' ? (sim.guard.spec.giant ? 3.9 : 2.4) : sim.quest?.kind === 'visit' ? 1.8 : 0;
+    const qt = sim.questWaypoint();
+    const qk = sim.quest?.kind;
+    const lift = qk === 'guard' ? (sim.guard.spec.giant ? 3.9 : 2.4) : qk === 'visit' || qk === 'talk' ? 1.8 : 0;
     const pillR = side && campK > 0.05 ? Math.min(L.right, sheet.x + (1 - ease.outCubic(campK)) * (sheet.w + 24) - 8) : L.right;
     this.hud.drawQuest(ctx, L, sim, qt ? this.toScreen(qt.x, qt.y - lift) : null, now, this.questPop, pillR);
     if (!(side && campK > 0.3)) this.hud.drawMini(ctx, L, sim, now);
+    else this.hud.miniBox = null;
     if (side || campK < 0.98) this.hud.drawBars(ctx, L, sim, now, this.levelPop);
     if (campK < 0.5) this.hud.drawButtons(ctx, L, sim, now, this.bagPop);
     this.hud.drawCamp(ctx, L, sim, now, campK);
@@ -628,6 +654,7 @@ export class DawidView {
     if (st && this.stickK > 0.02 && !sim.story) this.drawStick(ctx, st, this.stickK);
     if (this.tip && !sim.story) this.hud.drawTip(ctx, L, this.tip.text, this.tip.x, this.tip.y, this.tip.k, !!this.tip.below);
     this.hud.drawStory(ctx, L, sim, this.touch);
+    this.hud.drawLog(ctx, L, sim, this.touch);
   }
 
   /** Rings on the ground where a tap sent David, and his goal while he walks to it. */
@@ -688,18 +715,24 @@ export class DawidView {
     ctx.restore();
   }
 
-  /** The camp, the dens, the lair, the gate, the armies of Elah, the people waiting at their places. */
+  /** The fires of the areas (the camp's buildings stand at every open one), the dens, the lair, the gate, the flat landmarks. */
   private drawLandGround(ctx: CanvasRenderingContext2D, sim: DawidSim, now: number, P: (x: number, y: number) => { x: number; y: number }, inView: (x: number, y: number, pad?: number) => boolean): void {
-    const s = this.L.s, land = sim.land;
+    const s = this.L.s, land = sim.land, open = sim.areasOpen;
     for (const dn of sim.dens) {
       if (!inView(dn.x, dn.y, 4)) continue;
       const p = P(dn.x, dn.y);
       paintDen(ctx, dn.kind, p.x, p.y, s);
     }
-    const [cx, cy] = land.camp;
-    if (inView(cx, cy, 6)) {
+    land.areas.forEach((A, ai) => {
+      for (const [kind, x, y, k] of A.landmarks) {
+        if (!FLAT.has(kind) || !inView(x, y, 6)) continue;
+        const p = P(x, y);
+        paintLandmark(ctx, kind, p.x, p.y, s, k ?? 1, now);
+      }
+      const [cx, cy] = A.camp;
+      if (!inView(cx, cy, 6)) return;
       const c = P(cx, cy);
-      ellipse(ctx, c.x, c.y, RULES.campR * s, RULES.campR * s, 'rgba(201,167,122,.5)');
+      ellipse(ctx, c.x, c.y, RULES.campR * s, RULES.campR * s, ai < open ? 'rgba(201,167,122,.5)' : 'rgba(160,140,110,.28)');
       ctx.strokeStyle = 'rgba(120,90,50,.35)';
       ctx.setLineDash([s * 0.2, s * 0.2]);
       ctx.lineWidth = 1.5;
@@ -707,6 +740,11 @@ export class DawidView {
       ctx.ellipse(c.x, c.y, RULES.campR * s, RULES.campR * s, 0, 0, TAU);
       ctx.stroke();
       ctx.setLineDash([]);
+      if (ai >= open) {
+        // a cold fire ring: the camp comes when the pass opens
+        for (let i = 0; i < 7; i++) ellipse(ctx, c.x + Math.cos((i / 7) * TAU) * s * 0.32, c.y + Math.sin((i / 7) * TAU) * s * 0.16, s * 0.1, s * 0.07, '#9a8f7c');
+        return;
+      }
       const t1 = P(cx - 1.4, cy - 2.5), t2 = P(cx + 1.6, cy - 2.7);
       paintTent(ctx, t1.x, t1.y, s, 0);
       paintTent(ctx, t2.x, t2.y, s * 0.85, 1);
@@ -716,7 +754,7 @@ export class DawidView {
         const bp = P(cx + bx, cy + by);
         paintBuilding(ctx, id, bp.x, bp.y, s * 0.85, lv, now);
       }
-    }
+    });
     if (inView(land.lair[0], land.lair[1], 6)) {
       const lp = P(land.lair[0], land.lair[1]);
       paintLair(ctx, land.guard, lp.x, lp.y, s);
@@ -725,70 +763,121 @@ export class DawidView {
       const gp = P(land.gate[0], land.gate[1]);
       paintGate(ctx, gp.x, gp.y, s, sim.gateOpen, now);
     }
-    // the Valley of Elah: Israel's tents above, the Philistines' below; they run when the giant falls
-    if (land.id === 'ela') {
-      const run = sim.guard.state === 'gone' || sim.guard.state === 'driven' ? clamp((this.fallT < 0 ? 9 : this.fallT) / 4) : 0;
-      for (let i = 0; i < 7; i++) {
-        const a = P(10 + i * 4.4, 1.6), b = P(34 + i * 4, 40.6);
-        if (inView(10 + i * 4.4, 1.6, 5)) paintTent(ctx, a.x, a.y, s * 0.8, i % 2);
-        if (inView(34 + i * 4, 40.6, 5) && run < 1) {
-          ctx.save();
-          ctx.globalAlpha = 1 - run;
-          paintTent(ctx, b.x + run * s * 6, b.y, s * 0.8, 1);
-          for (let j = 0; j < 3; j++) {
-            const sp = P(33 + i * 4 + j, 38.6);
-            ctx.fillStyle = 'rgba(70,52,40,.75)';
-            ctx.beginPath();
-            ctx.ellipse(sp.x + run * s * 12, sp.y - s * 0.5, s * 0.14, s * 0.4, 0, 0, TAU);
-            ctx.fill();
-            ellipse(ctx, sp.x + run * s * 12, sp.y - s * 1, s * 0.11, s * 0.11, 'rgba(70,52,40,.75)');
-          }
-          ctx.restore();
-        }
-      }
-    }
-    // the five smooth stones glint in the brook while the quest asks for them
+    // a defence: the place's ring (dashed while waiting, gold while held)
     const q = sim.quest;
-    if (q?.kind === 'visit' && q.what === 'brook') {
-      const at = land.spots.brook;
-      if (at && inView(at[0], at[1])) {
-        const p = P(at[0], at[1]);
-        for (let i = 0; i < 5; i++) {
-          ellipse(ctx, p.x + (i - 2) * s * 0.22, p.y + Math.sin(i * 2) * s * 0.1, s * 0.1, s * 0.07, '#f4efe4');
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          glow(ctx, p.x + (i - 2) * s * 0.22, p.y, s * 0.3, 'rgba(255,240,200,', 0.3 + 0.2 * Math.sin(now * 4 + i));
-          ctx.restore();
-        }
+    if (q?.kind === 'defend') {
+      const at = sim.spot(q.at);
+      if (at && inView(at.x, at.y, 6)) {
+        const p = P(at.x, at.y), k = 0.5 + 0.5 * Math.sin(now * 3);
+        ctx.save();
+        ctx.strokeStyle = sim.defending ? `rgba(255,214,110,${0.6 + 0.3 * k})` : 'rgba(255,240,200,.55)';
+        ctx.lineWidth = Math.max(2, s * 0.06);
+        if (!sim.defending) ctx.setLineDash([s * 0.25, s * 0.18]);
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, s * 4.2, s * 2.3, 0, 0, TAU);
+        ctx.stroke();
+        ctx.restore();
       }
     }
   }
 
-  /** The people of the story at their places (those who have not joined yet), with "!" over the one the quest leads to. */
+  /**
+   * The people of the story at their places (those who have not joined yet; a companion who has walks with David),
+   * with "!" over the one the quest leads to.
+   */
   private pushPeople(ctx: CanvasRenderingContext2D, figs: { y: number; f: () => void }[], sim: DawidSim, now: number, P: (x: number, y: number) => { x: number; y: number }, inView: (x: number, y: number, pad?: number) => boolean): void {
     if (sim.inCave) return;
-    const s = this.L.s, land = sim.land, q = sim.quest;
-    for (const [spot, at] of Object.entries(land.spots) as [Spot, readonly [number, number]][]) {
-      const who = PEOPLE[spot];
-      if (!who || !inView(at[0], at[1])) continue;
-      if ((sim.p.joined as string[]).includes(spot)) continue;
-      const p = P(at[0], at[1]);
-      const wanted = q?.kind === 'visit' && q.what === spot;
+    const s = this.L.s, q = sim.quest;
+    const wantSpot = !q ? null
+      : q.kind === 'talk' || q.kind === 'visit' ? q.at ?? q.what
+        : (q.kind === 'deliver' || q.kind === 'word') ? (sim.p.questN > 0 ? q.to : q.at) : null;
+    for (const A of sim.land.areas) {
+      for (const [spot, who] of Object.entries(A.people ?? {})) {
+        const at = A.spots[spot];
+        if (!at || !inView(at[0], at[1])) continue;
+        if ((sim.p.joined as string[]).includes(who)) continue;
+        const look = LOOKS[who as keyof typeof LOOKS];
+        if (!look) continue;
+        const p = P(at[0], at[1]);
+        const wanted = wantSpot === spot;
+        figs.push({
+          y: at[1], f: () => {
+            paintPerson(ctx, p.x, p.y, s, look, { flip: sim.david.x >= at[0] ? 1 : -1, step: 0, walking: 0, sit: 0, act: 0, hit: 0, t: now, talk: wanted && Math.sin(now * 2) > 0 });
+            if (wanted) this.bang(ctx, p.x, p.y - s * 2 * (look.size ?? 1), s, now);
+          },
+        });
+      }
+    }
+  }
+
+  /** The quest's "!" over a person or a thing. */
+  private bang(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, now: number): void {
+    const bob = Math.abs(Math.sin(now * 3)) * s * 0.15;
+    ctx.fillStyle = C.gold;
+    ctx.strokeStyle = 'rgba(43,33,24,.7)';
+    ctx.lineWidth = 3;
+    ctx.font = font(900, s * 0.75, SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.strokeText('!', x, y - bob);
+    ctx.fillText('!', x, y - bob);
+  }
+
+  /**
+   * The land's standing landmarks, the barriers between the areas (piece by piece, sorted with the figures; the pass a
+   * gap, closed or glowing when the chain leads there), the Philistines of Elah, and the quest's things: what is to be
+   * found, rescued or carried, the escort walking with David.
+   */
+  private pushWorld(ctx: CanvasRenderingContext2D, figs: { y: number; f: () => void }[], sim: DawidSim, now: number, P: (x: number, y: number) => { x: number; y: number }, inView: (x: number, y: number, pad?: number) => boolean): void {
+    const s = this.L.s, land = sim.land;
+    const run = land.id === 'ela' && (sim.guard.state === 'gone' || sim.guard.state === 'driven') ? clamp((this.fallT < 0 ? 9 : this.fallT) / 4) : 0;
+    for (const A of land.areas) {
+      for (const [kind, x, y, k] of A.landmarks) {
+        if (FLAT.has(kind) || !inView(x, y, kind === 'philistines' ? 16 : 7)) continue;
+        const p = P(x, y);
+        figs.push({ y, f: () => paintLandmark(ctx, kind, p.x, p.y, s, k ?? 1, now, run) });
+      }
+    }
+    // the barriers: one piece a u along the line, the gap left open (or a gate across it)
+    land.areas.forEach((A, i) => {
+      if (!A.pass || i >= land.areas.length - 1) return;
+      const bx = A.x1, gy = A.pass.y;
+      if (!inView(bx, this.camY, 3)) return;
+      const open = sim.gapOpen(i);
+      const y0 = Math.max(0, Math.floor(this.camY - this.L.halfH - 2)), y1 = Math.min(land.h, Math.ceil(this.camY + this.L.halfH + 3));
+      for (let yy = y0; yy <= y1; yy++) {
+        const py = yy + 0.5;
+        if (Math.abs(py - gy) < PASS_HALF) continue;
+        const p = P(bx, py);
+        figs.push({ y: py, f: () => paintBarrier(ctx, A.pass!.barrier, p.x, p.y, s, i * 97 + yy) });
+      }
+      const g = P(bx, gy);
+      if (!open) figs.push({ y: gy, f: () => paintPassShut(ctx, A.pass!.barrier, g.x, g.y, s) });
+      else if (sim.quest?.kind === 'pass' && (sim.quest.area ?? 0) === i) paintPassGlow(ctx, g.x, g.y, s, now);
+    });
+    // the quest's things
+    const q = sim.quest;
+    if (!q || !q.id) return;
+    const kind = THINGS[q.id];
+    const put = (id: string | undefined, thing: Thing, glint = true) => {
+      const at = sim.spot(id);
+      if (!at || !inView(at.x, at.y)) return;
+      const p = P(at.x, at.y);
+      figs.push({ y: at.y, f: () => { paintThing(ctx, thing, p.x, p.y, s, now, glint); if (glint) this.bang(ctx, p.x, p.y - s * 1.1, s * 0.8, now); } });
+    };
+    if (q.kind === 'find' && kind) for (const sp of q.spots ?? (q.at ? [q.at] : [])) { if (!sim.p.got.includes(sp)) put(sp, kind); }
+    if (q.kind === 'rescue' && kind) put(q.at, kind, false);
+    if (q.kind === 'deliver' && kind && sim.p.questN === 0 && q.at !== 'camp') put(q.at, kind);
+    const e = sim.escort;
+    if (q.kind === 'escort' && e && inView(e.x, e.y)) {
+      const p = P(e.x, e.y);
       figs.push({
-        y: at[1], f: () => {
-          paintPerson(ctx, p.x, p.y, s, LOOKS[who], { flip: sim.david.x >= at[0] ? 1 : -1, step: 0, walking: 0, sit: 0, act: 0, hit: 0, t: now, talk: wanted && Math.sin(now * 2) > 0 });
-          if (wanted) {
-            const c = ctx;
-            const bob = Math.abs(Math.sin(now * 3)) * s * 0.15;
-            c.fillStyle = C.gold;
-            c.strokeStyle = 'rgba(43,33,24,.7)';
-            c.lineWidth = 3;
-            c.font = font(900, s * 0.75, SANS);
-            c.textAlign = 'center';
-            c.textBaseline = 'alphabetic';
-            c.strokeText('!', p.x, p.y - s * 2 - bob);
-            c.fillText('!', p.x, p.y - s * 2 - bob);
-          }
+        y: e.y, f: () => {
+          if (e.id === 'families') {
+            paintPerson(ctx, p.x, p.y, s, LOOKS.kobieta, { flip: e.face, step: now * 10, walking: e.walking, sit: 0, act: 0, hit: 0, t: now });
+            paintPerson(ctx, p.x + s * 0.6, p.y + s * 0.25, s, LOOKS.chlopiec, { flip: e.face, step: now * 11 + 1, walking: e.walking, sit: 0, act: 0, hit: 0, t: now });
+          } else paintAnimal(ctx, 'donkey', p.x, p.y, s, { flip: e.face, step: now * 10, moving: e.walking, t: now });
+          if (!e.follow) this.bang(ctx, p.x, p.y - s * 1.6, s * 0.8, now);
         },
       });
     }

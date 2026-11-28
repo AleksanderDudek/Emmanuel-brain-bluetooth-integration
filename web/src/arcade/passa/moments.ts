@@ -26,7 +26,10 @@
  * Every card turned by focus is a win: a light lit in the garland strung over the street (the streak).  A card focus
  * did not turn is never turned for the player: it "goes with you" — no false win, no blame.  The day's last light is
  * the identity: "Jestem na złotej passie — wszystko współdziała ku dobremu."
+ *
+ * Round 25 (life.ts) adds the age group's day as a film of life, and two kinds of moment: `sense` and `given`.
  */
+import { LIFE_MOTIFS, type LifeMotif } from './life';
 
 export type MomentKind = 'joy' | 'snag' | 'heavy';
 
@@ -41,12 +44,19 @@ export const DAY_PARTS: readonly DayPart[] = ['morning', 'noon', 'afternoon', 'e
  */
 export type Motif =
   | 'cup' | 'light' | 'car' | 'rain' | 'queue' | 'clock' | 'spill' | 'phone' | 'smile' | 'sun' | 'bird' | 'letter'
-  | 'bus' | 'clinic' | 'desk' | 'scale' | 'heart' | 'door' | 'seed' | 'hand';
+  | 'bus' | 'clinic' | 'desk' | 'scale' | 'heart' | 'door' | 'seed' | 'hand'
+  // round 25 (life.ts `LIFE_MOTIFS`): the things of a sense or a given moment, and the group sets' cards
+  | LifeMotif;
 
+/** Every motif a card may carry: round 22's twenty, then (round 25) the twenty of life.ts. */
 export const MOTIFS: readonly Motif[] = [
   'cup', 'light', 'car', 'rain', 'queue', 'clock', 'spill', 'phone', 'smile', 'sun', 'bird', 'letter',
   'bus', 'clinic', 'desk', 'scale', 'heart', 'door', 'seed', 'hand',
+  ...LIFE_MOTIFS,
 ];
+
+/** (round 25) The same list under the name the round's code uses. */
+export const ALL_MOTIFS: readonly Motif[] = MOTIFS;
 
 /** One moment of the day, as the sim plays it (the words already in the page's language). */
 export interface Moment {

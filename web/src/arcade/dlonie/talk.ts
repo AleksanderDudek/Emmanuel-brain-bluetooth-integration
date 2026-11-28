@@ -8,6 +8,9 @@
 import type { Moment } from './content';
 import { RULES, readSec } from './rules';
 
+/** Moments that speak however recently they spoke (round 24's long sessions): no signal, the ball waiting for attention, the valve's rest. */
+export const ALWAYS: readonly Moment[] = ['nosignal', 'still', 'valve'];
+
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
 interface Ask { moment: Moment; pri: number; until: number; seq: number }
@@ -21,6 +24,13 @@ export class Talk {
   private readonly left = new Map<Moment, number[]>();
   /** every line said this session, in order (the tests read it) */
   readonly said: string[] = [];
+  /**
+   * Round 24: in a session over 30 minutes the sim sets this to RULES.talkFresh — a line said less than so many seconds
+   * ago is not said again, its moment passes in silence (the draws are the same, so 30 minutes and less are as before);
+   * 0 = off.  The warnings and the help when stuck (ALWAYS) still speak.
+   */
+  fresh = 0;
+  private readonly saidAt = new Map<string, number>();
 
   constructor(private readonly lines: (m: Moment) => readonly string[], private readonly rng: () => number) {}
 
@@ -52,6 +62,9 @@ export class Talk {
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
     if (!text) return;
+    const last = this.saidAt.get(text);
+    if (this.fresh > 0 && last !== undefined && now - last < this.fresh && !ALWAYS.includes(a.moment)) return;
+    this.saidAt.set(text, now);
     this.line = { moment: a.moment, text, t: 0, dur: readSec(text) };
     this.said.push(text);
   }

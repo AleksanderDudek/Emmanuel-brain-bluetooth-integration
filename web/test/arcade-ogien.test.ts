@@ -990,6 +990,105 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('45–60 minutes (round 24)', () => {
+  it('plans 45 and 60 minutes to the finale: push and rest alternating, ending on a rest, pushes about 40 s, rests 20 s', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.16);
+        }
+        const pairs = (planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.restBreaths * BREATH_SEC);
+        expect(Math.abs(body.length / 2 - pairs)).toBeLessThanOrEqual(1);
+      }
+      // the lobby's own rhythm too: the player's pushes and whole-breath rests, on time
+      for (const [focus, rest] of [[20, 1], [120, 4]] as const) {
+        const plan = planBlocks(planned, false, mulberry32(planned), { focus, rest });
+        const pushes = plan.filter(b => b.kind === 'push');
+        expect(Math.abs(pushes.reduce((s, b) => s + b.dur, 0) / pushes.length - focus)).toBeLessThanOrEqual(Math.max(10, focus * 0.4));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      }
+    }
+  });
+
+  it('burns a whole hour: round after round of the ladder to the end, no throw, numbers that fit, a bounded scene, Ignacy not looping', () => {
+    // Ignacy's quick cheers for the hands (3–4 variants each) come round within minutes in any session; his lines for
+    // a block, a fire and a round must not loop
+    const quick = new Set(['shield', 'gust', 'log', 'tent', 'fuse', 'gather', 'pass', 'blow', 'good', 'wait', 'calm', 'near']);
+    for (const strong of [false, true]) {
+      const sim = makeSim({ planned: 3600, seed: 5, tuning: BEGINNER });
+      const rnd = mulberry32(41);
+      let base = 0.5, nextTap = 1, maxPairs = 0, maxWisps = 0, maxBurning = 0, finale = false;
+      let lastLine: unknown = null, minGap = Infinity, changeGap = 0, lastChange = 0, lateLines = 0;
+      const heard = new Map<string, number>();
+      for (let i = 1; i <= 3606 / STEP; i++) {
+        const tt = i * STEP;
+        base += (rnd() - 0.5) * 0.075;
+        base += ((sim.pushBlock ? (strong ? 0.95 : 0.82) : 0.3) - base) * 0.008;
+        const level = Math.max(0.03, Math.min(0.98, base + 0.05 * Math.sin(tt * 0.63)));
+        sim.update(STEP, frame({ level, activity: (level - 0.5) * 8, calm: 1 - level, hold: level > 0.5 ? 4 : 0 }), tt);
+        if (tt >= nextTap) {
+          nextTap += 2.2;
+          if (sim.card) sim.closeCard();
+          sim.tap(null);
+        }
+        for (const e of sim.take()) {
+          if (e.type === 'finale') finale = true;
+          if (e.type === 'change') {
+            changeGap = Math.max(changeGap, tt - lastChange);
+            lastChange = tt;
+          }
+        }
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          if (tt > 3000) lateLines++;
+          if (!quick.has(line.moment)) {
+            const prev = heard.get(line.text);
+            if (prev !== undefined) minGap = Math.min(minGap, tt - prev);
+            heard.set(line.text, tt);
+          }
+        }
+        lastLine = line;
+        maxPairs = Math.max(maxPairs, sim.pairs.length);
+        maxWisps = Math.max(maxWisps, sim.wisps.length);
+        maxBurning = Math.max(maxBurning, sim.burning.length);
+      }
+      const tag = strong ? 'strong' : 'good';
+      expect(finale, tag).toBe(true);
+      expect(sim.phase).toBe('done');
+      expect(sim.blockIndex).toBe(sim.plan.length - 1);
+      for (const v of [sim.sparks, sim.ring, sim.light, sim.heat, sim.cycle, sim.top]) expect(Number.isFinite(v)).toBe(true);
+      // the rounds grow longer (×1.2 each) but a fire still changes every minute or two to the last minutes
+      expect(sim.cyclesNow, tag).toBeGreaterThanOrEqual(5);
+      expect(sim.cyclesNow, tag).toBeLessThanOrEqual(16);
+      expect(changeGap, tag).toBeLessThan(180);
+      expect(lastChange, tag).toBeGreaterThan(3300);
+      expect(maxPairs).toBeLessThanOrEqual(RULES.pairs + 4);
+      expect(maxWisps).toBeLessThanOrEqual(RULES.wisps + 6);
+      expect(maxBurning).toBeLessThanOrEqual(4);
+      // Ignacy still speaks in the last ten minutes; a line of a block or a fire comes back after a block or more
+      expect(lateLines, tag).toBeGreaterThan(20);
+      expect(minGap, tag).toBeGreaterThan(30);
+      const r = sim.result();
+      expect(r.score).toBe(Math.floor(sim.sparks));
+      expect(String(r.score).length, tag).toBeLessThanOrEqual(7);
+      expect(sim.p.best['3600']).toBe(r.score);
+      expect(sim.p.sky).toHaveLength(1);
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      expect(r.stats.length).toBeLessThanOrEqual(7);
+      for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    }
+  }, 120_000);
+});
+
 describe('the rest’s rhythm and the breath guide (round 15)', () => {
   it('offers seconds of kindling (40: 20–120) and whole breaths of rest (2: 1–4) in the lobby', () => {
     const spec = rhythm();

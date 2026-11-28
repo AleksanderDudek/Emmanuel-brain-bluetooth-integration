@@ -112,6 +112,9 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 2.6,
+  /** a session over `talkFrom` s (45 and 60 minutes, round 24): a narrator's line comes back only after `talkFresh` s */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
   /** the golden lights drawn round the point at most (more are counted, and the crown glows brighter) */
   lightsDrawn: 24,
@@ -148,7 +151,10 @@ const TABLE: readonly Row[] = [
   { upTo: 1049, cue: 9, thoughts: 19, quiet: 45 },
   { upTo: 1349, cue: 10, thoughts: 24, quiet: 60 },
   { upTo: 1649, cue: 10, thoughts: 29, quiet: 75 },
-  { upTo: Infinity, cue: 10, thoughts: 34, quiet: 90 },
+  { upTo: 2249, cue: 10, thoughts: 34, quiet: 90 },
+  // round 24: 45 and 60 minutes go deeper too (the 30-minute row alone left an average player's arc done at ~45 %)
+  { upTo: 3149, cue: 10, thoughts: 46, quiet: 120 },
+  { upTo: Infinity, cue: 10, thoughts: 56, quiet: 150 },
 ];
 
 export const rowFor = (plannedSec: number): Row => TABLE.find(r => plannedSec <= r.upTo) ?? TABLE[TABLE.length - 1];

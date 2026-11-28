@@ -196,6 +196,8 @@ export class Battle {
   hushed = 0;
   /** at the well: heroes sit, shadows doze */
   atWell = false;
+  /** the difficulty level's pace of the Din: its walk ×, its strikes' interval ÷ (REGULAR: 1) */
+  pace = 1;
   private nextId = 1;
   private nearSaid = new Set<number>();
 
@@ -243,7 +245,7 @@ export class Battle {
     const max = Math.round(spec.hp * power);
     const d: Din = {
       id: this.nextId++, kind, spec, x: at?.x ?? (spec.boss ? RULES.formX[1] : RULES.formX[0] + this.rnd() * (RULES.formX[1] - RULES.formX[0])), y: at?.y ?? this.rnd(), vx: 0,
-      hp: max, max, atk: spec.atk * power, cd: spec.cd, range: spec.range, speed: spec.speed, armor: spec.armor, worth: spec.worth,
+      hp: max, max, atk: spec.atk * power, cd: spec.cd / this.pace, range: spec.range, speed: spec.speed * this.pace, armor: spec.armor, worth: spec.worth,
       atkT: 0.6 + this.rnd() * 0.6, enter: delay, doze: this.atWell,
       stun: 0, sleep: false, firm: 0, tea: 0, blind: 0, weak: 0, daze: 0, taunt: 0, tauntBy: -1, copyHaste: 0, copyUp: 0,
       swell: 0, mirror: spec.mirror ? Math.round(max * spec.mirror) : 0, mirrorMax: spec.mirror ? Math.round(max * spec.mirror) : 0, mirrorT: 0,

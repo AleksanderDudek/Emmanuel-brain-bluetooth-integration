@@ -1664,6 +1664,101 @@ describe('long sessions (15–30 minutes)', () => {
   });
 });
 
+describe('long sessions (45–60 minutes)', () => {
+  it('the plan covers 45 and 60 minutes to the finale: Natarcie and Cisza in turn, none too short or too long, ending in a Cisza', () => {
+    for (const sec of [2700, 3600]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0), `${sec} s`).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const work = plan.filter(b => b.kind !== 'warmup');
+        work.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan.at(-1)!.kind).toBe('rest');
+        for (const b of work) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 3);
+        }
+        // about one pair a minute: 45 pairs in 45 minutes, 60 in 60
+        expect(work.length / 2).toBeCloseTo((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]), -0.5);
+      }
+    }
+  });
+
+  /** The 15–30 block's player for a whole hour: a card every 1.5 s, the pillar and the trumpet when ready, the first offer bought. */
+  function hourRun(progress: Partial<ZastepyProgress>, planned = 3600) {
+    const sim = makeSim({ progress, planned });
+    const dt = 1 / 30;
+    let hand = 0, maxF = 0, maxQ = 0, maxCoach = 0, maxPending = 0, finales = 0, t = 0, won = 0;
+    const says: { t: number; text: string }[] = [];
+    while (sim.phase !== 'done' && t < planned + 10) {
+      t += dt;
+      const want = sim.signal().want;
+      const f = want === 'focus' ? frame({ level: 0.8, focused: true, activity: 3 }) : want === 'rest' ? frame({ level: 0.2, calm: 0.75, activity: -1 }) : frame({ level: 0.6 });
+      sim.update(dt, f, t);
+      if ((hand += dt) >= 1.5) {
+        hand = 0;
+        if (sim.stage === 'upgrade') sim.buy(0);
+        sim.quick();
+      }
+      sim.raise();
+      sim.sound();
+      for (const e of sim.take()) {
+        if (e.type === 'say') says.push({ t, text: e.text });
+        if (e.type === 'won') won++;
+        if (e.type === 'finale') finales++;
+      }
+      const inner = sim as unknown as { coachQ: unknown[]; pending: unknown[] };
+      maxF = Math.max(maxF, sim.battle.fighters.length);
+      maxQ = Math.max(maxQ, (sim.battle as unknown as { queue: unknown[] }).queue.length);
+      maxCoach = Math.max(maxCoach, inner.coachQ.length);
+      maxPending = Math.max(maxPending, inner.pending.length);
+      if (!Number.isFinite(sim.battle.light) || !Number.isFinite(sim.battle.walls) || !Number.isFinite(sim.battle.ash)) throw new Error(`not finite at ${t}`);
+    }
+    return { sim, t, maxF, maxQ, maxCoach, maxPending, finales, says, won };
+  }
+
+  it('a 60-minute session from the first ever plays to its finale: battles won, bounded, a short summary, Tymek talks all hour and never repeats within ten minutes', () => {
+    const r = hourRun({});
+    expect(r.sim.phase).toBe('done');
+    expect(r.finales).toBe(1);
+    expect(r.t).toBeLessThan(3600 + 1);
+    expect(r.won).toBeGreaterThanOrEqual(20);
+    expect(r.maxF).toBeLessThan(80);
+    expect(r.maxQ).toBeLessThan(60);
+    expect(r.maxCoach).toBeLessThan(20);
+    expect(r.maxPending).toBeLessThan(20);
+    expect(r.sim.trace.samples.length).toBeLessThan(r.sim.trace.windowSec / r.sim.trace.every + 20);
+    for (const n of [r.sim.score, r.sim.p.gold, r.sim.goldNow, r.sim.p.battle]) expect(Number.isFinite(n)).toBe(true);
+    const res = r.sim.result();
+    expect(res.score).toBeLessThan(10_000_000);
+    expect(res.highlights.length).toBeLessThanOrEqual(5);
+    for (const s of [...res.highlights, ...res.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    // the numbers fit the summary's column (8+ characters would take the runner's smaller size)
+    for (const [, v] of res.stats) if (/^[+−×]?[\d\s ,.%]+$/.test(v)) expect(v.length, v).toBeLessThanOrEqual(8);
+    // Tymek is heard in the last quarter of the hour, and past half an hour a line comes round only ten minutes after
+    // it was said (a round per ten minutes alone let one back ~5 minutes later; 30 minutes and less keep the rounds)
+    expect(r.says.filter(s => s.t > 2700).length).toBeGreaterThan(5);
+    const last = new Map<string, number>();
+    let soonest = Infinity;
+    for (const s of r.says) {
+      const at = last.get(s.text);
+      if (at !== undefined) soonest = Math.min(soonest, s.t - at);
+      last.set(s.text, s.t);
+    }
+    expect(soonest).toBeGreaterThanOrEqual(RULES.talkRound - 1);
+  });
+
+  it('a 60-minute session deep in the campaign, everything at the top, keeps winning battles past the chapter cap', () => {
+    const r = hourRun({ sessions: 30, giftDay: DAY, battle: 60, gate: 10, hero: 5, units: lv(5), seen: 31, taught: 127 });
+    expect(r.sim.phase).toBe('done');
+    expect(r.won).toBeGreaterThanOrEqual(6);
+    expect(r.sim.lostNow).toBeLessThanOrEqual(r.won);
+    expect(r.maxF).toBeLessThan(80);
+    expect(r.maxQ).toBeLessThan(60);
+    expect(r.sim.p.stars.length).toBeLessThanOrEqual(r.sim.p.battle + 1);
+  });
+});
+
 describe('Zastępy: the breath pacer in a Cisza stands off the gates\' bar (pacerAt)', () => {
   it('keeps the standard place where the group steps down for it, else keeps the pill whole under the HUD band, off the gates\' bar, the light\'s row and the cards', () => {
     let own = 0;

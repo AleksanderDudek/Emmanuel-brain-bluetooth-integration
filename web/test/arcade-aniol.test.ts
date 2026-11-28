@@ -4,13 +4,17 @@ import { CATALOGS, t, unit } from '../src/arcade/aniol/i18n';
 import {
   bestOf, buyUp, canBuy, chapterOf, freshProgress, giftPool, migrate, nextRankAt, nightInChapter, rankOf, roomItems, upPrice, type AniolProgress,
 } from '../src/arcade/aniol/meta';
-import { RULES } from '../src/arcade/aniol/rules';
+import { LEVELS, RULES } from '../src/arcade/aniol/rules';
+import { DIFFICULTIES, type Difficulty } from '../src/arcade/kit/difficulty';
+import { difficultyName } from '../src/arcade/kit/difficultypanel';
 import { AURA_MARK, AniolSim, auraDps, auraFor, comboMult, comboRung, finaleFor, kindMix, levelNeed, planBlocks, type SimEvent, type Zmora } from '../src/arcade/aniol/sim';
 import { LINES, line, type Moment } from '../src/arcade/aniol/talk';
 import { CHAPTERS } from '../src/arcade/aniol/content';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
+import { hourFrames, mean } from './longframe';
+import aniol from '../src/arcade/aniol/index';
 import { catalogProblems, type Lang } from '../src/i18n';
 import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { ANGEL_TOP, PADS, cursorAt, giftAt, layout, padAt, padOf, tapTargets } from '../src/arcade/aniol/layout';
@@ -1628,5 +1632,324 @@ describe('long sessions (15–30 minutes)', () => {
     (sim as unknown as { gain(n: number): void }).gain(levelNeed(sim.nightLevel) + levelNeed(sim.nightLevel + 1));
     expect(ofType(sim.take(), 'gift')).toHaveLength(2);
     expect(sim.choice).toBeNull();
+  });
+});
+
+describe('long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes like the short ones: vigil and lullaby in turn, a lullaby last, the finale left to the great nightmare', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const name = `${planned}${first ? ' first' : ''}`;
+        expect(plan.reduce((s, b) => s + b.dur, 0) + finaleFor(planned), name).toBeCloseTo(planned, 0);
+        expect(finaleFor(planned), name).toBe(RULES.finale.long);
+        const play = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0].kind, name).toBe('warmup');
+        play.forEach((b, i) => {
+          expect(b.kind, name).toBe(i % 2 ? 'rest' : 'push');
+          expect(b.dur, name).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur, name).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 2);
+        });
+        expect(plan[plan.length - 1].kind, name).toBe('rest');
+        // a vigil and a lullaby about every minute: an hour is some 58 pairs
+        expect(play.length / 2, name).toBeGreaterThanOrEqual(Math.floor(planned / 65));
+      }
+    }
+  }, 300_000);
+
+  /** A steady player for a whole night: the band high in a vigil and calm in a lullaby, a strike when a Zmora is in reach. */
+  function night(progress: Partial<AniolProgress>, seed: number, planned: number, rhythm?: { focus: number; rest: number }) {
+    const sim = makeSim({ planned, progress, seed, rhythm });
+    const DT = 1 / 20;
+    let tap = 0, maxZ = 0, maxD = 0, choiceT = 0, at40 = 0, finales = 0, dawns = 0, levels = 0, said = 0;
+    for (let t = DT; t < planned + 10; t += DT) {
+      sim.update(DT, sim.block?.kind === 'rest' ? CALM : HIGH, t);
+      if ((tap += DT) >= 0.3) {
+        tap = 0;
+        if (sim.zmory.some(z => z.state === 'walk' && z.d - z.r <= sim.reach + 0.1)) sim.strike(0);
+      }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finales++;
+        if (e.type === 'dawn') dawns++;
+        if (e.type === 'level') levels++;
+        if (e.type === 'say') said++;
+      }
+      if (sim.choice) choiceT += DT;
+      maxZ = Math.max(maxZ, sim.zmory.length);
+      maxD = Math.max(maxD, sim.drops.length);
+      if (at40 === 0 && t >= planned * 2 / 3) at40 = sim.score;
+    }
+    return { sim, maxZ, maxD, choiceT, at40, finales, dawns, levels, said };
+  }
+
+  it('a 60-minute night plays to its great nightmare and the dawn, the Zmory keep coming, nothing piles up, the summary stays short', () => {
+    const giftSlots = GIFTS.filter(g => g.id !== 'sen').reduce((s, g) => s + g.max, 0);
+    for (const [progress, seed] of [[{}, 7], [{ sessions: 20, giftDay: DAY, pushes: 1, night: 14, feathers: 5000 }, 3]] as const) {
+      const r = night(progress, seed, 3600);
+      const { sim } = r;
+      expect(sim.phase).toBe('done');
+      expect(r.finales).toBe(1);
+      expect(r.dawns).toBe(1);
+      expect(sim.koszmar).not.toBe('none');
+      // the night's pace grows with the share of the night gone (not with its minutes): the last third still gives
+      expect(sim.score).toBeGreaterThan(r.at40 * 1.2);
+      expect(r.levels).toBeGreaterThanOrEqual(30);
+      // the gifts' sheet comes only while gifts are left: an hour waits on it no longer than half an hour does
+      expect(r.choiceT).toBeLessThanOrEqual(giftSlots * RULES.choiceSec + 1);
+      // the guardians speak about every 13 s, as in a short night
+      expect(r.said).toBeLessThan(3600 / 8);
+      for (const v of [sim.score, sim.feathers, sim.sen, sim.reach, sim.nightLevel, sim.p.feathers, sim.p.wallet]) expect(Number.isFinite(v)).toBe(true);
+      expect(r.maxZ).toBeLessThan(24);
+      expect(r.maxD).toBeLessThan(12);
+      for (const z of sim.zmory) expect(Number.isFinite(z.d) && Number.isFinite(z.speed)).toBe(true);
+      const res = sim.result();
+      expect(sim.p.best['3600']).toBe(res.score);
+      expect(res.highlights.length).toBeLessThanOrEqual(6);
+      for (const h of res.highlights) {
+        expect(h).not.toMatch(/undefined|NaN/);
+        expect(h.length, h).toBeLessThanOrEqual(90);
+      }
+      for (const [k, v] of res.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  }, 300_000);
+
+  it('plays any rhythm the player sets to the dawn at 45 and 60 minutes: long vigils or long lullabies, the feathers still grow', () => {
+    for (const planned of [2700, 3600]) {
+      for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+        const name = `${planned} ${rhythm.focus}/${rhythm.rest}`;
+        const r = night({ sessions: 5, giftDay: DAY, pushes: 1 }, 11, planned, rhythm);
+        expect(r.sim.phase, name).toBe('done');
+        expect(r.finales, name).toBe(1);
+        expect(r.sim.score, name).toBeGreaterThan(r.at40);
+        expect(r.maxZ, name).toBeLessThan(24);
+        for (const v of [r.sim.score, r.sim.feathers, r.sim.sen]) expect(Number.isFinite(v), name).toBe(true);
+      }
+    }
+  }, 300_000);
+});
+
+describe('long sessions (45–60 minutes), drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing drawn piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: AniolSim }).sim;
+    let tap = 0;
+    const { early, late } = hourFrames({
+      module: aniol, progress: { ...aniol.freshProgress(), sessions: 5, giftDay: '2026-11-27', pushes: 1 }, tuning: TUNING,
+      frame: game => (simOf(game).block?.kind === 'rest' ? CALM : HIGH),
+      each: game => {
+        const sim = simOf(game);
+        if ((tap += 0.05) < 0.3) return;
+        tap = 0;
+        if (sim.zmory.some(z => z.state === 'walk' && z.d - z.r <= sim.reach + 0.1)) sim.strike(0);
+      },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
+});
+
+// ── difficulty levels (kit/difficulty.ts, DESIGN §29): Na start · Zwykły · Zaawansowany · Hardcore ──────────────────
+describe('difficulty levels', () => {
+  const WEAK = frame({ level: 0.3, activity: 1, calm: 0.3 });
+  const MIDF = frame({ level: 0.55, activity: 3, focused: true, hold: 3, calm: 0.3 });
+  /** A night of a player who strikes the nearer side every `gap` s, at a steady focus in the vigil and calm in the lullaby. */
+  function night(d: Difficulty | undefined, planned: number, seed: number, vigil: FocusFrame, gap = 1, progress: Partial<AniolProgress> = {}) {
+    const sim = later({ planned, seed, progress: { ...progress, ...(d ? { difficulty: d } : {}) } });
+    let tap = 0, lost = 0, prev = 1;
+    const evs = drive(sim, planned + RULES.settle + 2, () => (sim.block?.kind === 'push' ? vigil : CALM), { t: 0 }, tt => {
+      if (tt - tap >= gap) { tap = tt; sim.strike(0); }
+      if (sim.sen < prev) lost += prev - sim.sen;
+      prev = sim.sen;
+    });
+    sim.finish();
+    return { sim, evs, r: sim.result(), lost };
+  }
+
+  it('reads an older save as REGULAR and keeps a chosen level through the migration', () => {
+    const old = freshProgress() as unknown as Record<string, unknown>;
+    delete old.difficulty;
+    expect(migrate(old as unknown as AniolProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'nightmare' } as unknown as AniolProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'hardcore' }).difficulty).toBe('hardcore');
+    expect(migrate({ ...freshProgress(), v: 1, difficulty: 'start' } as unknown as AniolProgress).difficulty).toBe('start');
+    expect(freshProgress().difficulty).toBe('regular');
+    expect(Object.values(LEVELS.regular).every(v => v === 1)).toBe(true);
+  });
+
+  it('keeps the training the same at every level: the same blocks at 40 s and 3–60 minutes', () => {
+    for (const planned of [40, 60, 180, 600, 1800, 2700, 3600]) {
+      for (const first of [true, false]) {
+        const plans = DIFFICULTIES.map(d => makeSim({ planned, seed: 9, progress: first ? { difficulty: d } : { sessions: 4, giftDay: DAY, difficulty: d } }).plan);
+        for (const plan of plans) expect(plan).toEqual(plans[1]);
+      }
+    }
+  });
+
+  it('REGULAR is the night as it was: an old save and a REGULAR one play the same night, number for number', () => {
+    const a = night(undefined, 300, 4, MIDF, 0.7), b = night('regular', 300, 4, MIDF, 0.7);
+    expect(b.r).toEqual(a.r);
+    expect(b.evs).toEqual(a.evs);
+    expect(JSON.stringify(b.sim.p)).toBe(JSON.stringify(a.sim.p));
+    expect(b.r.stats.map(([k]) => k)).not.toContain(t('stat.difficulty'));
+  });
+
+  it('scores in a 40 s test session at every level, on either band (the smoke test\'s taps)', () => {
+    for (const d of DIFFICULTIES) {
+      for (const eeg of [false, true]) {
+        const sim = makeSim({ progress: { difficulty: d }, planned: 40, seed: 3, tuning: BEGINNER, eeg });
+        const focus = new FocusInput(BEGINNER);
+        let f = focus.push(0, true, 0.1), hub = 0, tap = 0, space = 0;
+        for (let tt = 0; tt < 22 + 1e-9; tt += STEP) {
+          if ((hub += STEP) >= 0.1) { hub -= 0.1; f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1); }
+          sim.update(STEP, f, tt);
+          if ((tap += STEP) >= 0.65) { tap -= 0.65; sim.strike(0); }
+          if ((space += STEP) >= 2) { space -= 2; sim.key(' ', true); sim.key(' ', false); }
+          sim.take();
+        }
+        expect(sim.result().score, `${d} eeg ${eeg}`).toBeGreaterThan(3);
+      }
+    }
+  });
+
+  it('makes the Zmory follow the level: their light in hits (the Widmo keeps its two), the great nightmare\'s, their speed', () => {
+    const hits = (d: Difficulty, kind: Zmora['kind']) => {
+      const sim = later({ planned: 300, progress: { difficulty: d } });
+      quiet(sim);
+      return sim.spawn(kind, 1);
+    };
+    expect(hits('regular', 'mara').hp).toBe(1);
+    expect(hits('hardcore', 'mara').hp).toBe(2);
+    expect(hits('start', 'mara').hp).toBe(1);
+    expect(hits('hardcore', 'ciagutek').hp).toBe(6);
+    expect(hits('start', 'ciagutek').hp).toBe(2);
+    expect(hits('advanced', 'pancerna').hp).toBe(3);
+    for (const d of DIFFICULTIES) expect(hits(d, 'widmo').hp, d).toBe(2);
+    expect(hits('start', 'fikolek').hp).toBe(2);
+    expect(hits('hardcore', 'mara').speed / hits('regular', 'mara').speed).toBeCloseTo(LEVELS.hardcore.speed, 6);
+    const boss = (d: Difficulty) => {
+      const sim = later({ planned: 300, progress: { difficulty: d } });
+      (sim as unknown as { beginFinale(): void }).beginFinale();
+      return sim.zmory.find(z => z.boss)!.maxHp;
+    };
+    const reg = boss('regular');
+    expect(reg).toBe(RULES.koszmarHp.long);
+    expect(boss('hardcore')).toBe(Math.round(reg * LEVELS.hardcore.boss));
+    expect(boss('start')).toBe(Math.round(reg * LEVELS.start.boss));
+  });
+
+  it('orders the night from Na start to Hardcore at the same focus (Sen dimmed a minute); a focused player keeps the child asleep at Hardcore', () => {
+    const at = (d: Difficulty, vigil: FocusFrame, gap = 1) => {
+      let lost = 0, stirs = 0, spawns = 0;
+      for (const seed of [1, 2]) {
+        const r = night(d, 600, seed, vigil, gap, { night: 3 });
+        lost += r.lost;
+        stirs += r.sim.stirs;
+        spawns += ofType(r.evs, 'spawn').length;
+      }
+      return { lost: lost / 20, stirs, spawns };
+    };
+    const m = DIFFICULTIES.map(d => at(d, WEAK));
+    for (let i = 1; i < m.length; i++) {
+      expect(m[i].spawns, DIFFICULTIES[i]).toBeGreaterThan(m[i - 1].spawns);
+      expect(m[i].stirs, DIFFICULTIES[i]).toBeGreaterThanOrEqual(m[i - 1].stirs);
+    }
+    expect(m[0].lost).toBeLessThanOrEqual(m[1].lost);
+    expect(m[2].lost).toBeGreaterThan(m[1].lost);
+    expect(m[3].lost).toBeGreaterThan(m[2].lost);
+    expect(m[3].stirs).toBeGreaterThan(0);
+    // a focused player who strikes in time (three a second) keeps the child asleep all night at Hardcore
+    expect(at('hardcore', HIGH, 0.33).stirs).toBe(0);
+  });
+
+  it('an ink drop that stirs the child while another drop flies leaves no hole in the drops (Hardcore makes it common)', () => {
+    for (const d of ['regular', 'hardcore'] as const) {
+      const sim = later({ planned: 300, progress: { difficulty: d } });
+      quiet(sim);
+      const clock = { t: 0 };
+      drive(sim, 1, MIDF, clock);
+      sim.sen = 0.01;
+      const drops = (sim as unknown as { drops: { id: number; side: 1 | -1; d: number; z: number; dir: number; src: number; t: number }[] }).drops;
+      drops.push({ id: 9001, side: 1, d: 3, z: 0.6, dir: -1, src: -1, t: 0 }, { id: 9002, side: -1, d: RULES.bedHalf + 0.001, z: 0.6, dir: -1, src: -1, t: 0 });
+      expect(() => drive(sim, 0.5, MIDF, clock)).not.toThrow();
+      expect(sim.stirs, d).toBe(1);
+      expect(drops.every(o => o !== undefined), d).toBe(true);
+      expect(drops).toHaveLength(0);
+    }
+  });
+
+  it('Hardcore has no helps: a stir scatters nobody; Na start scatters the whole room; Sen comes back to half at every level', () => {
+    const stirAt = (d: Difficulty) => {
+      const sim = later({ planned: 300, progress: { difficulty: d } });
+      quiet(sim);
+      const near = sim.spawn('mara', 1, 2.2), far = sim.spawn('mara', -1, 5);
+      (sim as unknown as { stir(): void }).stir();
+      return { sen: sim.sen, near: near.state, far: far.state };
+    };
+    expect(stirAt('regular')).toEqual({ sen: RULES.senBack, near: 'back', far: 'walk' });
+    expect(stirAt('hardcore')).toEqual({ sen: RULES.senBack, near: 'walk', far: 'walk' });
+    expect(stirAt('start')).toEqual({ sen: RULES.senBack, near: 'back', far: 'back' });
+  });
+
+  it('pays a night the shared scale of feathers: count brings more Zmory to the harder levels, each pays a little less', () => {
+    const feathers = (d: Difficulty) => [1, 2].reduce((n, seed) => n + night(d, 600, seed, MIDF, 0.5, { night: 3 }).sim.feathers, 0);
+    const reg = feathers('regular');
+    expect(feathers('start') / reg).toBeGreaterThan(0.75);
+    expect(feathers('start') / reg).toBeLessThan(1);
+    expect(feathers('hardcore') / reg).toBeGreaterThan(1.15);
+    expect(feathers('hardcore') / reg).toBeLessThan(1.6);
+  });
+
+  it('keeps records per level and names a level other than REGULAR in the summary', () => {
+    const hard = night('hardcore', 300, 2, MIDF, 0.5, { best: { 300: 9999 }, lastLen: 300 });
+    expect(hard.sim.p.best[300]).toBe(9999);
+    expect(hard.sim.p.best['300@hardcore']).toBe(hard.r.score);
+    expect(hard.r.record).toBe(false);
+    expect(hard.r.stats[0]).toEqual([t('stat.difficulty'), difficultyName('hardcore')]);
+    expect(bestOf(hard.sim.p)).toBe(hard.r.score);
+    hard.sim.p.difficulty = 'regular';
+    expect(bestOf(hard.sim.p)).toBe(9999);
+    hard.sim.p.difficulty = 'start';
+    expect(bestOf(hard.sim.p)).toBeNull();
+    // the dreams are one for every level: the next night follows
+    expect(hard.sim.p.night).toBeGreaterThan(0);
+  });
+
+  it('plays an hour at Hardcore and three minutes at Na start: on time, the room stays bounded', () => {
+    for (const [d, planned] of [['hardcore', 3600], ['start', 180]] as const) {
+      const sim = later({ planned, seed: 3, progress: { difficulty: d } });
+      let most = 0, tap = 0;
+      drive(sim, planned + RULES.settle + 2, tt => (sim.block?.kind === 'push' ? (Math.floor(tt / 30) % 2 ? MIDF : WEAK) : CALM), { t: 0 }, tt => {
+        if (tt - tap >= 0.8) { tap = tt; sim.strike(0); }
+        if (sim.choice && sim.choice.t > 0.5) sim.pick(0);
+        most = Math.max(most, sim.zmory.length);
+      });
+      expect(sim.canStop(), d).toBe(true);
+      expect(most, d).toBeLessThan(40);
+      expect(sim.result().score, d).toBeGreaterThan(planned / 10);
+      for (const [k, v] of sim.result().stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('opens the lobby card with the four chips; a chip saves the level and the card shows that level\'s record', async () => {
+    const { progressPanel } = await import('../src/arcade/aniol/panel');
+    const p = { ...freshProgress(), sessions: 2, lastLen: 300, best: { 300: 456, '300@hardcore': 123 } };
+    let saved = 0;
+    const el = progressPanel(p, () => saved++);
+    expect(el.firstElementChild?.classList.contains('difficulty')).toBe(true);
+    const chips = [...el.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.querySelector('[aria-checked="true"]')?.getAttribute('data-difficulty')).toBe('regular');
+    const line = () => el.querySelector('.difficulty-line')?.textContent;
+    const lang = (['pl', 'en', 'de', 'sv'] as const).find(l => CATALOGS[l]['diff.regular'] === line());
+    expect(lang).toBeDefined();
+    expect(el.textContent).toContain('456');
+    chips[3].click();
+    expect(p.difficulty).toBe('hardcore');
+    expect(saved).toBe(1);
+    expect(line()).toBe(CATALOGS[lang!]['diff.hardcore']);
+    expect(el.textContent).toContain('123');
+    expect(el.textContent).not.toContain('456');
+    expect(el.querySelectorAll('.difficulty')).toHaveLength(1);
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) for (const d of DIFFICULTIES) expect(String(CATALOGS[l][`diff.${d}`]).length, `${l} ${d}`).toBeGreaterThan(20);
   });
 });

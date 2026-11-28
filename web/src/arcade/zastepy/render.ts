@@ -336,7 +336,7 @@ export class ZastepyView {
         this.hud.showStars(e.stars, e.fresh);
         break;
       case 'lost':
-        this.hud.toast(TXT.lost, TXT.lostSub, C.blueDeep, 2.8);
+        this.hud.toast(TXT.lost, sim.L.grace > 0 ? TXT.lostSub : t('fx.lostSubHard'), C.blueDeep, 2.8);
         break;
       case 'battleStart':
         this.fall = 0;
@@ -344,8 +344,11 @@ export class ZastepyView {
         this.bolts.length = 0;
         this.slashes.length = 0;
         this.wave = -1;
-        if (e.retry > 0) this.hud.toast(TXT.retry, t('fx.retrySub', { n: RULES.wallsPerRetreat * e.retry }), C.blueDeep, 2.4);
-        else {
+        if (e.retry > 0) {
+          // the walls a withdrawal adds at this level (none at Hardcore: rules.ts LEVELS)
+          const more = Math.round(RULES.wallsPerRetreat * sim.L.grace * e.retry);
+          this.hud.toast(TXT.retry, more > 0 ? t('fx.retrySub', { n: more }) : t('fx.retryHard'), C.blueDeep, 2.4);
+        } else {
           const at = chapterOf(e.battle);
           this.hud.toast(e.boss ? t('map.boss', { boss: DEMON_NAME[sim.battle.bossKind] }) : t('fx.battle', { n: at.local + 1 }),
             t('fx.battleSub', { c: at.chapter + 1, age: AGES[ageOf(e.battle)] }), e.boss ? '#7a2e1e' : C.ink, 2.4);

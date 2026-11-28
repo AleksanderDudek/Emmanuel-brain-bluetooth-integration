@@ -13,6 +13,7 @@ import { bestOf, freshProgress, migrate, setNext, setPosture, setSeason, type Dr
 import { RULES, focusRate, planFor, readTime } from '../src/arcade/drzewo/rules';
 import { pageTime } from '../src/arcade/drzewo/sim';
 import { DrzewoSim, pageOf, type SimEvent } from '../src/arcade/drzewo/sim';
+import { ALWAYS } from '../src/arcade/drzewo/talk';
 import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { camFor, crownRect, layout, pickerParts, previewLayout, tapTargets, type Layout } from '../src/arcade/drzewo/layout';
 import { worldTop as worldTopOf } from '../src/arcade/drzewo/tree';
@@ -730,4 +731,115 @@ describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () =
       }
     });
   }
+});
+
+describe('45–60 minutes (round 24)', () => {
+  /** A weak session: focused a third of the time, just over the threshold. */
+  const weak = (_: number, sim: DrzewoSim): FocusFrame => {
+    if (!sim.pushBlock) return frame({ calm: 0.5 });
+    const x = (sim.blockT - sim.lead) % 12;
+    return sim.blockT >= sim.lead && x < 3.5 ? frame({ level: 0.55, activity: 2.2, focused: true, hold: x }) : frame({ level: 0.35, activity: 1 });
+  };
+
+  it('paces the plan for more fruit (the nine, then again): 14 in 45 minutes, 18 in an hour — half an hour as it was', () => {
+    expect(planFor(1800, BREATH_DEFAULT).fruits).toBe(9);
+    expect(planFor(2700, BREATH_DEFAULT).fruits).toBe(14);
+    expect(planFor(3600, BREATH_DEFAULT).fruits).toBe(18);
+    for (const T of [2700, 3600]) {
+      for (const pat of Object.values(BREATH_PRESETS)) {
+        const p = planFor(T, pat);
+        // every fruit still asks for real focus — no need held up at its least, none past its most
+        expect(p.needFruit, `${T}`).toBeGreaterThan(RULES.needMin);
+        for (const n of [p.needRoot, p.needTrunk, p.needFruit]) expect(n).toBeLessThanOrEqual(RULES.needMax);
+        expect(p.steps).toBe(2);
+      }
+    }
+  });
+
+  it('never takes a long rest dial’s breaths for the extra fruit: the rest the nine would keep, fewer fruit instead', () => {
+    for (const T of [2700, 3600]) {
+      for (const rest of [1, 2, 4, 6, 8]) {
+        for (const focus of [1, 2, 3]) {
+          const p = planFor(T, BREATH_DEFAULT, false, { restAfter: focus, restBreaths: rest });
+          const nine = planFor(1800 + 300, BREATH_DEFAULT, false, { restAfter: focus, restBreaths: rest });
+          expect(p.fruits, `${T} ${focus}/${rest}`).toBeGreaterThanOrEqual(9);
+          expect(nine.fruits).toBe(9);
+          const spec = drzewoRhythm(freshProgress());
+          const kept = restKept(spec, { focus, rest, custom: true }, T);
+          expect(kept === null ? rest : kept, `${T} ${focus}/${rest}`).toBe(p.restCycles);
+        }
+      }
+    }
+    // 8 breaths after every stage keep 5 in 45 minutes and 7 in an hour, as nine fruits alone would
+    expect(planFor(2700, BREATH_DEFAULT, false, { restAfter: 1, restBreaths: 8 }).restCycles).toBe(5);
+    expect(planFor(3600, BREATH_DEFAULT, false, { restAfter: 1, restBreaths: 8 }).restCycles).toBe(7);
+  });
+
+  for (const min of [45, 60]) {
+    it(`walks an average player through ${min} minutes: the stream, the crown, every planned fruit — the last near the end`, () => {
+      const T = min * 60;
+      for (const rhythm of [undefined, { focus: 1, rest: 1 }, { focus: RULES.restAfterMax, rest: RULES.restBreathsMax }, { focus: 1, rest: RULES.restBreathsMax }]) {
+        const sim = later({ planned: T, rhythm: rhythm ? { ...rhythm, custom: true } : undefined });
+        const { events } = playAll(sim, average);
+        const tag = `${min} min ${JSON.stringify(rhythm)}`;
+        expect(sim.phase, tag).toBe('done');
+        expect(sim.streamReached, tag).toBe(true);
+        expect(sim.crownWhole, tag).toBe(true);
+        expect(sim.streamAt, tag).toBeLessThan(sim.crownAt);
+        // the fit (DESIGN §24.4b): the average player ripens every planned fruit
+        expect(sim.fruitsNow, tag).toBeGreaterThanOrEqual(sim.plan.fruits);
+        const last = sim.ripeAt[sim.plan.fruits - 1] / T;
+        expect(last, tag).toBeGreaterThan(rhythm ? 0.7 : 0.8);
+        expect(last, tag).toBeLessThan(0.97);
+        expect(sim.blocks.filter(b => b.rest === 'wind'), tag).toHaveLength(1);
+        expect(ofType(events, 'finale'), tag).toHaveLength(1);
+      }
+    });
+  }
+
+  it('a whole hour: a strong player ripens more, a weak one fewer; bounded, a short summary', () => {
+    const strong = later({ planned: 3600 });
+    playAll(strong, (_t, s) => (s.pushBlock ? HIGH : CALM));
+    const weakSim = later({ planned: 3600 });
+    playAll(weakSim, weak);
+    expect(strong.fruitsNow).toBeGreaterThan(strong.plan.fruits);
+    expect(weakSim.fruitsNow).toBeGreaterThanOrEqual(6);
+    expect(weakSim.fruitsNow).toBeLessThan(weakSim.plan.fruits);
+    for (const sim of [strong, weakSim]) {
+      expect(sim.phase).toBe('done');
+      expect(sim.blocks.length).toBeLessThan(200);
+      expect(sim.hang.length).toBeLessThanOrEqual(sim.fruitsNow + 9);
+      expect(sim.talk.said.length).toBeLessThan(300);
+      const r = sim.result();
+      expect(r.highlights.length).toBeLessThanOrEqual(5);
+      for (const h of r.highlights) expect(h.length).toBeLessThan(120);
+      expect(r.stats.length).toBeLessThanOrEqual(6);
+    }
+    expect(fruitList(strong.ripened)).toMatch(/\+\d+$/);
+  });
+
+  it('an hour’s narrator: no line again within ten minutes, still speaking in the last quarter; half an hour as before', () => {
+    expect(later({ planned: 1800 }).talk.fresh).toBe(0);
+    expect(later({ planned: 2700 }).talk.fresh).toBe(RULES.talkFresh);
+    const sim = later({ planned: 3600 });
+    const lines: [number, string, string][] = [];
+    let last: unknown = null;
+    for (let tt = STEP; tt <= 3608; tt += STEP) {
+      sim.update(STEP, average(tt, sim), tt);
+      sim.take();
+      if (sim.story && sim.story.t > 1.5) sim.stay();
+      const l = sim.talk.line;
+      if (l && l !== last) { last = l; lines.push([tt, l.moment, l.text]); }
+    }
+    expect(sim.phase).toBe('done');
+    // no line again within ten minutes (the warnings and the help when stuck aside), and still a voice at the end
+    const at = new Map<string, number>();
+    for (const [tt, m, text] of lines) {
+      if ((ALWAYS as readonly string[]).includes(m)) continue;
+      const p = at.get(text);
+      if (p !== undefined) expect(tt - p, text).toBeGreaterThanOrEqual(RULES.talkFresh - 1e-6);
+      at.set(text, tt);
+    }
+    expect(lines.filter(([tt, m]) => tt > 0.75 * 3600 && !(ALWAYS as readonly string[]).includes(m)).length).toBeGreaterThan(0);
+  });
 });

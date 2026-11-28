@@ -9,6 +9,7 @@ import {
   upCost, vintageGold, type KotyProgress,
 } from '../src/arcade/koty/meta';
 import { RULES } from '../src/arcade/koty/rules';
+import { ROUND_SEC } from '../src/arcade/koty/talk';
 import { BOSS_TARGET, KotySim, bossCourage, courage, cushionX, finaleFor, planBlocks, starText, waveSize, type SimEvent } from '../src/arcade/koty/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
@@ -1269,5 +1270,83 @@ describe('long sessions (15–30 minutes)', () => {
     expect(Number.isFinite(r.score)).toBe(true);
     expect(sim.p.best['1800']).toBe(r.score);
     for (const [, v] of r.stats) expect(v).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});
+
+describe('long sessions (45–60 minutes)', () => {
+  it('plans 45 and 60 minutes to the last stretch: Czujność and Drzemka alternating, ending on a nap, every block 12 s up to its mean + jitter', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          const [mean, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeLessThanOrEqual((mean + jitter) * 1.1);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('plays a whole 60-minute session, first ever and later on: the finale and the end, the field bounded, a short summary, Brother Anselm never repeats within ten minutes', () => {
+    for (const progress of [undefined, { sessions: 5, pushes: 1, seen: [...ALL_SEEN] }]) {
+      const name = progress ? 'later' : 'first';
+      const sim = makeSim({ planned: 3600, seed: 7, progress });
+      const stage0 = sim.p.stage;
+      let paw = 2, maxPests = 0, maxShots = 0, maxFx = 0, finale = false, done = false;
+      let soonest = Infinity, lastLine: unknown = null;
+      const heard = new Map<string, number>();
+      for (let i = 1; i <= 3606 / STEP; i++) {
+        const t = i * STEP;
+        if (sim.story && sim.story.t > 1) sim.tap();
+        if (t >= paw) {
+          paw += 2;
+          sim.paw();
+          if (sim.huntReady) sim.releaseHunt();
+        }
+        sim.update(STEP, Math.floor(t / 13) % 2 ? MID : HIGH, t);
+        for (const e of sim.take()) {
+          if (e.type === 'finale') finale = true;
+          if (e.type === 'done') done = true;
+        }
+        const line = sim.talk.line;
+        if (line && line !== lastLine) {
+          const was = heard.get(line.text);
+          if (was !== undefined) soonest = Math.min(soonest, t - was);
+          heard.set(line.text, t);
+        }
+        lastLine = line;
+        maxPests = Math.max(maxPests, sim.pests.length);
+        maxShots = Math.max(maxShots, sim.shots.length);
+        maxFx = Math.max(maxFx, sim.splashes.length + sim.beams.length);
+      }
+      expect(finale, name).toBe(true);
+      expect(done, name).toBe(true);
+      expect(sim.phase, name).toBe('done');
+      expect(sim.blockIndex, name).toBe(sim.plan.length - 1);
+      for (const v of [sim.score, sim.fishGained, sim.p.fish, sim.p.stage, sim.p.gold, sim.charge, sim.alert]) expect(Number.isFinite(v), name).toBe(true);
+      expect(sim.p.stage, name).toBeGreaterThan(stage0 + 6);
+      expect(maxPests, name).toBeLessThanOrEqual(RULES.cap + 1);
+      expect(maxShots, name).toBeLessThan(200);
+      expect(maxFx, name).toBeLessThan(200);
+      expect(sim.gifts.length, name).toBeLessThanOrEqual(4);
+      for (const list of [sim.bossesNow, sim.starsNow, sim.placesNow, sim.catsNow, sim.freshGrades, sim.newPests]) expect(list.length, name).toBeLessThan(40);
+      // Brother Anselm talks all hour, and past half an hour a line comes back only after ten minutes (§17.1, §28)
+      expect(sim.talk.said.length, name).toBeGreaterThan(60);
+      expect(soonest, name).toBeGreaterThanOrEqual(ROUND_SEC - 1);
+      const r = sim.result();
+      expect(r.score, name).toBeGreaterThan(0);
+      expect(r.score, name).toBeLessThan(10_000_000);
+      expect(sim.p.best['3600'], name).toBe(r.score);
+      expect(r.highlights.length, name).toBeLessThanOrEqual(6);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s, name).not.toMatch(/undefined|NaN|Infinity/);
+      for (const [, v] of r.stats) if (/^[+−×]?[\d\s  ,.%]+$/.test(v)) expect(v.length, v).toBeLessThanOrEqual(8);
+    }
   });
 });

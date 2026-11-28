@@ -1,6 +1,7 @@
 /**
  * Chleby i ryby's "Postępy" card in the lobby (v3), from the app's shared .arcade-* classes
- * (styles.css): the records and the bank; the path of hillsides (the chapter's four levels with
+ * (styles.css): the difficulty level at the top (kit/difficultypanel.ts: four chips and what the chosen one
+ * means here); the records (the level's) and the bank; the path of hillsides (the chapter's four levels with
  * their stars, the glutton who waits at its end); the league of stars and the way to its next tier;
  * the cards in play and the whole collection kind by kind (tap an owned card to take it into play;
  * a card not found yet shows the village level that brings it); the published odds of a bundle; the
@@ -10,6 +11,8 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { difficultyOf } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import { dayKey, daySeed } from '../kit/progress';
 import { CARDS, KINDS, cardLevel, evoOf, nextCopies, oddsWith, owned, type CardDef, type CardKind } from './cards';
 import { CHAPTERS, bossName, buildName, buildText, cardName, cardText, dayName, dayText, missionText, tierName } from './content';
@@ -85,8 +88,20 @@ function cardTile(p: ChlebyProgress, c: CardDef, changed: () => void): HTMLEleme
 export function progressPanel(p: ChlebyProgress, save: () => void): HTMLElement {
   migrate(p);
   const root = h('div', { class: 'arcade-panel' });
+  // the level's row stays put (its chips keep the keyboard's focus); the card under it redraws (the level's records)
+  const level = difficultyPanel({
+    value: difficultyOf(p.difficulty),
+    onChange: d => {
+      p.difficulty = d;
+      save();
+      render();
+    },
+    line: d => t(`diff.${d}`),
+  });
   const render = (): void => {
-    root.replaceChildren(...build_(p, () => {
+    if (root.firstChild !== level) root.replaceChildren(level);
+    while (root.lastChild && root.lastChild !== level) root.removeChild(root.lastChild);
+    root.append(...build_(p, () => {
       save();
       render();
     }));

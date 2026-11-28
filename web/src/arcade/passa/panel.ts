@@ -3,7 +3,10 @@
  *
  *   the habit      the day-streak now ("Dzień passy"), the longest, the most wins in a session, wins in all — and a
  *                  line on the streak: none yet, it goes on, today already played, or kept by grace (one missed day)
- *   how it works   one line, and this session's forecast for the lobby's length (the plan the session follows)
+ *   the group      (round 25) the age group as five chips (11–19 · 20–26 · 27–35 · 36–50 · 50+) — the day is told for
+ *                  it; shared with Stop-klatka (kit/ages.ts); until one is chosen, a line says the session will ask
+ *   how it works   one line, and this session's forecast for the lobby's length (the plan the session follows: the
+ *                  moments, and among them the sense and the given ones)
  *   Mój dzień      the player's own moments: a line, its kind (dobre / drobny kłopot / trudne), optionally their own
  *                  win; add, change, remove (≤ 8); "Zapomnij moje słowa" — kept only on this device, never in a result
  *   the hard       "Także to, co trudne" (off by default) with a line on what it means
@@ -17,9 +20,11 @@ import { fmtNum } from '../../i18n';
 import { t as at } from '../../i18n/arcade';
 import { SESSION_MINUTES, plannedSeconds } from '../../settings';
 import { h } from '../../ui/dom';
+import { AGES, AGE_SPAN } from '../kit/ages';
 import { dayKey } from '../kit/progress';
+import { lifeCounts } from './content';
 import { t, type Key } from './i18n';
-import { KINDS, addOwn, bestOf, editOwn, forgetOwn, removeOwn, setHard, type Change, type PassaProgress } from './meta';
+import { KINDS, addOwn, bestOf, editOwn, forgetOwn, removeOwn, setAge, setHard, type Change, type PassaProgress } from './meta';
 import type { MomentKind } from './moments';
 import { RULES, planFor, streakNow } from './rules';
 
@@ -58,9 +63,10 @@ export function sessionSec(p: PassaProgress): number {
 
 /** This session's forecast in words for a session of `sec` s (the design's rhythm; a heavy moment when asked for). */
 export function forecastLines(p: PassaProgress, sec: number): string[] {
-  const plan = planFor({ plannedSec: sec, eeg: false, first: p.sessions === 0, heavy: p.hard });
+  const plan = planFor({ plannedSec: sec, eeg: false, first: p.sessions === 0, heavy: p.hard, ...lifeCounts(), ask: !p.ageSet });
   const min = fmtNum(sec / 60, sec % 60 ? 1 : 0);
   const out = [t('panel.fc', { min, moments: t('moments', { n: plan.n }), push: Math.round(plan.push), rest: t('breaths', { n: plan.breaths }) })];
+  if (plan.nSense > 0 && plan.nGiven > 0) out.push(t('panel.fcLife', { sense: t('senseN', { n: plan.nSense }), given: t('givenN', { n: plan.nGiven }) }));
   if (p.hard) out.push(t(plan.heavyAt >= 0 ? 'panel.fcHeavy' : 'panel.fcNoHeavy'));
   return out;
 }
@@ -119,6 +125,18 @@ function build(p: PassaProgress, ui: Ui, fc: HTMLElement, day: string, changed: 
     stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
     stat(t('panel.wins'), fmtNum(p.wins))));
   out.push(h('p', null, streakLine(p, day)));
+
+  // ── the group (round 25; shared with Stop-klatka) ──
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.age')));
+  out.push(h('div', { class: 'seg passa-ages', role: 'radiogroup', 'aria-label': t('panel.age') },
+    AGES.map(a => {
+      const on = p.ageSet && p.age === a;
+      return button(AGE_SPAN[a], () => { if (setAge(p, a)) changed(`age-${a}`); }, on ? 'btn on' : 'btn', {
+        role: 'radio', 'aria-checked': String(on), 'aria-label': t('age.label', { span: AGE_SPAN[a] }), 'data-k': `age-${a}`, 'data-age': a,
+      });
+    })));
+  out.push(h('p', { class: 'muted' }, t(p.ageSet ? 'panel.ageNote' : 'panel.ageAsk')));
+
   out.push(h('p', { class: 'muted' }, t('panel.rules')), fc);
 
   // ── Mój dzień ──

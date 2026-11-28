@@ -1133,6 +1133,79 @@ describe('Zacheusz at 15–30 minutes', () => {
   });
 });
 
+// ── long sessions (45–60 min, round 24) ─────────────────────────
+describe('Zacheusz at 45–60 minutes', () => {
+  it('plans 2700 and 3600 s to the end: push/rest pairs at their design lengths, alternating', () => {
+    for (const planned of [2700, 3600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('runs a whole 60-min session with the smoke hand: levels and replays all hour, bounded worlds, Mela never twice in ten minutes, a short summary', () => {
+    const sim = later({ planned: 3600, seed: 2 });
+    const hand = smokeHand(sim);
+    const clock = { t: sim.t };
+    let evs = 0, levels = 0, maxPlats = 0, maxCoins = 0, maxCritters = 0, maxPast = 0, lastLine: unknown = null;
+    const heard: { text: string; at: number }[] = [];
+    const levelsAt: number[] = [];
+    const n = Math.round(3600 / STEP);
+    for (let i = 0; i < n; i++) {
+      clock.t += STEP;
+      sim.update(STEP, sim.block.kind === 'rest' ? CALM : FOCUSED, clock.t);
+      hand();
+      for (const e of sim.take()) { evs++; if (e.type === 'levelDone') { levels++; levelsAt.push(clock.t); } }
+      const l = sim.talk.current;
+      if (l && l !== lastLine) { lastLine = l; heard.push({ text: l.text, at: clock.t }); }
+      if (i % 30 === 0) {
+        maxPlats = Math.max(maxPlats, sim.world.plats.length);
+        maxCoins = Math.max(maxCoins, sim.world.coins.length);
+        maxCritters = Math.max(maxCritters, sim.world.critters.length);
+        maxPast = Math.max(maxPast, (sim as unknown as { past: unknown[] }).past.length);
+      }
+    }
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(2000);
+    // levels keep coming in the last half hour as in the first (replays past the twelfth)
+    expect(levelsAt.filter(at => at > 1800).length).toBeGreaterThan(levelsAt.filter(at => at <= 1800).length * 0.6);
+    // Mela talks in every quarter of the hour, and never says a line again within ten minutes
+    for (const q of [0, 900, 1800, 2700]) expect(heard.filter(h => h.at > q && h.at <= q + 900).length, `from ${q}`).toBeGreaterThan(5);
+    let soonest = Infinity;
+    const last = new Map<string, number>();
+    for (const h of heard) {
+      const was = last.get(h.text);
+      if (was !== undefined) soonest = Math.min(soonest, h.at - was);
+      last.set(h.text, h.at);
+    }
+    expect(soonest).toBeGreaterThanOrEqual(ROUND_SEC - 5);
+    expect(sim.talk.said.length).toBeLessThan(1000);
+    expect(maxPlats).toBeLessThan(1500);
+    expect(maxCoins).toBeLessThan(2000);
+    expect(maxCritters).toBeLessThan(500);
+    expect(maxPast).toBeLessThan(200);
+    expect(sim.homesNow.length).toBeLessThanOrEqual(HOMES.length);
+    expect(Number.isFinite(sim.headline().value)).toBe(true);
+    sim.finish();
+    const out = sim.result();
+    expect(out.score).toBeLessThan(10_000_000);
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(120);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    // the numbers fit their cell (a level's name is a name, the same at any length)
+    for (const [, v] of out.stats) expect(v.replace(/ · .*/, '').length).toBeLessThanOrEqual(12);
+  });
+});
+
 describe('Zacheusz: the breath pacer in a rest keeps off the tally card (pacerAt)', () => {
   it('keeps the standard place while he runs, and the pill whole under the HUD band, off the tally card, the bubble button and Mela\'s lines while the card is up', () => {
     for (const c of CHECK_SIZES) {

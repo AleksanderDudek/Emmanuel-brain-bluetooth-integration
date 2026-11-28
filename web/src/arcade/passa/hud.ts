@@ -3,8 +3,11 @@
  * first-ever dawn (what the game is, and the root verse Rom 8:28) and the verse cards (the dawn, a heavy moment's name,
  * the garland, the prayer, the close) — kit/scripture's passage on a dark scrim, faded in and out, in the layout's
  * `story` place (builder B's layout.ts) — moved below the runner's breath pacer in a rest where the two would meet.
- * Also the choices' tap targets (the layout's slots, only while the choices are open).
+ * Also the choices' tap targets (the layout's slots, only while the choices are open), and (round 25) the opening card
+ * that asks for the age group when it was never chosen: five chips in the story place, as Stop-klatka's.
  */
+import { AGES, AGE_SPAN } from '../kit/ages';
+import { MIN_TAP, TAP_GAP } from '../kit/mobile';
 import { passage, layoutPassage, drawPassage, REF_FONT, wrapLines, type Passage, type PassageLayout } from '../kit/scripture';
 import { clamp } from '../kit/juice';
 import { overlaps, pacerBox, pacerSizeAt } from '../kit/pacerspot';
@@ -47,6 +50,82 @@ export function aboveCard(l: Layout): Rect | null {
   return { x: c.x, y: c.y - 8 - h, w: c.w, h };
 }
 
+/** The ask card's measures: inner padding, title, text line, chip height, gap. */
+const ASK = { pad: 14, title: 18, text: 14, line: 19, chip: Math.max(MIN_TAP, 46), gap: Math.max(TAP_GAP + 2, 8), msg: 13 };
+
+/** A context to measure text with when none is given (hit-testing wraps the ask card's text as its drawing does). */
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function measure(): CanvasRenderingContext2D | null {
+  if (measureCtx === undefined) {
+    try {
+      measureCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+    } catch {
+      measureCtx = null;
+    }
+  }
+  return measureCtx ?? null;
+}
+
+/** The ask card's text lines at a width (the same wrap in drawing and in hit-testing). */
+function askLines(given: CanvasRenderingContext2D | null, w: number): string[] {
+  const text = t('ask.text');
+  const ctx = given ?? measure();
+  if (!ctx || typeof ctx.measureText !== 'function') {
+    // no canvas (a test): words shared over as many lines as ~7.4 px a character needs
+    const words = text.split(' ');
+    const n = Math.max(1, Math.min(4, Math.ceil(([...text].length * 7.4) / Math.max(80, w))));
+    const per = Math.ceil(words.length / n);
+    return Array.from({ length: n }, (_, i) => words.slice(i * per, (i + 1) * per).join(' ')).filter(Boolean);
+  }
+  ctx.save();
+  ctx.font = `500 ${ASK.text}px ${REF_FONT}`;
+  const lines = wrapLines(ctx, text, w);
+  ctx.restore();
+  return lines;
+}
+
+/**
+ * The five age chips of the ask card in `r` (the card's place): one row when each chip is at least 52 px wide, else
+ * three and two; under the title and the text (`lines` of it).
+ */
+export function ageRects(r: Rect, lines: number): Rect[] {
+  const { pad, title, line, chip, gap } = ASK;
+  const w = r.w - 2 * pad;
+  const top = r.y + pad + title + 8 + lines * line + 10;
+  const one = (w - 4 * gap) / 5 >= 52;
+  const out: Rect[] = [];
+  if (one) {
+    const cw = (w - 4 * gap) / 5;
+    for (let i = 0; i < 5; i++) out.push({ x: r.x + pad + i * (cw + gap), y: top, w: cw, h: chip });
+    return out;
+  }
+  const c3 = (w - 2 * gap) / 3;
+  for (let i = 0; i < 3; i++) out.push({ x: r.x + pad + i * (c3 + gap), y: top, w: c3, h: chip });
+  const x2 = r.x + pad + (w - (2 * c3 + gap)) / 2;
+  for (let i = 0; i < 2; i++) out.push({ x: x2 + i * (c3 + gap), y: top + chip + gap, w: c3, h: chip });
+  return out;
+}
+
+/** The ask card's rect (the story place, as tall as its content) and its chips. */
+export function askLayout(l: Layout, ctx: CanvasRenderingContext2D | null = null): { box: Rect; chips: Rect[]; lines: string[] } {
+  const r = cardRect(l, false);
+  const lines = askLines(ctx, r.w - 2 * ASK.pad);
+  const chips = ageRects(r, lines.length);
+  const last = chips[chips.length - 1];
+  const h = last.y + last.h + 10 + ASK.msg + 6 + ASK.pad - r.y;
+  return { box: { x: r.x, y: r.y, w: r.w, h }, chips, lines };
+}
+
+/** The age chips as tap targets while the ask card is open. */
+export function askTargets(l: Layout): TapTarget[] {
+  return askLayout(l).chips.map((r, i) => ({ label: AGE_SPAN[AGES[i]], ...r }));
+}
+
+/** The age chip under a tap (−1: none). */
+export function askAt(l: Layout, x: number, y: number): number {
+  return askLayout(l).chips.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+}
+
 /** The choices' slots as tap targets (only while the choices are open). */
 export function choiceTargets(l: Layout, labels: readonly string[]): TapTarget[] {
   return labels.slice(0, l.choices.length).map((label, i) => ({ label, ...l.choices[i] }));
@@ -64,6 +143,7 @@ export function choiceAt(l: Layout, n: number, x: number, y: number): number {
 export class Cards {
   private cache: { key: string; p: Passage; l: PassageLayout } | null = null;
   private storyA = 0;
+  private askA = 0;
   private verseA = 0;
   private lastVerse: string | null = null;
 
@@ -77,6 +157,13 @@ export class Cards {
     this.storyA = reduced ? (sim.story ? 1 : 0) : clamp(this.storyA + (sim.story ? dt / 0.5 : -dt / 0.4));
     if (this.storyA > 0.01) {
       this.story(ctx, r, this.storyA);
+      return;
+    }
+    // the age card (a session whose group was never chosen): in and out like the story card
+    const ask = sim.askOpen;
+    this.askA = reduced ? (ask ? 1 : 0) : clamp(this.askA + (ask ? dt / 0.4 : -dt / 0.4));
+    if (this.askA > 0.01) {
+      this.ask(ctx, l, sim, this.askA);
       return;
     }
     const v = sim.verse;
@@ -121,6 +208,45 @@ export class Cards {
     ctx.save();
     ctx.globalAlpha = a;
     drawPassage(ctx, p, l, box.x + box.w / 2, box.y + pad, { text: '#fff6e4', ref: 'rgba(255,220,160,0.88)' });
+    ctx.restore();
+  }
+
+  /** The age card: "Czyj to dzień?", a line, the five chips (the chosen one gold), the default or the chosen group. */
+  private ask(ctx: CanvasRenderingContext2D, l: Layout, sim: PassaSim, a: number): void {
+    const { box, chips, lines } = askLayout(l, ctx);
+    const { pad } = ASK;
+    this.scrim(ctx, box, a);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const cx = box.x + box.w / 2;
+    ctx.fillStyle = '#ffd98a';
+    ctx.font = `700 ${ASK.title}px ${REF_FONT}`;
+    ctx.fillText(t('ask.title'), cx, box.y + pad);
+    ctx.fillStyle = '#fff6e4';
+    ctx.font = `500 ${ASK.text}px ${REF_FONT}`;
+    lines.forEach((s, i) => ctx.fillText(s, cx, box.y + pad + ASK.title + 8 + i * ASK.line));
+    chips.forEach((r, i) => {
+      const on = sim.agePicked === i;
+      ctx.beginPath();
+      ctx.roundRect(r.x, r.y, r.w, r.h, 12);
+      ctx.fillStyle = on ? '#ffd98a' : 'rgba(255,236,205,0.10)';
+      ctx.fill();
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.strokeStyle = on ? '#fff1c8' : 'rgba(255,214,140,0.55)';
+      ctx.stroke();
+      ctx.fillStyle = on ? '#2a1b10' : '#fff6e4';
+      ctx.font = `700 ${r.w < 60 ? 15 : 16}px ${REF_FONT}`;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(AGE_SPAN[AGES[i]], r.x + r.w / 2, r.y + r.h / 2 + 1);
+      ctx.textBaseline = 'top';
+    });
+    const last = chips[chips.length - 1];
+    ctx.fillStyle = 'rgba(255,230,190,0.86)';
+    ctx.font = `500 ${ASK.msg}px ${REF_FONT}`;
+    const msg = sim.agePicked >= 0 ? t('ask.chosen', { span: AGE_SPAN[sim.age] }) : t('ask.def', { span: AGE_SPAN[sim.age] });
+    ctx.fillText(msg, cx, last.y + last.h + 10, box.w - 2 * pad);
     ctx.restore();
   }
 

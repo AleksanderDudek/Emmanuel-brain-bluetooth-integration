@@ -1020,7 +1020,8 @@ export class UrodzajSim {
 
   private highlights(): string[] {
     const out: string[] = [];
-    for (const tier of this.firsts.slice(-3)) out.push(t('hl.first', { fruit: fruit(tier).name }));
+    // the fruits made for the first time: one line, the three biggest (a long session makes several)
+    if (this.firsts.length) out.push(t('hl.first', { fruit: this.firsts.slice(-3).map(tier => fruit(tier).name).join(', ') }));
     if (this.poles) out.push(t('hl.pole', { n: this.poles }));
     // a long session may keep several feasts: each of the three kinds once (the summary stays short); "a new
     // decoration" only where one was set — after the sixth festival ever the table is full

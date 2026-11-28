@@ -15,7 +15,7 @@
  *             all gilded, at the end of that push (the beat and the radiance then share the time left)
  *   beat      the heart begins to beat (rest; ~10 %, at most 2 minutes)
  *   radiance  the golden heart shines (rest; ~12 %, at most 3 minutes)
- *   close     the blessing, the closing verse, "how much does it hurt now" (~5 %, 16–30 s)
+ *   close     the blessing, the closing verse, "how do you feel now" (~5 %, 16–30 s)
  *
  * Only real focus lifts, lays and pours (§18.3–18.4): in a sighted push past its lead-in, with a reliable signal, while
  * focused, at the rate of `focusRate`.  Washing, the beat and the radiance are receptive and run in whole breaths.
@@ -53,10 +53,18 @@ export const RULES = {
   shares: { gather: 0.48, gold: 0.2, beat: 0.1, radiance: 0.12 },
   beatMax: 120,
   radianceMax: 180,
+  /**
+   * Sessions over `from` s (45 and 60 minutes, round 24): the beat and the radiance may grow by up to `beat` / `radiance`
+   * s more (in proportion to the time past 30 minutes, all of it at 60); by design a wash takes one breath more for each
+   * quarter of an hour past 30 minutes (3 at 45, 4 at 60; the player's own dial is kept); and a lift or a lay asks at
+   * most `task` sighted seconds — what the gathering would stretch beyond that goes to the gold.  Without this an hour's
+   * 13 pieces asked 75 s each, a push to lay one and lift the next 2–2½ minutes long.  Shorter sessions are unchanged.
+   */
+  long: { from: 1800, beat: 120, radiance: 240, task: 36 },
 
   // ── the pieces ─────────────────────────────────────────────────
   /** pieces the heart breaks into, by session length (s → pieces; between two: the nearer below) */
-  pieces: [[180, 4], [300, 5], [600, 7], [900, 9], [1200, 11], [1500, 12], [1800, 13]] as readonly (readonly [number, number])[],
+  pieces: [[180, 4], [300, 5], [600, 7], [900, 9], [1200, 11], [1500, 12], [1800, 13], [2700, 14]] as readonly (readonly [number, number])[],
   piecesTest: 3,
   piecesMax: 14,
   /** a lift or a lay never asks less than this many sighted seconds of the plan */
@@ -98,6 +106,8 @@ export const RULES = {
   // ── the close ──────────────────────────────────────────────────
   /** the close waits up to this long (s) past the session's end for the 0–10 answer */
   rateWait: 6,
+  /** a "1" typed in the close waits this long (s) for a "0" — together 10 */
+  keyTen: 0.8,
   historyMax: 30,
 
   // ── voice and cards ────────────────────────────────────────────
@@ -107,6 +117,8 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 3,
+  /** sessions over long.from (45, 60 min): a narrator's line, or a rest's passage, comes back only after this long (s) */
+  talkFresh: 600,
   hintGap: 1.2,
   /** a tap makes the words glow again for this long (s) */
   reshowSec: 2.4,
@@ -210,7 +222,11 @@ export function planFor(o: PlanOpts): Plan {
   const cyc = Math.max(2, fin(o.cyc, 10));
   const lead = leadOf(o.eeg);
   const F = dialFocus(o.focus);
-  const W0 = !o.custom && T < R.shortSec ? R.rest.min : dialRest(o.rest);
+  // a long session (45, 60 min): how far past 30 minutes (0..1)
+  const longK = T > R.long.from ? clamp((T - R.long.from) / R.long.from) : 0;
+  const W0 = !o.custom && T < R.shortSec ? R.rest.min
+    : !o.custom && longK > 0 ? Math.min(R.rest.max, dialRest(o.rest) + Math.round(longK * 2))
+      : dialRest(o.rest);
 
   // the arrival in whole breaths (a test: its share), the close
   let arrive: number, arriveBreaths: number;
@@ -227,15 +243,17 @@ export function planFor(o: PlanOpts): Plan {
   const S = R.shares, sum = S.gather + S.gold + S.beat + S.radiance;
   // the beat and the radiance in whole breaths, capped; what they leave goes to the gather and the gold
   const whole = (x: number): number => (test ? x : Math.max(cyc, Math.round(x / cyc) * cyc));
-  const beat = whole(Math.min(R.beatMax, (mid * S.beat) / sum));
-  const radiance = whole(Math.min(R.radianceMax, (mid * S.radiance) / sum));
+  const beat = whole(Math.min(R.beatMax + longK * R.long.beat, (mid * S.beat) / sum));
+  const radiance = whole(Math.min(R.radianceMax + longK * R.long.radiance, (mid * S.radiance) / sum));
   const work = Math.max(1, mid - beat - radiance);
   // a test (≤ testSec): the gold keeps room for one sighted push after the grace — a minute's test still pours and scores
   const share = (work * S.gather) / (S.gather + S.gold);
-  const gather = test ? Math.max(R.taskMin, Math.min(share, work - R.graceTest - lead - R.testPour)) : share;
-
-  // the pieces: the heart's, and how many fit the player's rhythm (a lift-and-lay block of F s: tasks of (F − lead) / 2)
   const pieces = piecesFor(T);
+  // a long session: the gathering no longer than its pieces at `long.task` s a task (the rest goes to the gold)
+  const longCap = longK > 0 ? 2 * pieces * R.long.task + pieces * W0 * cyc + (pieces + 1) * lead : Infinity;
+  const gather = test ? Math.max(R.taskMin, Math.min(share, work - R.graceTest - lead - R.testPour)) : Math.min(share, longCap);
+
+  // the pieces: how many fit the player's rhythm (a lift-and-lay block of F s: tasks of (F − lead) / 2)
   const sMin = Math.max(R.taskMin, (F - lead) / 2);
   let planned = 0, wash = W0, taskSec = 0;
   for (let w = W0; w >= 1 && !planned; w--) {

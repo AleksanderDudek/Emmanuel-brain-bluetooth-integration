@@ -8,7 +8,7 @@
  * repeats a scene, and the next session resumes where this one stopped.  Round 20 made that form an engine
  * (`makeHealthModule(lib)` in ./index.ts), so a game supplies only what is its own:
  *
- *   the library     its meditations (4–6), each 2–4 scenes, each with a verse from scripture.ts
+ *   the library     its meditations (4–7), each 2–4 scenes, each with a verse from scripture.ts
  *   the pictures    its worlds, drawn in code in their own units (paint.ts is the shared palette and light)
  *   the words       its catalogs in pl (the source), en, de, sv — the keys listed below; everything generic (the
  *                   modes, the controls, the picker, the stats, the coach marks, most narrator lines) is the
@@ -98,6 +98,14 @@ export interface WorldState {
   px: number;
   /** the look the player chose (HealthLibrary.looks), '' when the game has none */
   look: string;
+  /**
+   * Round 24 (Nowe siły, DESIGN §28): how far this session's arc has come — its focused growth over what the session
+   * can hold at the player's own pace (0..1, never falls; a player who keeps their pace reaches 1 a little before the
+   * end).  Absent outside play (the lobby's hero and tiles): a world then reads its own `g`.
+   */
+  arc?: number;
+  /** Round 24: this session's focused growth per scene (scene units, repeats add up); absent outside play */
+  session?: Readonly<Record<string, number>>;
 }
 
 export interface WorldPainter {
@@ -121,7 +129,7 @@ export interface WorldPainter {
 export interface HealthLibrary {
   /** the registry's GameId (its folder under src/arcade) */
   id: string;
-  /** 4–6 meditations; the last may walk the whole library in one ("Cała …") */
+  /** 4–7 meditations; the last may walk the whole library in one ("Cała …") */
   meds: readonly MedSpec[];
   scenes: Readonly<Record<string, SceneSpec>>;
   worlds: Readonly<Record<string, WorldPainter>>;

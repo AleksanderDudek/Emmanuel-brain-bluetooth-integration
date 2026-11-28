@@ -42,6 +42,14 @@ import { Talk } from './talk';
 export type BlockKind = 'warmup' | 'push' | 'rest';
 /** a narrator's line may begin in a rest with words only this far into an in-breath (s), round 23 */
 const QUIET_START = 0.6;
+/**
+ * The session's arc (round 24, Nowe siły — a world may picture the whole session's work, WorldState.arc): each bit of
+ * focused growth adds itself over what the session can hold — the growth so far plus the player's pace times the
+ * sighted time left (the pace: scene units a sighted second, this session's own after a prior worth `priorSec`) — so a
+ * player who keeps their pace reaches 1 at about `margin` of the session's sighted time, whatever its length; never
+ * less than `floor` a sighted second (a session with only a few focused moments stays partial).
+ */
+export const ARC = { prior: 0.8 / RULES.sceneSec, priorSec: 60, floor: 0.3 / RULES.sceneSec, margin: 0.88 } as const;
 export interface Block {
   kind: BlockKind;
   dur: number;
@@ -301,6 +309,12 @@ export class HealthSim {
   /** a coach mark of the runner is on screen until this time (s of play): the narrator waits for it */
   hintUntil = 0;
   private readonly events: SimEvent[] = [];
+  // the session's arc (round 24): focused growth, a blind push's growth until its end, sighted seconds with a signal
+  private arcG = 0;
+  private arcHidden = 0;
+  private arcSec = 0;
+  private arcK = 0;
+  private readonly arcScene: Record<string, number> = {};
 
   constructor(init: SimInit) {
     this.lib = libOf(init.lib);
@@ -394,6 +408,33 @@ export class HealthSim {
     for (const v of this.wholeNow.values()) n += v;
     return n;
   }
+  /** Round 24: how far this session's arc has come (0..1, never falls; see ARC) — WorldState.arc. */
+  get arc(): number { return this.arcK; }
+  /** Round 24: this session's focused growth per scene (scene units, repeats add up) — WorldState.session. */
+  get sessionGrowth(): Readonly<Record<string, number>> { return this.arcScene; }
+
+  /** The sighted seconds the plan still holds from now (a push past its lead-in; the warm-up at its rate). */
+  private sightedLeft(): number {
+    if (this.phase !== 'play') return 0;
+    let s = 0;
+    for (let i = this.blockIndex; i < this.plan.length; i++) {
+      const b = this.plan[i], t = i === this.blockIndex ? this.blockT : 0;
+      if (b.kind === 'push') s += Math.max(0, b.dur - Math.max(t, this.lead));
+      else if (b.kind === 'warmup') s += Math.max(0, b.dur - t) * RULES.warmK;
+    }
+    return s;
+  }
+
+  /** Focused growth reaches the session's arc (see ARC). */
+  private addArc(scene: string, dg: number): void {
+    if (dg <= 0) return;
+    const left = this.sightedLeft();
+    const pace = (ARC.prior * ARC.priorSec + this.arcG) / (ARC.priorSec + this.arcSec);
+    const total = Math.max(this.arcG + pace * left, ARC.floor * (this.arcSec + left), 1e-6);
+    this.arcG += dg;
+    this.arcK = Math.min(1, this.arcK + dg / (ARC.margin * total));
+    this.arcScene[scene] = (this.arcScene[scene] ?? 0) + dg;
+  }
 
   // ── the session ────────────────────────────────────────────────
   start(): void {
@@ -423,6 +464,8 @@ export class HealthSim {
     this.reliable = f.reliable && f.activity !== null;
     // the settling rest's time under the opening card is not the rest's (its verdict needs its own reliable seconds)
     if (this.reliable && !this.holding) this.relSec += dt;
+    // the arc's pace counts the sighted time with a signal (round 24)
+    if (this.reliable && this.phase === 'play' && ((this.pushBlock && this.blockT >= this.lead) || this.warmBlock)) this.arcSec += dt * (this.warmBlock ? RULES.warmK : 1);
     if (this.phase === 'play') this.schedule(dt, f, now);
     if (this.phase === 'finale' && now >= this.plannedSec) this.end();
     // end() moved the phase on (TypeScript narrowed it before the calls above)
@@ -548,7 +591,9 @@ export class HealthSim {
         if (this.blind) {
           if (this.stage === 'at') this.hidden = Math.min(Math.max(0, 1 - this.g) + RULES.blindCarry, this.hidden + dg);
           this.unitsHidden += units;
+          this.arcHidden += dg;
         } else {
+          this.addArc(this.scene, dg);
           this.units += units;
           this.unitsAcc += units;
           if (this.stage === 'after') this.afterSec += dt;
@@ -952,6 +997,9 @@ export class HealthSim {
         const n = Math.floor(this.unitsHidden);
         this.units += this.unitsHidden;
         this.unitsHidden = 0;
+        // the arc too sees a blind push's growth at its end (round 24)
+        this.addArc(this.scene, this.arcHidden);
+        this.arcHidden = 0;
         this.emit({ type: 'blindEnd', share: s, units: n, gained });
         this.talk.ask('blindEnd', 2, 6);
       }

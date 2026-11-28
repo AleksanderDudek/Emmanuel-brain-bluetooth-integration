@@ -7,12 +7,16 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import type { Difficulty } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import {
   CHAPTERS, FAMILIES, HERO_IDS, HEROES, MISSIONS_PER_CHAPTER, RANK_COLOR,
   boonName, chapterName, familyBonusText, familyName, heroName, heroText, rankName, roleName, ultName, type HeroId,
 } from './content';
-import { t } from './i18n';
-import { activeFamilies, bestOf, campaignDone, chapterStars, familyCounts, growth, isBoonId, starsTotal, swapIn, type DziewiatkaProgress } from './meta';
+import { t, type Key } from './i18n';
+import {
+  activeFamilies, bestOf, campaignDone, chapterStars, familyCounts, growth, isBoonId, levelOf, starsTotal, swapIn, type DziewiatkaProgress,
+} from './meta';
 import { paintFace } from './paint';
 
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -32,11 +36,29 @@ function canvasTile(w: number, hh: number, draw: (ctx: CanvasRenderingContext2D)
   return c;
 }
 
-export function progressPanel(p: DziewiatkaProgress, save: () => void): HTMLElement {
+/** What a difficulty level means in Dziewiątka (rules.ts LEVELS), in the page's language. */
+export const levelLine = (d: Difficulty): string => t(`level.${d}` as Key);
+
+/**
+ * The card.  `o.levels`: the difficulty row at its top (kit/difficultypanel.ts) — the lobby's card has it (index.ts);
+ * a choice saves at once and redraws the rest of the card (the record shown is the chosen level's) while the row, and
+ * the keyboard's focus on it, stay.
+ */
+export function progressPanel(p: DziewiatkaProgress, save: () => void, o: { levels?: boolean } = {}): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
   let out: HeroId | null = null;
+  const levels = o.levels
+    ? difficultyPanel({
+      value: levelOf(p), line: levelLine, onChange: d => {
+        p.difficulty = d;
+        save();
+        render();
+      },
+    })
+    : null;
+  if (levels) root.appendChild(levels);
   const render = (): void => {
-    while (root.firstChild) root.removeChild(root.firstChild);
+    while (root.lastChild && root.lastChild !== levels) root.removeChild(root.lastChild);
     for (const el of build(p, out, (id, inFive) => {
       if (inFive) {
         out = out === id ? null : id;

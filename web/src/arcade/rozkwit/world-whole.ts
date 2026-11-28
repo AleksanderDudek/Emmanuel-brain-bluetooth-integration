@@ -1,7 +1,7 @@
 /**
  * Rozkwit's own picture (DESIGN.md §24): the whole person at once — the finale of the health visualisations.  The
  * figure is Lekkość i siła's (ksztalt/geo.ts: the same calm, featureless person of light, a woman's or a man's
- * silhouette, the look the player chose), seen from the front, standing; on it, everything the section's pictures
+ * silhouette for the player's look), seen from the front, standing; on it, everything the section's pictures
  * showed one by one lights together:
  *
  *   cells      thousands of small lights through the whole body (energy, repair, renewal)
@@ -18,12 +18,15 @@
  * Light is light: glow sprites and strokes, no shadowBlur, no filters, nothing erased on the frame (destination-out
  * only in the bake).
  */
-import { frontOutline, frontPath, lookOf, type Look, type P } from '../ksztalt/geo';
+import { frontOutline, frontPath, type Look, type P } from '../ksztalt/geo';
 import { figureLight, motes, phase, pointOn, sparkle, wpx } from '../ksztalt/draw';
 import { AQUA, GOLD, GOLD_HI, PEARL, ROSE, TAU, glow, glowEllipse, hash, mix, rgba, smoothPath } from '../kit/healthlib/paint';
 import type { Pt, WorldPainter, WorldState } from '../kit/healthlib/spec';
 import { HAIR_COLOUR } from './world-hair';
 import { COLOUR } from '../wlosy/content';
+
+/** The silhouette for Rozkwit's look (Nowe siły's six since round 25: a man's `m…` is Lekkość i siła's `on`). */
+const lookOf = (l: string): Look => (l === 'on' || l.startsWith('m') ? 'on' : 'ona');
 
 // ── places on the figure (world units) ───────────────────────────
 export const HEART: Pt = [1.8, 27];

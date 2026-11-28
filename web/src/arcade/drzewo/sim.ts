@@ -244,6 +244,7 @@ export class DrzewoSim {
     this.pushesBase = this.p.pushes;
     this.bestBefore = bestOf(this.p);
     this.talk = new Talk(m => linesOf(m), init.rng);
+    this.talk.fresh = this.plannedSec > RULES.talkFrom ? RULES.talkFresh : 0;
     this.fruitPos = ((this.p.next % 9) + 9) % 9;
     this.startFruitFill = clamp(this.p.nextFill, 0, 0.99);
     this.cycleRipe = FRUITS.map((_, i) => !!this.p.ripe[i]);

@@ -8492,6 +8492,8 @@ fire). Everything else the meditation quotes was already in `scripture.ts`.
 
 ### 21.4 Music that fits the session (`kit/playlist.ts`, `kit/music.ts`)
 
+*Superseded in round 24 by §28.7 (the tracks play back to back with gentle transitions, filling the session) and §28.8 (the rating asks how you feel).*
+
 **The founder's eleven** (lengths and embeddability read from YouTube on 2026-11-24; all may be embedded):
 
 | # | Track | Channel | Length |
@@ -11552,3 +11554,2432 @@ breath long (≤ 80 characters, most 45–70).
   "Przed snem" especially; it was left out to keep this round to the founder's list (the body's processes).
 * **A spoken voice** (eyes closed in rest) would deepen the words further; the app has no narration voice yet — a
   recorded voice per language would be a round of its own.
+
+## 28. Round 24: Nowe siły, Stop-klatka, Warstwy światła, Koła światła, 45 and 60 minutes (2026-11-27)
+
+### 28.1 The request
+
+The founder, 2026-11-27 (Polish, away, "masz wolną rękę… pick recommended"), six asks:
+
+1. **Stem cells** — a visualisation of the body producing stem cells, where more focus produces more and visibly
+   improves every parameter; the starting point a figure (a man or a woman) visibly tired, with troubled skin and
+   general health troubles; the visualisation is this figure's healing.
+2. **Mindfulness in stressful everyday situations** ("nadpisanie zachowania gniewu", overriding the anger response) —
+   everyday stressful situations told as stories, with a freeze of 20–60 s at one moment: charge focus, come into here
+   and now, learn to master the emotion; situations gathered for the age groups 11–19, 20–26, 27–35, 36–50, 50+,
+   chosen at the start; multi-step stories fitted to each group's own troubles, training the prefrontal cortex; seen
+   "z perspektywy 3ciej osoby (tak jakby widok z oczu)".
+3. **Every session may also last 45 and 60 minutes.**
+4. **Practice: cleansing the aura** — the layers of being; on each layer the attachments ("wczepy") are drawn out, the
+   etheric, astral and other bodies healed and brightened; the different things on the layers visualised ("see the
+   attached pictures" — the pictures did not arrive with the message); beautiful.
+5. **Practice: spinning up the chakras** — the picture with the chakras on the front and the back of the body, and
+   up and down; the player brings each to right working by focus, one after another; at the end the full field;
+   beautiful.
+6. **Złote serce's music** — the list should play many songs in a row, fitted to the session's length, with gentle
+   transitions; and the question "how much does it hurt" becomes "how do you feel".
+
+### 28.2 The round's decisions
+
+* **Nowe siły** (`sily`, health, root Isa 40:31 — "renew their strength… run and not grow weary"): a health
+  visualisation on the engine (§24), so it has the inner layer of §27 from the start. A figure — woman or man, three
+  skin tones (the lobby's looks) — stands tired at the start of every session: grey dull skin with redness and spots,
+  shadows under the eyes, dim eyes, slumped shoulders, dull thin hair, a dim colour. Its meditations walk the body's
+  real stem cells (bone marrow's blood-forming cells, the skin's basal layer and the hair follicle's bulge, the
+  muscles' satellite cells, the gut lining renewed every few days, the repair of the night), each scene a picture that
+  grows only from real focus; and as the session's focused growth accumulates, the figure itself recovers parameter by
+  parameter — colour, clear skin, bright eyes, straight back, shining hair, a quiet smile. The engine gets one
+  addition: a world may see how far this session's arc has come (all scenes this session), so the figure keeps what
+  the earlier scenes gave. The words stay §24.3's: the picture shows what the body really does; no line says that
+  focus makes stem cells or heals.
+* **Stop-klatka** (`stopklatka`, heart, after Każda myśl; root Prov 16:32 — "he who rules his spirit than he who
+  takes a city"): stories of everyday provocation for the chosen age group, seen through the eyes; at the trigger the
+  time freezes (the push, 20–60 s fitted to the session and the player's pace) and the camera steps out of the eyes to
+  the observer's view (self-distancing, the best-supported quick tool against anger), with the four steps of the
+  freeze — stop, breathe and charge (focus), name the feeling (affect labelling), a second look (reappraisal) — and
+  then the answer from the calm and how it turns out (not a fairy tale). The story's contract is
+  `stopklatka/story.ts`; 12 stories per group (60 — first eight, then four more so an hour repeats less), Polish first, en/de/sv. Heavier situations (bullying, a parent's
+  illness) only with a lobby switch; helplines in the panel (116 111 for the youngest group).
+* **Warstwy światła** (`warstwy`, heart; root 1 Thess 5:23 — "your whole spirit, soul and body"): the tradition's
+  seven layers around the person, each with its own texture and its own kind of what clings to it, pictured in
+  Scripture's images — thorns, stains, darts, cords, chains, ashes, cracks; focus draws each out and hands it to the
+  Light, and the layer closes, smooths and brightens. Words per §18.3: light, not energy; prayer with a Thou (Jesus
+  takes what clings, the player entrusts); the tradition (the aura and its layers) named once in the lobby; no promise.
+* **Koła światła** (`kola`, heart; root Eph 4:16 — "the whole body… through the work of each individual part"): the
+  figure in profile with the seven wheels — the first opening down, the seventh up, the five between opening to the
+  front and to the back; one after another the player's focus brings each to a calm, even, clockwise turn with a clean
+  colour, front and back alike; at the end all seven feed one full field around the figure. Names of the wheels as the
+  founder chose in round 10; words per §18.3.
+* **45 and 60 minutes** (`SESSION_MINUTES` = 3, 5, 10, 15, 20, 25, 30, 45, 60): the pickers have nine columns; every
+  game, the focus training and the cards' games were audited at 2 700 and 3 600 s (the plan to its finale, a full
+  headless session with bounded collections and a clean result, the work fitted to the session — §24.4b).
+* **Złote serce's music**: the plan now plays the chosen tracks back to back with gentle cross-fades, filling the
+  session — the last track fades out under the close when it would run past it; the ambient music only opens the
+  session briefly and bridges where a player's device cannot fade (iOS ignores YouTube's volume). The rating asks
+  "Jak się teraz czujesz?" (0 heavy … 10 light and well) instead of how much it hurts; old ratings are carried over
+  turned round.
+
+### 28.3 Nowe siły — the body's own stem cells, and a tired person who recovers (New Strength · Neue Kraft · Ny kraft; builder A)
+
+**The request in one line:** *"Wizualizacja komórek macierzystych — produkcja w ciele … poprzez zwiększenie koncentracji
+zwiększała ich produkcję i wizualnie poprawiała wszystkie parametry … punktem wyjścia postać (mężczyzna/kobieta), która
+jest wizualnie zmęczona, ma problemy ze skórą … wizualizacja uzdrawiania tej postaci."*
+
+**What it is.** A health visualisation on the engine (§24.5) — `src/arcade/sily/`, `index.ts = makeHealthModule(LIBRARY)`
+— so it has the whole section for free: the walk, the picker and modes, blind pushes, rest's depth, „Na co dzień”, and
+the inner layer „Ciało słucha” (§27: three words for the body per meditation, the intentions, the word of peace, the
+settling-in rest, „Przed snem”). Registry: kind `health`, right before Rozkwit (which stays the capstone); root
+Isa 40:31; unit „nowych komórek” (120 a scene, the section's scale); `tools: ['fnirs','eeg']`, `tuning: { adapt: 0.08 }`.
+
+#### The five meditations (14 scenes; the person and the tissue alternate)
+
+| med | scenes (world) | verse | the parameter it serves |
+|---|---|---|---|
+| **Źródło w kościach** | `kosci` the person: the bones that hold red marrow drawn as warm light (breastbone, ribs, collarbones, spine, hip bones), their marrow lighting in turn, new red cells flowing to the heart and out to the face and hands · `nisza` (szpik) a blood-forming stem cell in its niche by the bone, held by a reticular cell; it divides — one daughter stays, the other divides on (1 → 2 → 4 → 8) towards the vessel · `krwinki` (szpik/wyspa) an erythroblastic island: young red cells ripen round a nurse macrophage, give away the nucleus, slip into the stream | Isa 40:29 | colour and lips |
+| **Nowa skóra** | `twarz` the face close: a soft band of renewal rising from the jaw to the brow, the follicles waking at the temples · `warstwa` (naskórek) a basal stem cell divides, a daughter rises, flattens, loses its nucleus, reaches the surface (a day counter to ≈ 39), the top flake lets go and the surface takes a sheen · `mieszek` (mieszek) the bulge wakes, young cells go down, a new bulb forms round the papilla, a new hair grows out | 2 Cor 4:16 | clear, even skin with a sheen; hair |
+| **Siła w mięśniach** | `plecy` the person, shoulders: the trapezius, the deltoids and (fainter, seen through) the long back muscles warm in turn, aqua satellite cells waking along them · `satelity` (mięsień) a fascicle in cross-section; after effort small strains glint, the satellite cell under the basal lamina wakes, divides, one goes back to quiet, the other fuses in as a new nucleus, the strains mend, the fibre stands fuller | Ps 145:14 | posture |
+| **Noc odnowy** | `sen` the person at night, eyes closed: deep sleep's slow waves as a calm trace beside the head, the night's gold carried from the neck through the body · `naprawa` (naskórek, night) basal cells divide in turn, gold reaches the tissue from the capillaries · `poranek` the person in the morning light | Ps 30:5 | bright eyes |
+| **Cała postać** | `zrodla` the person: all the sources in turn — marrow, skin, muscles, the gut's lining, the night · `jelito` (jelito) villi and crypts: new cells climb from the crypts' stem cells (between Paneth cells) up to the villus tip while the oldest let go; then iron and B12 pass into the blood (for the marrow) · `pelnia` the person renewed, a warm light and rising motes | Neh 8:10 | the quiet smile |
+
+Closers: Matt 11:28, Ps 23:3, Prov 17:22, Lam 3:22–23, Ps 103:5 (all in scripture.ts; none added). The lobby's tiles
+are the meditations' last scenes — red cells, a new hair, muscle, the morning, the person renewed — so they differ.
+
+#### The person (`figure.ts`)
+
+An adult of about forty, **a woman or a man in three skin tones** (looks `f1 f2 f3 m1 m2 m3`, the lobby's chips „Kobieta
+· jasna skóra" …; hair: a chestnut bob, long dark hair with a lock over the shoulder, natural curls; short brown,
+short dark with stubble, close-cropped with a trimmed beard), from the hips up, painted in code with soft gradients
+and light from the upper left; the head a little larger than life (×1.12, a portrait's warmth — the face reads on a
+phone). **Tired at the start of every session**, as tiredness really looks (Sundelin et al. 2013: hanging eyelids,
+darker circles, paler skin, droopier mouth corners): grey-sallow dull skin with some redness and six small blemishes,
+violet-brown circles under half-lidded eyes with pinkish whites, weary brows (the inner ends a little up — weariness,
+not a frown), slumped shoulders and the head forward and down, thinner dull hair with a few fine flyaways and the
+parting showing, pale lips, a cool grey cast. Six parameters (`renew.ts`) bring it back, each drawn: **kolor** (warm
+skin, rosy cheeks and lips), **skóra** (redness and blemishes fade, a sheen on forehead, cheekbones, bridge, chin),
+**oczy** (lids lift, whites clear, circles go, catchlights brighten), **postawa** (shoulders rise 2.4 and widen 2.8
+units, head comes up 4.4), **włosy** (fuller, deeper colour, a soft sheen band, strands), **uśmiech** (corners lift,
+cheeks rise, lower lids lift a little; a warm light behind). Painted once per look × renewal (quantised to 1/24) ×
+scale bucket into an offscreen layer (`FigureCache`, ≤ 8 layers; the head in a sharper second layer for the close
+view); a frame only composes it — and breathes with rest's guide (a 1 % rise).
+
+**Kindly drawn, never grotesque; and never a halo.** Looking at the first screenshots: the engine's gauge ring sat on
+the head when the growing point reached the skull — a ring round a head reads as a saint's halo. So no growing point
+in the person's scenes ever sits on the head in the whole or shoulder views (the marrow's path goes through the trunk
+only; the night's gold and the morning's light are followed on the chest), no light is drawn on the skull or inside the
+head (the pituitary is named in the words only — a gold point between the eyes would read as a "third eye"), the slow
+waves are a calm trace beside the head (as a sleep recording shows them), not rings round it, and the follicles wake as
+a few aqua glints at the temples, not a gold string across the brow.
+
+#### How the person recovers — the engine's one addition (`kit/healthlib`: `spec.ts`, `sim.ts`, `render.ts`)
+
+`WorldState.arc` (0..1) — how far this session's arc has come — and `WorldState.session` (this session's focused growth
+per scene). Additive: the other nine games ignore them; nothing else changes (score, units, blocks, progress shape).
+
+* **The arc** (`sim.ts`, `ARC`): every bit of focused growth `dg` adds `dg / (0.88 × T)`, where `T` = max(the growth
+  so far + the player's pace × the sighted time left in the plan, 0.3/30 × the session's sighted time); the pace is
+  this session's own growth per sighted second (a push past its lead-in; the warm-up at its half rate) after a prior
+  of 0.8/30 worth 60 s. So a player who keeps their pace reaches 1 at about 88 % of the session's sighted time,
+  **whatever its length**, and only growth moves it (a lapse stops it; it never falls). A blind push's growth reaches
+  it at the push's end, as the picture's does. No progress field: every session starts tired (the founder's
+  starting point), so nothing persists and `meta.ts` is untouched.
+* **The parameters** (`renew.ts`): each = max(staged(arc), lead). *Staged:* in a fixed order — colour, skin, eyes,
+  posture, hair, smile — each over 0.3 of the arc, the next starting 0.14 later (the smile is always the crown).
+  *Lead:* the meditation that serves a parameter, walked this session, lends it 0.35 per scene grown (≤ 0.5) — the
+  person answers the meditation the player is in, even in a 60-minute session where one scene is a small part of the
+  arc. Both never fall, so **the person keeps what earlier scenes gave** when the camera comes back. Outside play (the
+  hero, the tiles, the calibration intro) there is no arc: the scene's own growth stands for it — the lobby's hero shows
+  the tired person renewing in its 13-second loop.
+* **Measured** (`test/arcade-sily.test.ts`, the sim, scripted players): a strong player (always focused) reaches 1 at
+  3, 10, 30, 45 and 60 minutes, between 0.5 and 0.97 of the session; the fit grid — 3/10/30/60 min × weak (focused 6 s
+  of 10 at level 0.5) / threshold (6 of 8 at 0.6) / strong × sessions 1/2/5/13 — ends ≥ 0.9 everywhere (on the engine
+  fixture first: weak 0.95–1.00, the others 1.00, reached at 0.66–0.93 of the session); a player focused 2 s of every
+  20 ends at 0.21–0.37 (partial), none at 0 (the person stays tired).
+
+#### Words and honesty (§24.3)
+
+The founder's „uzdrawianie" becomes the picture's language — the person recovers on the screen as every health game
+grows its picture from focus — and **no word** says that focus makes stem cells, heals, cures or makes anyone younger
+(the test bans uzdraw/ulecz/wylecz/odmład/młodsz, heal/cure/rejuven/younger, heilt/verjüng/jünger, läker/föryng/yngre
+in all keys, beyond `checkLibrary`'s list). The opening's second page: "To wizualizacja i trening uwagi, nie leczenie
+i nie obietnica. Obrazy pokazują, co ciało naprawdę robi, a Twoje skupienie rozjaśnia postać na ekranie. Prawdziwą
+odnowę wspierają sen, ruch, dobre jedzenie i spokój. Przy długim zmęczeniu porozmawiaj z lekarzem." — "not a
+treatment" also in `panel.not`, `howto.tip2` and the registry's last tip. The open card names the root as a verse
+("Werset z Księgi Izajasza (40,31) mówi o nowych siłach od Boga"), not a paraphrase. „Na co dzień": iron and B12 (and
+a blood test when tiredness lasts) · sun protection, gentle washing, no smoking · daily movement and resistance twice a
+week, protein · 7–9 hours at a regular time, no screen the last hour · one thing today. Words for the body (§27), e.g.
+„Teraz w Twoim szpiku rodzą się nowe krwinki." / „W głębokim śnie Twoje ciało naprawia się samo." Polish without
+gendered forms ("Zobacz postać w pełni sił: prosto…" rather than "wyprostowanym").
+
+#### The numbers and their sources (PubMed records checked 2026-11-27)
+
+| on screen | source |
+|---|---|
+| red marrow in the adult's flat bones (breastbone, hip bones, vertebrae, ribs, skull) | textbook anatomy (StatPearls, Bone marrow) |
+| 50 000–200 000 blood stem cells making blood at any time | Lee-Six et al., Nature 2018;561:473 (PMID 30185910) |
+| ≈ 2 × 10¹¹ red cells a day — over 2 million a second; ripening round a macrophage, the nucleus given away | Dzierzak & Philipsen, Cold Spring Harb Perspect Med 2013 (PMID 23545573) |
+| ≈ 330 billion cells replaced a day, nearly 90 % blood cells | Sender & Milo, Nat Med 2021;27:45 (PMID 33432173) |
+| from the basal layer to the flake ≈ 39 days | Weinstein et al., J Invest Dermatol 1984;82:623 (as Żywa skóra, §24.8) |
+| the follicle's stem cells in the bulge, where the arrector pili holds | Cotsarelis et al., Cell 1990;61:1329 (PMID 2364430) |
+| hair ≈ 0.35 mm a day | StatPearls "Anatomy, Hair"; Loussouarn 2001 (PMID 11531795) (as Każdy włos, §15) |
+| satellite cells between the fibre's membrane and basal lamina; after effort they divide, some return to quiet, others fuse in as new nuclei | Mauro 1961 (PMID 13768451); Snijders et al., Front Physiol 2015 (PMID 26557092); Murach et al. 2021 (PMID 34480776) |
+| GH secretion goes with slow-wave sleep (149 men, 16–83) | Van Cauter et al., JAMA 2000;284:861 (PMID 10938176) |
+| after a night without sleep: hanging eyelids, darker circles, paler skin, droopier mouth (40 raters) | Sundelin et al., Sleep 2013;36:1355 (PMID 23997369) |
+| the gut's lining renewed in ≈ 3.5 days (3–5) | Darwich et al., Drug Metab Dispos 2014 (PMID 25233858), meta-analysis |
+| crypt-base stem cells between Paneth cells; iron absorbed in the duodenum, B12 in the ileum | Barker et al. 2007 (as Każda komórka, §24.7); textbook physiology |
+| resistance training twice a week | WHO 2020 (Bull et al., PMID 33239350) |
+
+#### Decisions (and why)
+
+* Five meditations, not six: each tied to a visible parameter (colour/marrow, skin+hair/skin, posture/muscle,
+  eyes/night, smile/whole). The gut has no face of its own, so it is a scene of „Cała postać", tied truthfully to the
+  marrow (iron, B12).
+* The person is hips-up in five of the seven person scenes (the posture and the whole person read), close on the face
+  for the skin, on the shoulders for the muscles.
+* The lens worlds are the game's own (a warmer, rounder watercolour hand; an erythroblastic island, a muscle
+  cross-section, a single villus with neighbours) — not Każda komórka's marrow/gut/muscle plates.
+* The renewal is session-only (every session starts tired) — no new progress field; the engine's progress and
+  `migrate` stay as they are.
+* Looks: the founder's "mężczyzna/kobieta" plus three skin tones, chosen in the lobby; the default is the first look
+  (a woman, light skin) — the lobby says it can be changed.
+
+#### Checks
+
+* `test/arcade-sily.test.ts` — 43 ✓: checkLibrary; five meds / 14 scenes, each with the person and a lens; registry
+  place and unit; 40 s first-ever and returning score; nothing grows without focus and the person stays tired; full
+  renewal at 3/10/30/45/60 min (renewed between 0.5 and 0.97 of the session); partial at 2 s of 20; the fit grid ≥ 0.9;
+  the arc never falls and starts at 0 each session; a blind push reaches it; renewal order, lead, monotone; the figure's
+  colours and posture move; numbers as cited in four languages; NBSP; tone; words for the body; looks; every scene
+  bakes and draws at every growth in every look with and without an arc (no NaN, no negative radius); every focus in its
+  view; portals inside the view; a 60-minute session (bounded per-scene map, ≤ 5 highlights, renewed).
+* `test/arcade-healthlib.test.ts`, `arcade-inner`, the eight health libraries' tests ✓ with the engine addition;
+  `test/i18n-arcade.test.ts` pinned (titles pl/en/de/sv, unit); `npx tsc --noEmit -p .` clean in these files.
+* Screenshots `<scratch>/shots24-sily/` (desktop pl ×2 runs, phone en 390×844, de, sv on HALO) and the scenes/figure
+  grids from a scratch harness, all looked at; what they showed and what was fixed: the halo (above), the bake's big
+  glows cut at the picture's edge (the backdrop now drawn each frame), the gut's villi rebuilt, the muscle fascicle
+  packed, the lens plates widened for wide screens, the stray hairs made fine.
+* `scripts/arcade-mobile.mjs` ✓ on all six devices: 0 strings under 11 px (under 13 only the kit's verse reference),
+  every target valid, 60 fps; the game's update + draw 3.0 ms on the small phone at 4× CPU, 1.2–2.4 ms on phones and
+  the tablet at 2–3×, 0.9 ms on the desktop. The person's layer is repainted only when the renewal moves 1/24 of a
+  parameter, the body and the sharp head on different frames.
+
+#### What waits for the founder
+
+* The person is drawn in code: kind and recognisable, but a stylised portrait, not a painting; a future round could
+  bake a commissioned illustration per look (two states, cross-faded by the parameters).
+* The pictures the founder attached did not arrive (this game needed none).
+* A blink and a slight sway would make the person livelier; left out (a blink needs the skin under the lid each frame).
+
+### 28.4 Stop-klatka — everyday provocations by age group, and the freeze that masters the anger
+
+#### The code (`src/arcade/stopklatka/`, builder B1)
+
+**What it is.** A heart-series game (after Każda myśl, root Prov 16:32) of everyday provocations for the player's age
+group, lived **through the eyes**, with a freeze at the trigger in which the camera **steps out of the eyes** and the
+player sees themselves from aside (self-distancing). The stories are B2a/B2b's (`stories-<age>.ts` + en/de/sv,
+`why.ts`); the contract is `story.ts`. Everything else is here.
+
+**A session** (`rules.ts planFor`, `sim.ts StopSim`):
+
+| block | kind | what |
+|---|---|---|
+| intro | free | the title, the group, the root passage; a first-ever session of ≥ 3 min: the four opening pages of the "why" (5.5 s each) and — when the lobby never set the group — the age card (12 s, five chips; no tap → 27–35, asked again next time) |
+| tell | rest | the story's beats through the eyes at the reading pace (1.5 s + 15 characters a second, 4.5–18 s a beat; the title rides on the first); a tap reads on; a tap on the last beat starts the freeze early (it then lasts longer, never past 60 s) |
+| freeze | push | 20–60 s (below) — stop · breathe · name · a second look · choose |
+| after | rest | back through the eyes: the answer (or the step away first, then the answer), the outcome, then the lesson card with the breath guide (4 · 0 · 6 · 0) until the slot's planned end |
+| close | free | what was named this session, its lessons (≤ 3), then the prayer (Father · through Jesus · in the Spirit) and the closing passage |
+
+Every slot is planned from its own texts, so a session always ends at T; what the stories leave goes 75 % to the
+lessons' rests and 25 % to the close. Stories come in the group's file order, the light ones only unless "Także
+trudniejsze sytuacje" is on; the next session begins after the last story met; a long session tells a story again only
+after the whole round, and then **the freeze offers the other way first** ("Tym razem — druga droga"). A test session
+(≤ 60 s: app:smoke's 40 s) tells the last beat of one story, a freeze of ≤ 20 s (well past the lead-in) asking 40 % of
+the usual work, and a short after.
+
+**The freeze.** Its length by design: by the session (3 min 20 s … 30 min 50 s, 45 min 55 s, 60 min 60 s) and at most
+by experience (session 1: 22 s, 2: 25, 3: 30, 4–5: 35, 6–8: 45, 9–13: 50, 14+: 60) — "first sessions nearer 20 s,
+longer ones up to 60". The lobby's dials (kit/rhythm): the freeze 20–60 s by 5, the lesson's breaths 1–4; a moved dial
+is kept. Inside the freeze, on its own clock:
+
+1. **Stop** (until the lead-in, ≥ 3.2 s): a soft white flash, the colour drains to a cool still (one `saturation`
+   blend + a cool `soft-light` over the frame), "Czas stanął." in the middle, the trigger at the top, the urge at the
+   foot ("Pierwszy odruch: …"). The camera **steps out**: the first-person picture draws back and fades while the
+   observer's view comes in (the camera risen 0.55 m, a metre back, 0.7 m aside — the same places, baked for that view),
+   and the player rises into the frame from below: a gender-neutral figure of the group's age seen from behind and a
+   little aside, facing the other person.
+2. **Breathe** (`fz.see` + `fz.breathe`): the breath guide (kit/breathguide, 4 in / 6 out) inside a ring of clarity
+   that focus fills; the frozen picture regains its colour with the clarity (gold when full, a warm chord).
+3. **Name** (after the stop and a breath): the story's feelings as chips, the likeliest first; a tap names it; untouched,
+   the likeliest is named for the player ("Może to: …") after ~6 s / 22 % of the freeze.
+4. **A second look**: once named, each line comes as the clarity passes 0.3 / 0.55 / 0.8 (two lines: 0.4 / 0.75) and the
+   line before had time to be read; lines still dark show anyway, dimmer, shortly before the choice.
+5. **Choose**: once the clarity is full and the lines read — or at the latest 5 s / 20 % before the end — two ways: the
+   story's own words (`answerSay` in quotes, else "Odpowiem ze spokoju") and "Odejdę na chwilę"; both good; untouched,
+   the first offered goes. Chosen and charged: "Trwaj w jasności — czas zaraz ruszy." A freeze not filled ends with
+   "Czas rusza. Ta chwila też uczy." — the story still shows the skill, no moment is counted.
+
+**Honest neurofeedback.** The clarity charges only in a sighted freeze past its lead-in (Mendi 5 s, HALO 2 s), with a
+reliable signal, while focused, at `focusRate` (the level averaged over a whole breath, faster above the threshold and as
+a focus is held). Taps read on, name and choose — never charge. **Fit to the player** (§24.4b): a freeze asks 0.85 of
+what the player's pace gives in its sighted seconds; the pace (focus-seconds a sighted second) is measured only up to
+each charge, learned across sessions (EMA 0.5) and, within a session, blended in as it is measured (weight s / (s + 60)).
+Sim grid (3, 10, 30, 60 min × strong / threshold / weak (6 s of every 10) × sessions 1 / 2 / 5 / 13, 13 sessions run):
+strong and threshold 100 % everywhere; weak 100 % from session 2 (session 1: 50–63 % at 10–60 min while the pace is
+learnt, 100 % at 3 min).
+
+**Score.** The headline counts **moments mastered** (freezes charged: 1 opanowana chwila, 3 opanowane chwile, 5
+opanowanych chwil); the summary: mastered of met, clarity held after the charges (m:ss), the group, the focus contrast;
+highlights: the feelings named, every freeze charged, the clarity held, the session's last two lessons, a quiet line when
+none charged, a record. The progress keeps the group, the switch, where each group goes on, the records, the learned
+pace and how often the player named each feeling by their own tap (the lobby's "Najczęściej nazywane"). The game has no
+text input: nothing of the player's own is kept or sent.
+
+**The pictures** (`paint.ts`, `places.ts`, `people.ts`, `scene.ts`). A graphic novel in soft gouache: flat shapes, a
+window's warm light, soft shadows, a faint paper grain, a soft darker edge on people. All sixteen places are drawn in a
+one-point perspective camera (metres in, px out: `Cam`), each a background and a foreground (the player's desk, the
+kitchen table, the office desk, the checkout belt, the counter's glass), baked once per size and view with a margin for
+the draw-back; the car is drawn in screen space (roof, pillars, dashboard, wheel with the player's hands on it, the
+mirror — a child or a teenager in the back seat shows in the mirror). People face the player at eye level as
+half-figures: age fitted to the group (peers are the group's age; parents older; elders ~75 with grey hair and glasses;
+children short and round), clothes by role (a teacher's cardigan, a boss's blazer, a clerk's uniform with a badge, a
+doctor's white coat and stethoscope, a teen's hoodie…), the face by mood (brows, lids, mouth, cheeks: calm, busy over a
+phone, smirk, angry, shouting with a raised hand, cold with arms crossed, sad, tired, sorry with a hand on the heart, a
+smile), a breath and a blink while time flows, the mouth moving while their bubble is new, everything still in the
+freeze. A figure's `sex` (added to the contract for the stories' words: "mama", "pani w okienku") sets the hair; the same
+role keeps its face in a story. Slots across the view are a share of its width (1: centre; 2: ±21 %; 3: −30/0/+30 %), so
+a narrow phone keeps everyone in it. `heat` warms the picture (`soft-light`) and narrows the view (a baked vignette);
+the heartbeat quickens with it.
+
+**Words on the canvas** (`hud.ts`, `layout.ts`). The narration on a paper caption at the foot (≤ 4 lines upright,
+shrinking to 13 px at the least; a thin line fills as the beat is read), someone's words in a white bubble over their
+head with its tail to the mouth (a voice on the phone: a bubble with a green handset; the player's own: a warm bubble
+from below), the story's title as a gold tag. Upright: the picture fills the canvas, the person framed in the band's
+upper half; in the freeze the steps' line (five dots and the step's name) and the urge at the top with the ring at the
+right, the step's content at the foot. Side (a phone on its side, a desk): a column on the right holds the caption, the
+steps, the urge and the content; the ring stands at the picture's top right.
+
+**Sound** (`audio.ts`): a warm low room tone; each place's soft life (passing cars, a bus's hum, a school's voices,
+keys in an office, a clink in a kitchen, birds in a park); a heartbeat that follows the heat and softens with calm; at the
+freeze a held breath (the tone dims, air sweeps down, the heart slows to silence); a faint note as each line comes; a
+warm chord when the clarity is full; time flowing again (air sweeping up).
+
+**The lobby** (`panel.ts`): the records; the five age chips (`aria-checked`, saved at once); the next story's title and
+this session's forecast for the chosen length; "Także trudniejsze sytuacje" (off); the feelings named most; "Dlaczego to
+działa" (a closed `<details>` with the why's card and its sources); the help lines (pl 116 111 children and youth, 116 123
+adults, Niebieska Linia 800 120 002, 112; de Nummer gegen Kummer 116 111, TelefonSeelsorge 0800 111 0 111, 112; sv BRIS
+116 111, Mind Självmordslinjen 90101, 112; en 116 111 in much of Europe, Childline 0800 1111, Samaritans 116 123, 988)
+and "not therapy". The card art (`.art-stopklatka`): a freeze frame in SVG — the colour half come back, the player from
+behind facing someone, the ring at the top right, a thin light frame. The preview (lobby hero, cards, calibration): the
+same freeze frame drawn by the game, its colour slowly coming back and draining with the ring, the scene fitting the
+group (a school corridor, a bus, an office, a kitchen, a counter's queue; a street before a group is chosen).
+
+**Decisions.** The headline counts moments mastered, the clarity held is a stat. A tap may start the freeze early but
+never past 60 s. The step away is a pause before the same answer (away → answer → outcome). The opening pages and the age
+card only in sessions of ≥ 170 s (a trainingSec in between keeps its time for the story). `sex?: 'f' | 'm'` added to
+`Figure` (additive) at B2b's request so the words and the picture agree.
+
+**Checks.** `test/arcade-stopklatka.test.ts` (29): the stories' shape against the contract (40, 3–5 beats, the lists, the
+limits, heat rising, outcome ≤ 0.3, verses exist), every key in en/de/sv with the same limits, the fallback, heavy only
+with the switch; the plan for every length 3–60 min and ≤ 60 s × groups × fNIRS/EEG × sessions × heavy (contiguous, ending
+at T, freeze 20–60, the close bounded, every slot holding its longest after); stories grow with time, repeat only after a
+round; the freeze by length and experience, the dial kept; the early freeze ≤ 60 s; a 40 s test scores at half focus
+(Mendi, HALO, fresh); nothing charges without focus (rest, unreliable, focus in the rests); a strong player charges every
+freeze with every step done; the hand names and chooses, a story told again offers the other way; the age card asked,
+kept, planned; the next session continues; the sim grid; 45 and 60 min alive and bounded; a hostile save repaired and
+nothing of it in the result; the passages in four editions; the words complete, no gendered Polish, the heart series'
+forbidden words out, the help lines; the "why" in four languages; the unit; the controls at every `CHECK_SIZES` size
+(age chips, feelings, ways ≥ 44 px, inside, apart, hit tests); the registry; the lobby card; the rhythm and the how-to.
+
+**The plan in numbers** (an adult group, 7 light stories; a slot ≈ 2 minutes): 3 min → 1 story, 5 → 2, 10 → 4, 15 →
+7, 20 → 9–10, 30 → 12–16, 45 → 17–22, 60 → 22–30; freeze 20 s (3 min) … 60 s (60 min, 14+ sessions), a beginner's 22 s
+at any length; the close 24–73 s. **Measured:** `arcade-mobile` ✓ on all six devices (60 fps; the game's update + draw
+2.2 ms on the small phone at 4× CPU, 0.7 ms on the desktop; 0 strings under 11 px, one at 11 — a passage's reference
+line, the kit's floor; 5 targets seen: the feelings and the two ways); `arcade-shot` 40 s with Mendi and with HALO: 1
+moment mastered each; 90 s: 1.
+
+**What waits for the founder.** **Repetition in long sessions:** the first eight stories a group were about 15
+minutes, so an hour told each 4–5 times; the lead then asked for four more per group (twelve, 10–11 light, ≈ 22
+minutes): a 45-minute session now tells each story about twice, a 60-minute one about 3 times — each time the freeze
+offers the other way, and a story never comes back within ~14 minutes; more stories (16+) would make an hour fresh.  The figures are drawn in code — readable and warm, but simple; a real illustrator's
+faces would lift it. The founder's "z perspektywy 3ciej osoby (tak jakby widok z oczu)" is read as both: through the eyes
+in the story, from aside in the freeze — worth a word from him.
+
+#### Stop-klatka's stories for 11–19, 20–26 and 27–35 (B2a)
+
+**What.** Thirty-six stories, twelve per group, Polish first (`stopklatka/stories-teen.ts`, `stories-young.ts`,
+`stories-adult.ts`) with English, German and Swedish texts keyed `<id>.<field>` (`stories-<age>.<lang>.ts`). Each is
+3–5 beats that really build (a small thing, another, the last straw), the trigger felt in the body, a believable
+urge, the feelings that fit, three second-look lines, an answer that is a skill, an honest outcome and a one-line
+lesson; an optional verse from the allowed ids.
+
+| group | stories (file order = the order a group's sessions tell them) |
+|---|---|
+| 11–19 | test (Kartkówka: a bad mark read out, a teacher's jibe) · project (Projekt na jutro: a group chat leaves it all to you) · sibling (Słuchawki: cracked headphones, "you're older, let it go") · bus (Autobus po lekcjach: "this youth of today", 3 beats) · phone (Ostatnia runda: the Wi-Fi switched off mid-match) · pe (Siatkówka na WF-ie: picked last, blamed for the point) · **left** (heavy: a photo of the crowd without you, "didn't we tell you?") · **meme** (heavy: a mocking photo in the class chat) |
+| 20–26 | flatmate (Lodówka: eaten dinner, dishes, a party before an exam) · tram (Kontrola biletów: the app hangs, a fine, 3 beats) · cafe (Sobota w kawiarni: a customer and a boss in front of the queue) · sunday (Niedzielny obiad: "the neighbours' son already has a flat") · deposit (Kaucja: 1700 zł withheld, "see you in court") · stamp (Okienko w dziekanacie: the window shuts at 12:58 on the last day) · ghosted (Odwołana randka: an hour's wait, then "not feeling it") · **comments** (heavy: online hate under a first drawing video) |
+| 27–35 | morning (Poranek z kakao: cocoa on the only shirt, the wrong shoes, a meeting at 8:30) · friday (Piątek, 16:47: the boss's "urgent" on the way out) · traffic (Przedszkole do 17:00: cut in, brake-checked, 3 beats) · sink (Pełny zlew: "relax, why so wound up?") · clinic (Nocna pomoc: a feverish child, two hours, a queue-jumper) · card (Karta odrzucona: declined twice, a sigh behind) · advice (Dobre rady: one's own mother judging the parenting at the table) · **layoff** (heavy: "sign today, we have two more meetings") |
+
+**Twelve, not eight** (the lead's follow-up, so 45/60-minute sessions repeat less): four more per group, appended
+(file order = telling order, after the first eight): teen.referee (Żółta kartka: a foul not called, a yellow for
+dissent, benched) · teen.ranked (Czat w grze: abuse and a false report in an online game) · teen.late (Spóźnienie nie
+z Twojej winy: a promised lift, a mock exam's door shut) · teen.shop (Plecak do kontroli: security trails a teenager,
+"you lot always…"); young.delivery (Paczka, która nie przyszła: "recipient not at home", returned to sender) ·
+young.groupwork (Cudza analiza: a no-show presents your analysis and is praised) · young.salary (Wypłata za staż:
+pay late, "it's the experience that counts") · young.bike (Ścieżka rowerowa: a car out of a gateway, shouted at);
+adult.client (Klient zmienia zdanie: a signed-off project torn up in front of the team) · adult.contractor
+(Fachowiec: three weeks late, a second deposit) · adult.parking (Parking pod blokiem: the paid space taken before a
+vaccination) · adult.inlaws (Święta u teściów: Christmas Eve jibes and a partner's silence). No new heavy story.
+New skills among them: walking off and speaking at half-time, mute-report-pause, saving what can be saved before
+blame, opening the bag calmly and naming the hurt, aiming the complaint where it can change something, defending
+work with the version history, a dated written request for pay, safety before being right, pricing a changed brief,
+terms in writing before a deposit, the neighbour talk in the evening, asking a partner for one sentence.
+
+**Research behind the choice.** CBOS/KCPU *Młodzież 2025* (school stress at its highest in the series' history;
+peer violence and a worsening mood as the new risks), FDDS *Diagnoza przemocy wobec dzieci 2023* (peer violence the
+most common kind; exclusion, ridicule and gossip the commonest forms) and the *Zdrowa szkoła* survey (talking behind
+backs 36.7 %, deliberate exclusion 28.4 %) for 11–19; Deloitte *Gen Z and Millennial Survey 2024* (cost of living the
+top worry three years running; work and work/life balance next) and APA *Stress in America 2023* (18–34 the most
+stressed group, money a significant stressor for 82 %) for 20–35; flatmates' commonest complaints (mess, food eaten)
+from Polish student-housing reporting. The places mix so no group sits at home: each group uses 8–12 of the 16
+places.
+
+**Decisions and why.**
+* **The anger is honoured first.** Every story's first second-look line says what the anger protects (fairness, one's
+  room, the team, respect, a child, free time) — it is a signal, something mattered — and only then widens the view
+  (the other person's day, a week from now, what the child learns). The opening is varied ("Ta złość ma sens…",
+  "Pod złością jest lęk…", "Masz prawo do tej złości…") so a long session does not sound templated.
+* **The answers are skills, all different in kind:** a boundary in writing (project, deposit), one thing at a time
+  (flatmate), a question instead of a retort (test, stamp), an "I" statement (sink, sunday), asking for time (layoff,
+  friday's "yes, but"), naming the child's feeling and a choice (morning), saying the fear plainly (clinic), dignity
+  without counter-attack (bus, pe, card), stepping away and calling someone (ghosted, comments), save the proof and
+  tell a trusted adult (meme, left).
+* **Outcomes are honest.** Many only half-resolve (the third classmate stays silent; 1200 of 1700 zł come back; the
+  reply on the fine takes weeks; the mother still disagrees; the fear after the layoff stays, but there is a plan).
+* **11–19 is children and youth**: no romance, alcohol, drugs, sex or self-harm; exclusion and the meme are `heavy`
+  and both end with a trusted adult (the school counsellor / an adult you trust) — the outcome says plainly "it is not
+  your fault". The teen group is wide (11 and 19): grades, PE, a sibling, the phone at dinner sit with a group project
+  and the bus.
+* **No gendered forms.** Second person present tense; no 2nd-person past, no "sam/sama", no adjectives about the
+  player; the player's own spoken answers too ("Będę…", "Odłożę…", "Potrzebuję…"); what others say to the player
+  likewise. Other people stay unpinned where Polish allows ("ktoś", "osoba", "rodzeństwo", "druga połówka"); the
+  generic noun where it does not ("szef", "pedagog"). The adult group's own mother is `elder` (`parent` is teen/young
+  only in the contract). German avoids "Schlange" (a queue) — the heart series' forbidden word for serpent.
+* **Address**: Polish narration capitalised (Ci, Cię, Twój), speech and phone screens lowercase as dialogue — the
+  same rule as B2b. English British, typographic apostrophes; German and Swedish du; Swedish times 22.40.
+* **Local, not literal.** A Polish "2" becomes a D, a German "Fünf", a Swedish "E"; 1700 zł → £850 / 850 € /
+  8 500 kr; the dean's office → the student office / Studierendensekretariat / studentexpeditionen; "syn Nowaków"
+  → the neighbours' son / der Sohn von Müllers / grannarnas son; the night clinic → out-of-hours clinic /
+  ärztlicher Bereitschaftsdienst / jourmottagningen. NBSP before currency units.
+* **Verses** (all already in scripture.ts): pro15.1, pro14.29, pro19.11, pro16.32, jas1.19, jas1.19-20, eph4.26,
+  col3.15, php4.7, mat5.9, mat11.28, rom12.18, rom12.21, gal5.22-23, 1pe5.7, psa46.10, 2ti1.7 — each group uses eight
+  different ones.
+* **A short story per group** (3 beats: teen.bus, young.tram, adult.traffic) for short sessions; telling time at
+  15 characters a second + 1.5 s a beat is 24–38 s per story, the answer/outcome/lesson ≈ 25–30 s.
+
+**Checks.** `<scratch>/b2a-check.mjs` (node, strips types): 8 stories per group, ids `<age>.<slug>`, 3–5 beats,
+heat strictly rising with the last ≥ 0.75, outcome ≤ 0.3, places/people/moods/props/feelings from the contract,
+people fitted to the group, `say` only with a figure, `screen` only with a phone/paper/screen, `from` in range, every
+text limit (title 40, text 140, say 90, screen 60, trigger 110, urge 90, second 110, answer 140, answerSay 90,
+lesson 90) in all four languages, the player's gender (Polish), the heart series' forbidden words per language, no
+emoji, the address capitalised in Polish narration, verse ids in scripture.ts, and en/de/sv having exactly the Polish
+keys — all clean. `npx tsc --noEmit -p .` clean. B1's `test/arcade-stopklatka.test.ts`: see the final report.
+
+**What waits for the founder.** Whether the 11–19 stories should split into 11–14 and 15–19 (the range is wide);
+whether any story reads too close to home for a group (layoff, comments, left and meme are behind the switch); a
+native reading of the German and Swedish teen chat lines.
+
+#### Stop-klatka: the stories of the two older groups, and the "why" (B2b)
+
+**What.** Sixteen stories, eight for 36–50 (`stories-mid.ts`) and eight for 50+ (`stories-senior.ts`). Polish is the
+source, with full English, German and Swedish (`stories-<age>.<lang>.ts`). There is also `why.ts`: the first session's
+four opening pages and the lobby card "Dlaczego to działa", in four languages, with the checked sources.
+
+**The stories.** Each one walks up to the last straw in four beats (heat 0.2–0.3 → ~0.5 → ~0.66 → 0.88–0.9). The
+trigger is felt in the body ("Dłonie bieleją na kierownicy…"), and the urge is what anger really wants ("Wyliczyć
+wszystko, co dla niej robisz, i trzasnąć drzwiami"). Then come the feelings that fit and three second-look lines. The
+first of those never dismisses the anger: it names what mattered ("Ta złość ma powód…", "Złość pilnuje czegoś
+ważnego…", "Masz prawo się złościć…"). The other two widen the view. Then the answer, a skill, in the player's own
+words. The outcome is honest: it eases, or only half eases.
+
+* 36–50, the sandwich years:
+  * `mid.dziennik`: a teenager's third fail; an "I" sentence and a talk after dinner.
+  * `mid.mama`: an elderly mother's "ty nigdy nie masz dla mnie czasu"; a quarter of an hour of attention and an honest limit.
+  * `mid.korek`: road rage on the way to a doctor awaited for three months; you let him go and call ahead hands-free.
+  * `mid.slajdy`: the boss presents your slides as his own; you stay quiet in the meeting and set the boundary in private.
+  * `mid.sasiad`: drilling at 7:30 on a Saturday; you come back an hour later with a question, not an accusation.
+  * `mid.urzad`: one paper missing after two hours in an office queue; you ask for the next step.
+  * `mid.wieczor`: the unseen load at home and a partner on the sofa; one clear request instead of a list.
+  * `mid.rodzenstwo`* (heavy): an ill father and a brother who says "you live closer"; you ask for one fixed task.
+* 50+, being talked down to as the thread:
+  * `senior.lekarz`: "w tym wieku tak bywa"; one calm request for a test.
+  * `senior.kasa`: a self-checkout beeps while the queue sighs; you ask to be shown, not to have it done for you.
+  * `senior.autobus`: the door shut in your face and a seat refused; you ask the whole row, and help comes.
+  * `senior.ferie`: grandchildren for the whole break against a long-awaited sanatorium; a boundary with an offer.
+  * `senior.poczta`: a courier who never rang, a queue-jumper, a returned parcel; a complaint, not a scene.
+  * `senior.emerytura`: the first year of retirement together and the dishwasher; humour, a deal and a walk.
+  * `senior.stol`: Sunday dinner, "to już nie twoje czasy"; curiosity instead of defence.
+  * `senior.portfel`* (heavy): a mother with dementia says "you take my money"; you answer the fear, search together,
+    and look for a carers' support group.
+
+The places are spread out: the mid stories use 11 of the 16 places and the senior stories 9. There is one heavy story
+per group. Every story has a verse, and all the ids already exist in scripture.ts:
+
+| mid | verse | senior | verse |
+| --- | --- | --- | --- |
+| dziennik | Jas 1:19–20 | lekarz | Phil 4:7 |
+| mama | Prov 15:1 | kasa | Jas 1:19 |
+| korek | Prov 14:29 | autobus | Rom 12:21 |
+| slajdy | Prov 19:11 | ferie | Matt 5:9 |
+| sasiad | Rom 12:18 | poczta | Prov 15:1 |
+| urzad | Col 3:15 | emerytura | Gal 5:22–23 |
+| wieczor | Eph 4:26 | stol | Prov 16:24 |
+| rodzenstwo | 1 Pet 5:7 | portfel | Isa 46:4 |
+
+**Decisions.**
+
+* **Address.** The narration capitalises the address (Ci, Ciebie, Twój), as the house does (§27). The contract's
+  example "uderza ci" is lowercase, but the house rule wins. What other people say, in bubbles and on screens, is
+  ordinary lowercase dialogue.
+* **No gendered forms for the player anywhere.** This holds in others' speech too: no 2nd-person past tense, no
+  "proszę pana/pani", no "sam/sama" ("w pojedynkę" instead). It also holds in the player's own answer: "Nie dam rady
+  w pojedynkę", "Brakuje mi…", never "jestem zmęczony".
+* **People.** A partner is "Twoja druga połowa"; German has "deine bessere Hälfte" and Swedish "din partner". The mid
+  teenager is "Twoje dziecko". Adult children of the 50+ player only write or call (`screen`), so no new PEOPLE were
+  needed.
+* **Some figures are named as a woman or a man.** Examples: mama, tata, wnuk, chłopak/dziewczyna, the post office's
+  "pani w okienku", and the boss who says "musiałem". B1 added an optional `Figure.sex` to the contract and these
+  figures carry it; the rest (the partner, the mid teenager, strangers, groups) are left to the code.
+* **A call is a `say` with no figure.** It means a voice on the phone, with `place: 'screen'` or `prop: 'phone'`.
+* **Adapted, not literal.** The translations swap in what readers know:
+  * the school app's grade is a fail in English, a "Fünf" in German and an "F" in Swedish;
+  * the self-checkout says "Unexpected item in the bagging area";
+  * the sanatorium is a "Kur" in German and a "rehabvistelse" in Swedish;
+  * the winter break is "sportlovet" in Swedish;
+  * the parcel notice is "Sorry we missed you" in English and "Leider nicht angetroffen" in German;
+  * in Swedish the parcel goes to a "paketombud" and a "paketbox"; in German to a "Packstation".
+
+  German clerks and doctors say "Sie" to a senior.
+* **German "Schlange".** It is the ordinary word for a queue, but the heart games' forbidden list bans /schlange/
+  (dlonie). The German text says "Wartende" and "anstehen" instead.
+* **The "90 s".** No PubMed study measures a 90-second first wave of anger; it is a popular figure. why.ts therefore
+  says "zwykle opada po minucie, dwóch, jeśli nic jej nie podsyca". Two things support that: alarm hormones are
+  cleared within minutes, and studies show what keeps an emotion going is its trigger coming back, also in thought
+  (Verduyn 2009), or rumination (Bushman 2005; Denson 2013).
+* **why.ts keys are B1's.**
+  * `open.1–4`, each at most 160 characters in all four languages;
+  * `card.title`;
+  * `card.1–10`: anger in the body, the first wave, why a pause works (Arnsten 2009), then four steps, then the PFC,
+    what you practise, and what anger is for. The steps are:
+    * step 1, the view from outside: Kross & Ayduk; Mischkowski, Kross & Bushman 2012;
+    * step 2, slow breathing at 4 in / 6 out: Zaccaro 2018;
+    * step 3, naming the feeling: Lieberman 2007; Torre & Lieberman 2018;
+    * step 4, the second look: Gross 1998;
+    * the PFC holds the reins: Ochsner 2002; Buhle 2014, a meta-analysis of 48 studies.
+  * `card.src`;
+  * `card.not`: not therapy; violence at home or anger that frightens → talk to someone. The game adds the numbers.
+
+  A further additive export, `WHY_SOURCES`, lists the 14 sources with PMID and DOI.
+
+**Sources checked (2026-11-27).** These are in PubMed:
+
+* Kross, Ayduk & Mischel 2005 (16137257)
+* Ayduk & Kross 2008 (18315794) and 2010 (20438226)
+* Lieberman et al. 2007 (17576282)
+* Gross 1998 (9457784)
+* Ochsner et al. 2002 (12495527)
+* Buhle et al. 2014 (23765157)
+* Zaccaro et al. 2018 (30245619)
+* Verduyn et al. 2009 (19186919)
+* Bushman et al. 2005 (15982116)
+* Denson 2013 (23175519)
+* Arnsten 2009 (19455173)
+
+Two are not indexed in PubMed and were checked in Crossref by DOI: Mischkowski, Kross & Bushman 2012
+(10.1016/j.jesp.2012.03.012) and Torre & Lieberman 2018 (10.1177/1754073917742706).
+
+**Checks.**
+
+* `<scratch>/b2b-check-stories.mjs` passes, covering:
+  * shape: 8 stories, 4 beats each, heat strictly rising to ≥ 0.8, outcome ≤ 0.3;
+  * the contract's PLACES, PEOPLE, MOODS and PROPS;
+  * `screen` only with a phone, a paper or the screen place;
+  * text limits in all four languages;
+  * gendered-form patterns;
+  * straight quotes;
+  * translation keys exactly those of the Polish;
+  * verse ids exist;
+  * why.ts keys in all languages and `open.*` ≤ 160.
+* `<scratch>/b2b-forbid.mjs` finds none of the heart games' forbidden words.
+* `npx tsc --noEmit -p .` is clean for these files.
+
+**Follow-up: four more stories per group (12 each), so 45/60-minute sessions repeat less.**
+
+* 36–50:
+  * `mid.ekran`: a teenager's screen at 23:30 says "ty też siedzisz w telefonie"; you admit the point and set one rule
+    for everyone.
+  * `mid.mechanik`: a garage bill of 3 850 zł instead of 400; you hold to what was agreed and ask for an itemised bill
+    and the old parts.
+  * `mid.czat`: the school parents' chat, "jedni robią, inni tylko piszą"; you don't send in anger and write one calm
+    sentence in the morning.
+  * `mid.kolega`: a colleague misses the deadline and shrugs; you say how it affected you and agree interim dates. His
+    father turns out to be in hospital.
+* 50+:
+  * `senior.infolinia`: a declined card, the bank's helpline maze, a call cut after 47 minutes; you don't take it out
+    on the next person, and you write the facts down.
+  * `senior.pies`: a neighbour's dog (a mess on the path, muddy paws, barking all afternoon); one request, no verdict
+    on the person.
+  * `senior.hit`: your granddaughter posts a video of your dance; a light boundary with a wink.
+  * `senior.szybko`: a grown child explains the new TV box too fast on a video call; you ask for a short video and
+    your own pace.
+* None of the new stories is heavy. Money is adapted to each reader: £100/£920, 100 €/920 €, 1 000/10 200 kr.
+* The test pins 8 per group and 40 in all; it needs the new counts.
+
+**What waits.**
+
+* The founder may want a third heavy story per group; ideas: a diagnosis for 50+, a layoff for 36–50.
+
+### 28.5 Warstwy światła — the seven layers of light cleansed (`warstwy`, builder C)
+
+*A meditation of the series "Serce i światło", rooted in 1 Thess 5:23 ("your whole spirit, soul and body").* Code:
+`src/arcade/warstwy/` — `rules.ts` (every number, the plan, the fit), `content.ts` (the layers, the passages, the
+narrator's moments, own lines), `egg.ts` (the geometry: the body's web, six nested eggs, where things cling, the Light
+above), `sim.ts` (the session), `meta.ts` (progress, the learnt pace), `talk.ts` (the narrator), `layout.ts`,
+`paint.ts` (the night, the layers, the figure, the things — baked), `render.ts` (Scene + the words band),
+`preview.ts`, `panel.ts`, `audio.ts`, `i18n.ts`, `index.ts`; tests `test/arcade-warstwy.test.ts` (25).
+
+**The request** (§28.1 point 4): cleansing the aura — the layers of being; on each layer the attachments ("wczepy")
+drawn out, the etheric, astral and other bodies healed and brightened; the layers visualised; beautiful. The pictures
+the founder attached did not arrive; the drawing follows the well-known form of the seven-layer charts in our own
+lines.
+
+**The picture.** A deep indigo night; the Light above — a bright source with slow soft rays, light only, no figure
+ever drawn there; under it the shared figure of light (`kit/figure.ts`) standing in seven nested layers, each its own
+texture and colour:
+
+| # | plain name | the tradition's name (subtitle) | texture | what clings (Scripture's image) | rest passages |
+|---|---|---|---|---|---|
+| 1 | Ciało | warstwa eteryczna | a fine web of blue-silver lines in a sheath close to the body | thorns caught in the web | 2 Cor 12:9, Ps 16:9, 1 Cor 6:19-20 |
+| 2 | Uczucia | warstwa emocjonalna | soft coloured clouds | dark stains | Ps 51:7, Ps 34:18, Ps 62:8 |
+| 3 | Myśli | warstwa mentalna | a clear lemon haze with fine rays | flaming darts and spiky thought-burrs | 2 Cor 10:5, Eph 6:16, Phil 4:7 |
+| 4 | Relacje | warstwa astralna | rose light in soft puffs | cords with knots, their tails running out | Ps 129:4, Col 3:14, Eph 4:32 |
+| 5 | Wola | wzorzec eteryczny | a deep blue blueprint: a fine grid and contour lines, a scan of light | chains and knots | Ps 107:14, Ps 116:16, John 8:36 |
+| 6 | Radość | warstwa niebiańska | an opalescent shimmer of pastel arcs (dusted with ash while dull) | ashes | Isa 61:3, John 16:22, Ps 30:5 |
+| 7 | Duch | warstwa ketheryczna | a golden lattice shell (a truss between two rims) | cracks, a dark sliver wedged in each | Ps 51:10, 2 Cor 4:6, Ezek 36:26 |
+
+Each layer is drawn **dull** (grey, murky) until it is cleansed, then **clear** (clean colour, bright, its rim glowing
+with the calm of the rests). The things are dark but not horror: clear shapes with a soft rim of light. Arrival:
+Matt 11:28 / 1 Pet 5:7; the whole: 1 Thess 5:23 (the blessing); the close: 1 John 1:7, Ps 36:9, Num 6:24-26 in turn.
+All passages are existing ids of `src/content/scripture.ts`; no prayer paraphrases a verse.
+
+**How it plays.**
+
+* *Arrive* (whole breaths, ~6 %, 10–60 s): the figure in its seven dim layers; "Panie Jezu, przychodzę do Ciebie z
+  duchem, duszą i ciałem."
+* *The layers*, the innermost first, over the player's own rhythm — a push (the dial, 30 s by design, lead-in
+  included), a rest of whole breaths (by design 1 breath under 10 min, 2 up to 45, then 3 — "longer sessions, deeper
+  rests"; the dial 1–4). In a push, only real focus (sighted, reliable, focused, `focusRate` on the level averaged
+  over a whole breath) draws the layer's next thing: it **loosens** in place (it trembles, a halo grows — the first
+  30 % of its draw), then **rises on a thread of light** to the Light above, keeping its shape and turning to light only
+  near the top, and dissolves there (a soft chime, a burst at the Light: Jesus takes it). The wound it leaves closes
+  (a dark slit shrinking, a ring of the layer's light; a crack seals with gold). The thread's brightness follows the
+  focus of the moment (the live feedback), beads of light run up it. Without focus everything waits; a half-drawn
+  thing hangs on its thread through a rest, nothing is lost. When all of a layer's things are out the layer
+  **closes and clears** (the dull composite fades into the clear one over 3 s, a ring of its light opens outward, a
+  chord of bells) and the next layer opens at once. In a rest: the breath guide in the words band, the layer's short
+  prayer of entrusting (two in turn, plainly to Jesus; the Spirit layer to the Father, through Jesus, in the Spirit),
+  the player's own line for the layer if they wrote one, the passage; calm deepens the layer's glow.
+* *The whole* (~10 %, 10–150 s, whole breaths): the seven layers luminous together, the egg in a soft bloom, gold
+  glints on the lattice; 1 Thess 5:23. *The close*: "Idź w pokoju. Światło idzie z Tobą." and the closing verse.
+* The headline: **nici światła** (threads of light) — the things drawn out with focus. Stats: threads n of all,
+  layers in the light 7/7, what Jesus took (when any), calm in the rests.
+
+**The decisions and why.**
+
+* **The rhythm runs independent of the layers; the layers share the pushes' sighted seconds.** A first version gave
+  each layer its own window of pushes and rests; in 3 minutes that left ~4 sighted seconds a layer (a lead-in per
+  layer) and a weaker player lost most layers. Now the session is one rhythm, and the seven layers split the sighted
+  time (past each push's lead-in) equally: 3 min → 4 pushes, ~12 s sighted a layer; 60 min → ~56 pushes, ~8 a layer.
+  A layer cleared early opens the next at once; the next is fitted to the time it has left.
+* **Time-boxed with grace, like Złote serce.** A layer may run on into the next one's share by up to half a share
+  while a thing is still on it (`borrow`), then the Light takes what is left in a short sweep (2–4.5 s; white-gold
+  threads, "Jezus zabiera resztę") and the layer closes. Every layer always closes — a half-done picture never shows —
+  and only things drawn with focus count.
+* **Fit the work to the session (§24.4b).** Things a layer: 2 at 3–5 min, 3 at 10, 4 at 15–20, 5 at 25–30, 6 at 45,
+  7 at 60 (bounded; two even in 3 minutes, so one slow moment costs half a layer, not all of it). The focus each asks
+  is fitted when its layer opens: sighted seconds left × the pace × fill ÷ things. The pace (focus-seconds a sighted
+  second while something is being drawn) is saved, moved half-way toward each session's own after ≥ 20 sighted s, a
+  careful 0.6 before any is learnt; within a session the saved pace counts as 90 s against the session's own. The
+  margin grows for short layers (`fill` = clamp(1 − 1.2/√S, 0.6, 0.88): a few unlucky seconds weigh more in 12 s than
+  in 3 minutes).
+* **Words (§18.3).** Light, not energy; the player gives and entrusts, Jesus takes; prayers have a Thou. The aura is
+  named **once**, in the lobby text, as where the picture comes from, with the seven bodies' names (the founder wanted
+  the etheric and the astral named); each layer shows its plain name with the tradition's name after it as a quiet
+  subtitle. No "oczyszczam", "energia", "wibracje", "aktywuj", "manifest", "uzdrawia/leczy" (tested in four languages).
+  "Not therapy, not a treatment, not a prayer of deliverance" is said plainly in tip 5 and in the lobby card's care
+  note, with "if something troubles you spiritually, talk to a priest or a pastor" and the crisis lines. The layer
+  "closes" ("zasklepia się") and "clears" — never "is healed".
+* **Own lines.** "Co dziś oddajesz?" — one short line a layer (≤ 40 characters), shown in the band with that layer
+  ("Dziś oddajesz: „…”"), kept only in the progress on this device, never in the result (tested); a switch to hide
+  them, "Zapomnij moje słowa".
+* **The narrator** speaks little; a line comes back no sooner than 10 minutes (`Talk.again`), so an hour does not loop.
+* **Beauty and budget.** The seven layers and the figure are baked into one composite per set of cleared layers,
+  a layer a frame in the background (`EggBaker`), so the next composite is ready before a layer closes; a frame blits
+  one composite (two while a layer closes) and adds ~50 small glow sprites (web glints, drifting clouds and puffs, opal
+  glints, gold twinkles), one dashed scan, the threads and the things. Measured on this Mac: draw 0.5 ms mean, 0.9 ms
+  p95 (1280 × 800 and 390 × 844 at dpr 2–3). Reduced motion: no drift, no wobble, beads still; things still rise (the
+  rise is the progress) and wounds close as fades.
+* **Layout.** tall (phone upright: the egg above, the words band below), side and desk (the words in a column at a
+  reading measure); the egg's top below the HUD, the Light may stand under it; the seven layers as dots in the band's
+  first row. The runner's coach marks point at the thing being drawn, or at the breath guide.
+
+**The checks.** `test/arcade-warstwy.test.ts` (25): the plan at 3–60 min and 40/60 s with 10-s and 19-s breaths
+(stages in order, pushes and rests fill the time, every layer has sighted seconds); things grow with the length,
+deeper rests; the need follows the pace; nothing is drawn without focus (all by grace, every layer still closes, at
+40 s–60 min); a half-drawn thing waits through a rest; every length closes all seven and reaches the close with any
+focus; a 40/60-s test scores at half focus (Mendi and HALO); a strong newcomer draws everything at every length; the
+fit grid (mean of 3 series, sessions 1 / 2 / 5 / 13; weak = focused ~6 s of 10 in random 2-s stretches, threshold,
+strong):
+
+```
+3 min  weak 90/98/95/100  threshold 100  strong 100     30 min weak 100/99/100/99
+5 min  weak 98/98/100/100                               45 min weak 98/99/100/98
+10 min weak 95/100/97/100                               60 min weak 99/100/100/100
+15 min weak 96/99/99/100   20 min weak 99/100/99/100    25 min weak 99/98/100/100
+```
+
+(threshold and strong 100 everywhere; their last layer closes at 91–99 % of the layers' time, so the whole keeps its
+planned length); the words in four languages, the narrator ≤ 90 characters, forbidden words, the aura once, the
+Polish second person without gendered forms, plurals; migration of hostile saves; own lines never in the result;
+the result idempotent; the geometry; the layout at every CHECK_SIZES entry (the words inside the insets, the egg below
+the HUD, whole, clear of the words, the figure ≥ 120 px tall); the lobby's rhythm, how-to and forecast.
+`npx tsc --noEmit -p .` clean for the game; `scripts/arcade-shot.mjs` desktop / phone / landscape; `arcade-mobile.mjs`.
+
+**What waits for the founder.** The pictures he meant to attach (an aura's layers): if they differ much from the
+common charts (e.g. other colours per layer or another order of the outer layers), the palette and textures are one
+table in `content.ts` / `paint.ts texture()`. The names of the outer layers in Polish (wzorzec eteryczny, warstwa
+niebiańska, ketheryczna) follow the common seven-layer description; he may prefer others. A voice for the prayers is
+not recorded (the narrator is text).
+
+### 28.6 Koła światła — twelve wheels brought to right working, then the full field (Wheels of Light · Räder des Lichts · Ljusets hjul)
+
+Registry `kind: 'heart'`, right after Warstwy światła, id `kola`, root **Eph 4:16** (`eph4.16`), tools Mendi and HALO,
+`tuning: { adapt: 0.08 }`, `focusChip: false`, `ownBreath: true`. Headline: petals (`płatek / płatki / płatków`,
+petal(s), Blütenblatt/-blätter, kronblad) lit by focus. Code: `src/arcade/kola/` — content.ts (the wheels, colours,
+petals, qualities, passages, moments), rules.ts (every number, the plan, the fit), sim.ts (the session), meta.ts (the
+progress), talk.ts (the narrator, Ogród's), i18n.ts (the words), figure.ts (the profile figure and the funnels' geometry),
+wheel.ts (one wheel drawn), paint.ts (sprites), layout.ts, render.ts, preview.ts, panel.ts, audio.ts, index.ts; card art
+`.art-kola` (styles.css); test `test/arcade-kola.test.ts` (30).
+
+**One line:** the well-known chart drawn anew — a calm, gender-neutral person in profile facing right (standing, or
+seated on a low stool), the first wheel opening down between the legs, the seventh up from the crown, the five between
+to the front and to the back; each wheel a funnel of light whose tip sits on the spine's thread of light and whose
+mouth is a turning disc of petals. One after another (1, 2 front, 2 back … 6 back, 7) the player's focus brings each
+from out of true to right working; after each, a prayer for that place in whole breaths; at the end all twelve turn
+together and their light fills one egg-shaped field, layer by layer in the seven colours, into one white-gold light.
+
+#### The wheels (content.ts, figure.ts)
+
+| # | Wheel (pl, Rzeki's names) | Opens | Colour | Petals | Gift | Passage (round 1 rest) |
+|---|---|---|---|---|---|---|
+| 1 | Podstawa · ku ziemi | down between the legs (through the stool, seated) | red | 4 | zakorzenienie | Col 2:7 |
+| 2 | Sakralna · z przodu / z tyłu | front / back | orange | 6 | żywa woda | John 7:38-39 / Isa 58:11 |
+| 3 | Splot słoneczny · z przodu / z tyłu | front / back | yellow | 10 | moc | Eph 3:16 / Ps 18:32 |
+| 4 | Serce · z przodu / z tyłu | front / back | green | 12 | miłość | Rom 5:5 / Eph 3:17 |
+| 5 | Gardło · z przodu / z tyłu | front / back | sky blue | 16 | dobre słowo | Ps 141:3 / Isa 30:21 ("a word behind you") |
+| 6 | Trzecie oko · z przodu / z tyłu | front / back (tip in the head's middle) | indigo | 8 | przejrzenie | Eph 1:18 / Ps 139:12 |
+| 7 | Korona · ku niebu | up from the crown | violet-white | 20 | pokój | Phil 4:7 |
+
+The names and gifts are Rzeki żywej wody's (`name.*`, `gift.*`; a test holds them equal in four languages); the
+Sanskrit tags Rzeki shows are left out here — the tradition is named once, in the lobby text. 128 petals a round.
+
+**Out of true, new each session** (sim.ts `faultOf`, seeded): every wheel wobbles off its axis (its mouth sways, its
+disc tips), turns the wrong way (30 %), sluggishly (35 %) or racing and stuttering (35 %), its petals are uneven in length
+and light, its colour a grey of its own hue, its mouth pinched small (60 %) or frayed wide (40 %). **Right working**:
+the axis steady, a calm, even turn clockwise as seen from outside (the disc's outer face is turned a little toward the
+viewer, so it reads clockwise on the screen too; a wrong-way wheel slows, stops and turns round), even petals, the
+colour clear and bright, the mouth a healthy size. These are the round-1 **qualities** — axis · turn · petals · colour ·
+size — merged into 2–5 **steps** by the time a wheel has (3 min: axis+turn, then the rest; 15 min+: one each). The name
+card shows them as chips (done gold, now outlined, to come dim). Round 2 (25 min+): the inner ring of petals unfolds,
+the colour deepens to its jewel; round 3 (45 min+): a corona of rays and a halo. A front and its back both true: "a
+soft note" (two bells a fifth apart) and a flash at both mouths.
+
+#### The plan (rules.ts `planFor`) — by the light, not by the clock
+
+Arrival (whole breaths, ~5 %), the wheels, the full field (~10 %, may grow to 1.6 × with time left), the close (≥ 12 s:
+the blessing, then the closing passage in turn — Eph 4:16, 1 Cor 12:12, Rom 12:4-5, Isa 58:8, Num 6:24-26). **A push
+lasts until its group of wheels is true** (the founder's rule for Rzeki in round 11: a rest after each finished
+station, not each interval), then a rest of whole breaths with the place's prayer (round 1 receiving, round 2 thanks,
+round 3 entrusting — to the Father, through Jesus, in the Spirit) and, from two breaths, its passage. **The valve**: a
+push 40 s without progress, or 1.8 × its target (+15 s), rests ("Odpocznij chwilę — to koło zaczeka. Nic nie
+przepada.") and the wheel keeps what it has. The field begins when every group is done and its last prayer said, or at
+its planned start at the latest; a wheel the session did not reach stays as it is — the field shines from the true
+ones (its layers fill as far as their centre is true, the white-gold as far as all twelve are).
+
+Groups (always by centre, front and back together, except one by one): 12 (each wheel), 7 (each centre), 4/3/2 (centres
+together), 1 (a test). The design's growth (dials untouched): the finest grouping that fits, wheels of 8 s, prayers of
+two breaths, a finer grouping, 15 s, three breaths, 25 s, round 2 (by centre, then each wheel, ≥ 15 s), round 3,
+35 s, four breaths, 45 s, five breaths. With 5 · 5 and Mendi:
+
+| Length | Arrival | Wheels | Prayer | Field |
+|---|---|---|---|---|
+| 3 min | 20 s | 3 pushes ({1,2,3} {4,5} {6,7}), ~6 s a wheel, 2 steps | 1 breath | 30 s |
+| 5 min | 20 s | 7 pushes (each centre), ~11 s a wheel, 3 steps | 1 breath | 30 s |
+| 10 min | 30 s | 12 pushes, ~16 s a wheel, 4 steps | 2 breaths | 60 s |
+| 15 min | 50 s | 12, ~26 s, 5 steps | 3 breaths | 90 s |
+| 20 min | 50 s | 12, ~38 s, 5 steps | 4 breaths | 120 s |
+| 25 min | 50 s | 12 + round 2 by centre (7) | 3 breaths | 150 s |
+| 30 min | 50 s | 12 + 12 (round 2), ~29 s | 3 breaths | 180 s |
+| 45 min | 50 s | 12 + 12 + 12, ~31 s | 3 breaths | 240 s |
+| 60 min | 50 s | 12 + 12 + 12, ~45 s | 4 breaths | 280 s |
+
+A test (≤ 60 s; app:smoke plays 40 s): arrival 10 %, one push for all twelve (one step each, 0.6 focus-seconds a
+wheel), field 22 %, close 12 % — at half focus a 40 s test lights ~9 wheels. The player's own dials ("Koło" — a push's
+seconds, 10–60; "Modlitwa" — breaths, 1–5) are kept where they fit: as many pushes as fit, the twelve spread over them,
+rounds 2–3 when more fit, time left to the field; a session too short for the rest gives one breath (`restIn`).
+
+#### The work fits the player (rules.ts `needPer`, `paceNow`, `learnPace`; sim.ts `fit`)
+
+At each push's start its target is re-fitted to the time left before the field (the groups still to do, their lead-ins
+and prayers; scale 0.5–1.6, a custom rhythm ≤ 1.1), and its steps are sized to the player's pace over it:
+need = pace × sighted target × 0.88 / steps (0.6–30 focus-seconds a step). The pace (focus-seconds a sighted second
+with work to do) is saved half-way toward each session's own after ≥ 40 s (0.2–1.4); unknown, 0.6; in a session the
+saved pace counts as 90 s against the session's own. Only real focus fills a step: a sighted push past its lead-in
+(5 s Mendi, 2 s HALO), a reliable signal, `focused`, at Ogród's rate (0.7 + 0.6 × above) × (0.85 + 0.3 × hold/12),
+the level averaged over a whole breath. Nothing fills in the rests, the arrival, the field, without a signal, or
+unfocused (a test drives each); what is gained is never lost.
+
+**Sim grid** (focused stretches and lapses of random length: strong ≈ 94 % of push time focused at level 0.85,
+threshold ≈ 67 % at 0.6, weak ≈ 42 % at 0.55; 3–60 min; sessions 1, 2, 5, 13 with the pace learnt): strong 100 % of
+the planned work at every length and session, the field within 0–70 s of its planned start; threshold 100 % from the
+second session (74 % in a first 3-minute session, before the pace is known); weak 64–92 % in the first session,
+89–100 % once learnt. The test holds threshold ≥ 90 % from session 2 and strong 100 % at all nine lengths.
+
+#### The picture (render.ts, wheel.ts, figure.ts, preview.ts)
+
+A deep indigo night with faint stars and a soft light round the figure; the figure a body of pearl light with a rim,
+the near arm as a softer shape, the spine's thread of light the tips sit on, a floor glow (and the stool). The back
+funnels are drawn behind the body and softly dimmed, the front ones, the first and the seventh in front; each cone a
+baked sprite (clear and dull per colour, blended by the colour's clearing), four vortex lines from the tip to the rim
+turning with the disc, the disc a squashed, turning mandala (petals one by one; lit petals edged; the inner ring, rays,
+halo). The wheel the work is at is lifted, a gold ring while focus is bringing it true (Rzeki's "gold means loading"),
+a white flash when it turns true. **The camera**: the whole figure with its egg for the arrival and the field; one
+centre (its front and back mouths) for its pushes and prayers, eased (τ 0.9 s, log-zoom; reduced motion: a soft cut),
+at most 1 050 px a figure unit. The figure is baked twice (the whole's scale and the closest) and crossfaded by the zoom
+so its rim stays fine. **The field**: seven nested egg layers baked once per size, filling one after another from the
+red near the body to the violet outside, then a white-gold egg; motes of each colour stream from the mouths into it.
+Reduced motion: the turning slowed to a gentle pulse, no motes, no wobble drift. **Layouts**: a phone upright — the
+stage with the name card over its top (the camera frames under it), the band and the breath guide (row) at the foot; a
+phone on its side and the desk — the stage left, a column right (name card, band, guide; the desk's guide stacked).
+Measured (arcade-mobile, 4× throttle on the small phone): ~2.7 ms a frame, 60 fps.
+
+#### Words (§18.3)
+
+Light, not energy; the prayer has a Thou in every place's prayer (a test: Father · Jesus · Holy Spirit in each of the
+12 + 7 + 7 + 1 prayers, four languages); verbs receive, give, entrust, bless, rest; no promise of healing ("not therapy
+and not a treatment" in the text and tip 5, with the help lines); the tradition named once — "Obraz kół pochodzi z
+tradycji czakr; tu jest modlitwą przed Bogiem, który zna każde miejsce w Tobie." — and the forbidden-word test over the
+game's catalog, its arcade texts and mouse twins (energy, vibration, heal/uzdrow/lecz, kundalini, activate, unblock,
+balance as a power, magic, manifest, detox, "rozkręc"); the chakra word only in `kola.text`, and in de/sv in Rzeki's own
+name "Sakralchakra" (`name.sacral`, whitelisted). No gendered Polish (test). Narrator lines ≤ 90 characters. Nothing
+the player writes; the progress keeps sessions, best, petals, wheels, full fields, the pace, the posture, the breath.
+
+**Long sessions stay alive**: the narrator speaks at a new centre's first push in round 1 only, of a wheel turning true
+and a pair balancing in round 1 only, and says "come back" and the valve's words at most once in five minutes; rounds 2
+and 3 pray thanks and entrusting instead of the round-1 prayers; a test plays 45 and 60 minutes and finds no narrator
+line or prayer back within ten minutes; collections are bounded (≤ 110 motes, the narrator's queue 4).
+
+#### Checks
+
+`test/arcade-kola.test.ts` 30/30 (the plan at 3–60 min × three breaths × Mendi/HALO and the ≤ 60 s test; all twelve
+true and the full field at good focus in every length; nothing true without focus — rests, unfocused, unreliable;
+never lost; a 40 s test scores at half focus; qualities, pairs, prayers, rounds, the valve; the sim grid; faults; the
+progress; four catalogs, Rzeki's names, narrator ≤ 90, tradition once, forbidden words, Thou in every prayer, no
+gendered Polish, passages in four editions; the registry; geometry; every CHECK_SIZES layout; the lobby card).
+`npx tsc --noEmit` clean for the game; `scripts/arcade-mobile.mjs` passed on six devices (no text under 11 px — only a
+verse's reference at 11; 60 fps; 2.7 ms a frame on the small phone at 4× CPU throttle); arcade-shot at 90 s and 3 min
+(pl, desktop and phones) and a render script for chosen moments (desk/phone/side/Full HD, standing/seated, rounds 2–3,
+the field filling and whole, a weak session's field, reduced motion, en/de/sv) — looked at.
+
+#### Decisions and why
+
+* **Pushes by the light, rests after each finished wheel** (not a fixed clock): the founder's own rule for Rzeki
+  (round 11), and a wheel "brought to right working" is a station, not an interval; the fit keeps the session's length.
+* **Groups by centre** at 3–5 minutes so all twelve still turn true in a short session, front and back always together.
+* **Finer rounds** rather than slower wheels in a long session: 45–60 minutes never loop visibly (the prayers turn from
+  receiving to thanks to entrusting; the wheels gain an inner ring, then rays), and a step never takes more than ~30 s.
+* **Petals as the headline**: they light one by one with the progress — the founder's "kafelki" feel, honest to focus.
+* **Standing by default** (the chart), **seated** offered in the lobby card (§18.3).
+* **The brow's eight and the crown's twenty petals** are my drawing (the tradition's 2 and "1000" read badly as a
+  turning disc); 4, 6, 10, 12, 16 below follow the tradition.
+* **No 0–10 rating**: not asked for this practice; the close is the blessing and a passage.
+
+#### What waits for the founder
+
+* The attached pictures never arrived: the figure and the funnels are drawn from the well-known form; if a picture comes,
+  the geometry is in one place (figure.ts) — the funnels' reach and size, the egg.
+* Whether the de/sv name "Sakralchakra" (Rzeki's) should give way to "Sakralzentrum"/"Sakralcentrum" in both games.
+* The seated posture is a low stool; a kneeling bench or a chair could be added the same way.
+
+### 28.7 Złote serce's music: one track after another (`kit/playlist.ts`, `kit/music.ts`, `kit/youtube.ts`)
+
+(It supersedes §21.4's plan and its "Live" paragraph, and §21.6's 0–10 question. §21.5's terms stay; one sentence there changes: a session now has one or two players, see below.)
+
+**The founder:** „żeby ta lista układała się w wiele piosenek pod rząd (po prostu dopasować czas tych utworów tak,
+żeby mieścił się w długości danej sesji + jakieś delikatne przejścia pomiędzy utworami dać)”.
+
+#### The plan (`planMusic`, pure and seeded)
+
+* **A short ambient opening**: 4 % of the session, 8–20 s (`introOf`). The first track loads under it.
+* **Tracks back to back**: each one begins `FADE` = 5 s before the one before ends. There are no ambient bridges any
+  more.
+* **The set fills the session.** A random order is drawn (the rotation as before: a track heard last session weighs ¼,
+  two sessions ago ½, three ago ¾). Tracks are taken in the order's turn while one fits whole in the room left. A track
+  that runs past the end by little (≤ 80 s) may also be taken as the last.
+* **The end of the session**, once nothing fits whole:
+  * more than `TAIL_MAX` = 60 s left: the last track is the one that runs past the end by the least. It is faded out
+    over the last `CLOSE_FADE` = 10 s.
+  * 60 s or less left: the ambient closes the session, under the blessing.
+* **A track is never cut anywhere else.**
+* **Which plan.** 240 such sequences are drawn. Each distinct one gets a chance e^(−(lost seconds + 0.6 × ambient
+  close) ÷ 40) × e^(−recently heard seconds ÷ 120), and one is picked by that chance.
+* **Repeats.** When the allowed tracks are fewer than the session holds, they come round again in a new order. The
+  same track never plays twice in a row while two or more are allowed. The eleven together last over 77 minutes, so
+  they never repeat within an hour.
+* **No tracks** only in a test session (< 2 min, `MIN_SESSION`; app:smoke's 40 s). A 3-minute session now holds one
+  track, faded at its end.
+* **The ages.** `ageRecent` keeps three sessions, as before.
+
+Measured over 60 daily sessions with the rotation (the founder's eleven):
+
+| Session | Music share (avg / least) | Tracks (avg, range) | Last track's lost seconds (avg, most) | Ambient close (avg, most) | Tracks heard |
+|---|---|---|---|---|---|
+| 3 min | 96 % / 96 % | 1.0 (1) | 40 s (≤ 67) | 0 | 5 (the ~4-min ones) |
+| 5 min | 85 % / 79 % | 1.4 (1–2) | 46 s (≤ 168) | 32 s (≤ 51) | 5 |
+| 10 min | 97 % / 97 % | 2.1 (1–3) | 38 s (≤ 80) | 0 | 9 |
+| 15 min | 97 % / 92 % | 2.9 (2–4) | 21 s (≤ 161) | 10 s (≤ 54) | 10 |
+| 20 min | 98 % / 95 % | 3.1 (2–5) | 31 s (≤ 96) | 7 s (≤ 43) | 11 |
+| 30 min | 98 % / 96 % | 4.5 (3–6) | 25 s (≤ 82) | 9 s (≤ 52) | 11 |
+| 45 min | 99 % / 97 % | 6.6 (4–8) | 13 s (≤ 115) | 13 s (≤ 50) | 11 |
+| 60 min | 99 % / 98 % | 8.6 (7–9) | 7 s (≤ 70) | 8 s (≤ 52) | 11 |
+
+Round 17 had 63–82 % music share; now it is 79–99 %. Every track that fits a length whole plays within 30 daily
+sessions, with one exception: Ong Namo (13:01) at 15 minutes. It leaves 1:44 that only a chant faded early can fill,
+so its turn comes about every six weeks. The plan prefers a close fit, and that was accepted.
+
+#### Live (`MusicDirector`)
+
+The director follows what the players report, not the plan's clock.
+
+**Two players take turns** (`TrackPlayer.cue`, YouTube's `cueVideoById`). 25 s before a track ends, the next one is
+cued in the other player at volume 0. A cued player is not playing, and its card stays hidden. There are three ways to
+pass to the next track. All three are the director's (`fades`, `overlap()`):
+
+| Way | When | What happens |
+|---|---|---|
+| **Cross-fade** | Two players, and the layout has a second place for a card that covers nothing (`layout.ts music2`: the heart at any stage, the cloth, the words and the guide are kept clear). Today that is a large desk window, from about 1440 × 900. | The next track starts 6 s before the end. While it rises 0 → 1 over 5 s, the ending one falls to silence. Both cards are on screen, the second beside the first, each player ≥ 200 × 200 with nothing over it. The ambient stays silent under two tracks. Once the first card has faded (0.95 s), the second glides into the first place (0.9 s), so the two never lie one over the other. |
+| **Fade-through** | Two players, one place: every phone and most desks. | The ending track falls to silence over its last 5 s while the ambient swells softly (0.75). The moment it ends, the cued next starts in the same place, rises over 4 s, and the ambient falls back under it. |
+| **Ambient swell** | iOS: one player, no volume (`appleTouch`). | The ambient swells over the last 3 s. The next track loads into the same player, so the one tap given keeps counting, and the ambient falls under it. |
+
+**The end of the session.** A track that would run past the end fades out over the last 10 s and pauses at the end,
+while the ambient rises. On iOS the ambient rises over the whole close and the track stops under it. A new track
+begins only with more than 60 s left.
+
+**What stays as before:** the tap flow (asked once; "Tylko muzyka tła"), skips (error, no start in 25 s, a stall of
+45 s), and pause/resume. Two things are new:
+* A track that cannot play hands the turn straight to the cued next.
+* When the first player needed a tap (desktop Safari and the like), the second is not used, because it would ask
+  again; the tracks load into the tapped player. A second player that wants a tap of its own hands its track to the
+  first one, without asking.
+
+**Fade timing.** A video ends up to ~0.8 s before the length its player reports (YouTube rounds up), so the fade
+reaches silence by then. Under a cross-fade the ambient bridges only if the next track is late, more than 2 s before
+the end.
+
+#### Measured in Chrome
+
+Headless, the real youtube-nocookie embed, the dev server, consent clicked in the lobby, the first track sought to
+32 s before its end. Script: `<scratch>/probeH/music-live.mjs`; shots and 250 ms samples in `<scratch>/shots24-heart/`.
+
+* **Desk 1440 × 900, cross-fade.** Psalm 23 → Crux Sacra.
+  * The next was cued 25 s before the end and started 6 s before it.
+  * For 5.0–5.2 s both played. The volume the director set and the volume the embed reported were the same: the
+    incoming one rose 5 → 53, the outgoing one fell 59 → 15 → 0.
+  * Two cards were on screen only for those ~5 s: second place y 284, first place y 532, no overlap. The second card
+    glided into place after the first had faded. At no sample did two visible cards overlap.
+* **Phone 390 × 844, fade-through.** Psalm 23 → Lord Have Mercy.
+  * The ending track fell 56 → 12 over its last 5 s and the ambient swelled (0.75, 3 s).
+  * The cued next was playing 0.5 s after the end and rose 1 → 60 over 4 s while the ambient fell.
+  * Never two cards; never two tracks at once.
+* **iPhone user agent.** One player, no cue. The ambient swelled 3 s before the end; the next track loaded into the
+  same frame and the ambient fell when it played.
+* No page errors in any run.
+
+#### The lobby (`music/panel.ts`, `music/i18n.ts`, 4 languages)
+
+* The way's note: "Utwory z listy grają jeden po drugim, z łagodnymi przejściami… Muzyka tła otwiera sesję i gra tam,
+  gdzie utwór nie może zagrać. Jeśli ostatni utwór trwa dłużej niż sesja, łagodnie cichnie razem z jej końcem."
+* The fit line: "Na 10 min zagrają 1–3 utwory pod rząd, z łagodnymi przejściami." It adds "Utwór dłuższy niż reszta
+  sesji łagodnie cichnie razem z jej końcem." when a plan fades its last track.
+* A row longer than the session: "dłuższy niż sesja 3 min — gdy zagra, ucichnie z jej końcem".
+* A row longer than an hour's room: "dłuższy niż najdłuższa sesja (60 min) — zawsze ucichnie przed swoim końcem".
+  An own track of 45:00 now fits whole.
+* iOS note: "…to ona (muzyka tła) łagodzi tam przejścia między utworami."
+* `fit.never` is gone, because any track can now play as a faded last.
+
+#### Tests
+
+* `test/arcade-music.test.ts` (36): the shape at 3–60 min, the fill, the end fit, the rotation, repeats, the
+  director's three ways (no overlap in the fade-through; overlaps of ~FADE s in the cross-fade, one rising, one
+  falling, the ambient silent), the close fade, skip, tap and the second player's tap, pause, an hour.
+* `test/arcade-kintsugi-music.test.ts` (33): two cards take turns; a cross-fade with the second place and the glide;
+  the iPhone's one player; the lobby's new lines; tooLong at 60 min. This replaces the two tests that failed since
+  45/60.
+
+### 28.8 "Jak się teraz czujesz?" instead of "Jak bardzo boli teraz?"
+
+**The founder:** „Zamieniać how much 'does it hurt' na 'how do you feel' w heart.”
+
+**The question** in Złote serce's close and lobby is "Jak się teraz czujesz?" (How do you feel now? · Wie fühlst du
+dich jetzt? · Hur känner du dig nu?).
+* The scale reads the other way: "0 — bardzo ciężko · 10 — lekko i dobrze" (very heavy … light and well · sehr schwer
+  … leicht und gut · mycket tungt … lätt och bra).
+* The close's buttons step in colour from a dusky plum (0) to a warm gold (10), all dark enough for the light digit to
+  read. The chosen one is gold, as before.
+* Changed keys: `rate.*`; `panel.feel*` and `stat.feel*` replace `panel.hurt*` and `stat.hurt*`; `howto.*`; and
+  `kintsugi.how3` in `i18n/arcade.ts` and `arcade-mouse.ts`.
+* The summary line is "Jak się czuję: 3 → 7"; rising is lighter.
+* The keyboard now reaches 10: "1" then "0" is 10, and a "1" alone stands after 0.8 s (the close waits for it).
+* "Co boli?" (the words written on the pieces) stays. It is what the meditation gathers, not the rating.
+
+**Migration.** The progress goes to version 2 (`meta.ts migrate`). A version-1 save's ratings are turned round once:
+feel = 10 − hurt, for the lobby's "before" and every before → after in the history. Every later migrate (lobby,
+preview, session) is idempotent. A test holds a returning player's history ("8 → 5" becomes "2 → 5").
+
+**Other heart games checked.**
+* Każda myśl: "Jak ciężko jest teraz?" asks about the weight of a thought.
+* Ogród: "Jak ciężko jest teraz Twojemu sercu?" asks about heaviness.
+* Neither asks about pain, so both are left as they are.
+
+### 28.9 The heart series at 45 and 60 minutes
+
+**Method** (§17.1, again for 2 700 and 3 600 s):
+* the plan to its finale;
+* a full headless session with the sim (weak, average and strong players): bounded collections, a clean result, the
+  summary a few lines;
+* the narrator, the passages, and the fit (§24.4b).
+
+**Every fix switches on only above 1 800 s.** Shorter sessions were proved unchanged:
+* plan dumps byte-identical before and after (kintsugi: 40–1 800 s × 5 breaths × fNIRS/HALO × 5 rhythms; drzewo
+  12 800 plans; mysli and ogrod their full grids);
+* narration of 64 runs identical (serce, dlonie, ezechiel, drzewo).
+
+**A shared rule** (all eight games): in sessions over 30 minutes a narrator's line comes back only after 10 minutes
+(`talk.fresh` = `RULES.talkFresh` 600 s from `RULES.talkFrom` / `long.from` 1 800 s). Otherwise that moment passes in
+silence. The draws are unchanged, so 30 minutes and less narrate exactly as before. Exempt (they always speak): the
+no-signal warning, the waits for attention (`wait`, `still`, `goldWait`) and the safety rest (`valve`).
+
+| Game | Found at 45–60 min | Fix |
+|---|---|---|
+| **Złote serce** (kintsugi) | The 13 pieces of 30 min stretched over an hour: a lift or a lay asked 50 s (45 min) and 75 s (60 min) of focus. A push to lay one piece and lift the next took up to 84 s (45 min) and 122 s (60 min) for the average player, up to 152 s for a weaker one. At 30 min the most is 46 s. The beat (≤ 2 min) and the radiance (≤ 3 min) stayed short. The narrator's lines and the wash and gold passages came back every few minutes. | `RULES.long` (> 1 800 s): **14 pieces**; by design a wash takes **3 breaths at 45 min and 4 at 60** (the player's own dial is kept); the beat may grow to **3 / 4 min** and the radiance to **5 / 7 min**; a task asks **at most 36 s** of focus, and what the gathering gives up goes to the gold (45 min: gathering 56 %, gold 23 %; 60 min: 46 %, 34 %). Measured: pushes ≤ 62 s for the average player and ≤ 76 s for a weaker one. All 14 pieces with care and every seam gilded for weak, average and strong at 45 and 60. The narrator's 10-minute rule; a rest's passage also comes back only after 10 minutes. |
+| **Z głowy do serca** (serce) | The plan scales: the nine stages, then 6–19 stages for the world's people. But every people-stage's blessing showed the same verse (Jn 3:16), up to 19 times an hour, every 2–4 minutes. The narrator repeated lines within 49–105 s. | From the second round of the people on, each group has its own verse (all already in scripture.ts): suffering Ps 34:18, lonely Isa 41:10, sick Isa 53:4, dying Ps 23:4, newborn Ps 139:13–14. A group's verse comes back only after more than 10 minutes. Plus the narrator rule. |
+| **Dłonie** (dlonie) | 16 prayers at 45 min and 21 at 60. The average player offers all of them, the last at 98–99 % of the session. The ambient covers the hour; max 150 blocks. Each step's two lines came back every 2.5–3 min. | The narrator rule only (exempt: nosignal, still, valve; the step's instruction stays on the runner's task line). |
+| **Ezechiel** | The plan scales (4 rises, 3 washings, 40/56 tree steps; the arc ends at 88–90 %, 12/12 fruits). But the leaves laid on one place spiralled outward without limit: ~63 an hour, growing the circle to 1.5 × its 30-minute size, over the arms. Lines came back after ~51 s. | `RULES.laidRing: 30`: the circle stops growing at its 30-minute size, and later leaves settle on its edge (≤ 27 a place at 30 min, so 30 min looks the same). Plus the narrator rule. |
+| **Drzewo** | The needs reached their maximum from ~40 min, so the nine planned fruits were all ripe at 65 % of an hour. After that came 1.67 × the planned fruit, the surplus §24.4b forbids. 'good' came back after 51–86 s. | New table rows: 14 fruits at 45 min, 18 at 60 (the nine, then again). `planFor` lowers the count when the extra rests would shorten the player's chosen rest. The average player ripens every planned fruit, the last at 85–92 %. Plus the narrator rule. |
+| **Brzemiona** | The plan was sound: three circles, finale at T − 16 s; 17–19 burdens an hour (intercession), 24–26 (own way); ≤ 26 lights at the Cross; 4–6 stats. A 60-minute session said 20 different lines 151 times (a line every 25–85 s). | The narrator rule only. |
+| **Każda myśl** (mysli) | `planFor` reused the 30-minute row at 45 and 60 (34 pairs, need held at 30). The average player was through 85 % of the plan at 43 % of an hour. | Two new rows: 45 min 46 pairs (quiet 120 s), 60 min 56 pairs (the library's size, quiet 150 s). 85 % is now reached at 0.72 / 0.70 of the session (30 min: 0.74). Library thoughts come back only after all 56 (≥ ~18 min). Plus the narrator rule. |
+| **Ogród o świcie** (ogrod) | The 30-minute caps on repeated acts left an hour's recommended way marked "short": 18 acts, a 1 010 s dawn with a 250 s close. A two-station way at 60 min got a 2 680 s dawn and a 640 s close. | Over 30 min: the repeated acts may come a little more often (waves ≤ 7, kind word 5, roses 6, tending 4; stones and lanterns stay the player's own). A long dawn is shared as if it were 1.6 × its frame, the rest going to the sunrise, so the close stays ≤ 40 s. "Short" only when > 5 % is left over. Measured: 45 min 26 acts, not short; 60 min 26 acts, still "short" with the default words (true, and the lobby says so); with more words, 34 acts, not short. Plus the narrator rule. |
+
+**Each game's test file has a 45–60 minutes block** (`describe('… 45–60 minutes (round 24)')`). It holds the plan to
+its finale at 2 700 and 3 600 s, the full 60-minute headless session (weak, average, strong), the fit, and the
+narrator's 10 minutes.
+
+#### What waits for the founder (Złote serce, the heart series)
+
+* **The cross-fade needs room for two players** (YouTube's terms: each playing player visible, ≥ 200 × 200, nothing
+  over it). Only a large desk window has that room beside the heart; phones get the fade-through, with the ambient
+  carrying the change. If the founder wants a true cross-fade on a phone, a card would have to cover part of the
+  picture for ~6 s at each change. That was not done.
+* **iOS** was checked with an iPhone user agent in Chrome, not on a real iPhone: the one-player path, the tap, and
+  the ambient bridging the change.
+* **Ong Namo at 15 minutes** comes about every six weeks. The plan prefers a close fit to the session.
+* **Rest verses at every length**: Dłonie's verse after a laid prayer comes back every 7–8 min, Ezechiel's lay verse
+  every ~6 min. That happens at 30 min too, so it was left; widening the sets would change every session.
+* **Each warownia's six daily truths** in Każda myśl come round every ~100 s at 60 min (by design, as at 30). Left.
+* **A two-station Ogród way at 30 min** keeps its long dawn (880 s). 30 minutes was not to change.
+
+### 28.10 45 and 60 minutes, part 1: Geoda, Arka, Źródła, Firmament, Posłaniec, Zacheusz, Dolina, Motylarnia, Glina, Zastępy, Dziewiątka, Nehemiasz, Koty
+
+The thirteen games were checked at **2 700 and 3 600 s**, the way §17.1 checked 15–30 minutes. Each game's tests
+have a new `45–60 minutes` block, placed after its `15–30` block. The block covers:
+
+* **The plan to the finale at 2 700 and 3 600 s:** the blocks add up, push and rest alternate, every block stays at
+  its design length, and the finale comes last.
+* **A full 3 600 s headless session with the game's sim and scripted focus.** The session must end without a throw.
+  Every list the sim keeps must stay bounded: particles, roads, queues, logs, histories, said lines. The `result()`
+  must be clean: at most 6–10 lines, no `undefined` or `NaN`, a score under ten million and short stats.
+* **The companion's lines, timed.** Each line is counted per quarter of the hour, together with the soonest time the
+  same text comes back.
+* **The whole module on the runner's clock with `draw()`** for Geoda, Arka, Źródła and Firmament. The other nine
+  blocks don't run it, because their 15–30 blocks never did.
+
+Every plan already scaled to an hour. Every difficulty cap from §17.1 holds to 60 minutes: Zastępy's `chapterCap`,
+Dziewiątka's `boonCap`, Nehemiasz's `yearTop`, Motylarnia's lap growth, Geoda's goal and rock, Arka's 9 × 11 board
+and Źródła's grid, countdown and pace. The sound is the same in all thirteen: a pad that runs until it is stopped,
+plus event sounds. Nothing is timed to a track, so it covers an hour.
+
+**What an hour exposed: the companions loop.** A 60-minute session showed one problem that 30 minutes had hidden in
+plain sight: the reactive companions repeat themselves. Geoda's Bazyl said 442 lines in an hour and one of them 32
+times; a "big clear" line came back about every two minutes. Bubo (Firmament) said one line 79 times, the soonest
+repeat 24 s after the first. Arka's raven said one line 28 times. A 30-minute session already had this at half the
+count (16×, 40×, 15×) and nobody objected. An hour doubles it, and the brief, quoting §17.1, says a line may come back
+only after 10 minutes.
+
+* **The rule.** A session over half an hour takes §17.1's ten-minute rule: a line comes round again only 600 s after
+  it was said. When all of a moment's lines are younger than that, the companion keeps quiet for that moment.
+* **The gate.** The rule applies when `plannedSec > 1800`: 45 and 60 minutes, and any `?trainingSec` above 1 800.
+  Sessions of 30 minutes and less, and the ≤ 60 s test, keep their old behaviour exactly, with the same random-number
+  use and the same lines. A probe confirmed it: Geoda at 180 and 1 800 s gives the same score and the same lines,
+  word for word, before and after the change. Firmament and Arka at 1 800 s were also identical.
+* **The result.** A 60-minute session still hears its companion in every quarter of the hour, about 150–250 lines
+  in all. Each line is said at most six times, never twice within ten minutes.
+* **Where it was applied.** Seven games share one copy of the pool `Talk` class: Geoda, Źródła, Glina, Motylarnia,
+  Dziewiątka, Nehemiasz and Koty. Each one's `talk.ts` gets `ROUND_SEC` and `roundFor(plannedSec)`, and a third
+  constructor argument. Arka's raven and Firmament's Bubo say their lines in turn, so the next line in turn is the
+  oldest one; when that line is younger than ten minutes, they keep quiet. Dolina's Ćma had the opposite problem
+  (below).
+
+| Game | Found at 45–60 minutes | Fix |
+|---|---|---|
+| Geoda | Bazyl said 442 lines, one of them 32 times, a line coming back within 6 s | ten-minute rule past 30 min: 199 lines, each said at most 6 times |
+| Arka | the raven said 395 lines, one of them 28 times, the soonest repeat at 56 s | ten-minute rule: 154–162 lines; 152 decks in the hour, the board stops growing at 9 × 11 |
+| Źródła | Kumka repeated a line within 8 s, the most-said line 18 times at 30 min | ten-minute rule: about 190 lines, 39–61 in each quarter of the hour; 130–146 valleys tried |
+| Firmament | Bubo said 562 lines, one of them 79 times, the soonest repeat at 24 s; the score reaches about 2.15 million | ten-minute rule: 151–158 lines. The score of 9 characters already takes the long size (8 or more characters) in the HUD and the summary |
+| Dolina | Ćma, and the companions who share her queue, never repeat a line in a session, so she fell almost silent after 15 minutes. Lines per quarter: 75, 17, 9, 6 in the valley; 91, 8, 0, 4 in the clock tower | past 30 min a line may come back after ten minutes (`companion.ts` `roundFor`). Quarters after the fix: 85, 74, 75, 78 and 103, 81, 84, 87 |
+| Zastępy | Tymek's ten-minute rule counts in rounds of ten minutes of the session, so a line could come back after 5–7 minutes (soonest 321 s at 60 min, 288 s at 30 min) | past 30 min, a line comes back only 600 s after it was said (`sim.ts` `say()`). 30 min measures exactly as before |
+| Nehemiasz | a strong hour builds the wall twice, and the days stat read "50–52 i 1–1" instead of the whole calendar | when the year moved on by two or more, the stat reads "1–52 z 52". This cannot happen in 30 min |
+| Motylarnia, Glina, Dziewiątka, Koty | the pool Talk repeated lines, as in Geoda | the shared ten-minute rule. Otherwise sound as they were |
+| Posłaniec, Zacheusz | nothing to fix: their companions already have the ten-minute rule (soonest repeat 600 s, more than 200 lines, every quarter) | sound as they were |
+
+Sound as they were, apart from the companion's line rule:
+
+* **Posłaniec:** 57 km and 17 cities, every letter delivered.
+* **Zacheusz:** 51 levels, all 12 homes restored.
+* **Glina:** 504 pieces made, all 504 sold.
+* **Dziewiątka:** the campaign is finished and the Bell Tower climbed to floor 42.
+* **Nehemiasz:** all 10 gates built and the next year begun.
+* **Koty:** stage 65–70; the "Rybki" count shows as "136M".
+
+**The numbers that fit.** Firmament is the only game past a million, at about 2.15 million (`2 150 290`, 9
+characters). The runner's summary and the Mendi HUD already give 8+ characters the smaller size (§17.1). Every other
+score stays at 6 digits or fewer, and every stat value stays at 14 characters or fewer.
+
+**Checks.**
+
+* `npx vitest run` on the 13 test files: 920 tests pass.
+* `npx tsc --noEmit -p .`: clean for these games. The only errors are three unused variables in another builder's
+  `test/arcade-warstwy.test.ts`.
+* No browser run; the lead's app smoke covers the 40 s path. It is unchanged, because the rule applies only past
+  1 800 s.
+
+**What waits for the founder.** All five points below also happen at 30 minutes and below; they come from progress
+built up over many sessions, not from the session's length.
+
+* **Motylarnia.** A player at the lap cap needs 4–6 minutes per garden at good focus. A 60-minute session finished
+  14, 8, 6 and 3 gardens in its four quarters, because later laps have longer gardens. The same happens at any length.
+* **Koty.** From about 50 minutes, a returning player stalls at a chief around stage 65. This is the idle game's
+  plateau: Brother Anselm offers the Winobranie (the rebirth) from stage 31.
+* **Dolina and Dziewiątka.** Each level, or each floor of the tower, gets about 4.5–5.5 % harder over the player's
+  lifetime.
+* **Źródła.** The test bot (Space only) stops winning valleys after valley 15. A real player meets the capped pace
+  instead.
+* **Firmament.** If a level is won right at the dawn, its last shower can hold the sim's own end a few seconds past
+  the hour. The runner still stops at plannedSec + `settle` (3 s).
+
+The frame cost of the other nine games over a long session has not been measured in a browser. Their view lists are
+pruned or capped (checked by reading the code), so the lead's browser check is the place to confirm it.
+
+### 28.11 Every session at 45 and 60 minutes (L1b): Latarnik, Urodzaj, Wzlot, Pasterz, Anioł, Chleby, Jerzy, Dawid, Dobry bój, the focus training, the exercise cards' games
+
+**The method.** The audit of §17.1 again, at **2 700 and 3 600 s**. For each game: the plan to its finale at 45 and 60
+minutes (blocks, rounds, nights, fights); a full headless 60-minute session with the game's sim and a scripted player
+(no throw; every collection bounded; a clean `result()` — a few lines, numbers that fit; the companion not looping);
+lifetime difficulty pushed past where an hour a day takes a player in a week; and a **frame-cost check**: the whole
+module played for an hour on the runner's clock on a 2D context that counts its calls, a frame drawn every second —
+a frame in the last five minutes must not cost more than 1.5× a frame in minutes 1–6 (`test/longframe.ts`,
+`hourFrames()`). Every game's test file has a `45–60 minutes` block (the plan, the full hour, and the drawn hour);
+the focus training's in `test/training.test.ts`, the cards' in `test/cards-games.test.ts` and `test/cards-loop.test.ts`.
+Fixes are the smallest that keep 3–30 minutes and the ≤ 60 s test as they were.
+
+| Game | Found at 45–60 minutes | Fix |
+|---|---|---|
+| Latarnik | a first hour lights the whole harbour and fills the album: the summary listed all eight harbour steps, and the amber line read "jaszczurka (legendarny), jaszczurka (legendarny)" (the same inclusion from both sets); Zośka's log grew to ~400 lines | three names then "+N"; a label once (sim.ts `highlights`, `amberLine`); the log keeps its last 120 lines |
+| Urodzaj | three lines of one kind ("Pierwszy raz: pigwa" / "melon" / "arbuz"); Feliks's log ~500 lines | one line, "Pierwszy raz: pigwa, melon, arbuz"; the log keeps 120 |
+| Wzlot | each block lost its last frame's overshoot: ~120 blocks put the last sunset 1–2 s late (2 s at 30 fps), the sim's own end at planned + 4.4 s, past the runner's 4 s of settle — the last day's tally was cut | the overshoot carries into the next block (sim.ts `blocks()`): the finale lands on time at every length; the log keeps 120 |
+| Chleby | the hunger (×1.3 a round of the path) and the bosses' pouches grew without end with the rounds; an hour a day reaches level 96 in days — level 240 fed ~8 levels an hour, level 960 ~4 (the disciples' help kept every terrace finishable, just slow) | `circleTop: 4` — from the 5th round of the path (level 96) the hunger and the pouches hold; level 240–960 now ~14 levels an hour (rules.ts, field.ts `levelHunger`, boss.ts `pouchOf`) |
+| Jerzy i smok | the legend's roads grew +0.8 hp and +0.25 brood a road without end; an hour climbs about a road; road 16 drove off two dragons in 30 minutes and felled the knight three times | `legendTop: 4` — from the 8th road they hold (four dragons in 30 minutes) (rules.ts, meta.ts `road()`) |
+| Dobry bój | a summary line per fight: an hour holds seven fights → 11 lines; without focus "Upadek to nie koniec drogi — Iskra podaje rękę" four times over | the same line once, the last four fights (`FIGHT_LINES`; 30 minutes holds at most four fights, so nothing changes there but identical lines merging); the stats keep the whole record; the coach's log keeps 120 |
+| Focus training, every summary | an hour read "1:00:00 min" (the clock's h:mm:ss with the unit "min") — in the training's summary, the start page, Sesje and **every arcade game's summary** | `fmtMin()` (ui/dom.ts): minutes and seconds however long, "60:00 min"; used at the four places that print "min" (ui/focus.ts, ui/start.ts, ui/sessions.ts, arcade/runner.ts) |
+
+**Sound as they were:** Pasterz (the rivals' growth stops at the 4th round, the eight hills come round, sheep ≤ 420,
+log ≤ 120, summary ≤ 5 lines; ~26 rounds an hour), Anioł Stróż (the night's pace follows the share of the night,
+not its minutes; the gifts' sheet only while gifts are left; ~35–43 levels an hour), Dawid (the plan, the bounds, the
+finale on time; see the numbers below), the exercise cards' games (their lengths are the app's list; `plannedSeconds`
+reaches 3 600; the recording's cap of 7 200 s covers an hour's game; every staircase stays within its levels over
+3 000 trials; every trial is kept by design — an hour is well under a megabyte), and the focus training's session
+(the live curve keeps its last 40 s; a value a second, ~20 kB an hour in IndexedDB; under 10 800 points; the cues at
+2/8/14/24 s, half-way and 30 s before the end; the day score saturates at 10 minutes; "Godzina treningu" comes with
+the first hour).
+
+**The frame cost at the hour** (mean canvas calls a frame, minutes 1–6 → the last five; a 390×844 phone):
+Latarnik 3 119 → 3 127, Urodzaj 1 288 → 1 260, Wzlot 1 716 → 1 713, Pasterz 2 431 → 2 369, Anioł 5 002 → 5 035,
+Chleby 5 874 → 7 184, Jerzy 3 979 → 5 711 (5 119 at 30 minutes: the knight's arsenal grows through a run, bounded by
+the brood's cap), Dawid 3 855 → 4 037, Dobry bój 1 613 → 1 593. Nothing piles up; Jerzy's and Chleby's late frames
+are worth a look in the browser check on a phone.
+
+**Decisions.**
+* The companions that cycle their few lines per moment (Zośka, Feliks, Leon, the guardians, Linda, Kłębek, the
+  coach) do so at every length, by design since their versions 2–3 (§17.1 called them sound); an hour hears each line
+  more often but nothing new. Left as they are — a 10-minute gate would change 3–30 minutes.
+* Mirka (Chleby) says each of her lines once a session: an hour goes 60 → 10 → 6 → 8 → 3 → 5 lines per ten minutes —
+  sparse, never silent, never looping. The §17.1 return after ten minutes was tried and taken back: it made 15–30
+  minutes much chattier (8 → 50 lines per ten minutes), a change to the short sessions.
+* The two caps (Chleby's rounds, Jerzy's roads) follow §17.1's precedent (Odporność's `loopTop`, Motylarnia's 4th
+  lap, Zastępy's `chapterCap`): an hour-long session takes a player there in days, and an endless climb turns into a
+  slog. The map and the names still count on (round 7, "Szlak legendy 9"); only the numbers hold.
+* The companions' logs (`talk.said`, read by the tests) keep their last 120 lines in Latarnik, Urodzaj, Wzlot and
+  Dobry bój, as Pasterz, Jerzy and Dawid already did.
+
+**What waits for the founder / the lead.**
+* Dawid's numbers: an hour reaches the second circle of the six lands (×45): a first 60-minute session ends with
+  15–30 M XP (eight figures: the score corner and the summary take their smaller size), later hours 0.3–2.4 G (ten
+  figures, 13 characters — what a 360 px phone's summary holds at 44 px). Eleven figures and more (many hours on, the
+  third circle) would overflow a phone's summary: the runner's `data-long` has one step; a second (or a short form,
+  "2,4 mld") would be the place.
+* Anioł Stróż's summary line `hl.boss` "{name} rozwiany w świetle" read "Burza/Ośmiornica rozwiany" (the gender) — at
+  every length, not a 45–60 finding; the lead made it "Światło rozwiało: {name}".
+* The exercise cards' reaction-time chart becomes a dense cloud past ~1 000 trials (30 minutes already).
+* The pre-existing 30-minute Pasterz test is load-sensitive (it timed out at 30 s while ten builders ran tests at
+  once); the round's new long tests carry a 300 s timeout.
+
+**Checks.** `npx vitest run` over the scope (the nine games' files, `boj-ring`, `training`, `i18n-training`, the
+five `cards-*`, `app`, `games-tab`, `hub`); `npx tsc --noEmit -p .` clean for these files (the errors left in the tree
+belong to the round's games in progress).
+
+### 28.12 45 and 60 minutes — Ogień, Rozświetl, Ja jestem…, Rzeki, Złota passa, Odporność, Światło ciała, Synapsy, Odnowa, Każdy włos and the health engine (builder L2)
+
+The same audit as round 12 (§17.1), at **2 700 and 3 600 s**: each game's plan to its finale; a full headless session
+with the game's own sim at an hour (scripted focus, as the earlier blocks); the collections, the summary, the numbers,
+the narrator in the last ten minutes; the counted work fitted to the session (§24.4b). Each test file has a new
+`45–60 minutes (round 24)` block (the plan at 2 700/3 600 s and a whole hour); the health engine's block runs its
+fixture in the three modes, and each of the eight libraries (Czujna straż, Każda komórka, Żywa skóra, Mocne zęby,
+Sprężysty kręgosłup, Lekkość i siła, Pełnia radości, Rozkwit) runs `simSession` at 45 and 60 minutes in every mode.
+
+| Game | Found at 45–60 minutes | Fix |
+|---|---|---|
+| Ja jestem… | the window stopped at 216 cells (round 12's cap): in an hour a threshold player finished the picture at 64 % of the session (a third of the hour in the light pass), a strong one at 46 % | past half an hour of push and rest the most cells grow with the session — as many a minute as half an hour allows (216 × s / 1 800), up to **432** (`cellsHourFrom`, `cellsHourMax`, `cellsMaxFor`); the save and the debug override take the new maximum |
+| Złota passa | an hour held 40 moments (`momentsMax`) and then a **17½-minute evening**; a player's dials of 15–20 s and one breath left 37–41 minutes of evening at 45/60; a day longer than the sets met the same card again four moments later | by design 35 s / 4 breaths at 45 minutes (32 moments, every set card once) and 40 s / 4 at 60 (40 moments, an evening of ~4 minutes — the same share as half an hour's 2); past 30 minutes a rhythm that would hold more than 40 moments lengthens within the dials, the rests first, then the turns (`stretchFrom`); a set card comes again only 12 moments (~16 minutes) after it was met (`againAfter`), and the day's joys never exceed the set's 16 while troubles can make up the rest |
+| Odporność | the summary listed every loop closed — an hour's 15 loops round three places filled it with repeats ("Drzazga w palcu" twice; also at 30 min) | each place once, the latest two |
+| Odnowa | the summary repeated an upgrade (an hour's fifty stages give the same one twice) | each upgrade once |
+| Ogień | nothing: 8–10 rounds of the ladder, a fire changes every ≤ 2 minutes to the end, ≤ 181 000 sparks (6 digits) | sound as it was |
+| Rozświetl | nothing: 20–44 pictures; the tiles broken 0.98–1.00 of those made at 45/60 (sessions 1/2/5/13 × focus 30/50/66 %) | sound as it was |
+| Rzeki żywej wody | nothing: 46–86 stations, the way round 2–3 times, the rivers (× length / 10 min) full at half | sound as it was |
+| Światło ciała | nothing: 3–15 wholes an hour in each of the five meditations, the last in the last ten minutes; the valve holds | sound as it was |
+| Synapsy | nothing: 155 lessons, 19 rounds at the held need | sound as it was |
+| Każdy włos | nothing: 12–20 wholes, hairs still counted in the last ten minutes, in every mode | sound as it was |
+| the health engine and its eight libraries | nothing: ~40 scenes in 45 minutes, ~53 in an hour in every mode, growing to the end; the worlds draw from state (growth, depth, time, after) and nothing accumulates | sound as they were |
+
+**Ja jestem… measured** (the round-20 grid at 45/60 minutes, a weak player 6 s of every 10, a threshold one, a strong
+one; sessions 1, 2, 5, 13 with shorter sessions between teaching the pace): once the pace is learnt every player lights
+0.99–1.00 of the window with a light pass of 10–16 % of the session (before: threshold 36 %, strong 54 %); a strong
+newcomer's first hour still ends early (40 %, before 54 %) until the pace has learnt them. The price: a weak newcomer's
+first hour is cut for the newcomer's pace and lights 76–77 % (before, under the 216 cap, all of it) — grace fills the
+rest at the finale, and from the second session on the window follows their pace (≥ 0.86, learnt 1.00). Looked at in
+the app (`?debug&jestemCells=420` and `=432`, a phone 390×844 and a desk 1440×900): a fine stained glass, the picture
+clear under the lead; the frame cost 0.3–0.4 ms (median), the glow layer's bake of 432 cells 1.0 ms (≤ 5 a second).
+
+**Decisions.**
+* *A narrator's quick cues come round at any length.* Ogień's, Rozświetl's, Odporność's and the engine's talk reshuffle
+  a moment's variants once used; a quick cue (a cheer for the hands, a flare ready, a gulp) may come back within
+  seconds already in a 5-minute session. That is not a 45–60 regression and was left; the tests hold that the voice
+  still speaks in the last ten minutes and that the lines of a block, a fire or a station do not loop (Ogień ≥ 54 s,
+  Rzeki ≥ 42 s apart).
+* *Złota passa keeps the moments, not the dials, when the two cannot both hold an hour.* Forty moments of 15 s and one
+  breath fill 19 minutes of an hour; the alternatives were a 40-minute evening or each set card three or four times
+  in one day. The lengthened rhythm stays inside the dials' ranges; the session's own counters show it (the runner's
+  "oddech 1 z 4"), but the lobby does not say so in advance — the kit's `restKept` note under the dials reports only
+  shortened rests, and Złota passa's forecast line names the design's rhythm (as it always did).
+* *Smallest change.* Every fix leaves 3–30 minutes and the ≤ 60 s test as they were, except: three old assertions on
+  Ja jestem…'s absolute maximum (a 9 999 s and a 99 999 s window, a save of 900 cells) now expect 432; Złota passa's
+  old "keeps the player's dials" test runs to 30 minutes (past it the stretch is tested in the new block); a 30-minute
+  passa day with dials short enough for more than 32 cards now meets repeated cards later and the joys capped at 16;
+  the two summary fixes also show at 15–30 minutes (they removed repeats there too).
+
+**Checks.** `npx vitest run` for the 20 files of the scope: 1 021 tests pass; `npx tsc --noEmit -p .`: clean for these
+files. The kit/healthlib source was not changed (builder A's `sily` additions are theirs).
+
+**Left for the founder / the lead.**
+* Złota passa in an hour meets 8 of its 32 set cards twice (≥ 12 moments apart); more set moments (four languages)
+  would avoid it.
+* Złota passa at 30 minutes with the dials at 15–20 s and one breath still leaves a 7–11-minute evening (as before;
+  the stretch starts past 30 minutes by the round's rule — the same lengthening would fix it).
+* A weak newcomer's first hour of Ja jestem… lights about three quarters of its window by focus.
+* A lengthened passa rhythm (custom dials, 45/60 minutes) is not announced in the lobby (see the decision above); a
+  "the rests grow to fill the day" note would need the kit's `restKept` to report a longer rest too.
+
+### 28.13 The round's checks, and what waits for the founder
+
+**Checks (lead, 2026-11-27).** `tsc` clean; `vitest` 116 files, 4 203 tests (+ the twelve-stories commit); `npm run
+build` (main chunk 987 kB — the four games' lobby texts in four languages; Stop-klatka's stories are a lazy 423 kB
+chunk); `game3d:check`; `app:smoke` — every game, the four new ones scoring in the 40 s test (Nowe siły 31 nowych
+komórek, Stop-klatka 1 opanowana chwila, Warstwy 7 nici światła, Koła 117 płatków; 57–60 fps); `cards:smoke`;
+`offline:smoke`. A first full run under a load average of ~110 (ten builders at work) failed three ways — Nehemiasz's
+summary at 28 fps, the cards' and offline smokes' simulator signal within 60 s — and all passed on a quiet machine;
+Nehemiasz alone passed at 47 fps. Every builder ran `arcade-mobile.mjs` for their game (six devices, 60 fps). The
+session-length pickers were measured at 320 and 390 px (two rows of five, every length ≥ 44 px wide).
+
+**What waits for the founder.**
+* **The attached pictures** (the aura's layers, the chakra chart) never arrived; Warstwy and Koła were drawn from the
+  well-known forms — their colours, textures and the outer layers' names are each one table to retune.
+* **"Z perspektywy 3ciej osoby (tak jakby widok z oczu)"** was read as both: through the eyes in the story, from
+  aside in the freeze (self-distancing). Twelve stories per group; an hour still tells each about three times.
+* **On a real band and phone:** how the tired person of Nowe siły reads and how fast it recovers; the freeze's 20–60 s;
+  the music's fade-through on a phone and a real iPhone (iOS ignores YouTube's volume — one player, an ambient swell).
+* **A native read** of the German and Swedish stories, layers, wheels and words.
+* **Long-session notes**: Złota passa may lengthen a player's rhythm to fill an hour, unannounced in the lobby; Dawid's
+  XP reaches 11+ digits only after many hours (the runner's long-number rule has one smaller size); Chleby's and
+  Jerzy's late-game caps follow §17.1's precedent.
+
+## 29. Round 25: Rozkwit all at once, Złota passa as a film of life, Dawid's lands, difficulty levels, the boxer's eyes (2026-11-27)
+
+### 29.1 The request
+
+The founder, 2026-11-27 (Polish and English, away, "masz wolną rękę… pick recommended"), five asks:
+
+1. *"Wizualizacja — naraz piękny wizualnie proces upiększenia ciała człowieka — naprawa komórek, wyprostowanie
+   postawy, odmłodzenie, poprawienie jakości włosów, atrakcyjna, piękna figura, sylwetka, zdrowy wygląd; tworzenia,
+   powiększania i pomnażania wielkiego szczęścia człowieka. Chodzi o taką wizję wielkiego…"* — the same words as round
+   20's third ask, which became Rozkwit (§24.13); asked again.
+2. A better winning-streak (Złota passa): fitted to the everyday life of the age groups 11–19, 20–26, 27–35, 36–50,
+   50+; a more dynamic picture, "as if it were a film about life"; mindfulness of the senses (taste, smell, sight,
+   touch, hearing) woven into the everyday; the things we pass by because we got used to them and take for granted,
+   with mini sessions of concentration on them.
+3. Dawid: each level its own, with more and bigger areas, more quests, more storytelling.
+4. Difficulty levels for games like Dawid and Zastępy: STARTING, REGULAR, ADVANCED, HARDCORE.
+5. Dobry bój in a first-person version.
+
+### 29.2 The round's decisions
+
+* **Rozkwit, all at once.** Rozkwit (round 20) walks the whole person through the other games' pictures one after
+  another; the founder's word is *naraz* — at once. Now that Nowe siły (§28.3) has a person drawn in code who changes
+  parameter by parameter, Rozkwit opens with a new first meditation, **„Wszystko naraz”**: one person, whole, standing,
+  whose every aspect changes together as the session's focus gathers (the engine's `arc`, §28.3) — light through the
+  cells, the back straightening, a rested face, fuller shining hair, a lighter, stronger figure, a healthy colour — and
+  a light in the heart that grows and then **multiplies**: it passes to the people around, then to a whole city of
+  lights (joy spreads in a network: Fowler & Christakis 2008), "a vision of great happiness". The walk through the
+  pictures stays as the meditations after it. Words §24.3: never "odmłodzi", never a promise of a figure; beauty told
+  as health and as God's work, offered in thanks.
+* **Złota passa as a film of life** (contract `passa/life.ts`): the player's age group (`kit/ages.ts`, shared with
+  Stop-klatka — chosen once on the device); the day's moments drawn from sets written for that group's life; the camera
+  travels through the places of that day (waking, the kitchen, the way, the school / campus / office / counter /
+  nursery / garden, the evening table, the window at night) with moving shots; two new kinds of moment — **sense**, a
+  mini session of attention on one sense (a close-up that opens into colour and detail as focus holds: savouring), and
+  **given**, a thing taken for granted, first greyed away in a short rest ("imagine this morning without…": mental
+  subtraction, Koo et al. 2008), then brought back in gold by focus, with the thanks.
+* **Dawid's lands as levels**: each of the six lands its own level with more and bigger areas, more quests (chains per
+  area, new kinds), and storytelling — scenes with portraits and dialogue as David's road goes from the anointing to
+  Ziklag (1 Samuel 16–30, told in the game's own words; verses only from scripture.ts).
+* **Difficulty levels** (`kit/difficulty.ts`, `kit/difficultypanel.ts`): Na start · Zwykły · Zaawansowany · Hardcore
+  (Starting · Regular · Advanced · Hardcore) in the lobby of the games with foes — Dawid, Zastępy, Jerzy i smok,
+  Dziewiątka, Kocia straż, Nehemiasz, Dolina, Chleby i ryby, Anioł Stróż, Dobry bój. A level changes the game, never the
+  training: the threshold, the blocks and what focus is worth stay the same; REGULAR is each game as it was (the
+  default, so nobody's game changes unasked); records are kept per level.
+* **Dobry bój through the boxer's eyes**: a lobby choice of view — from the side (as now) or first-person: the opponent
+  facing the player, the player's own gloves at the bottom of the screen, slips and blocks as the head's movement, the
+  combinations as before, the slow motion of held focus; gentle camera (no heavy shake; reduced motion keeps it still).
+
+### 29.3 Rozkwit „Wszystko naraz” — one whole person changed all at once, and joy that multiplies (All at Once · Alles zugleich · Allt på en gång; builder R)
+
+**The request, again:** *"naraz piękny wizualnie proces upiększenia ciała człowieka — naprawa komórek, wyprostowanie
+postawy, odmłodzenie, poprawienie jakości włosów, atrakcyjna, piękna figura, sylwetka, zdrowy wygląd; tworzenia,
+powiększania i pomnażania wielkiego szczęścia człowieka."* Round 20 walked it as pictures one after another (§24.13).
+The missed word was *naraz* — and the great happiness that is made, grows and **multiplies**.
+
+**What it is.** A new **first** meditation of Rozkwit (`MEDS[0] = naraz`, four scenes, verse **Mt 5:14–16** — "a city
+set on a hill… let your light shine", the town of lights and the Father glorified, not the person). It is the default
+for a new player (fresh progress chooses `meds[0]`, mode "in order"); the six meditations of round 20 follow unchanged
+as the deeper walk. Root unchanged (Ps 139:13–14). Files: `rozkwit/naraz.ts` (the model, pure), `rozkwit/person.ts`
+(the person whole, front and side), `rozkwit/world-naraz.ts` (four worlds), `library.ts`, `sources.ts`, `i18n.ts`,
+`index.ts`; `sily/figure.ts` only gained `export` on its painting parts (no line of its drawing changed).
+
+#### One picture, everything together
+
+One person — Nowe siły's person (§28.3), a woman or a man in three skin tones — **whole, standing, head to feet**, on a
+meadow on a hilltop at the **golden hour**, a small town in the valley behind (four rows of houses, gardens and trees, a
+church tower, 459 windows and three strings of street lamps). One number carries the vision, **V** (0..1):
+
+* **in play** V = max(the engine's `arc`, this meditation's focused growth this session ÷ 4). The arc carries the short
+  sessions (a 3-minute session grows only two or three scenes, measured), the walk carries the long ones (walking the
+  four scenes always ends in the whole vision). Both never fall. A blind push's growth lands in the scene current at
+  its end, so the walk counts the meditation's growth, not per scene.
+* **outside play** (hero, tiles) V = the scene's own growth, so the lobby shows the whole change in its loop.
+
+Everything moves with V **together** (not in stages, as Nowe siły's are): the six parameters of `Renewal` on one curve
+from where each starts (an ordinary person at the end of a day — a little slumped, pale, tired about the eyes, the
+hair without shine; never drawn as unwell: `START` skin 0.55, posture 0.06) to whole: the back straightens and the
+shoulders open, the face rests and its colour comes, the hair fills and shines, a quiet smile. **The body's shape never
+changes** (no slimming, no measurements — Lekkość i siła's care, §24.11); "lighter and stronger" is the posture, a
+toned shin and forearm catching the light, the stance. A fine warm light flows from the heart through the tissues (the
+cells' repair; never into the head). The **heart** holds a small light from the start that grows. Then joy
+**multiplies**: seven soft featureless figures — family a few steps behind (a man, a woman, a child), then friends down
+the meadow — light one by one (V 0.28 → 0.8: a warm heart, a golden outline), threads of light pass heart to heart, then
+down into the town, whose windows and street lamps light outward from where the light comes down and **multiply**: lit
+= N^k (one, two, four … all of them, doubling in equal steps of V). The golden hour turns to **dusk** with V (the sun sets behind the
+hills, the first stars), so the lights can be seen; lights rise from the lit town into the evening sky. Rest deepens the
+warmth (a warm glow around the person, the horizon warmer).
+
+#### The four scenes (each its own world, so a move between them is a cross-fade of two whole pictures)
+
+| scene | world | view | what its own growth adds | labels |
+|---|---|---|---|---|
+| **Światło w całym ciele** | `naraz.whole` | the whole figure, front | the light flowing from the heart into every tissue | światło w tkankach · serce — radość · zdrowy kolor |
+| **Twarz i włosy** | `naraz.face` | face, hair, shoulders, close (the person fades out below the chest, as a portrait) | a shimmer rising from the jaw to the brow, a sheen gliding down the hair; the rising lights as large soft bokeh behind the head | twarz wypoczęta · włosy w blasku |
+| **Prosto i lekko** | `naraz.side` | the whole figure from the side, facing the low sun | the spine lit from the sacrum up; the plumb line with rings at shoulder, hip, knee, ankle (none on the head) | kręgosłup · barki otwarte · prosto, lekko |
+| **Radość się mnoży** | `naraz.town` | wide: the person, the people, the whole town | threads heart to heart stronger, gentle rings at the heart (kept below the chin — a ring round a head reads as a halo) | serce — radość · bliscy · miasto świateł |
+
+Counters: "prawie 4 mln nowych komórek na sekundę" (Światło), "4739 osób, 20 lat: radość płynie dalej" (Radość). A dive
+from these pictures to the deeper ones opens at the heart.
+
+The person from the side is new (`person.ts paintSide`): two hand-set poses interpolated by posture — slumped (head
+forward and down, upper back rounded, chest sunk, pelvis forward) → upright (ear, shoulder, hip and ankle on one line)
+— with the face in profile, the six hair styles, the dress or shirt and trousers, one arm hanging. From the front Nowe
+siły's head, neck, torso and arms are reused as they are, with the legs, a midi dress's skirt or trousers, the shoes,
+longer arms (hands to mid-thigh: a whole figure) and a slightly smaller head (×1.04, not 1.12: seven and a half heads).
+
+**The picture's box.** A depth-0 world is drawn unclipped by the engine; a landscape would run under the words beside
+the picture (desktop) or under it (phone). So the golden landscape is the world's still layer (the engine's bake, the
+size of the picture's box, its edges feathered into the ground) and the dusk landscape is an own layer of the same size
+made in the same bake; every frame clips to that box. On an upright phone the engine's words lie over the lowest sixth
+of the box, so the whole/side views keep meadow there (the feet and the hearts stay in the open).
+
+#### The words (four languages; Polish without gendered forms)
+
+Med „Wszystko naraz” / All at Once / Alles zugleich / Allt på en gång; line: "Cała postać w jednym obrazie: ciało prostuje
+się i rozkwita, a radość z serca mnoży się w ludziach wokół." Words for the body (§27): "Teraz w Twoim ciele wszystko
+pracuje razem — bez Twojego wysiłku." · "Każdego dnia Twoje ciało zastępuje miliardy komórek nowymi." · "Radość, którą
+dzielisz z bliskimi, płynie dalej i rośnie." Narrator lines begin with thanks ("Dziękuję za całe ciało — wszystko pracuje
+razem."). „Na co dzień” is Pełnia radości's own line: tell someone close about something good — joy shared grows. The
+looks' words are Nowe siły's (copied); the note under them is Rozkwit's own (Nowe siły's speaks of a tired person). The
+opening card and the registry's text now name the first meditation; the old finale's line no longer begins "Wszystko
+naraz:" (it would read as the new one in the picker) — "Na koniec drogi razem: …". Never "younger": the test bans
+młodsz/odmład/younger/rejuven/jünger/verjüng/yngre/föryng in the new keys, beyond checkLibrary.
+
+#### What the game says | source (PubMed records checked 2026-11-28)
+
+| on screen | source |
+|---|---|
+| ≈ 330 billion cells replaced a day — nearly 4 million a second | Sender & Milo, Nat Med 2021;27:45 (PMID 33432173: (0.33 ± 0.02) × 10¹² cells/day; ÷ 86 400 s ≈ 3.8 M/s) |
+| photos of the same 23 people after a night's sleep rated healthier and less tired than after a night without (65 raters) | Axelsson et al., BMJ 2010;341:c6614 (PMID 21156746) |
+| hair ≈ 1 cm a month | as Każdy włos (§15: StatPearls; Loussouarn 2001, PMID 11531795) |
+| no single ideal posture; sitting upright (74 people) → better mood, more self-esteem, less fear than slumped | Slater et al. 2019 (PMID 31366294, via kręgosłup); Nair et al., Health Psychol 2015;34:632 (PMID 25222091) |
+| joy spreads up to three degrees (4739 people, 1983–2003); a happy friend within a mile → +25 % | Fowler & Christakis, BMJ 2008;337:a2338 (PMID 19056788) |
+
+#### Looks unified, old saves kept
+
+Rozkwit's looks are Nowe siły's `f1 f2 f3 m1 m2 m3` (the lobby's six chips). The borrowed pictures take what they know:
+Lekkość i siła the silhouette (`m…` → `on`), Żywa skóra the nearest tone (light → medium, olive → olive, dark → dark —
+the default player keeps the tone they had), round 20's own luminous figure the silhouette. Old saves (`ona`/`on`) are
+read as `f1`/`m1` by `rozkwit/index.ts` before the engine repairs the save (the engine would give everyone `f1`).
+
+#### Decisions (and why)
+
+* **Seven meditations.** The engine's check allows 4–6; the lead asked to keep the six and add one. The test accepts
+  exactly that one line of `checkLibrary` and checks the picker for seven on every CHECK_SIZE, touch and mouse (targets
+  ≥ 44 px, apart, inside the insets and the card). Suggest lifting the engine's limit to 7 in `check.ts` (one number) —
+  not done: outside this builder's scope.
+* **Every scene shows the whole vision state** (person, heart, people, town, dusk), framed differently — because a
+  3-minute session reaches only the second or third scene; the arc brings the vision to full wherever the player is.
+* **Dusk, not night**: the lights need an evening; the afterglow keeps it warm and hopeful.
+* **Featureless people** (no faces, no hands), so the person stays the one portrait; unlit they stand back in the haze.
+* **A church tower** in the town (with a small cross): a Polish town at dusk; no figure of God anywhere.
+* **The lobby's hero before the first session** is still the engine's choice (the last scene of the last meditation,
+  round 20's bloom); the new meditation's tile shows the town at dusk.
+
+#### Checks
+
+* `test/arcade-rozkwit.test.ts` — 35 ✓ (was 17): the engine check (only the 7-meditation line), the picker for seven;
+  „Wszystko naraz” first and the default; reuse; the numbers in four languages; tone; the vision model (arc vs walk,
+  outside play); all aspects on one curve, the side straightening; nothing moves without focus (person at START, no one
+  lit, the town dark); 40 s first/returning score in „Wszystko naraz”; **the whole vision seen at 3/10/30/45/60 min**;
+  the **fit grid** — 3/10/30/60 min × weak/threshold/strong × sessions 1/2/5/13: weak 3-min 0.95–0.97, everything else
+  1.00 (reached at 2.0–2.2 min of 3; 3.3–7.0 min in 10–60-min sessions); a few focused moments (2 s in 20) stay partial
+  (< 0.6, the town < ¼); joy multiplies (people in order, windows doubling 1.7–2.3× per equal step); counters; old saves;
+  the words (never "younger"); the person front and side and the four scenes paint in every look, in play and outside,
+  without NaN; the 45/60-minute run in every mode.
+* `test/arcade-sily.test.ts` and the other health libraries, `arcade-healthlib`, `arcade-inner`, `i18n-arcade` ✓.
+* `npx tsc --noEmit -p .` clean in these files.
+* arcade-shot (pl, Mendi, desktop + mid-game phone/landscape; and the whole session at 390 × 844): plays, scores,
+  lobby with seven tiles and six look chips, the face close, the side with the spine and the plumb line, the town at
+  dusk — all looked at; fixed on the way: the people (first ksztalt's figures — too large, hands spread — then blobs,
+  then a proper soft silhouette), a fence-like town (rows, gardens, a tower, lamps), the people and the land beyond the
+  picture's box (clipped), the face's body cut by the box (a portrait's fade), the feet under the phone's words (taller
+  views).
+* `scripts/arcade-mobile.mjs` ✓ on all six devices: 0 strings under 11 px (under 13 only the kit's verse references,
+  11 px); 16–18 targets valid — the picker's seven meditations included; 60 fps everywhere; game 5.68 ms on the small
+  phone at 4× CPU (measured while three other builders' audits ran, in the scene the audit walks to — round 20's
+  finale), 2.23 ms iPhone (2×), 3.6 ms large Android (3×), 1.39 ms on its side, 2.4 ms tablet, 1.17 ms desktop; the
+  picture 60–81 % of the screen's height. A scratch harness timed the four new scenes alone at 4× CPU, in play at V 0.3
+  and 1: 0.06–0.94 ms mean, p90 ≤ 1.4 ms (the lit windows kept as three paths while their number stays; the people's
+  fills solid; glows thinned to every sixth window).
+
+#### What waits for the founder
+
+* The person is drawn in code (Nowe siły's hand); a painted illustration per look would be finer.
+* The picker shows seven meditations; if the founder prefers six, „Cały człowiek” (round 20's finale) is the one that
+  overlaps most with „Wszystko naraz”.
+* Native readers for de/sv of the new words.
+
+### 29.4 Złota passa as a film of life
+
+#### Złota passa as a film of life — the day: the group, the plan, the new moments (builder P1)
+
+**What it is.** Round 22's day of wins, now a day in the life of the player's age group (11–19 · 20–26 · 27–35 ·
+36–50 · 50+), told as a film through the places of that day (waking, the kitchen, the way, school / campus / office /
+counter / home with small children / a garden, the evening table, the window at night). Among round 22's cards (a joy
+to see, a trouble with a grey side and a gold one, the player's own, a heavy one only when asked) come two new kinds of
+moment from the founder's request: **sense** — a mini session of attention on one sense, and **given** — a thing taken
+for granted, first imagined away, then brought back by focus. P1 is the day's logic (rules, sim, content, meta, words,
+lobby card, the cards over the picture, the wiring and the tests); the picture and sound are P2's (§29.y), the words
+of every group's day P3's (§29.z).
+
+**Files.** `src/arcade/passa/`: `rules.ts` (the plan's kinds, the given's rest, the age card, the day's light),
+`content.ts` (the route of a day `ROUTE`, round 22's sets' places `R22_PLACE` and groups `R22_AGES`, the life pools
+`lifeSets` / `lifeCounts`, `PLACE_AT`), `meta.ts` (`age`, `ageSet`, `setAge`, `syncAge`; group set ids in the carried
+and recent lists; `heavyNext` modulo 840), `sets.ts` (`lifeWords`, `LIFE_TEXTS`), `sim.ts` (the day's moments by kind
+and place, the sense and given flows, `lifeView`, `place`, the opening card's age pick), `i18n.ts` (four languages: the
+senses, the narrator's new moments, the tasks, the coach marks, the age card, the summary line, the lobby's age chips
+and forecast; the street's words made the day's), `hud.ts` (the age card), `panel.ts` (the age chips, the forecast's
+sense and given counts), `index.ts` (wiring: `syncAge` before the session and the lobby card, the chips' taps and
+targets, keys 1–5, the sound's `place` and `life`); contract additions by adding: `view.ts` (`Phase` 'without',
+`CardView.kind: LifeKind`, `PassaView.age?`), `life.ts` (`LifeView.kind?`), `moments.ts` (`Motif` and `MOTIFS` hold the
+twenty life motifs; `ALL_MOTIFS`). Stop-klatka: `meta.ts` — a fresh progress takes the device's group, `setAge` saves
+it. `styles.css` `.passa-ages`; `i18n/arcade.ts` `passa.text`, `passa.how1` (4 languages). Tests:
+`test/arcade-passa.test.ts` (47).
+
+#### The age group (kit/ages.ts, shared with Stop-klatka)
+
+* Chosen once on the device: five chips in the lobby card (as Stop-klatka's), or on the **opening card** of any session
+  (not a test) whose group was never chosen — "Czyj to dzień?" with the five chips, 12 s at the intro's end (after a
+  first-ever day's story card), "Bez wyboru: 27–35. Zmienisz to w „Postępach”." / "Dobrze — dzień z życia: 11–19." (the
+  card closes 1.8 s after a pick; keys 1–5). A pick re-draws the day's moments for that group (the plan does not
+  change: it is the same for every group). No pick: 27–35 (Stop-klatka's default) and the next session asks again.
+* A choice in either game is saved for both (`saveAge`); Złota passa takes the device's choice whenever there is one
+  (`syncAge`: the lobby card and the session start), Stop-klatka for a new player's progress. The group never enters a
+  result (a test reads the JSON).
+
+#### The plan (rules.ts `planFor`, pure; the lobby's forecast is the same plan)
+
+* **The kinds mixed**: about a quarter of a day's moments are sense moments and a fifth given ones (rounded), capped by
+  the sets of the smallest group (so every group has the same plan); the first moment is always a card (a joy or the
+  player's own: an easy first win); sense moments spread from early in the day (a short day meets one at its second
+  moment), given ones evenly over the slots left; the heavy one where it was (60 %, never first or last). A test
+  (≤ 60 s) stays one joy. Without the groups' sets the plan is round 22's exactly.
+* **A sense moment's push** is the rhythm's push (15–40 s, inside SENSE_MIN–SENSE_MAX; none when a push would be under
+  15 s): 20 s at 3–15 minutes, 25 at 20, 30 at 25–30, 35 at 45, 40 at an hour. Chosen over a longer mini session so a
+  short day keeps its count.
+* **A given moment** = arrive · **without** (one whole breath of rest) · turn · after. It costs one breath more than a
+  card, so the number of givens is the largest that still keeps them a fifth of the day.
+* Counts by design (sense / given): 3 min 3 moments (joy · sense · given), 5 min 7 (2 / 1), 10 min 11 (3 / 2), 30 min
+  25 (6 / 5), 45 min 31 (8 / 6), an hour 40 (10 / 8).
+* **The day's light**: the moments now run 0.06 → 0.90 (round 22: 0.78), the garland 0.90 → 1 — about a fifth of the
+  moments fall in the evening's light (the table, the window, a warm bed: P3 wrote a quarter of each day there),
+  the garland is the night.
+
+#### The day's moments and the film's order (sim.ts `buildRuns`)
+
+* The card slots: the player's own first (in turn), the cards carried back (joy/snag/heavy only), then the group's joys
+  and troubles (55 % joys, never three troubles in a row, the first a joy); the sense and given slots: the group's.
+  Round 22's sets stay the fallback for any gap, only where they fit the group (no car, bills or work meetings for
+  11–19; its hard moments only its own, written with a trusted adult in view) and with a place each (`R22_PLACE`;
+  'work' is the group's day place).
+* **The film goes onward**: within a part of the day the place only moves forward along the day's route
+  (`ROUTE[part]`: the morning from the bed and the window through the kitchen and the way to the day's place; noon at
+  it; the afternoon from it through the way and the shop to home; the evening at home, the window last). Each slot has
+  a pace — the part's slots travel the span of the route the group's moments use in that part — and a moment is picked
+  by tiers: the group's sets not met lately → the slot's part → within the pace (at random) or a little past it (the
+  nearest step, never straight to the route's end) → the adjacent part → round 22's that fit → any not met today
+  further on → one met earlier today at least 12 moments ago; with nothing onward, a moment comes to the place the film
+  is at. Own, carried and heavy cards keep the film's place (they come from the pocket and the player's own day). After
+  two moments at one place the film moves on when it can.
+* Measured on P3's sets (5 groups × 8 lengths × 8 seeds): 0 backward steps in 5 880 transitions; round 22's fallback
+  ~7 % of moments (long days); 10 days of 5 minutes in a row meet 34–44 different moments of 70 (`recentMax` 24 → 48:
+  about a week of short days before a moment comes again); a 45-minute day meets every moment once, an hour repeats at
+  most two, ≥ 12 moments apart.
+
+#### The two new moments (honest neurofeedback, as every card)
+
+* **Sense** (a mini session of attention: Bryant & Veroff's savouring): the arrive names the sense ("Chwila dla
+  zmysłów: smak."); the push is the session — its guide lines (2–4) one by one, scheduled to fill the push from 2.5 s
+  in (after the arrive's line), each at least its reading time (the last ones left out when the push is short); the
+  narrator says nothing new while they run (one voice at a time: a guide line waits while a narrator's bubble is on).
+  Focus turns the card gold and opens the close-up (`close` 0.25 → 1 with the turn); with no focus the close-up stays
+  framed and the card goes to the pocket. The win: the moment received ("Przyjęte. Dziękuję."), a light in the garland.
+* **Given** (mental subtraction: Koo, Algoe, Wilson & Gilbert 2008): arrive ("Coś, co jest zawsze. Dlatego łatwo tego nie
+  widzieć."), then a breath of rest — the thing and its place grey away (`without` 0 → 1) while the "imagine without"
+  line shows ("Wyobraź sobie ten poranek bez wody w kranie."); the rest is receptive (focus there changes nothing); then
+  the push: focus brings it back in gold (`without` = 1 − the turn) and the thanks writes itself. Not brought back:
+  its colour returns quietly as the card goes into the pocket — the subtraction was imagined, the thing is there anyway.
+* Both turn only with focus (tests: no focus, focus only in the rests, unreliable, before the lead-in — no win). A
+  sense or given card in the pocket is not kept to come back another day (it comes again from its set).
+* `life` in the view (P2 draws it): place, kind, close, sense, guide, without — every frame of their blocks; `place`
+  every frame (intro 'bedroom', the garland and prayer 'table', the close 'window').
+* Coach marks for the two kinds come once even to a returning player ("Chwila dla zmysłów: idź za słowami. Skupienie ją
+  przybliża i złoci." / "Najpierw wyobraź sobie, że tego nie ma. Potem skupienie przywraca to w złocie.").
+* The summary keeps its lines; one more when the day had them: "Uważność dnia: 3 chwile dla zmysłów i 2 zwyczajne dary."
+  (the words of a moment never in the result).
+
+#### Words
+
+Polish second person without gendered forms (the round 22 test runs over the new catalog keys and P3's 798 life
+keys); four languages complete (`catalogProblems`; the life keys equal in all four). The lobby text names the new
+sources once, next to round 22's: savouring (Bryant & Veroff 2007) and "mentally subtracting" good things (Koo et al.
+2008). The street's words became the day's ("Coś nadchodzi — przygotuj uwagę", "Robi się ciemno, a girlanda świeci").
+
+#### Checks
+
+`npx vitest run test/arcade-passa.test.ts` 47 pass (round 22/24's 32, adapted where the day changed: own and carried
+cards in the card slots, the 'without' rest, the motifs, an hour's repeats; 15 new: the plan's kinds at 3–60 min and
+≤ 60 s, every group's day following the kinds with its places onward and its parts in order, the 40 s test turning a
+card at half focus for every group (first-ever and returning, Mendi and HALO), the view's place and life, the sense
+and given flows, the result line, the coach marks, the age shared with Stop-klatka, the opening card, the age chips as
+tap targets at every CHECK_SIZES entry, 11–19's hard moments and round 22's places, every life set's words in four
+languages with P3's quotas, fit to the session for every group at 3–60 min, an hour for every group);
+`test/arcade-stopklatka.test.ts` 29 pass; `test/i18n-arcade.test.ts` pass; tsc clean for passa and Stop-klatka (a
+scoped config: the full project tsc stopped on another builder's in-progress file). Dev frames (`.gallery/p1-day.html`,
+git-excluded): the age card at 390 × 844 and 360 × 500 and on a desk, a teen's sense moment and a 50+ given moment on a
+phone, a sense and a given moment on a desk.
+
+#### What waits for the founder
+
+* The share of the new kinds (a quarter sense, a fifth given) and the 3-minute day (joy · sense · given — no trouble in
+  the shortest day) are calls to try on a real day.
+* A sense moment's push is the rhythm's push (20 s by design); a longer "mini session" would cost a short day a moment.
+* The age card asks every session until a group is chosen (as Stop-klatka); a player who never wants to choose sees it
+  each time (the lobby says it can be changed there).
+* Stop-klatka adopts the device's group only for a new progress; an old Stop-klatka progress that never chose keeps
+  asking on its card (its tests pin that behaviour).
+
+#### Złota passa — the film: the places of a day, the camera, the close-ups, the greying, the sound (builder P2)
+
+**What it is.** Round 22's day walked down one street becomes a film of the player's day. The camera travels through
+the places of that group's day in the order P1's day gives them (`view.place`, life.ts `PLACES`): waking in the
+bedroom, the kitchen, the bathroom, the street, the bus, the car, the bike lane, the classroom, the library, the
+office, behind a counter, home with small children, the shop, the park, the allotment, the evening table, the window
+at night — each painted in round 22's warm style (soft plasters, wood, a window onto the hour, people as a calm
+presence without features), at every hour's light. The moments' cards, the choices, the narrator, the banner and the
+pocket stay as round 22 drew them; the garland of the streak is strung over every place.
+
+**Files** (`src/arcade/passa/`): `stage.ts` (the stage's units over the layout's street camera; the room's light of the
+hour — daylight from the windows, the sun coming in at its hour, the lamps at dawn and from dusk; painted pieces: a
+plastered wall, floors, a window with the sky, the view of the hour — roofs, trees, a city, a garden — and at night
+their lit windows, the sun's patch through it, a beam, a lamp's light, a plant, books, a picture, a wall clock, a
+switch, a person sitting or walking, people passing), `places.ts` (the registry, each place's far and near layers
+baked per size and per 1/24 of the day, two steps crossfaded, at most 1.5 device px per px and 2.4 M px a layer, a
+bake budget so a cut bakes only its first steps, a pool of canvases), `places-home.ts` (bedroom, kitchen, bathroom,
+nursery, table, window), `places-out.ts` (bus, car, bike, park, garden, shop), `places-work.ts` (school, campus,
+office, counter), `camera.ts` (the film's camera), `things.ts` (every motif's thing, painted for a close-up and for
+the places), `closeup.ts` (the insert shot), `motifs.ts` (+ the twenty life motifs' stamps for the cards), `card.ts`
+(a sense card's lilac grey side, a given card's worn warm grey), `render.ts` (the film wired into the round 22
+picture: the camera, the cut's dissolve, the close-up, the greying and its bloom, the subtitle, the garland indoors),
+`audio.ts` (each place's sound), `test/arcade-passa-street.test.ts` (+12 tests). A dev gallery (git-excluded)
+`web/.gallery/film.html?mode=places|close|day|perf|bake`.
+
+**The stage.** A place is painted in units: x across from the camera's vanishing point, y down from the surface line
+(a counter, a desk, a table, a road's edge) that stands just above the moment's card, so what stands on it is in
+sight over the card. The strip over the card is ~2.9 units high on any screen (a phone upright shows x ±2, a desk up
+to ±8, a phone on its side ±8): each place keeps its heart within x ±1.6 and carries on to the sides (cupboards,
+shelves, windows, seats repeat). Its things are named (`hot`: the tap, the kettle, the bread, the window, the clock…,
+the camera's aim for a card's motif), a spot where a moment's object stands when the place has none of its own (only
+real objects: a cup, tea, bread, an apple, a kettle, flowers, headphones, a sweater, a book, a phone, a cat, a letter —
+never a symbol), and its main window (a rain or a rainbow moment's weather shows there). The live parts are small:
+people walking past a window or along a path, the city passing the bus's windows, the road's dashes and the trees
+coming at the car and the bike, the handles swaying in the bus, steam from the cup and the kettle, a drip from the
+tap, the candles' flames, the night window's lights and stars twinkling, the mobile over the cot, bees and a cat on
+the allotment's fence.
+
+**The camera** (`camera.ts`). Each place is a shot. A slow dolly across it and back (38 s; indoors the far layer moves
+at 0.55 of the near one — parallax; the world beyond a vehicle's windows at 0.35), on the street a slow push along it
+toward the square; in a card's turn a gentle push-in toward the card's thing in its place (its `hot`); after a win a
+look up toward the garland the light flies into; in the evening a lift. A new place cuts on the card's arrival: a
+0.6 s dissolve from a snapshot of the last frame of the place before; the new shot starts from the dolly's other
+side. Every layer is baked with an overscan (7 % of the screen's larger side) and its pan is clamped so it always
+covers the canvas (a test checks it frame by frame). **Reduced motion**: no moves at all — a still frame per shot,
+the cuts are 0.9 s fades, the close-up comes as a fade; nothing drifts (no steam, no passers, no motes).
+
+**A sense moment** (the founder's "mini sessions of concentration"). As P1's `close` rises (0 → 0.25 in the arrival,
+then with the card's turn), the camera pushes in on the thing in its place (to close 0.3) and the **close-up** (an
+insert shot) dissolves in (close 0.04 → 0.2): the thing large and painted with care, its place behind it out of focus
+(the place's own frame shrunk and blown up again — a soft blur — with warm bokeh of its lights), the thing growing as
+close goes 0.25 → 1. **Focus opens it**: a rack focus (the thing's soft copy fades as the focus comes onto it), its
+colour from muted to full, its small life fuller (the tea's steam rising, the bread's warmth, water running warm over
+the tap into the hands, drops on the window, motes in the light, the bird's notes, the song's notes, a cat's breath,
+the bells swinging). The guide lines (`life.guide`) are a **subtitle** just above the card: Fraunces italic on a soft
+dark pill, ≥ 13 px, two lines (three only if it must), never cut; on a wide screen the narrator keeps its own column
+then. Things for the close-ups (`things.ts`): 20 objects (coffee and tea with steam, a scored loaf on its board, an
+apple with a drop on it, an enamel kettle, a tap with hands under warm water, a shower, a vase of meadow flowers,
+headphones, a knit sweater, a bulb over its switch, the open fridge's cool light, an open book, a cat asleep on a
+cushion, a phone with a dear one's call, a pillow and a blanket, a robin on a twig, a seedling in soil in two hands,
+two hands holding — a large one and a small one, a glass heart lit from within) and 14 views (the sky, the sun's
+rays, rain running down a window, a rainbow over wet roofs, the light of a window on a wall, grass with dew, eyes that
+see — the world in colour through an eye's almond, two shoes on a stone path, the bus that comes, the faces of dear
+ones at a table laughing, the morning through a car's windscreen with its dials waking, a church tower with its bell
+at noon, a church door open with warm light inside, the pharmacy's green cross); round 22's other motifs are their
+stamp drawn large.
+
+**A given moment** (mental subtraction). The close-up stands at a medium framing through the rest (P1's close 0.15 →
+0.35) while `without` rises: the whole frame loses its colour (a canvas 'saturation' blend) and dims, and the thing
+itself fades to a ghost — "imagine this morning without it" (the line is the subtitle). In the push focus brings it
+back (`without` = 1 − turn): the colour returns, a warm gold **bloom** where the thing is, and a short gold flash when
+all of it is back.
+
+**The garland.** On the street it hangs as round 22's; indoors its camera's horizon is raised so its first span hangs
+just under the HUD's edge, across the top of the room (a test checks at least half the first span's bulbs in sight
+under the HUD and over the card in the kitchen and on the street at every check size). The light still flies up into
+it from the card's stamp.
+
+**The sound** (`audio.ts PLACE_MIX`). Each place's beds and small sounds, crossfading (~1 s) as the film travels: a
+room's air, an engine's rumble, the road under tyres, the wind on a bike, running water, leaves; the café's voices
+(now any place's voices: a classroom, a shop, the table); events now and then — the bedroom's and the classroom's
+clock ticking, cups clinking in the kitchen and glasses at the table, a drip in the bathroom, the bus's stop bell, the
+car's indicator, the bike's freewheel and its bell, a library's pages, an office's keys, a counter's door bell and
+till, the shop's checkout, the nursery's music box; birds at the bedroom's and the kitchen's windows, in the park, the
+garden and on the bike lane; crickets at night at the window, in the garden and the park. The street keeps round
+22's day exactly. A sense moment's close-up narrows the world (the place half as loud, a warm pad rising with the
+focus); a hearing moment lets its own sound come forward (birds more often, a soft song for headphones, the church's
+bell for the noon bells, voices for laughter) — the card's motif comes in `update(…, { motif })`. A given moment's rest
+thins the place's sound as if it were not there (a closing low-pass); when focus brings the thing back a soft warm
+major chord blooms (once).
+
+**The group's own day in its places.** The places are shared, the moments are the group's (P3); a few things follow
+`view.age`: the bedroom's wall has a poster for 11–19 and 20–26 (a louder one for a teen), family photographs for
+36–50 and 50+; at the evening table sit a teen's parents, a student's friends, a family with a child (27–50), an older
+grey-haired couple with a grandchild (50+). The layers re-bake once when the group changes.
+
+**Performance** (this Mac, Chrome, CPU time of `draw`): a phone 390 × 844 at 2× with the CPU slowed 4×: 0.7–2.2 ms a
+frame in any place (a sense close-up or a given greying included), a cut's frame 1–9 ms (its far and near layers'
+first steps), the dissolve's frames ~3 ms; a desk 1440 × 900 at 2×: 0.1–0.3 ms. (Reading the canvas back in a
+measurement forces Chrome to paint on the CPU and multiplies every number — the harness does not.) `arcade-mobile.mjs`
+**passed** on all six devices at 60 fps: the game's update + draw 2.17 ms on the small phone at 4× slowed CPU, 1.11 ms
+iPhone, 1.32 ms large Android, 0.86 ms phone on its side, 1.2 ms tablet, 0.43 ms desktop; no text under 11 px (the one
+under 13 is round 22's verse reference on P1's card).
+
+**Checks.** `test/arcade-passa-street.test.ts` 45 (round 22's 33, the layout's included, and 12 new: every place's
+things where the camera finds them; every place painted at four hours on five kinds of screen with its live parts;
+every motif's thing; the camera's cut and dissolve, its layers always covering, its stillness with reduced motion; a
+sense moment's framing and a given moment's greying from `life`; a day of the film at every size and both motions —
+every place, a sense close-up with its guide as a subtitle (every word on the canvas, over the card, ≥ 13 px, never
+cut), a given greying and coming back; the garland in sight indoors and on the street at every check size; each
+place's sound — the beds crossfading between the bus and the garden, the bedroom's clock, a given rest's hush and its
+bloom, a hearing moment's song). `test/arcade-passa.test.ts` and `test/arcade-stopklatka.test.ts` pass; tsc clean.
+Looked at (and fixed after looking): every place at morning, noon and dusk on a phone, four places and two close-ups on
+a desk, 34 close-ups, a scripted day; the real game with P1's day and P3's sets in 3-minute sessions for 11–19 (phone:
+bedroom → classroom, a sense close-up of the gym's smell with its guide lines → kitchen, the fridge given and greyed,
+coming back in gold → the evening table → the night window), 36–50 (desk 1280 × 800: kitchen → street, the sky's
+close-up → the knees' given moment → table → window), 50+ (phone: bedroom → the bread's close-up, "Tyle rąk pracowało
+na ten chleb" → the park, eyes that see greyed and returned → table → window) and 20–26 with reduced motion (still
+frames, fades). Fixed on the way: the garland hung mid-room (raised), people read as pills (redrawn with shoulders),
+a hard white sun patch (softened in three passes), a smiley set on a bed (only real objects go to a spot), the loaf's
+three cuts read as a sleepy face (scored diagonally), a tree trunk splitting a desk's view, a black corner under a
+fridge (a warm ground under every far layer), shoes and grass of the feet view, the hands too small and too bright.
+
+**What waits for the founder.**
+- The places are the same rooms for every group but for the bedroom's wall and the evening table; more of them could
+  follow the group (a student's rented room, a pensioner's armchair) — `view.age` reaches every place's bake.
+- The sound reads the card's motif for a hearing moment's own sound (a song, the noon bells, laughter, birds):
+  `index.ts` should pass `motif: <the card's motif>` to `StreetSound.update` (one line, P1's file — not yet there when
+  this was written; without it the places' ambience plays as designed).
+- The close-ups' things are painted in code: a cup, bread, rain on a window, hands under warm water read well; the
+  faces at a table and the two hands holding are kept simple on purpose (no features) — worth a look on a real phone.
+- The sound of the places was checked by tests (what plays where), not listened to by a person.
+
+#### Złota passa — the words of every group's day (builder P3)
+
+**What it is.** The moments of a day for each of the five age groups, so that a teen's Złota passa runs through a
+school bus, break time and a song in the earphones, and a pensioner's through the allotment, the pharmacy, the noon
+bells and a grandchild's voice. 233 set moments in all: a shared pool of 13 that fits everyone (`all.*`, `ages: []`)
+and 42–46 per group. Each moment carries its kind, its small picture (a `Motif` or one of the `LIFE_MOTIFS`), its part
+of the day, its place in the film (`PLACES`) and, for a sense moment, its sense. Polish is the source; English, German
+and Swedish carry the same 798 keys a language.
+
+**Files.** `src/arcade/passa/life-sets.ts`: `LIFE_SETS` (readonly `LifeSet[]`) and `LIFE_PL`, built from one list of
+drafts per group (`joy`, `snag`, `heavy`, `sense`, `given` helpers), so a moment's structure and its Polish words sit on
+one line and cannot drift apart. `life-sets.{en,de,sv}.ts`: `LIFE_EN`, `LIFE_DE`, `LIFE_SV`. Each entry is a compact
+tuple `[what, wins, guide lines | the "without" line]`, and a small local `flat()` writes out the keys. The keys are
+`<id>.what` (≤ 64), `<id>.win.<n>` (≤ 52: one for joy, sense and given; 2–3 reframes for a snag; 2–3 humble hopes for a
+heavy moment, with "not yet, I trust" added by the sim), `<id>.guide.<n>` (sense, 2–4 lines ≤ 70) and `<id>.without`
+(given, ≤ 110). The ids are `<age|all>.<slug>`, in each group's day order (morning → evening).
+
+| group | joy | snag | heavy | sense (taste/smell/sight/touch/hearing) | given | all |
+|---|---|---|---|---|---|---|
+| shared pool | 2 | 0 | 0 | 7 (1/1/2/1/2) | 4 | 13 |
+| 11–19 | 11 | 10 | 3 | 13 (2/2/3/3/3) | 9 | 46 |
+| 20–26 | 11 | 9 | 3 | 12 (2/3/2/3/2) | 8 | 43 |
+| 27–35 | 11 | 9 | 3 | 12 (2/3/2/2/3) | 8 | 43 |
+| 36–50 | 11 | 9 | 3 | 11 (2/2/3/2/2) | 8 | 42 |
+| 50+ | 11 | 10 | 3 | 13 (2/2/3/3/3) | 9 | 46 |
+
+All 20 `LIFE_MOTIFS` are used. Every group has moments in all four parts of the day.
+
+**Each group's day, in a few strokes.**
+* **11–19** (children and youth): the alarm in the dark and five more minutes under the duvet, the hoodie warm from the
+  radiator, hot chocolate, the school bus and its window, a song in the earphones, break time in the corridor, the smell
+  of the sports hall, tomato soup at the canteen, the clouds outside the classroom window, a surprise quiz, the board, PE,
+  the walk home in the rain, the dog, the smell of dinner at the door, homework, "no phone until morning", the city's
+  lights at night. Given: the breakfast waiting, the bus, eyes that read the board, a school to go to ("like millions of
+  children around the world"), someone who waits at break, legs, the fridge, one's own bed, someone who asks "how was
+  your day?". Heavy, for them only: being laughed at in class, a friendship falling apart, quarrels heard through the
+  wall. Each has a trusted adult (or someone trusted) in its hopes, and "it isn't my fault when grown-ups argue".
+* **20–26**: a rented room, the shared sink, a jar of Mum's soup ("słoiki"), the tram, the café smell on the way, the
+  library's old books, a shift behind a counter, an essay due tomorrow, "we chose another candidate", payday, a
+  puncture, Grandma's call, a run in the park, the pizza evening, the rent, the cold room, the party through the wall.
+  Given: one's own corner, legs, the chance to study, a job that pays the bills, a body that simply works, a voice on
+  the phone, someone who always texts back, a quiet night with no sirens. Heavy: not knowing where life is going, a
+  break-up, loneliness in a new city (the university chaplaincy in the hopes).
+* **27–35**: a child's good-morning hug and the broken nights, coffee drunk while hot, the kettle, morning light on the
+  table, a feverish child on an important workday, the commute and the quiet once the engine is off, the meeting that
+  could have been an email, the 5:55 pm email, pick-up time, a small hand in mine, first steps, toys on the floor, the
+  smell of a baby after a bath, laughter from the next room. Given: the nursery, the car, the job, eyes, hands, the
+  washing machine, the fridge, the heating. Heavy: burnout, trying for a child for a long time, a parent's serious
+  illness.
+* **36–50**: a quiet quarter of an hour before everyone wakes, the house waking up, the first grey hairs, the dripping
+  tap, green lights all the way, the sky at a red light, a back that aches at the desk, glasses, a customer who comes
+  back, an old friend's call, the lime tree in bloom, three after-school activities and one car, a teenager's "thanks"
+  and a teenager's slammed door, the child's maths, everyone at the table at once, the faces at the table. Given: eyes
+  and glasses, knees and back, full shelves ("the bread queues older people still remember"), the fridge, a hot shower,
+  a safe way home, a video call abroad. Heavy: a parent who remembers less and less, a crisis in a marriage, a child
+  going through a hard time.
+* **50+** (still at work or retired: both are in the day): net curtains in the morning light, tea with lemon, the radio,
+  the glasses that hide, the stairs, the bus driver who waits, the noon bells, the market, a slice of fresh bread, a new
+  phone, a younger colleague asking advice, a new system at work, the doctor who listens, the pharmacy queue, the yeast
+  cake, a grandchild's voice and little hand, the crossword, the allotment's first flower, its weeds and its soil after
+  rain, the bird feeder, the cat on the lap, the stars. Given: hot water without heating it in a pan, the church with its
+  doors open ("places where people go in secret, or not at all"), legs, hands, eyes, the chemist round the corner,
+  people who say "good morning", a warm home without carrying coal, one's own bed. Heavy: worrying test results, an
+  empty place at the table, days when the phone is silent.
+* **The shared pool**: a bird at dawn, warm water on the hands, water from the tap ("imagine this morning with no water
+  in the tap"), the bakery's smell, the sky above the street, the first bite of an apple, the breath we never think
+  about, a rainbow, a door held with a smile, golden evening light on the wall, rain on the window, light at a switch,
+  a roof when it rains.
+
+**The words, and why.**
+* **The guides (sense)** lead the attention one step at a time, from noticing to a detail to staying: "Weź kubek w obie
+  dłonie." → "Poczuj ciepło kubka na palcach." → "Pierwszy łyk — powoli. Gorzki? Słodki?". They are imperatives in the
+  present tense with the address capitalised (Ty, Twój, Ci), concrete (a thing, a texture, a question the senses can
+  answer) and short enough to read in a few seconds of a 15–40 s mini session. A few end with a turn outward: "Each
+  light is someone's home… choose one and pray for the people there."
+* **The "without" lines (given)** practise mental subtraction (Koo et al. 2008). They take away a *thing*: water, light,
+  heat, legs, eyes, a bed, the fridge, the bus, peace. Or they picture an absence many people really live or lived:
+  water heated in a pan, coal from the cellar, bread queues, a letter that took weeks, children who cannot go to school,
+  a night whose quiet is not certain (the lead softened 20–26's war line from "a siren instead of quiet, a cellar
+  instead of a bed": mental subtraction takes a good thing out of the player's own day, and the war's picture could be
+  someone's memory). **No line asks the player to imagine a child, a partner or a parent gone.** For someone who lost them, that would be their reality, not an exercise. For the same reason the "nobody
+  asks" lines speak of the evening in general, not "your mother".
+* **The wins** are first person, as in round 22. Joy, sense and given say "Dziękuję za…", fitted to the thing ("Dziękuję
+  za chleb, który ktoś piekł w nocy"). A snag's reframes are honest, never "nothing bad happened": "Mokre buty, za to
+  dobra historia", "Każdy w kolejce to człowiek, nie numer", "Kiedyś zatęsknię za tymi kursami". The heavy hopes are
+  humble, and none of them promises anything: "Ból mówi, że to było ważne", "Opieka to praca dla wielu rąk — proszę o
+  pomoc", "Szukanie pomocy to nie słabość".
+* **Polish never genders the player.** Present tense, nouns, "mogę", "uczę się", no past tense in the first or second
+  person, no "sam/sama", no adjective after "jestem/jesteś". A line where the player was implicitly the subject of a
+  masculine past ("Ktoś ją ugotował — może właśnie Ty") was rewritten ("Za tą zupą stoją czyjeś ręce — może Twoje").
+  Innocent words that trip the passa test's regex were avoided too ("masłem" ends in "-łem").
+* **No verse, and no paraphrase that reads like one.** Round 22's "chleb powszedni", "Bóg patrzy na serce" and
+  "złamanych na duchu" are not used here. God is named only plainly in a few hopes ("Bóg jest przy mnie także teraz").
+* **Translations are natural, not literal**: British English (Mum, jumper, queue, chemist's, parents' evening), German
+  with "du" and „…“ (Kita, Elternsprechtag, Schrebergarten, Hochschulgemeinde), Swedish with "du" and ”…”
+  (utvecklingssamtal, kolonilott, fika, vetebröd with cardamom, studentprästen). Swedish avoids "hen" where a noun reads
+  more naturally.
+* **Places fit the hour**: `window` only in the evening, `table` only in the afternoon or evening, `bedroom` at waking or
+  at night. The 36–50 and 50+ noons were filled a little more so that a day's middle does not run thin.
+
+**Checks.**
+* `<scratch>/p3-check.mjs <web>` (Node 24 strips the types, and a resolve hook adds `.ts`). It checks the shape (ids,
+  kinds, motifs, parts, places, ages, sense only on sense), the keys (each language has exactly the Polish keys, wins by
+  kind, 2–4 guides, without only on given), the limits in all four languages, the counts per group with ≥ 2 per sense,
+  gendered Polish (the passa test's pattern and more), a lower-case address, the forbidden words (round 22's list and
+  more: "chleb powszedni", "wszystko będzie dobrze", "zasługujesz"…), quotation marks per language, final punctuation
+  and whitespace. Result: **no problems**.
+* `<scratch>/p3-testregex.mjs <web>`: the passa test's exact GENDERED and FORBID patterns over all four catalogs:
+  **clean**.
+* `npx tsc --noEmit -p .`: no error in the life-sets files. The tree's other errors at the time were in P2's
+  `places.ts`, P1's test and `zz-k1-tune.test.ts`, all work in progress.
+* `npx vitest run test/arcade-passa.test.ts`: the words tests pass. The 5 failing tests are P1's round 22 expectations,
+  which are still being updated for the new 'without' phase and the mixed kinds. None of them is about these files.
+
+**What waits for the founder.**
+* Reading the Polish per group as someone of that age would: is it their day? Especially the teen heavies, the
+  "without" lines about an uncertain night (20–26) and the church in hiding (50+), and the 27–35 sets, which assume small children in
+  about a third of their moments.
+* Whether the 50+ group should split into a working 50–65 and a retired 65+ (now both are in one day).
+* Whether some moments should be seasonal (the lime in bloom, the first tomatoes, the heating bill). Now they are
+  season-free, or gently either.
+
+### 29.5 Dawid's lands as levels — more and bigger areas, quests, the story
+
+#### Dawid's lands as levels, the story's machinery and the difficulty levels (D1, code)
+
+**What it is.** The founder: "Make each separate level for David: have more and bigger areas, more quests, more
+storytelling", and difficulty levels STARTING · REGULAR · ADVANCED · HARDCORE. Each of the six lands is now a level of
+its own: a chapter card, an opening scene, three named areas one after another, a chain of quests through them with
+new kinds and scenes at the story's moments, the guardian and an ending scene, then the gate to the next chapter. The
+words are D2's (`story-<land>.ts` ×4 languages, below); the maps, chains, mechanics, view and levels are here.
+
+**The maps** (`dawid/lands.ts`). A land is 138 × 46 u (round 5: 64 × 42) — three strips of 46 u, each an area with
+its own shepherds' fire (the camp travels with David: its buildings stand at every open fire; a locked area shows a
+cold ring of stones), 4–5 beast camps, three heaps of brushwood and three of stone, a chest place, the people of the
+story at their places and landmarks that make it a place: Jesse's house and stone sheepfold, the well of Bethlehem by
+the town wall, the brook of smooth stones and the lion's thorns (Pastwiska); vineyards with their tower, the king's
+road and its milestone, Saul's striped tent among the army's (Wzgórza); Israel's tents, the great terebinth, the
+Philistine camp that runs when Goliath falls (Ela); barley, the walls of Gibeah and Michal's window with its rope, the
+stone Ezel (Gibea); the wild goats' rocks, the cave in a rock face, the spring of En-gedi with its palms (En-Gedi); the
+gate of Gath with David's scratches on its doors, burnt Ziklag smoking, Shammah's lentils, the giants' tents (Gat).
+Between two areas runs a dry-stone wall, a thorn hedge or a rocky ridge from edge to edge with one gap — the pass —
+closed (a wooden gate, a tangle of thorns, fallen rocks) until the chain reaches it ("Przejdź dalej: Studnia przy
+bramie"), then glowing; walking through it opens the area for good. Dusty paths join the fires and the passes; the
+trees and rocks keep clear of all of it (`decorate`, up to 260 per land).
+
+**The chains** (`dawid/chains.ts`): 18, 15, 13, 16, 14, 13 quests (round 5: 12, 10, 9, 7, 7, 7), area by area. The
+system's quests teach the camp as before (hunt, build, buy, forge, bring brushwood, a level, the guardian, the gate);
+the story's quests are the new kinds — **find** (a lamb in the thorns, five smooth stones along the brook, a rope,
+Jonathan's three arrows, water at the cave's drip; each glints with a "!"), **rescue** (a ewe and her lamb, a kid, the
+flock: the pack comes out when David is near; the animal is drawn at the spot), **escort** (Jesse's donkey with its
+baskets to the milestone, the families of Ziklag home: they wait, then follow David at his pace through the passes),
+**deliver** (a jar of water from the well to the old shepherd, the bread and cheeses from the fire to Eliab; carried on
+David's shoulder), **defend** (the vineyard, a widow's barley: a ring on the ground, waves of two from the field's
+edge while David holds the place), **talk** (the well, the king's servant, the harp in Saul's tent, the soldiers,
+Saul's armour, the walk out to Goliath, the women's song, Michal, the stone Ezel, the farewell, Nob, the cave, Ittai,
+Achish, Ziklag), **word** (out of the cave and up the hill to call after Saul), **visit** (the six companions join as
+before), **pass**. Companions, gifts (Jonathan's bow), slots and the cave of Adullam stay where they were.
+
+**Scenes** (sim.ts, hud.ts). A scene is a card at the bottom of the screen over the dimmed world: the speaker's
+portrait on its top edge (drawn from the game's own figures: 24 people, the lamb, the giant; the narrator in italics
+without one), the name, one line at a time, the dots of the lines, "Stuknij: dalej" and **"Pomiń ›"**. A tap goes on;
+untapped, a line goes on by itself after its reading time (3.4–8.5 s); a choice shows two wide answers (A · B) and
+waits (16 s, then the first); after the last line a scene may carry its passage on a page of its own (1sa16.13 at the
+anointing, 1sa16.23 the harp, 1sa17.40 the stones, 1sa17.45 the walk out, 1sa18.1 Jonathan, col3.14 the farewell,
+rom12.21 the call after Saul, 1sa25.32-33 Abigail, 1sa30.6 Ziklag, 1sa30.24 the families, psa23.6 the road's end).
+The world holds while a scene shows (the blocks run on, as with every story card since round 5). Choices change a
+line and give a small gift — silver, rested XP, the great stone's charge, or Saul's armour's clank — never a road;
+the answers are kept (`p.choices`). Each land's chapter card has its own passage (1sa17.37, psa121.1-2, psa27.1,
+ecc4.9-10, psa18.2, psa56.3). Entering an area: its name on the big banner and the lamb's line about it (once a
+session). The guardian's card is followed by the land's ending scene. Later circles: the chapter card with "Krąg N",
+every pass open, the short chain, no scenes.
+
+**The quest log.** The minimap now shows a window of the land around David (the barriers with their passes, closed
+ones red, every fire, the dens) with a small book in its corner: a tap (or L) opens the log over the world — the
+chapter, the three areas (behind you · you are here · open · closed; three rows on a narrow phone), the chain's last
+few done (✓), the one now (▶, with its count) and the next one; a tap closes it. A coach mark points at it the first
+time a pass opens. The quest arrow points at the pass on the way when the quest's place is in another area; the
+auto-hunt and the quest pill walk David through the gaps.
+
+**Difficulty** (`kit/difficulty.ts`'s scale, mapped in sim.ts): beasts' and guardians' health and bites × `foe`
+(0.6 / 1 / 1.4 / 2), dens' numbers × `count`, beasts' and guardians' speed, telegraphs and rests between attacks ×
+`speed`; David's health × `self`; the helps × `helps`: the hunt's reach (9 u → 10.8 / 7.6 / 5.4 = the sling's), the
+stumble's mercy (up again in 0.8 / 1.6 / 2.2 / 3.2 s, the grace after waking 3 / 2 / 1.2 / 0 s, and on HARDCORE the
+bag's silver spills where David fell — it waits on the grass), the tower's grace (a cave floor 33 / 30 / 27.6 / 24 s),
+and on HARDCORE the auto-pilot no longer steps out of red shapes (the hands do); XP and silver × `reward` (0.9 / 1 /
+1.15 / 1.3). The plan, the threshold, the whirl's multiplier, the great stone, the harp: the same at every level.
+REGULAR multiplies by exactly 1 (and keeps the round-5 code paths where a factor would round): the tests compare a
+REGULAR sim with a save that has no level at all, frame for frame. Records per level (`recordKey`: REGULAR keeps the
+old keys); the lobby's record and the headline's "do rekordu" are the chosen level's; the summary's first row names a
+level that is not REGULAR. The lobby's card opens with the four chips and a Dawid line for each.
+
+**Saves** (meta.ts, version 2). A version-1 save keeps everything; its place in the old chain is carried to the new
+one (`remapQuest`): the gate stays the gate, the guardian the guardian with its wounds, after Goliath it is Jonathan's
+visit, before the guardian the same share of the way — never past a companion not yet met; a player in land 3 stays
+in land 3 and starts at the fire of the area the chain is in. Absent or unknown difficulty: REGULAR.
+
+**Long sessions and the 40 s test.** A session of a minute or less shows the chapter's title for 2.5 s and no scene
+(play first: the lead's ask). Only David's area and the next open one keep live dens (the far ones cost nothing:
+beasts < 80 at any moment); the hour's checks pass unchanged (finale on time, bounded collections, the frame cost at
+the hour). Pace with the tests' typical player (5-minute sessions): the lion in session 1, Goliath in 3, the first
+circle done by session 9 (round 5's bot: 2, 3, 9); an hour reaches land 13 (round 5: 12).
+
+**Decisions.**
+* Areas as strips of one map with fences, not separate maps: the next area is in sight beyond its wall, a quest can
+  send David back, the camera and the minimap stay one world; fences are a one-dimensional check on David (and the
+  escort), beasts keep to their own strip, so nothing follows David through a gap.
+* Every area has its own fire: with maps twice as wide the bag's walk home stays as short as in round 5.
+* Far dens stay tougher by the same spread as round 5 (distance scaled to its 64 u).
+* Scenes freeze the world but not the training's blocks, as the story cards always did; they are short (≤ 6 lines),
+  tap-through, skippable; reading during a push is the only cost, accepted for the story.
+* "A tap clears a scene": a tap moves it on line by line (never held by a timer after 0.35 s) and "Pomiń ›" / Escape
+  closes it whole — a habit tap on the field cannot swallow the story.
+* Five old Polish lines with the gendered second person rewritten (npc.eliab, say.hunt.2, say.hunt.2.keys,
+  say.down.1, say.wake.3 — D2's words).
+
+**Checks.** `npx vitest run test/arcade-dawid.test.ts`: 90 tests (the round's new: maps, chains and places, fences and
+routing through the passes, live dens, the chapter card and scenes, tap and skip, the reading time, ≤ 60 s sessions,
+choices and their gifts, each new quest kind completing, the log, a typical player through all six lands with every
+quest done in order and every companion met, the words of four languages in one shape with their limits and the
+forbidden words, the speakers' names, REGULAR identical to a save without a level, the plan the same at every level,
+the order START < REGULAR < ADVANCED < HARDCORE measured (the lion driven off later, more harm taken), a 40 s session
+scoring at every level on both bands, records per level, the lobby's chips, v1 → v2 saves, the scene/choice/log
+controls finger-sized at every size, no text under 11 px). `npx tsc --noEmit -p .` clean for dawid.
+Screenshots: `<scratch>/shots25-dawid/` (chapter card, the anointing scene desk + phone, an area, a choice desk +
+phone, a rescue under way, the log desk + phone, Elah's chapter and camp desk + phone + landscape, a ridge's pass).
+`scripts/arcade-mobile.mjs --game dawid` (`<scratch>/mobile25-dawid-code/`): passed on all six devices, no text under
+11 px or 13 px, every target finger-sized (the minimap and the log among them); the game's frame 4.55 ms on the small
+phone at 4× slowdown (round 12: 3.94), 4.28 on the large Android at 3×, 1.4–2.6 elsewhere, 59.6–60 fps.
+
+**What waits for the founder.**
+* A native read of the German and Swedish scenes (D2's note) and a look at the reading pace of the scenes on a phone.
+* Whether scenes should wait for a rest block when they come in the middle of a push (now: at once).
+* HARDCORE's spilled silver is the one place where something can be lost for a while (it waits 70 s on the grass).
+* The small phone's frame is ~0.5 ms dearer at 4× than round 12's (the landmarks, the barriers and the paths); the
+  barley and the vines are already one path a row; baking the paths and the barriers into a layer would win it back.
+* Unused since the chains were rewritten and kept for now: the round-5 `npc.*`, `q.visit.*`, `land.<id>.story` and
+  `story.open.*` keys in Dawid's catalog.
+
+#### Dawid's lands: the story (D2)
+
+**What it is.** The words of the six chapters of David's road, 1 Samuel 16–30, in Polish (the source) and English,
+German and Swedish: `src/arcade/dawid/story-<land>.ts` and `story-<land>.<en|de|sv>.ts` (24 files, one
+`LandWords` each — the contract is D1's `story.ts`, the ids are D1's `chains.ts`). Each land has a chapter card's
+text, three areas (a name and the lamb's line on entering), the story quests' pills, the things found or carried,
+the scenes (an opening, one per story quest, an ending after the guardian) and the choices. 47 scenes, 195 lines a
+language, plus 8 choices with their replies; the mean line is 74 characters.
+
+**The road, chapter by chapter.**
+1. *Pastwiska Betlejem* (16:1-13). Samuel at Jesse's house: seven sons, "not this one", the youngest who "always
+   smells of sheep" fetched and anointed among his brothers (Eliab: "But I'm the tallest!"); a lamb caught in the
+   thorns, a girl at the well (carry her jar, or play her a tune), a jar of water for the old shepherd at the gate,
+   who saw wolves by the brook; Asahel ("Uncle, race you to the lion!"); a ewe and her lamb saved; the lion off with
+   a stone on its nose, and word that the king cannot sleep.
+2. *Wzgórza Judy* (16:14-23). A vinedresser's boars, the king's servant on the road, Abishai and his shield ("you
+   don't take a shield to a concert"), Jesse's slow donkey with bread and a kid, the harp in Saul's dark tent —
+   a shepherds' song (Saul remembers searching these hills for his father's donkeys, 1 Sam 9) or a quiet tune
+   that puts him to sleep; "From now on you carry my armour"; the she-bear back to her cubs; bread and cheeses for
+   the brothers in Elah.
+3. *Dolina Ela* (17 – 18:4). The forty days' shouting; Eliab's temper and three cheeses; the soldiers' talk of the
+   reward (no taxes! — or "what does the lamb get?" — "lentils, probably"); Saul's armour (try it on: the clank, or
+   thank him and keep the sling); five stones ("in case the giant has brothers?"); the giant's taunt and David's
+   short answer, "I do not come alone" — the words of 17:45 come only by the verse; Goliath face down in the grass;
+   Jonathan's cloak, belt and bow, and a covenant the lamb joins "most of all".
+4. *Pola Gibei* (18–20). The women's song told in narration, Saul's "all he lacks now is the kingdom", the spear in
+   the wall and the lamb's "That wasn't a note!"; Michal's warning, the rope, the goat-hair dummy ("it looks more
+   like me than like you"), down the rope or the lamb first in a basket; a widow's barley; Jonathan's plan by the
+   stone Ezel, three arrows, "further", the farewell ("I'm not crying. It's dust. Field dust.").
+5. *Pustynia En-Gedi* (21–25). Adullam and the four hundred — the troubled, the indebted and the bitter; Nob's
+   bread of the Presence and Goliath's sword (told plainly); Benaiah and the lion in the pit on a snowy day; Saul
+   alone in the cave — cut a corner of his robe, or slip back into the dark: either way David will not raise his
+   hand; then he calls after the king from the hill and Saul weeps; water from the cave's drip; Abigail, her
+   donkeys of bread and fig cakes, "his name means fool", her wise words that keep David from a bad step; a kid
+   saved from the caracals; the road west to the Philistines.
+6. *Ziemia Gat* (21:10-15, 27, 30). Ittai, a Philistine friend; David afraid before Achish, playing the madman —
+   scribbling on the gate or a silly song ("Baaa, meee, a giant in a hat!"), "Am I short of madmen?"; the years
+   between and the gift of Ziklag; Ziklag burnt and empty — nobody harmed, everyone taken (30:2); David alone a
+   while, in silence, with God, then "We will bring everything back"; the flocks from the wolves, the families home
+   with nobody missing and the spoil shared alike with those who stayed by the brook Besor (30:24); Shammah's
+   lentils; the giant flat; gifts to the elders of Judah; Ittai's "I am a Philistine, but I go with you"; Hebron
+   ahead — "but that is another story"; and the lamb: "Remember the sheepfold? That's where the whole road began."
+
+**Decisions.**
+* *Faithful and gentle.* Every scene follows the text of 1 Samuel in its order, in the game's own words; God is
+  named (David "does not come alone", "God's people", "with God") but never speaks in a quoted line and is never
+  drawn; His words only come by the verse ids D1 places (chapter cards, harp, stones, farewell, the call). Famous
+  lines that would read like a quotation are told in narration (the women's song) or left to the verse (17:45).
+  Nobody dies or bleeds: beasts run off, Goliath falls face down, the raiders flee on camels; Saul's spear "sticks
+  in the wall"; Nob's priests and Nabal's end are left out; Saul's trouble is "a heavy unrest on his heart".
+* *The forbidden words of Dawid's catalog test* hold in the story too, in all four languages, including their
+  substrings: no "święt-" (Nob's bread is *chleby pokładne* / the bread of the Presence / Schaubrote /
+  skådebröden), no "módl-/pray" (David at Ziklag "stays alone a while, in silence, with God"), no "martw-"
+  (no "nie martw się"), no German "umarmen" (/umar/; "fallen sich in die Arme"), no Swedish "killing" (/kill/:
+  the kid is a *getunge*).
+* *No gendered second person* in Polish anywhere, also when a character speaks to David ("Taki młody…",
+  "masz gorączkę", "masz w sercu więcej dobra niż ja", "Od dziś jesteśmy braćmi"); vocatives by name ("Dawidzie",
+  "wujku" from his nephews). David's own first-person lines are masculine — he is a named man. The lamb is
+  ungendered in German and Swedish ("Das bin ja ich!", "Också oskadd").
+* *Choices never close a road* (D1's effects): each reply is one to three lines and stays true to the text — both
+  answers in the cave spare the king; the two questions to the soldiers and the two ways down from Michal's window
+  change only a line. Nabal has no quest in the chain, so his refusal is told in the first lines of Abigail's scene.
+* *The lamb's area lines* are ≤ 90 characters (the bubble's measure for every lamb line), the pills ≤ 44, the
+  buttons ≤ 36, things lower case (German nouns excepted).
+* *Aligned with the chains as built*: the escort ends at the stone by the crossroads (the king's tent is the next
+  area's), the widow's barley is kept from boars, Gibeah's ending (after the aurochs) sends David to the farewell,
+  so Adullam and the four hundred open En-Gedi; Nob's line says David's men wait in hiding.
+
+**Checks.** `<scratch>/dawid-story-check.ts` (run with `node_modules/.bin/jiti` in web/): the ids against
+`storyIds()` of `chains.ts` and the contract's areas and things; the same speakers and line counts in every
+language; every limit; the test's forbidden words; each language's quotation marks; no straight apostrophes;
+no Polish in en/de/sv; no `-łeś/-łaś/gotowy` in Polish — "OK — no problems". `npx tsc --noEmit -p .`: clean.
+
+**What waits.**
+* *The first session's opening:* the chapter card and then six lines of the anointing (~36 s if nobody taps, by
+  D1's reading time 3.4–8.5 s a line). In a session of ≤ 60 s (the smoke's 40 s) the scenes should give way to play
+  (D1's call: skip the opening scene, or let a tap or the world run on) — words alone cannot make it fit.
+* *Five old Polish lines* in Dawid's catalog (i18n.ts, D1's) still use the gendered second person: `npc.eliab`
+  ("przyszedłeś" → „Po co tu przychodzisz? Popatrzeć na bitwę?”), `say.hunt.2` ("Stuknąłeś" → "Stuk i idziemy.
+  Lubię, jak ktoś wie, czego chce."), `say.hunt.2.keys` ("Kliknąłeś" → "Klik i idziemy…"), `say.down.1`
+  ("Upadłeś!" → "Upadek! Nic to, zaprowadzę Cię do ogniska."), `say.wake.3` ("Odpocząłeś?" → "Już po odpoczynku?
+  To wracamy na łowy.").
+* *Passages worth adding to scripture.ts* (none added): 1 Sam 16:13 (the anointing), 18:1 (Jonathan's soul knit
+  to David's), 20:42 (the farewell's covenant), 24:6 (not against the LORD's anointed), 25:32-33 (Abigail's
+  discernment), 30:6 (David strengthened himself in the LORD his God), 30:24 (a share alike). Meanwhile the
+  scenes lean on 1sa16.7, 1sa17.37, 1sa16.23, 1sa17.40, 1sa17.45, ecc4.9-10, rom12.21, pro15.1, psa56.3,
+  psa27.1, gal6.2, psa23.6 (all present) — D1 places the ones its cards carry.
+* *A read by a native ear* of the German and Swedish (written with care; idioms checked, but not by a native
+  speaker).
+
+### 29.6 Difficulty levels in Zastępy, Jerzy i smok, Dziewiątka and Kocia straż (builder K1)
+
+**What it is.** The four levels of `kit/difficulty.ts` — Na start · Zwykły · Zaawansowany · Hardcore — in four games
+with foes. Each game's lobby card ("Postępy") opens with the row from `kit/difficultypanel.ts`, and under the chips
+each game says in its own words what the chosen level means *there* ("Demony silniejsze o 40% i szybsze, mury słabsze
+o ćwierć, bez pomocy…"), in pl/en/de/sv (`level.*` keys in each game's i18n). A choice is saved at once (a
+`difficulty` field in the progress; a save without one reads as `'regular'`, as does an unknown value) and redraws the
+rest of the card, so the record shown is the chosen level's; the row and the keyboard's focus stay. The level is
+fixed for a session (read when the session starts). A summary past REGULAR names the level first
+("Trudność · Hardcore"); REGULAR's summary is as it was.
+
+**REGULAR is byte-identical.** Every knob is a multiplier of 1 (or an addition of 0) at REGULAR, placed so that the
+arithmetic is exact (× 1, ÷ 1, `Math.round` of an integer); a level never draws from the random stream. Proof beyond
+the existing tests (all green unchanged: 86 + 94 + 77 + 75): a golden run of each game against a copy of HEAD's
+folder — whole sessions of 40 s to 30 min, first-ever and later, played by bots — with identical event streams, numbers
+every second, `result()` and progress.
+
+**What a level never changes (the training).** The blocks (plans identical at every level, 40 s to 60 min — tested),
+the threshold, what focus does: Zastępy's flow multiplier, the trumpet's hold, calm's mending and shields, a passed
+Cisza's walls and gold, a blind block's pay; Jerzy's aura (radius, beat, quench), the Miecz światła's charge, calm's
+healing, the Postój's free card; Dziewiątka's energy multiplier, Harmony and the chord, the gold surge's count, the
+well's calm healing, the boons; Kocia straż's alertness, the Great Hunt, the nap's ripening (paid as seconds of the
+stage's income). Each game has a test that drives the same frames through every level and compares the band's numbers.
+Also kept at every level: the semi-auto ultimates in Dziewiątka and the auto-release of the Miecz / the Hunt — they make
+sure focus is worth the same at every level for a player who does not tap.
+
+**The mapping (rules.ts `LEVELS` in each game; start / advanced / hardcore, REGULAR = 1):**
+
+* **Zastępy** (a lane battler, SCALE bent): demons' hp and damage — with bosses, specials, embers — ×0.6 / 1.2 / 1.4;
+  the gate of ash's walls ×0.8 at Na start; waves' gap ÷0.8 / 1.05 / 1.1; the cracking gate's surges ×0.8 / 1.2 / 1.4;
+  demons' walk and strikes ×0.85 / 1.05 / 1.1; the gate of light's walls ×1.5 / 0.85 / 0.75; helps: a withdrawal's
+  stronger walls ×1.5 / 0.6 / 0, the light a battle starts with ×1.5 / 0.8 / 0.5 (still a strażnik's price), the
+  answering card's lift off at Hardcore; win and bounty gold ×0.9 / 1.15 / 1.3. *Why bent:* at SCALE's own numbers
+  (×1.4 / ×2 demons, ×1.25 / ×1.5 waves) a focused bot that answers every wave lost the first battle at Hardcore and
+  made 5 battles in four 10-minute sessions where REGULAR made 31 (the numbers compound: stronger demons that come more
+  often reach a host that gets to the gate of ash later, its surges and growing waves pile up). Now, four 10-minute
+  sessions: a focused, answering player reaches battle ≈42 / 31 / 26 / 17, one without band or counters 35 / 18 / 12 / 8.
+  Tymek's "the walls will be thicker" line and the withdrawal's toasts change where they would no longer be true.
+* **Jerzy i smok** (a survivors-like): the brood's hp ×0.6 / 1.3 / 1.6, the dragon's scales ×0.7 / 1.25 / 1.5, hearts a
+  blow takes ×0.6 / 1.25 / 1.5, the brood's stream and the waves' rings ×0.8 / 1.15 / 1.3 (the field's cap unchanged),
+  the brood's walk and fireballs ×0.85 / 1.08 / 1.15 and the dragon's telegraphs ÷ the same; hearts 7 / 5 / 4 / 3 (the
+  forge's and the helmet's on top, never under two); helps: Linda's apples that get him up 2 / 1 / 1 / 0, reshuffles
+  2 / 1 / 1 / 0, apples the brood drops ×1.5 / 0.75 / 0.5; the treasury's income ×0.9 / 1.15 / 1.3. *Why bent:* at
+  SCALE's ×2 the sharp bot fell every 100 s with no apple and drove the first dragon off in one 5-minute session of
+  three; now every 150 s and two of three. The roads (the campaign's own harder rounds of a land) stay one map; a
+  dragon's wounds are absolute and are clamped to his scales at the level. The best run is kept per level (REGULAR's in
+  `bestRun`, the others in a new `runs2` map); the headline's "to your best run" follows the level.
+* **Dziewiątka** (Hero Wars-like): SCALE as it is — the Din's power (health and attack, the surge's shadows too)
+  ×0.6 / 1.4 / 2; a wave's shadows ×0.75 / 1.25 / 1.5 (never the boss dropped, small ones added); the Din's walk and
+  strikes ×0.85 / 1.1 / 1.2; the heroes' health ×1.5 / 0.85 / 0.7; helps: the Din's shyness against a team behind its
+  pace bends ×1.5 / 0.6 / 0, the heart a wave loses after a wipe likewise (none at Hardcore); XP a wave ×0.9 / 1.15 /
+  1.3. Two 10-minute sessions: heroes fallen 0 / ~20 / ~45 / ~200 (three players together), the campaign's reach falls
+  level by level; at Hardcore a focused player still wins 5+ missions a session.
+* **Kocia straż** (an idle shooter without hearts): SCALE as it is — pests' and chiefs' courage ×0.6 / 1.4 / 2; a
+  stage's pests ×0.75 / 1.25 / 1.5; groups and a chief's tricks come ÷0.85 / 1.1 / 1.2 as often; a chief's patience (the
+  watch's time) ×1.5 / 0.85 / 0.7; helps: a chief who backs off is back after fewer pests at Na start, heals 40% of his
+  wounds while away at Zaawansowany and all of them at Hardcore; fish ×0.9 / 1.15 / 1.3. Three 10-minute sessions: the
+  watch gets less far and chiefs back off more often level by level; a focused watch at Hardcore still chases a chief
+  every session and reaches the vintage in half an hour.
+
+**One campaign, records per level.** The map — Zastępy's battles and stars, gold and host; Jerzy's lands, roads, wounds,
+forge, armoury, companions; Dziewiątka's missions, stars, Bell Tower, the nine and the bag; Kocia straż's stage, fish,
+cats, toys, chiefs — is shared: a player may switch at any time (an easier level's wins count). Records per length use
+`recordKey` ("300", "300@hardcore"); the lobby's record and `best()` read the chosen level's.
+
+**The order, measured** (each game's `test/arcade-<id>-levels.test.ts`, at the same focus): Zastępy — an idle gate holds
+longer and loses its walls slower level by level, a focused player wins the first battle sooner, the campaign goes
+further; Jerzy — a knight standing still falls later, 5-minute bot sessions lose more runs (0 / 6 / 11 / 22) and an
+average player loses more of his hearts a minute; Dziewiątka — more heroes fall, fewer missions; Kocia straż — fewer
+stages, more back-offs. Hardcore is checked winnable (Zastępy: the first battle and the first two boss gates fall to a
+focused, answering host; Jerzy: a sharp, focused knight drives the first dragon off; Dziewiątka: 5+ missions a session;
+Kocia straż: a chief each session, the vintage in 30 min) and hard (a decent player without band and counters loses
+Zastępy's first battle; Jerzy without the band falls again and again). Na start: no Jerzy run lost and no Dziewiątka hero
+fallen in the bots' sessions, even without the band; Zastępy's idle gate stands for minutes. Every level scores in the
+40 s smoke input (first session and later).
+
+**Lobby on a phone.** The row (the lead's CSS) fits 360 px as two rows of two (140×44 chips), 390 px as four (75×45,
+"Zaawan-sowany" hyphenated), desk as four; the line under it 13 px; no sideways scroll. The row goes in through
+`progressPanel(p, save, { levels: true })` from each `index.ts` (the existing panel tests call `progressPanel(p, save)`
+and press the card's first button).
+
+**The summary.** The level's name is the first stat past REGULAR (the runner shows eight, so it takes the eighth's
+place); "Zaawansowany" and "Fortgeschritten" carry soft hyphens so the 30 px tile breaks them ("Zaawan-sowany")
+instead of clipping. A shared fix would be `overflow-wrap:anywhere;hyphens:auto` on `.summary-grid .stat .v`.
+
+**Checks.** `npx vitest run` of the four games' tests and the four new `*-levels` files: 389 passed (1 skipped, the
+existing balance table); `npx tsc --noEmit -p .` clean for these files; `scripts/arcade-mobile.mjs` passes for all four;
+a 40 s session per game at a non-REGULAR level (Zastępy Hardcore, Jerzy Na start, Dziewiątka Zaawansowany, Kocia straż
+Hardcore) scores and names the level; the row checked at 360 / 390 / 1440 px.
+
+**What waits for the founder.** Whether Hardcore in Zastępy should be harsher (SCALE's ×2 is unplayable there with
+the other knobs on; ×1.4 with fewer walls, faster waves and no helps is what the bots call "hard but fair"); whether
+Na start should also shorten Jerzy's and Dziewiątka's fights for children (it now mostly forgives); whether a
+Hardcore-only reward (a badge, a gilded record) would be welcome.
+
+### 29.7 Difficulty levels in Nehemiasz, Dolina, Chleby i ryby and Anioł Stróż (K2)
+
+**What it is.** The four levels of `kit/difficulty.ts` — Na start · Zwykły · Zaawansowany · Hardcore — in four more
+games with foes. Each game's lobby card opens with the shared row (`difficultyPanel`, the chips at the top of the
+card, the game's own line under them saying what the chosen level means *here*, and "the focus training is the same at
+every level"). The level is saved in the game's progress (`difficulty`; an older save has none and plays REGULAR).
+Records are kept per level (`recordKey`: REGULAR keeps the old keys, the others `300@hardcore`); the lobby's record,
+the HUD's "to your best" and the summary's "record!" read the chosen level's. The summary names a level other than
+REGULAR on its first line ("Poziom trudności · Hardcore"). The campaigns — Nehemiah's 52 days, the valley and the
+tower, the path of hillsides and the village, the child's dreams — are one for every level: a player may switch at any
+time and goes on where they are.
+
+**How it is built.** Each game's `rules.ts` holds a `LEVELS` table: the shared scale (`SCALE`) mapped onto that
+game's own knobs as multipliers, REGULAR all ones. The sim reads it once (`difficultyOf(p.difficulty)`) and applies
+`x × k` where each number is used. `x × 1` is exact in floating point and no knob draws an extra random number at
+REGULAR, so REGULAR is byte-identical: a fingerprint of three chained sessions per game (40 / 300 / 600 s, the
+results, the event counts and the whole progress) was taken before any change and compared after every step —
+identical for all four — and every existing test passes (one lobby test's selector scoped, see below). The training
+never changes: the block plan is the same at every level (tested 40 s – 60 min), and so are the band's threshold, the
+blocks, what the light / the Świt / the horn / the golden gate / the Płomień give and what calm pays.
+
+**The mapping.**
+
+| | Na start | Zwykły | Zaawansowany | Hardcore |
+|---|---|---|---|---|
+| **Nehemiasz** raiders' courage · prying · loot | ×0.6 · ×0.5 · ×0.6 | 1 | ×1.4 · ×1.4 · ×1.3 | ×2 · ×2 · ×1.6 |
+| raiders a night · walk | ×0.75 · ×0.85 | 1 | ×1.25 · ×1.1 | ×1.5 · ×1.2 |
+| the horn by itself · kept to the next night | after 4 s · 45 % | 6 s · 30 % | 10 s · 18 % | never · none |
+| the star bank's pay for a gate | round(×0.9) | 1 | round(×1.15) | round(×1.3): +1 for 2–3 stars |
+| **Dolina** shadow's light · guardian's · oil per hurt | ×0.6 · ×0.7 · ×0.5 | 1 | ×1.4 · ×1.25 · ×1.4 | ×2 · ×1.6 · ×2 |
+| shadows per road beat · their speed · the tide | ¾ · ×0.85 · ×0.88 | 1 | ×1.25 · ×1.1 · ×1.05 | ×1.5 (a pair every 2nd beat) · ×1.2 · ×1.1 |
+| grace after a hurt · shadows cleared on rising (the oil on rising stays half) | ×1.5 · 7.5 u | 1 s · 5 u | ×0.8 · 3 u | ×0.6 · none |
+| sparks | ×0.9 | 1 | ×1.15 | ×1.3 |
+| **Chleby** loaves a gull snatches · Gerwazy/Mirka · a glutton's pouch | 1 · ×0.6 · ×0.7 | 1 | some 2 (avg 1.4) · ×1.4 · ×1.25 | 2 · ×2 · ×1.5 |
+| gulls a wave · their waddle and a boss's clock · a peck's jam | ×0.75 · ×0.85 · ×0.67 | 1 | ×1.25 · ×1.1 · ×1.2 | ×1.5 · ×1.2 · ×1.4 |
+| the disciples' grace · Posiłki · people to fill Pomoc | after 27 s · ×1.5 · ×0.75 | 40 s · 1 · 1 | 67 s · ×0.6 · ×1.2 | never · none · ×1.5 |
+| baskets for a level / a glutton | round(×0.9) | 1 | round(×1.15) | round(×1.3): 3 for three stars, 3 for a glutton |
+| **Anioł** a Zmora's hits · the great nightmare · Sen per touch | ×0.6 (≥1) · ×0.7 · ×0.5 | 1 | ×1.4 · ×1.25 · ×1.4 | ×2 · ×1.5 · ×2 |
+| Zmory in a vigil · their walk | ×0.75 · ×0.85 | 1 | ×1.25 · ×1.1 | ×1.5 · ×1.2 |
+| a stir scatters (Sen back to half at every level) | the whole room | 3.6 u | 2.2 u | nobody |
+| feathers per Zmora (a night pays ~0.9 / 1 / 1.15 / 1.3) | ×1.2 | 1 | ×0.95 | ×0.9 |
+
+**The decisions and why.**
+* *The shared scale bent where the genre needs it* — a **boss's** light (Dolina's guardians, Chleby's pouches, the
+  great nightmare) below `foe` (×1.25–1.6 at the top): a boss fights inside one block or a short finale, and a doubled
+  one outlasts a focused player. **Damage** (prying, oil, Sen) takes `foe` (not `foe ÷ self` = ×2.86): a stronger foe
+  also stands longer in the way, so the two would compound.
+* *The player's own strength is never saved state*: Nehemiah's wall and the child's Sen are folded into the damage
+  rate, not into hit points — the wall is progress shared by every level, and switching levels must not cut a
+  standing wall.
+* *Helps at Hardcore are none, but fairness stays*: the horn never sounds by itself, Posiłki and the disciples'
+  grace are gone, a fall or a stir clears nobody around — but a hurt still gives a moment's grace (×0.6: without it one
+  shadow would hurt every frame), and a fall or a stir still brings half the oil or Sen back at every level (the
+  game's own cards say "half"; the session never ends early). Chleby's **Pomoc card** is the player's own deck tool, so it is slowed (×1.5 people), not taken away.
+* *Counted work stays fitted to the session*: the tables' hunger, the stones and stairs, the wall's cubits, the
+  gates and the dreams are the same at every level (§24.4b).
+* *Rewards on the shared scale per session*: where `count` already brings more foes (and so more feathers) Anioł's
+  per-Zmora pay is bent (×1.2 / 0.95 / 0.9) so that a night lands near ×0.9 / 1.15 / 1.3 (measured 0.87 / 1.21 /
+  1.41; feathers come whole, so a banish may bring none at that moment — the view then shows no "+0"); Dolina's
+  sparks measured 0.91 / 1.13 / 1.38; Nehemiasz's star bank and Chleby's baskets round the scale
+  (Hardcore pays one more for a full gate, a three-star level, a glutton fed).
+* *Chleby's wave cap stays 36 at every level*: at ×1.5 an hour of Hardcore held 247 gulls on the lane at once (a
+  phone's frame budget and a cluttered lane); with the cap it stays under 150, as REGULAR.
+* *Anioł's Widmo keeps its two strikes at every level* (its coach mark says "two strikes, it slips back after the
+  first"), the Fikołek at least two (it leaps the bed after a strike); every other Zmora's hits round from `foe`.
+* *A crash fixed in Anioł* (it was there before; Hardcore made it common): an ink drop whose splash stirred the
+  child cleared the drops mid-loop, then the loop set the list's length back and left holes — the next frame threw.
+  The loop now stops after a stir (and after a deflect that clears the drops). REGULAR is unchanged in every case
+  that did not crash (fingerprint identical); a regression test fails without the fix.
+* *Words*: each level's line says in plain numbers what changes here ("Zbóje mają o 40% mniej odwagi…", "Stada o
+  połowę większe…", "każda mewa porywa dwa bochenki…"), Polish neutral second person, four languages; Dolina, Chleby
+  and Anioł name the summary line `stat.difficulty` (their `stat.level` is the game's own level), Nehemiasz
+  `stat.level`.
+
+**Measured (the sim, the same focus at every level, 10-minute sessions from a mid-campaign save).**
+* Nehemiasz (threshold focus): raiders reaching the wall a minute 0.8 / 4.4 / 9.9 / 19.9; nights held 100 / 90 / 68
+  / 30 %; a strong focus holds 83 % of Hardcore's nights.
+* Dolina (threshold): oil lost a minute 0.11 / 0.19 / 0.28 / 0.45; the lowest flask at Hardcore 0.04–0.21 (a fall now
+  and then); every guardian that comes is beaten by a focused player.
+* Chleby (threshold): loaves snatched a minute 201 / 230 / 322 / 420, people fed a minute 1929 / 1866 / 1806 / 1584;
+  a strong focus finishes 23 levels at Hardcore against 25 at REGULAR.
+* Anioł (a tap a second, weak focus): touches at the bed a minute 0 / 0.17 / 0.37 / 2.5, stirs 0 / 0 / 0.03 / 1.5;
+  three taps a second at strong focus keep the child asleep all night at Hardcore. (A player who taps constantly is
+  never touched at any level — the game's own forgiving design.)
+
+**The checks.** `npx vitest run` of the four games' tests: nehemiasz 84, dolina 114, chleby 202, aniol 104 — all
+green (10–12 new tests each: the migration, the same blocks at 40 s – 60 min at every level, REGULAR = an old save
+number for number, a 40 s test scores at every level on either band, each game's knobs, the order measured in the
+sim, Hardcore's missing helps, rewards, records per level and the summary line, an hour at Hardcore and 3 min at Na
+start, the lobby row); `test/arcade-difficulty.test.ts` and `test/i18n-arcade.test.ts` green; `tsc` clean in these
+games; the REGULAR fingerprint identical; the lobby rows at 360×640 and 1440×900 (chips ≥ 44 px, text ≥ 13 px, two
+rows of two under 380 px, no sideways scroll, Hardcore's line and record follow, the chip keeps the keyboard's focus);
+`scripts/arcade-mobile.mjs` passes for all four (six devices each, 60 fps); in the real app each game played a 40 s
+test session at Hardcore (and Dolina at Na start in English on a phone) from the lobby's chip: no page error, a score,
+and the summary's first tile names the level ("Poziom trudności · Hardcore", "Difficulty · Starting").
+
+**One existing test line changed**: Nehemiasz's lobby test clicked the card's first enabled button to buy a king's
+letter; the chips now stand first in the card (as the brief asks), so its selector is scoped to the letters
+(`.arcade-daily button:not([disabled])`).
+
+**What waits for the founder.** Whether Hardcore is hard enough by hand (the sims play with steady focus and simple
+hands; a human's taps and jumps are another thing) and whether Na start is gentle enough for a child; Anioł's
+Hardcore asks for quick hands more than for focus (doubling every Zmora's hits doubles the taps). The HUD does not
+show the level during play (the lobby and the summary do).
+
+### 29.8 Dobry bój through the boxer's eyes — "Oczami boksera" — and its four levels (builder B)
+
+**What it is.** The founder asked for "Boxer w wersji z widokiem z pierwszej osoby" and for difficulty levels in the
+games with foes. Dobry bój now has a lobby choice of **view** — *Z boku* (the ring in profile, exactly as round 21
+drew it) or *Oczami boksera* (first person) — and the shared row of **levels** (Na start · Zwykły · Zaawansowany ·
+Hardcore). Both views play the very same fight: the sim does not read the view (a test plays one session in each
+view on the same seed and compares the stages and the summary byte for byte); only the picture, the sound's side and
+nothing else differ. The inputs are the same three slots in both views (the thumb zone on a phone, the column beside
+the play on a desk), so a player who switches keeps the hand's habits.
+
+**How it looks and plays through the eyes** (`fpv.ts` the view, `fpaint.ts` the camera and the painter, `fpring.ts`
+the hall and the ring from inside):
+
+* *The camera* stands at the player's eyes, pulled back 0.42 of a standing height (a real fighter's eye is so close
+  that only a face and two gloves would fill the screen): the opponent reads whole from the hips up — the guard, the
+  shoulders' turn, the bounce of the feet, the eyes. A perspective camera in the player's own frame projects the
+  **same 3-D rig** (rig.ts) the side view draws in profile, so every pose of round 21 — every strike, defence,
+  opening, the knockdown, the stool, the embrace — exists through the eyes with no new animation. The opponent is
+  painted face on by a new painter: depth-sorted capsules lit from the ring's light above, a front torso (trunks, a
+  sports top in the women's division), a head with a face — calm eyes with a blink now and then, brows, the nose's
+  shade, the mouth — and the hair from the front (short, tied with a bun, braids in rows with two hanging behind, a
+  shaved shadow). Only in this view the opponent's guard sits a hair lower and wider, so the eyes show over the
+  gloves as a fighter's do (the striking hand is never moved: strikes still land where the rig aims them).
+* *Behind the opponent*: the ring in true perspective — the canvas with the light's pool, the four ropes (blue, white,
+  white, red) running to a far corner's padded post and toward the eye on both sides, or the cage's diamond mesh
+  between padded posts with the top rail; beyond, a baked panorama of the hall: the lamps high over the far tiers with
+  their shafts through the haze, the crowd rising on its tiers, the small phone lights twinkling with the crowd's mood.
+  The pair circles in the read: the whole ring turns slowly about the two (±0.2 rad) so the corner post drifts across
+  the background; in the corner and at the walk-in the camera looks across the diagonal at the opposite corner.
+* *The player's own gloves* sit in the frame's foot corners, the lead (left) a little further and higher. Their screen
+  place is mapped from the rig (`ownGloves`): rest in the corners; up over the chin as the rig's gloves rise (a block —
+  the opponent's eyes still show over them); higher at the sides in a cheer; down when they drop; and **out along the
+  rig's own path** as they reach, blending from the corner to exactly where the projection puts the glove — so a jab
+  goes straight in, a hook comes round from the side, an uppercut rises, and at contact the glove is on the face the
+  screen shows (tested to the pixel for the 1, 2, 3 and 6). A parry sweeps the rear glove across; a kick's shin, a
+  teep, a knee or a check rises from the screen's foot (the cage).
+* *The head's moves are the view's*: a slip tilts and dips the view (the roll ≤ 6°, the dip ≤ 0.035 units, the
+  incoming fist passes beside the eye), a roll dips under the hook, a step back draws the opponent away, a sprawl and
+  a knockdown take the eye down; a clean hit is a soft white flash and a brief double image of the opponent — never a
+  shake. The camera follows the head with a 75 ms ease, the guard's bob shows as < 4 px (tested), and **reduced
+  motion keeps the camera still** (no roll, no dip, no slow-motion move-in, no double image, the flash halved; the
+  ring does not circle; the dust and the crowd's lights hold still) — the moment reads through the gloves and fades.
+* *Slow motion*: the world drains of colour (the side view's two passes), the camera eases in 0.12 toward the action,
+  the opponent's fist creeps at the eye along a soft glowing path (no ring is drawn over their face), **the prompt
+  over the opponent** names what comes or what opens ("Nadchodzi: prawy sierpowy", "Otwarcie: szerokie ciosy"; four
+  languages), an opening glows gold where it can be used, a chosen counter shows the gap it will use, and the energy
+  rises from below the frame (the core) into the gloves, whose rings fill and pulse when ready; at the release a
+  warm light from below.
+* *The breaks*: the referee (white shirt, bow tie) is out of the frame at the side while they work and steps in at
+  the breaks — a step behind the opponent's shoulder at the walk-in and the touch of gloves, beside a fallen opponent
+  counting with one arm, **in front of the player** counting when the player is down (the eye goes down to the
+  canvas, the view dims, the opponent walks off to a neutral corner), into the ring's middle in the corner, beside the two at a fight's end. He always
+  stands whole inside the frame where he is in it (his side-step held to what the lens shows at his depth). Between
+  rounds the opponent sits on their stool in the far corner.
+* *The sound's side* (`audio.ts`, `index.ts panNow`): through the eyes a blow is heard from its hand — the player's
+  lead hand left, the rear right; the opponent's lead hand from the right (it is their left), their rear from the
+  left (±0.4 through a stereo panner; the hall's reverb stays wide). The side view keeps its sound as it was.
+* *The lobby*: under the level row, "Widok" with two tiles, each with its own small picture drawn in the player's
+  look and style; the lobby's hero and the calibration scene show the chosen view at once. A save without a view —
+  every save before this round — plays from the side; a fresh one too: nobody's game changes unasked, the first person
+  is offered on the card.
+
+**The four levels** (`rules.ts LEVELS`, the shared scale bent for a fight). What a level changes is the opponents and
+the helps — never the training: the energy's need and rate, the lead-in, the threshold, the blocks (the read, the slow
+motion's window, the corner) and what calm restores are the same at every level (the plan is equal, tested).
+
+| | Na start | Zwykły | Zaawansowany | Hardcore |
+|---|---|---|---|---|
+| opponents' power (damage taken) | × 0.55 | × 1 | × 1.35 | × 1.8 |
+| damage they take (their chin) | × 1.45 | × 1 | × 0.82 | × 0.7 |
+| hand speed (the sequence's tempo) | × 1 | × 1 | × 1.1 | × 1.2 |
+| guard (thresholds of an attack's follow-up strikes) | × 0.85 | × 1 | × 1.05 | × 1.08 |
+| how often they lead | × 0.85 | × 1 | × 1.1 | × 1.2 |
+| the coach's pick glows | first 5 sessions, after 1 wrong | first 3, after 2 wrong | first 2, after 3 wrong | never |
+| the quick-time choice | the whole slow motion | the whole slow motion | 7 s | 4.5 s |
+
+Decisions and why:
+* **The QTE window without touching the blocks.** The slow motion is the push block; shortening it would change the
+  training. So the *choice* closes (ADVANCED 7 s, HARDCORE 4.5 s into the slow motion) while the energy keeps charging
+  to the window's end. A thin line over the options shows the choice's own time; when it closes the move that will
+  go (the one chosen, or the default) stays lit and the others dim, the why line says "Wybór zamknięty — skupienie
+  daje siłę", and the options are no longer tap targets. STARTING and REGULAR keep the whole slow motion.
+* **STARTING keeps the designed tempo** (speed × 1, not the scale's 0.85): the plan reserves room for a sequence and a
+  resolve built for it; slower strikes could overrun a round's bell. Its help is elsewhere: half the power, quicker
+  knockdowns, fewer attacks, the coach's pick glowing longer.
+* **The lead strike lands at the same charge at every level** (0.35): the guard raises only the follow-up strikes'
+  thresholds (at most 1, so the whole combination still lands with full energy and the right choice) — a 40 s test
+  scores at every level (tested: Mendi and HALO, first-ever and returning, full and half focus, no tap).
+* **Records per level**: `best` stays REGULAR's (a save from before keeps its record there); the others under
+  `records['best@start' | 'best@advanced' | 'best@hardcore']` (kit `recordKey`). The ladder, fights, wins, knockouts,
+  belts and landed strikes are one shared progress — a player may change the level any time. The summary names a
+  level other than REGULAR ("Poziom: Hardcore", after the record line).
+
+Measured (the sims, 3 seeds, 30 min, boxing; MMA alike): the weak player loses 0 lives at STARTING, 3.3 at REGULAR,
+5.7 at ADVANCED, 8.3 at HARDCORE (and HARDCORE takes fights from them); with no focus the first life goes at ~560 s,
+~280 s, ~140 s and ~110–140 s; the strong player never loses a life at any level and knocks out 13 / 9 / 8 / 2 times —
+HARDCORE stays winnable by a focused, right-reading player; a player who chooses only after 6 s loses lives and fights
+at HARDCORE (the choice's clock bites), not at ADVANCED.
+
+**Files.** New: `src/arcade/boj/fpv.ts` (the view, the lobby picture, the gloves' mapping), `fpaint.ts` (camera,
+perspective painter, own gloves), `fpring.ts` (panorama hall, ring and cage from inside). Changed: `rules.ts` (`LEVELS`,
+`levelOf`, `attackLands(…, guard)`), `sim.ts` (the level's getters, `choiceOpen`, records per level, the summary's
+level line; view-only fields `choice`, `prompt`, `closed`, `Option.aim` — the fight itself untouched), `view.ts`
+(those optional fields), `meta.ts` (`view`, `difficulty`, `records`, `bestAt`/`recordAt`, `setView`/`setDifficulty`),
+`panel.ts` (the level row, the view tiles), `overlay.ts` (the choice's time line, the closed options dimmed),
+`index.ts` (the picture by view, targets only while the choice is open, the blows' side), `intro.ts`, `audio.ts`
+(`cue(…, pan)`), `i18n.ts` (13 keys × 4 languages). No shared file touched.
+
+**Checks.** `test/arcade-boj.test.ts` 50 tests (16 new: the view's save and migration, the same fight in both views,
+every phase at every CHECK_SIZES size both styles with and without reduced motion and no text under 13 px, the
+camera's comfort, the gloves' mapping and the strike landing on the projected target, the lobby tiles and the hero,
+the sound's side, the hour's frame cost through the eyes; the levels' order in the knobs and measured in the sim,
+REGULAR identical to an old save, the 40 s test at every level, the choice closing, records per level and the
+summary's line, 45/60 minutes at STARTING and HARDCORE, the lobby row); `test/arcade-boj-ring.test.ts` 35 unchanged,
+green. `tsc` clean for boj. Storyboards from the sim (desk 1440 × 900, phone 390 × 844: the walk-in and the touch, a
+block, the slow motion in and open, a combination landing, a counter, a slip and a roll, a hit, the opponent's count
+with the referee, the player's count with the referee in front, the corner, the end; boxing and the cage, both
+divisions), looked at and fixed frame by frame. In the app: arcade-shot in first person (pl desk 45 s, de on a phone
+390 × 844) — the lobby's tiles and hero, the calibration, the walk-in with the referee, the slow motion with the
+prompt, the summary "Nowy rekord". **arcade-mobile passed on all six devices in both views**: first person 60 fps
+everywhere, the game 3.18 ms a frame on the small phone at 4× slowed CPU (1.5 ms iPhone, 0.9 ms desktop); the side
+view as before (2.93 ms small phone); every target ≥ 44 px inside the insets; no text under 11 px (the only one under
+13 is the runner's verse reference, as in round 21).
+
+**What waits for the founder.**
+* The camera's pull-back (0.42) and the slow motion's move-in (0.12) are the two numbers that set how close the
+  opponent feels; the gloves' size at rest is a third.
+* HARDCORE's 4.5 s to choose (ADVANCED 7 s): the feel with a real band and real thumbs.
+* The first person shows the player's own gloves and forearms only (no body); kicks show the shin rising from below.
+
+### 29.9 The round's checks, and what waits for the founder
+
+**Checks (lead, 2026-11-28).** `tsc` clean; `vitest` 121 files, 4 390 tests (one fix on the way: the English lobby
+text of Złota passa said "water from the tap", which the mouse twins' test reads as a finger's tap — now "running
+water"); `npm run build` (main chunk 991 kB); `game3d:check`; on a quiet machine `app:smoke` — every game, the
+round's ones scoring in the 40 s test at 54–59 fps (Rozkwit 38 płatków, Złota passa 1 zwycięstwo, Dawid 141 XP, Dobry
+bój 2 ciosy, Zastępy, Jerzy, Dziewiątka, Kocia straż, Nehemiasz, Dolina, Chleby, Anioł), `cards:smoke`,
+`offline:smoke`. Every builder ran `arcade-mobile.mjs` for its games (six devices; Dobry bój in both views). Scripture:
+1 Sam 16:13, 18:1, 25:32-33, 30:6, 30:24 added (24:6 and 20:42 left out: their numbering differs between the
+editions; Gdańska's "Dwidową" fixed). The engine of the health visualisations now allows 4–7 meditations (Rozkwit has
+seven).
+
+**What waits for the founder.**
+* **Rozkwit „Wszystko naraz”** — the person drawn in code (a painted illustration per look would be finer); whether
+  seven meditations are right or „Cały człowiek” (the closest to the new one) should go.
+* **Złota passa** — whether each group's day feels like theirs (11–19's heavy moments, 27–35 assuming small children
+  in a third of its moments, 50+ mixing working and retired life); the rooms are shared by every group apart from the
+  bedroom wall and the evening table; the sound was tested, not listened to.
+* **Dawid** — the scenes' feel on a phone; a scene that arrives mid-push plays at once rather than waiting for the rest.
+* **Difficulty** — the four levels need a hand's feel: Hardcore in Anioł asks more of quick hands than of focus;
+  Zastępy's lobby tip about the glowing card is not true at Hardcore (its level line says so); the level shows in the
+  lobby and the summary, not during play.
+* **Dobry bój „Oczami boksera”** — the camera's pull-back, the slow motion's move-in, the gloves' size and Hardcore's
+  4.5 s to choose want a real band and real thumbs; the embrace after a fight is close in first person.
+* **A native read** of the German and Swedish words of all of it.

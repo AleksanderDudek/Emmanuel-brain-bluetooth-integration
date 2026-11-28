@@ -24,7 +24,7 @@ import { gateName } from './content';
 import type { Press } from './hud';
 import { cubits, t, unit, type Key } from './i18n';
 import { inside } from './layout';
-import { bestOf, freshProgress, migrate, room, stoneCap, type NehProgress } from './meta';
+import { bestKey, bestOf, freshProgress, migrate, room, stoneCap, type NehProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { NehView } from './render';
@@ -366,7 +366,7 @@ class NehGame implements ArcadeGame {
 
   headline(): Headline {
     const s = this.sim, p = s.p, score = s.headlineValue;
-    const best = p.best[String(Math.round(s.plannedSec))] ?? 0;
+    const best = p.best[bestKey(p, s.plannedSec)] ?? 0;
     const toBest = best - score;
     const day = Math.max(1, p.day);
     const sub = best > 0 && toBest > 0 && toBest <= Math.max(20, best * 0.3)

@@ -2,12 +2,13 @@
  * Every number of Złota passa in one place, the session's plan and the day-streak's arithmetic (DESIGN.md §26), pure
  * and deterministic.
  *
- * One day walked down one street over the session's length T (3–30 minutes, or a test of a minute or less):
+ * One day walked down one street over the session's length T (3–60 minutes, or a test of a minute or less):
  *
  *   intro     dawn on the street, the root verse (a first-ever session: the story card — what the game is)   free
  *   moments   one after another, each a fixed run of blocks:
  *               arrive   the card comes down the street (a few seconds of real time: the turn's telegraph)    free
  *               name     a heavy moment only: the hurt said plainly, whole breaths (Ps 34:18)                 rest
+ *               without  a given moment only (round 25): the thing greys away, "imagine without", a breath  rest
  *               turn     the push: the hand picks the reframe, only focus turns the card grey → gold          push
  *               after    whole breaths: the light flies up into the garland (savor) — or, a card focus did     rest
  *                        not turn, it goes gently into the pocket (carry); the band rests either way
@@ -17,12 +18,20 @@
  * Every block has a planned start and end, so the day always reaches its evening and the session's end.  By design (the
  * dials untouched) the push and the after-rest grow with the session's length (`design`); a player who moved a dial
  * keeps it — the session fits as many moments as their rhythm allows and the evening takes what is left (always less
- * than one moment).
+ * than one moment, up to `momentsMax` moments: past half an hour a rhythm that would hold more is lengthened within the
+ * dials, `stretchFrom`; an hour of the longest dials leaves an evening of about four minutes).
  *
  * Only real focus turns a card (§18.3–18.4): in a sighted push past its lead-in, with a reliable signal, while focused,
  * at `focusRate` (the level averaged over one whole breath).  The rests are receptive.
+ *
+ * Round 25 (life.ts, DESIGN.md §29): the plan mixes the kinds of a day — the cards of round 22 (a joy, a trouble, the
+ * player's own, one carried back), **sense** moments (a mini session of attention on one sense: a turn of the rhythm's
+ * push) and **given** moments (a thing taken for granted: a whole breath of rest first — "imagine without" — then the
+ * turn), about a quarter and a fifth of the day, within the sets there are; the first moment is always a card.  A
+ * session whose age group was never chosen asks for it at the intro's end (`ask`).
  */
 import { clamp } from '../kit/juice';
+import { SENSE_MAX, SENSE_MIN } from './life';
 
 export const RULES = {
   // ── the brain ──────────────────────────────────────────────────
@@ -53,8 +62,11 @@ export const RULES = {
   // ── the rhythm (kit/rhythm.ts): the turn's seconds (lead-in included), the after-rest's whole breaths ──
   focus: { def: 20, min: 15, max: 40, step: 5 },
   rest: { def: 1, min: 1, max: 4 },
-  /** by design (dials untouched): from a session of this many seconds, the push (s) and the after-rest (breaths) */
-  design: [[0, 20, 1], [600, 20, 2], [1200, 25, 2], [1500, 30, 3]] as readonly (readonly [number, number, number])[],
+  /**
+   * by design (dials untouched): from a session of this many seconds, the push (s) and the after-rest (breaths) — round
+   * 24: 45 minutes take 35 s and 4 breaths (32 moments: every set moment once), an hour the dials' longest, 40 s and 4
+   */
+  design: [[0, 20, 1], [600, 20, 2], [1200, 25, 2], [1500, 30, 3], [2700, 35, 4], [3300, 40, 4]] as readonly (readonly [number, number, number])[],
   /** the breath of every rest: 4 · 0 · 6 · 0 (the runner's pacer) — one whole breath (s) */
   cyc: 10,
 
@@ -77,10 +89,43 @@ export const RULES = {
   pickUntil: 0.6,
   /** at most this many moments in a session */
   momentsMax: 40,
+  /**
+   * past this length (s) a day the player's dials would fill with more moments than `momentsMax` lengthens their
+   * rhythm within the dials' ranges — the rests first, then the turns — so the moments fill the day, not the evening
+   * (round 24: dials of 15 s and one breath left 37 minutes of evening in an hour); 30 minutes and less as before
+   */
+  stretchFrom: 1800,
+  /**
+   * a day longer than the sets (an hour: 40 moments, 32 in the sets) meets a set moment again only this many moments
+   * after it (round 24: an hour's day once met the same card again four moments later; 12 moments ≈ 16 minutes)
+   */
+  againAfter: 12,
   /** a heavy moment needs this many moments around it (never the first, never the last) */
   heavyMinMoments: 3,
   /** where in the day a heavy moment stands (share of the moments) */
   heavyAt: 0.6,
+
+  // ── round 25: the film of a day (life.ts) ───────────────────────
+  /** about this share of a day's moments are sense moments (a mini session of attention on one sense) */
+  senseShare: 0.25,
+  /** about this share are given moments (a thing taken for granted), each with its rest first */
+  givenShare: 0.2,
+  /** a given moment's rest before its turn ("imagine without"): whole breaths */
+  givenBreaths: 1,
+  /** the opening card that asks for the age group when none was chosen (s, at the intro's end) */
+  askSec: 12,
+  /** after a pick the card stays this long with the chosen chip lit and its line, then closes (s) */
+  askShowSec: 1.8,
+  /**
+   * the day's light at the moments' end (round 22: 0.78): the film's day has its evening at home too — about a fifth of
+   * the moments in the evening's light, the lamps lit (the sets' evening moments: the table, the window, a warm bed) —
+   * and the garland's night after it
+   */
+  momentsLight: 0.9,
+  /** a sense moment's guide lines begin this far into its push (s): the arrive's line is read first */
+  guideFrom: 2.5,
+  /** a moment's place may stand this many steps of the day's route past where the route expects the film at its slot */
+  routeAhead: 2.5,
 
   // ── a test session (≤ testSec: app:smoke plays 40 s and must turn a card) ──
   testSec: 60,
@@ -112,8 +157,11 @@ export const RULES = {
   winLen: 56,
   /** cards carried that come back next session */
   carryKeep: 3,
-  /** set moments remembered as played lately (they come later in the order) */
-  recentMax: 24,
+  /**
+   * set moments remembered as played lately (they come later in the order) — round 25: about a week of short days, so
+   * the group's sets come round before a moment comes again
+   */
+  recentMax: 48,
   /** a single missed day is forgiven at most once in this many days */
   graceEvery: 7,
 
@@ -167,7 +215,13 @@ export function designFor(T: number): { push: number; breaths: number } {
 
 export type BlockKind = 'rest' | 'push' | 'free';
 /** What a block is about. */
-export type BlockWhat = 'intro' | 'arrive' | 'name' | 'turn' | 'after' | 'garland' | 'prayer' | 'close';
+export type BlockWhat = 'intro' | 'arrive' | 'name' | 'without' | 'turn' | 'after' | 'garland' | 'prayer' | 'close';
+
+/**
+ * What a slot of the day holds (round 25): a card (a joy or a trouble from the sets, the player's own, one carried
+ * back — the sim picks), a sense moment, a given moment (its rest first), or the heavy moment (its name first).
+ */
+export type SlotKind = 'card' | 'sense' | 'given' | 'heavy';
 
 /** One block of the schedule: planned start and end (s of play), and the moment (slot) it belongs to (−1: none). */
 export interface PlanBlock { kind: BlockKind; what: BlockWhat; t0: number; t1: number; slot: number }
@@ -184,6 +238,11 @@ export interface PlanOpts {
   first?: boolean;
   /** the player asked for the hard things too ("Także to, co trudne"): one heavy moment when the day is long enough */
   heavy?: boolean;
+  /** (round 25) the sense and given moments the sets hold for the player's group (0 / absent: none — round 22's day) */
+  sense?: number;
+  given?: number;
+  /** (round 25) the age group was never chosen: the intro ends with the card that asks for it (never in a test) */
+  ask?: boolean;
 }
 
 export interface Plan {
@@ -199,7 +258,16 @@ export interface Plan {
   /** the moments of the day, and the slot of the heavy one (−1: none) */
   n: number;
   heavyAt: number;
+  /** (round 25) each slot's kind, how many sense and given moments, a sense moment's push (s), a given's rest (breaths) */
+  kinds: SlotKind[];
+  nSense: number;
+  nGiven: number;
+  sensePush: number;
+  givenBreaths: number;
   introEnd: number;
+  /** (round 25) the age card in the intro: from, to (0, 0: none) */
+  askT0: number;
+  askEnd: number;
   /** the evening's start, the garland's and the prayer's ends; the close ends at T */
   eveningStart: number;
   garlandEnd: number;
@@ -216,8 +284,9 @@ export function planFor(o: PlanOpts): Plan {
   const lead = leadOf(o.eeg);
   const custom = !!o.custom;
   let intro: number, arrive: number, push: number, breaths: number, after: number;
-  let n: number, heavyAt = -1;
+  let n: number, heavyAt = -1, nGiven = 0, nSense = 0, askSec = 0;
   const nameB = (b: number): number => Math.max(R.nameBreaths, b);
+  const W = R.givenBreaths * cyc;
 
   if (test) {
     // the shares only: one moment, an after-rest of a share of a breath, the rest a push (well past the lead-in)
@@ -230,7 +299,8 @@ export function planFor(o: PlanOpts): Plan {
     breaths = 1;
     n = 1;
   } else {
-    intro = clamp(T * R.intro.share, R.intro.min, R.intro.max) + (o.first ? R.storySec : 0);
+    askSec = o.ask ? R.askSec : 0;
+    intro = clamp(T * R.intro.share, R.intro.min, R.intro.max) + (o.first ? R.storySec : 0) + askSec;
     const eve0 = clamp(T * R.evening.share, R.evening.min, R.evening.max);
     const M = Math.max(1, T - intro - eve0);
     arrive = R.arriveSec;
@@ -239,20 +309,40 @@ export function planFor(o: PlanOpts): Plan {
       breaths = dialRest(o.rest);
     } else ({ push, breaths } = designFor(T));
     const cost = (): number => arrive + push + breaths * cyc;
-    const fit = (heavy: boolean): number => Math.floor((M - (heavy ? nameB(breaths) * cyc : 0) + 1e-6) / cost());
+    /** moments that fit with `g` given moments (each a breath of rest more) and the heavy one's name */
+    const fitG = (g: number, heavy: boolean): number => Math.floor((M - g * W - (heavy ? nameB(breaths) * cyc : 0) + 1e-6) / cost());
+    const fit = (heavy: boolean): number => fitG(0, heavy);
     // a session too short for the dials (never at 3 minutes and up, kept for odd lengths): rests, then pushes shrink
     while (fit(false) < 1 && breaths > 1) breaths--;
     if (fit(false) < 1) push = Math.max(lead + R.pushMinSighted, M - arrive - breaths * cyc);
-    n = Math.min(R.momentsMax, Math.max(1, fit(false)));
-    if (o.heavy) {
-      const k = Math.min(R.momentsMax, fit(true));
-      if (k >= R.heavyMinMoments) {
-        n = k;
-        heavyAt = clamp(Math.round(n * R.heavyAt), 1, n - 2);
-      }
+    // a long session too long for the dials' moments: the rhythm lengthens within the dials (see `stretchFrom`)
+    if (T > R.stretchFrom) {
+      while (fit(false) > R.momentsMax && breaths < R.rest.max) breaths++;
+      while (fit(false) > R.momentsMax && push < R.focus.max) push = Math.min(R.focus.max, push + R.focus.step);
     }
+    n = Math.min(R.momentsMax, Math.max(1, fit(false)));
+    const hv = !!o.heavy && Math.min(R.momentsMax, fit(true)) >= R.heavyMinMoments;
+    if (hv) n = Math.min(R.momentsMax, fit(true));
+    // round 25: the given moments — about a fifth of the day, within the sets, each a breath of rest more (so a day
+    // keeps as many as still leave a fifth; the cards always keep the first slot, the sense moments theirs)
+    const senseOf = (k: number): number => (push < SENSE_MIN ? 0 : Math.min(Math.max(0, Math.floor(fin(o.sense ?? 0, 0))), Math.round(R.senseShare * k)));
+    let g = Math.min(Math.max(0, Math.floor(fin(o.given ?? 0, 0))), Math.round(R.givenShare * n));
+    for (;;) {
+      const k = Math.min(R.momentsMax, Math.max(1, fitG(g, hv)));
+      if (g > 0 && (g > Math.round(R.givenShare * k) || k - g - (hv ? 1 : 0) - senseOf(k) < 1 || (hv && k < R.heavyMinMoments))) {
+        g--;
+        continue;
+      }
+      n = k;
+      break;
+    }
+    if (hv && n >= R.heavyMinMoments) heavyAt = clamp(Math.round(n * R.heavyAt), 1, n - 2);
+    nGiven = g;
+    nSense = Math.max(0, Math.min(senseOf(n), n - nGiven - (heavyAt >= 0 ? 1 : 0) - 1));
     after = breaths * cyc;
   }
+  const kinds = slotKinds(n, heavyAt, nSense, nGiven);
+  const sensePush = Math.min(push, SENSE_MAX);
 
   // the schedule (the evening takes what the moments leave: less than one moment)
   const blocks: PlanBlock[] = [];
@@ -266,7 +356,8 @@ export function planFor(o: PlanOpts): Plan {
   for (let i = 0; i < n; i++) {
     add('free', 'arrive', arrive, i);
     if (i === heavyAt) add('rest', 'name', nameB(breaths) * cyc, i);
-    add('push', 'turn', push, i);
+    if (kinds[i] === 'given') add('rest', 'without', W, i);
+    add('push', 'turn', kinds[i] === 'sense' ? sensePush : push, i);
     add('rest', 'after', after, i);
   }
   const eveningStart = t;
@@ -293,8 +384,28 @@ export function planFor(o: PlanOpts): Plan {
   const garlandEnd = eveningStart + garland, prayerEnd = garlandEnd + prayer;
   add('free', 'close', T - t);
   return {
-    T, lead, cyc, test, push, breaths, nameBreaths: nameB(breaths), n, heavyAt, introEnd: intro, eveningStart, garlandEnd, prayerEnd, blocks,
+    T, lead, cyc, test, push, breaths, nameBreaths: nameB(breaths), n, heavyAt, kinds, nSense, nGiven, sensePush, givenBreaths: R.givenBreaths,
+    introEnd: intro, askT0: askSec ? intro - askSec : 0, askEnd: askSec ? intro : 0, eveningStart, garlandEnd, prayerEnd, blocks,
   };
+}
+
+/**
+ * Each slot's kind (round 25): the first a card; the heavy one at its place; the sense moments spread from early in the
+ * day (a short day meets one at its second moment), then the given ones evenly over the slots left; the rest cards.
+ */
+export function slotKinds(n: number, heavyAt: number, nSense: number, nGiven: number): SlotKind[] {
+  const kinds: SlotKind[] = Array.from({ length: Math.max(0, n) }, () => 'card');
+  if (heavyAt >= 0 && heavyAt < n) kinds[heavyAt] = 'heavy';
+  const free = (): number[] => kinds.map((k, i) => (i > 0 && k === 'card' ? i : -1)).filter(i => i > 0);
+  const spread = (count: number, kind: SlotKind, off: number): void => {
+    const f = free();
+    const c = Math.min(count, f.length);
+    const at = Array.from({ length: c }, (_, i) => f[Math.min(f.length - 1, Math.floor(((i + off) * f.length) / c))]);
+    for (const i of at) kinds[i] = kind;
+  };
+  spread(nSense, 'sense', 0.25);
+  spread(nGiven, 'given', 0.5);
+  return kinds;
 }
 
 /** The after-rest a session of `sec` really keeps for the player's dials (whole breaths): the lobby's `restIn`. */
@@ -388,10 +499,14 @@ export function partOf(day: number): 'morning' | 'noon' | 'afternoon' | 'evening
   return day < 0.28 ? 'morning' : day < 0.5 ? 'noon' : day < 0.74 ? 'afternoon' : 'evening';
 }
 
-/** The day's light at `t` s of a plan: dawn in the intro, morning → evening over the moments, night over the garland. */
+/**
+ * The day's light at `t` s of a plan: dawn in the intro, morning → evening over the moments (to `momentsLight`: the
+ * evening at home), night over the garland.
+ */
 export function dayAt(p: Plan, t: number): number {
+  const E = RULES.momentsLight;
   if (t < p.introEnd) return 0.02 + 0.03 * clamp(t / Math.max(1, p.introEnd));
-  if (t < p.eveningStart) return 0.06 + 0.72 * clamp((t - p.introEnd) / Math.max(1, p.eveningStart - p.introEnd));
+  if (t < p.eveningStart) return 0.06 + (E - 0.06) * clamp((t - p.introEnd) / Math.max(1, p.eveningStart - p.introEnd));
   const k = clamp((t - p.eveningStart) / Math.max(1, p.garlandEnd - p.eveningStart));
-  return 0.78 + 0.22 * (0.5 - 0.5 * Math.cos(Math.PI * k));
+  return E + (1 - E) * (0.5 - 0.5 * Math.cos(Math.PI * k));
 }

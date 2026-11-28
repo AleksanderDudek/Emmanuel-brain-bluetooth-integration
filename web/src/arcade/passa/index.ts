@@ -8,6 +8,9 @@
  * (the streak); a card focus did not turn goes gently into the pocket.  In the evening the garland of the day's wins
  * lights the darkening street and the identity is said: "Jestem na złotej passie — wszystko współdziała ku dobremu."
  *
+ * Round 25 (DESIGN.md §29): the day is a film of a day in the life of the player's age group (shared with Stop-klatka,
+ * kit/ages.ts), with mini sessions of attention on the senses and the things taken for granted (life.ts).
+ *
  * This module wires the parts to the arcade runner (kit/types.ts): the day (sim.ts on rules.ts, content.ts and sets.ts;
  * the progress in meta.ts; the narrator in talk.ts; the words in i18n.ts), the street (builder B: render.ts on
  * layout.ts, scene.ts and paint.ts; preview.ts; audio.ts), the cards over the street (hud.ts), the calibration intro
@@ -21,11 +24,11 @@ import { dayKey } from '../kit/progress';
 import { breathDial, secDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { StreetSound } from './audio';
-import { Cards, choiceAt, choiceTargets } from './hud';
+import { Cards, askAt, askTargets, choiceAt, choiceTargets } from './hud';
 import { t, unit } from './i18n';
 import { PassaIntro, lightsOf } from './intro';
 import { choiceRects, layout, type Layout } from './layout';
-import { bestOf, freshProgress, migrate, type PassaProgress } from './meta';
+import { bestOf, freshProgress, migrate, syncAge, type PassaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { StreetView } from './render';
@@ -52,6 +55,8 @@ class PassaGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<PassaProgress>) {
     migrate(env.progress);
+    // the age group this device chose (here or in Stop-klatka) tells the day
+    syncAge(env.progress);
     this.sim = new PassaSim({
       progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
       rhythm: env.rhythm ?? null, day: env.day, reduced: env.reducedMotion,
@@ -91,7 +96,9 @@ class PassaGame implements ArcadeGame {
     this.sim.update(dt, f, t);
     this.drain();
     const s = this.sim;
-    this.sound.update(dt, { phase: s.phase, day: s.day01, glow: s.glow, breath: s.breath?.k ?? 0.5 });
+    // (round 25) the place of the film and a sense or given moment's close-up shape the street's sound too
+    const heard = { phase: s.phase, day: s.day01, glow: s.glow, breath: s.breath?.k ?? 0.5, place: s.place, life: s.lifeView(), motif: s.cur?.motif ?? null };
+    this.sound.update(dt, heard);
     // the evening's end: the sound fades over a few seconds
     if (!this.finished && s.t >= s.T) {
       this.finished = true;
@@ -113,6 +120,14 @@ class PassaGame implements ArcadeGame {
   /** A tap on a choice picks it (a reframe, a hope, trust — or the evening's "for what most"); taps never turn a card. */
   pointer(e: PointerInput): void {
     const l = this.l;
+    // the opening card's age chips (a session whose group was never chosen)
+    if (l && this.sim.askOpen) {
+      const a = askAt(l, e.x, e.y);
+      if (!this.env.touch) this.env.canvas.style.cursor = a >= 0 ? 'pointer' : '';
+      if (e.type === 'down' && a >= 0 && this.sim.pickAge(a) && this.env.haptics) buzz(8);
+      this.drain();
+      return;
+    }
     const n = this.sim.choiceLabels.length;
     const i = l && n ? choiceAt({ ...l, choices: choiceRects(l, n) }, n, e.x, e.y) : -1;
     if (!this.env.touch) this.env.canvas.style.cursor = i >= 0 ? 'pointer' : '';
@@ -150,7 +165,7 @@ class PassaGame implements ArcadeGame {
     if (l && what === 'choose' && n) {
       const r = choiceRects(l, n);
       at = { x: r[0].x + r[0].w / 2, y: r[0].y - 6 };
-    } else if (l && what === 'turn') at = { x: l.card.x + l.card.w / 2, y: l.card.y - 6 };
+    } else if (l && (what === 'turn' || what === 'sense' || what === 'given')) at = { x: l.card.x + l.card.w / 2, y: l.card.y - 6 };
     this.env.hint(text, at, ms);
   }
 
@@ -203,6 +218,7 @@ class PassaGame implements ArcadeGame {
 
   /** The choices while they are open (the layout's slots in use). */
   targets(): TapTarget[] {
+    if (this.l && this.sim.askOpen) return askTargets(this.l);
     const l = this.l, labels = this.sim.choiceLabels;
     if (!l || !labels.length) return [];
     return choiceTargets({ ...l, choices: choiceRects(l, labels.length) }, labels);
@@ -221,6 +237,8 @@ function hintFits(what: Coach, sim: PassaSim): boolean {
     case 'choose': return sim.choiceLabels.length > 1;
     case 'savor': return sim.phase === 'savor';
     case 'carry': return sim.phase === 'carry';
+    case 'sense': return sim.block.what === 'turn' && sim.cur?.kind === 'sense' && !sim.cur.done;
+    case 'given': return (sim.block.what === 'without' || sim.block.what === 'turn') && sim.cur?.kind === 'given' && !sim.cur.done;
   }
 }
 
@@ -268,7 +286,11 @@ const mod: ArcadeModule<PassaProgress> = {
   create: env => new PassaGame(env),
   best: p => bestOf(migrate(p)),
   unit,
-  progressPanel: (p, save) => progressPanel(migrate(p), save),
+  progressPanel: (p, save) => {
+    const q = migrate(p);
+    syncAge(q);
+    return progressPanel(q, save);
+  },
   preview: (ctx, w, h, time, p) => {
     const q = p ? migrate(p) : null;
     drawPreview(ctx, w, h, time, lightsOf(q), q ? streakNow(q.streak, dayKey()).days : 0);

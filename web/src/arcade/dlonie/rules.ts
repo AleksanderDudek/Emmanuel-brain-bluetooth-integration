@@ -82,6 +82,9 @@ export const RULES = {
   readPerChar: 0.07,
   readMin: 4.5,
   talkGap: 2.2,
+  /** sessions over talkFrom s (45 and 60 minutes): a narrator's line comes back only after talkFresh s (round 24) */
+  talkFrom: 1800,
+  talkFresh: 600,
   hintGap: 1.2,
   /** a sighted push with a signal but no focus this long (s): the narrator says the ball waits (once a push) */
   stillSec: 10,

@@ -6,6 +6,9 @@
  * one picture of its own where everything shines at once.  Rooted in Psalm 139:13–14 ("I am fearfully and wonderfully
  * made"): beauty as health and as the work God made, offered in thanks — never a comparison, never a promise of youth.
  *
+ *   0 Wszystko naraz   (round 25, first) one person, whole, changing all at once as the session's focus gathers —
+ *                      light through the body · the face and the hair · upright, from the side · joy multiplied to
+ *                      the people around and the whole town                                    (its own: world-naraz)
  *   1 Komórki          energy (ATP synthase turning) · one letter of DNA mended · the watch on patrol      (komorki, straz)
  *   2 Postawa          the discs drink at night · the living corset · upright, lightly                    (kregoslup)
  *   3 Sylwetka         fat leaves with the breath · muscle builds in rest · the figure, light and strong   (ksztalt)
@@ -15,8 +18,10 @@
  *   6 Cały człowiek    the whole body lit part by part · in bloom: everything at once, joy from the heart (its own)
  *
  * Every number on screen and its source: the design notes (§24, the "rozkwit" table) — most are the source games'
- * own, re-checked.  The player chooses the figure (`ona` / `on`, Lekkość i siła's silhouettes); the pictures without a
- * figure ignore it.
+ * own, re-checked.  The player chooses the person (Nowe siły's six looks: a woman or a man in three skin tones); the
+ * borrowed pictures take from it what they know (Lekkość i siła the silhouette, Żywa skóra the tone), the others
+ * ignore it.  Seven meditations — one more than the engine's check allows; the picker and the lobby were checked
+ * for seven (test/arcade-rozkwit.test.ts).
  */
 import type { PassageId } from '../kit/scripture';
 import type { HealthLibrary, LabelSpec, MedSpec, Pt, SceneSpec, WorldPainter } from '../kit/healthlib/spec';
@@ -25,13 +30,16 @@ import { lang } from '../../i18n';
 import { SCENE as HAIR_SCENE, type SceneId as HairScene } from '../wlosy/content';
 import { CROWN as HAIR_CROWN } from '../wlosy/geo';
 import { borrowedScene, borrowedWorld, worldKey } from './borrow';
-import { BORROWS, HAIR, LOOK_FOR, hairPart } from './sources';
+import { BORROWS, HAIR, LOOKS, LOOK_FOR, hairPart } from './sources';
 import { CROWN_LIFTED, follicleWorld, headWorld } from './world-hair';
 import { ARM, BLOOM_VIEW, BLOOMS, BODY_VIEW, CHEST, FEET_Y, HAIR_AT, HEART, LUMBAR, LUNG, PEOPLE, SCALP, SKIN_AT, THIGH, WHOLE_WORLD } from './world-whole';
+import { CHEEK, ENTRIES, FACE_VIEW, FRIENDS, HAIR_SIDE, HEART as NARAZ_HEART, NARAZ_WORLDS, SIDE_HEART, SIDE_VIEW, TOWN_VIEW, WHOLE_VIEW, friendHeart } from './world-naraz';
+import { sidePose } from './person';
 import { WORDS } from './i18n';
 import { buildTune } from './tune';
 
 export const MEDS: readonly MedSpec[] = [
+  { id: 'naraz', scenes: ['naraz', 'oblicze', 'profil', 'miasto'], verse: 'mat5.14-16' },
   { id: 'komorki', scenes: ['energia', 'naprawa', 'straz'], verse: 'lam3.22-23' },
   { id: 'postawa', scenes: ['dyski', 'gorset', 'wyprost'], verse: 'psa145.14' },
   { id: 'sylwetka', scenes: ['wydech', 'miesien', 'postac'], verse: '1co6.19-20' },
@@ -50,7 +58,42 @@ function hairScene(theirs: HairScene, extra: readonly LabelSpec[] = []): SceneSp
 
 const L = (part: string, at: Pt, side: -1 | 1, from: number, dy?: number): LabelSpec => ({ part, at, side, from, ...(dy ? { dy } : {}) });
 
+/** a point of the side view's posture half-way (labels stay put while the person straightens) */
+const SIDE_MID = sidePose('f', 0.5);
+
 export const SCENES: Readonly<Record<string, SceneSpec>> = {
+  // ── 0. Wszystko naraz: its own pictures (world-naraz.ts) ──
+  naraz: {
+    world: 'naraz.whole', view: WHOLE_VIEW, focus: NARAZ_HEART,
+    labels: [
+      L('tkanki', [-16.4, -36], -1, 0.06, 0.4),
+      L('heart', NARAZ_HEART, 1, 0.3, -0.8),
+      L('kolor', [CHEEK[0] - 3, CHEEK[1]], -1, 0.58, -0.6),
+    ],
+  },
+  oblicze: {
+    world: 'naraz.face', view: FACE_VIEW, focus: CHEEK,
+    labels: [
+      L('twarz', [CHEEK[0] - 3, CHEEK[1]], -1, 0.1),
+      L('blask', HAIR_SIDE, 1, 0.45, -0.6),
+    ],
+  },
+  profil: {
+    world: 'naraz.side', view: SIDE_VIEW, focus: [SIDE_MID.sacrum[0] - 3.4, -10],
+    labels: [
+      L('spine', [SIDE_MID.midBack[0] + 0.6, SIDE_MID.midBack[1]], 1, 0.05),
+      L('barki', SIDE_MID.shoulder, -1, 0.35, -0.6),
+      L('pion', [0, 60], -1, 0.62),
+    ],
+  },
+  miasto: {
+    world: 'naraz.town', view: TOWN_VIEW, focus: NARAZ_HEART,
+    labels: [
+      L('heart', NARAZ_HEART, 1, 0.02, -1.2),
+      L('people', friendHeart(FRIENDS[0]), -1, 0.25, -0.6),
+      L('miasto', [ENTRIES[2][0] - 4, ENTRIES[2][1]], 1, 0.55, 0.6),
+    ],
+  },
   ...Object.fromEntries(Object.entries(BORROWS).map(([id, b]) => [id, borrowedScene(b)])),
   wlos: hairScene('barwa'),
   glowa: hairScene('glowa', [L('hair', CROWN_LIFTED, 1, 0.3, -0.6)]),
@@ -96,6 +139,7 @@ function borrowedWorlds(): Record<string, WorldPainter> {
 const HAIR_MAP = new Map(Object.entries(HAIR));
 
 export const WORLDS: Readonly<Record<string, WorldPainter>> = {
+  ...Object.fromEntries(Object.entries(NARAZ_WORLDS).map(([k, w]) => [k, { ...w, counter }])),
   ...borrowedWorlds(),
   [HAIR_WORLD.follicle]: follicleWorld(HAIR_MAP),
   [HAIR_WORLD.head]: headWorld(HAIR_MAP),
@@ -110,6 +154,8 @@ const ON_FIGURE: Readonly<Record<string, Pt>> = {
 const sourceOf = (scene: string): string => BORROWS[scene]?.lib.id ?? (HAIR[scene] ? 'wlosy' : 'rozkwit');
 
 export function portal(shallow: string, deep: string): Pt | null {
+  // from „Wszystko naraz”, a deeper picture opens from the heart (seen from the side: inside the chest)
+  if (SCENES[shallow]?.world.startsWith('naraz.')) return SCENES[shallow].world === 'naraz.side' ? SIDE_HEART : NARAZ_HEART;
   const a = BORROWS[shallow], b = BORROWS[deep];
   // both in one game's pictures: that game's own place
   if (a && b && a.lib === b.lib) return a.lib.portal?.(a.scene, b.scene) ?? null;
@@ -127,6 +173,8 @@ export function portal(shallow: string, deep: string): Pt | null {
 // ── the counts on a picture's corner ─────────────────────────────
 const T = translatorFor(WORDS, lang).t;
 function counter(scene: string, g: number): string | null {
+  if (scene === 'naraz' && g > 0.04) return T('count.naraz');
+  if (scene === 'miasto' && g > 0.1) return T('count.miasto');
   if (scene === 'cialo' && g > 0.04) return T('count.cialo');
   if (scene === 'rozkwit' && g > 0.6) return T('count.rozkwit');
   return null;
@@ -142,7 +190,7 @@ export const LIBRARY: HealthLibrary = {
   portal,
   root: 'psa139.13-14',
   closers: CLOSERS,
-  looks: ['ona', 'on'],
+  looks: LOOKS,
   perScene: 120,
   words: WORDS,
   tune: buildTune,
