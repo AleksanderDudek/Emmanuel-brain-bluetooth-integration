@@ -692,12 +692,12 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .summary h2{font-size:34px}
 .summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .summary-grid .stat .v{font-size:30px}
-.summary canvas.overview{width:100%;height:150px;display:block}
-.milestone{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:14px;background:rgba(255,190,90,.1);border:1px solid rgba(255,190,90,.35);color:#ffd28a;font-weight:650}
 /* a word in a summary tile (a difficulty level's name: "Zaawansowany", "Fortgeschritten") breaks instead of clipping */
 .summary-grid .stat .v{overflow-wrap:anywhere;hyphens:auto}
 .streak{display:inline-flex;align-items:center;gap:6px;color:#ff9a5a;font-weight:700}
 
+.summary canvas.overview{width:100%;height:150px;display:block}
+.milestone{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:14px;background:rgba(255,190,90,.1);border:1px solid rgba(255,190,90,.35);color:#ffd28a;font-weight:650}
 .toast{position:fixed;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink-4);border:1px solid var(--line-2);
   padding:10px 16px;border-radius:999px;font-size:13px;font-weight:550;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw;z-index:100;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
