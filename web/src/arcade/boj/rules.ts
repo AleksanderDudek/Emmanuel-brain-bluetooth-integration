@@ -21,6 +21,7 @@
  * Taps choose the move, never charge it.
  */
 import { BREATH_DEFAULT, breathCycle } from '../kit/breath';
+import { DEFAULT_DIFFICULTY, difficultyOf, type Difficulty } from '../kit/difficulty';
 import { clamp } from '../kit/juice';
 import { DEFENSES, STRIKES, answer, type DefenseId, type StrikeId } from './moves';
 
@@ -145,6 +146,49 @@ export const RULES = {
   hintGap: 1.2,
 } as const;
 
+// ── the difficulty levels (kit/difficulty.ts, DESIGN.md §29) ─────────
+
+/**
+ * What a level changes in the fight — the opponents and the helps, never the training: the energy (the rate, the
+ * need, the lead-in), the threshold, the blocks (the read, the slow motion's window, the corner) and what calm restores
+ * are the same at every level.  REGULAR is the game as it was (every number 1, the coach's pick as designed, no time
+ * limit on the choice).  The shared scale (`SCALE`: foe, count, speed, self, helps) bent for a fight:
+ *
+ *   pow     the opponents' power — the damage the player takes (foe over the player's own health, `self`)
+ *   chin    the damage the opponents take (their health: 1 / foe, softened)
+ *   speed   their hand speed: the sequence's tempo and their strikes'; never below the design (STARTING keeps it: the
+ *           plan's room and the resolve's length are built for it)
+ *   guard   their guard: an attack's follow-up strikes land at charge × fit ≥ land[i] × guard (at most 1, so the whole
+ *           combination still lands at full charge with the right choice); the lead strike as designed (a 40 s test
+ *           scores at every level)
+ *   aggr    how often they lead (`count`): the share of exchanges that come at the player, × this (0.25–0.75)
+ *   hint    the coach's pick (`helps`): it glows in the first `hintSessions` sessions and after `hintWrong` wrong picks
+ *   choose  the quick-time choice: the options stay open this long into the slow motion (s) — STARTING and REGULAR the
+ *           whole of it, ADVANCED and HARDCORE a few seconds (the energy keeps charging to the window's end: the choice
+ *           closes, the push block does not)
+ */
+export interface Level {
+  d: Difficulty;
+  pow: number;
+  chin: number;
+  speed: number;
+  guard: number;
+  aggr: number;
+  hintSessions: number;
+  hintWrong: number;
+  chooseSec: number;
+}
+
+export const LEVELS: Readonly<Record<Difficulty, Level>> = {
+  start:    { d: 'start', pow: 0.55, chin: 1.45, speed: 1, guard: 0.85, aggr: 0.85, hintSessions: 5, hintWrong: 1, chooseSec: Infinity },
+  regular:  { d: 'regular', pow: 1, chin: 1, speed: 1, guard: 1, aggr: 1, hintSessions: 3, hintWrong: 2, chooseSec: Infinity },
+  advanced: { d: 'advanced', pow: 1.35, chin: 0.82, speed: 1.1, guard: 1.05, aggr: 1.1, hintSessions: 2, hintWrong: 3, chooseSec: 7 },
+  hardcore: { d: 'hardcore', pow: 1.8, chin: 0.7, speed: 1.2, guard: 1.08, aggr: 1.2, hintSessions: 0, hintWrong: Infinity, chooseSec: 4.5 },
+};
+
+/** A saved level's knobs (an old save, or none: REGULAR). */
+export const levelOf = (d: unknown = DEFAULT_DIFFICULTY): Level => LEVELS[difficultyOf(d)];
+
 /** The rests' breath: in 4, out 6 (the runner's own pacer). */
 export const BREATH = BREATH_DEFAULT;
 export const CYC = breathCycle(BREATH);
@@ -201,11 +245,16 @@ export const counterDamage = (s: StrikeId, chin: number): number => Math.max(1, 
 /**
  * An attack: which of the combination's strikes land with the charge `e` and the combination's fit to the opening
  * (`fitV`, 1 the coach's choice … MISS): the lead strike with `landLead` charge whatever the choice — the guard takes the
- * rest of a weak or a wrong attack.
+ * rest of a weak or a wrong attack.  `guard` (a level's, 1 as designed) raises or lowers the follow-up strikes' thresholds.
  */
-export function attackLands(n: number, fitV: number, e: number): boolean[] {
+export function attackLands(n: number, fitV: number, e: number, guard = 1): boolean[] {
   const R = RULES, ee = clamp(fin(e, 0)), f = clamp(fin(fitV, 0));
-  return Array.from({ length: n }, (_, i) => (i === 0 ? ee >= R.landLead - 1e-9 : ee * f >= (R.land[Math.min(i, R.land.length - 1)] ?? 1) - 1e-9));
+  const g = Number.isFinite(guard) && guard > 0 ? guard : 1;
+  const at = (i: number): number => {
+    const v = R.land[Math.min(i, R.land.length - 1)] ?? 1;
+    return g === 1 ? v : Math.min(1, v * g);
+  };
+  return Array.from({ length: n }, (_, i) => (i === 0 ? ee >= R.landLead - 1e-9 : ee * f >= at(i) - 1e-9));
 }
 
 /** A landed strike of the player's attack: its damage with the charge and the fit, on an opponent of `chin`. */

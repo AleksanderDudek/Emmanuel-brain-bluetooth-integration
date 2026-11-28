@@ -25,6 +25,18 @@ import { CATALOGS as ARCADE_TEXTS } from '../src/i18n/arcade';
 import { MOUSE_CATALOGS as MOUSE_TEXTS } from '../src/i18n/arcade-mouse';
 import { arcadeEntry } from '../src/arcade/registry';
 import { SESSION_MINUTES } from '../src/settings';
+import { DIFFICULTIES, recordKey, type Difficulty } from '../src/arcade/kit/difficulty';
+import { difficultyName } from '../src/arcade/kit/difficultypanel';
+import { MIN_READ } from '../src/arcade/kit/mobile';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { RingSound } from '../src/arcade/boj/audio';
+import { FirstPersonView, BACK, drawFpPreview, fpSpacing, lensOf, ownGloves, reachOf, restAt, restRadius } from '../src/arcade/boj/fpv';
+import { makeCam, project, worldOf } from '../src/arcade/boj/fpaint';
+import { BUILD, Rig, aimAt, poseFor, solve, travelT } from '../src/arcade/boj/rig';
+import { LEVELS, levelOf } from '../src/arcade/boj/rules';
+import { bestAt, setView, viewOf } from '../src/arcade/boj/meta';
+import { levelLine } from '../src/arcade/boj/panel';
+import type { FightView, Option, Phase, Look } from '../src/arcade/boj/view';
 
 const STEP = 1 / 30;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -748,4 +760,453 @@ describe('Dobry bój — 45–60 minutes, drawn', () => {
     expect(mean(late)).toBeLessThan(mean(early) * 1.5);
     expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
   }, 300_000);
+});
+
+// ── round 25: through the boxer's eyes (DESIGN §29) ─────────────────────────────────────
+
+/** A 2-D context that only records the text drawn and its size (the picture's other calls do nothing). */
+function recCtx(): { ctx: CanvasRenderingContext2D; texts: { text: string; px: number }[] } {
+  const texts: { text: string; px: number }[] = [];
+  const pxOf = (f: string): number => Number(/(\d+(?:\.\d+)?)px/.exec(f)?.[1] ?? 10);
+  const state: Record<string | symbol, unknown> = { font: '10px sans-serif', globalAlpha: 1, fillStyle: '#000', strokeStyle: '#000', lineWidth: 1 };
+  const gradient = { addColorStop: () => undefined };
+  const ctx = new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (x: string) => ({ width: String(x).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (x: unknown) => {
+        const text = String(x);
+        if (text.trim() && (target.globalAlpha as number) > 0.05) texts.push({ text, px: pxOf(String(target.font)) });
+      };
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) { target[prop] = value; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+  return { ctx, texts };
+}
+
+const ME_LOOK: Look = { sex: 'ona', skin: 3, hair: 1, kit: '#2c5aa0', gloves: '#c0342f' };
+const FOE_LOOK: Look = { sex: 'ona', skin: 0, hair: 2, kit: '#a8443a', gloves: '#f0c040' };
+const FP_OPTS: Option[] = [
+  { id: 'a', kind: 'counter', label: 'Unik + kontra', sub: 'z lewym podbródkowym', chosen: true, hint: false, aim: 'head' },
+  { id: 'c', kind: 'attack', label: '1-2 + obalenie', sub: 'lewy, prawy i obalenie', chosen: false, hint: false },
+  { id: 'd', kind: 'counter', label: 'Ausweichen + Konter', sub: 'mit linkem Aufwärtshaken', chosen: false, hint: true },
+];
+function fpView(phase: Phase, style: Style, extra: Partial<FightView> = {}): FightView {
+  const strike = style === 'mma' ? 'bodyKick' : 'hookR';
+  return {
+    style, phase, timeScale: phase === 'slow' ? 0.05 : 1, slow: phase === 'slow' ? 1 : 0,
+    player: { look: ME_LOOK, act: phase === 'count' ? { kind: 'down' } : { kind: 'guard' }, t: 0.5, dur: 1, hp: 0.4, lives: 2, maxLives: 3, name: 'Ty' },
+    foe: { look: FOE_LOOK, act: phase === 'slow' ? { kind: 'strike', strike, power: 1 } : phase === 'corner' ? { kind: 'corner' } : { kind: 'guard' }, t: 0.4, dur: 1, hp: 0.8, lives: 3, maxLives: 3, name: 'Mistrzyni' },
+    round: 2, rounds: 3, energy: 0.6, ready: false, left: phase === 'slow' ? 12 : null,
+    incoming: phase === 'slow' ? { strike, travel: 0.5 } : null,
+    options: phase === 'slow' ? FP_OPTS : [], impacts: [{ on: 'foe', target: 'head', force: 0.8, text: 'Kontra!', age: 0.3 }, { on: 'player', target: 'body', force: 0.6, text: '−4', age: 0.1 }],
+    count: phase === 'count' ? 7 : null, banner: phase === 'end' ? { text: 'DO KOŃCA NA NOGACH', age: 1 } : null,
+    coach: phase === 'read' || phase === 'corner' ? 'Oddychaj. Ręce wysoko, łokcie przy sobie — jeszcze chwila.' : null,
+    why: phase === 'slow' ? 'Pod hakiem przechodzi się rolką — kolana miękko, głowa pod łukiem.' : null,
+    crowd: 0.6, breath: 0.5, reduced: false,
+    prompt: phase === 'slow' ? 'Nadchodzi: prawy sierpowy' : null, choice: null, closed: null, ...extra,
+  };
+}
+
+/** The module's game in a view, on a fake canvas (the picture draws on a recording context). */
+function gameIn(view: 'side' | 'fp', o: { planned?: number; seed?: number; level?: Difficulty; reduced?: boolean } = {}) {
+  const progress = { ...freshProgress(), sessions: 5, seen: [...SEEN], view, difficulty: o.level ?? 'regular' } as BojProgress;
+  const canvas = document.createElement('canvas');
+  const { ctx } = recCtx();
+  (canvas as unknown as { getContext: () => CanvasRenderingContext2D }).getContext = () => ctx;
+  const game = boj.create({
+    canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false), progress, rng: mulberry32(o.seed ?? 9), day: '2026-11-28', daySeed: 3,
+    plannedSec: o.planned ?? 240, tool: 'fnirs', simulated: true, reducedMotion: !!o.reduced, haptics: false, tuning: TUNING, hint: () => {},
+    hudTop: () => 64, insets: () => ({ top: 64, right: 0, bottom: 0, left: 0 }), touch: true,
+  });
+  game.resize(390, 844, 2);
+  game.start();
+  return { game, sim: (game as unknown as { sim: BojSim }).sim, progress };
+}
+
+describe('Dobry bój — through the boxer’s eyes (round 25)', () => {
+  it('keeps the side view for a save that has none; the choice survives a broken save; first person only when chosen', () => {
+    expect(freshProgress().view).toBe('side');
+    expect(migrate({ ...freshProgress(), view: undefined } as unknown as BojProgress).view).toBe('side');
+    expect(migrate({ ...freshProgress(), view: 'fp' } as BojProgress).view).toBe('fp');
+    for (const junk of ['first', 3, null, {}]) expect(migrate({ ...freshProgress(), view: junk } as unknown as BojProgress).view).toBe('side');
+    const broken = migrate({ ver: 7, sessions: 4, view: 'fp', difficulty: 'hardcore' } as unknown as BojProgress);
+    expect([broken.view, broken.difficulty, broken.sessions]).toEqual(['fp', 'hardcore', 4]);
+    expect(viewOf('fp')).toBe('fp');
+    const p = freshProgress();
+    expect(setView(p, 'fp')).toBe(true);
+    expect(setView(p, 'top')).toBe(false);
+    expect(p.view).toBe('fp');
+  });
+
+  it('plays the same fight in both views — only the picture differs', () => {
+    const runs = (['side', 'fp'] as const).map(view => {
+      const { game, sim } = gameIn(view, { planned: 240, seed: 4 });
+      const stages: string[] = [];
+      let lastEx: unknown = null, n = 0;
+      for (let t = STEP; t < 240.5; t += STEP) {
+        game.update(STEP, sim.pushBlock ? (Math.floor(t / 7) % 3 ? AVG : LOW) : LOW, t);
+        if (sim.stage === 'slow' && sim.ex && sim.ex !== lastEx && sim.ex.opts.length) {
+          lastEx = sim.ex;
+          sim.choose(n++ % 3 ? sim.ex.right : (sim.ex.right + 1) % sim.ex.opts.length);
+        }
+        if (stages[stages.length - 1] !== sim.stage) stages.push(sim.stage);
+        if (Math.round(t / STEP) % 6 === 0) game.draw();
+      }
+      game.finish?.();
+      return { stages: stages.join(','), result: JSON.stringify(game.result()), score: sim.score };
+    });
+    expect(runs[1].stages).toBe(runs[0].stages);
+    expect(runs[1].result).toBe(runs[0].result);
+    expect(runs[0].score).toBeGreaterThan(0);
+  });
+
+  it('draws every phase at every size, both styles, with and without reduced motion — no text under 13 px, the prompt over the opponent', () => {
+    const phases: Phase[] = ['intro', 'read', 'sequence', 'slow', 'resolve', 'corner', 'count', 'end'];
+    for (const z of CHECK_SIZES) {
+      for (const style of STYLES) {
+        const l = layout(z.w, z.h, z.insets, z.w < 900);
+        for (const reduced of [false, true]) {
+          const fv = new FirstPersonView({ reduced });
+          fv.resize(l, 2);
+          for (const ph of phases) {
+            const { ctx, texts } = recCtx();
+            for (let i = 0; i < 4; i++) fv.draw(ctx, fpView(ph, style, { reduced }), 1 / 30, i / 30);
+            for (const tx of texts) expect(tx.px, `${z.name} ${ph} "${tx.text}"`).toBeGreaterThanOrEqual(MIN_READ);
+            if (ph === 'slow') {
+              expect(texts.some(tx => tx.text.startsWith('Nadchodzi')), `${z.name} prompt`).toBe(true);
+              expect(texts.some(tx => tx.text.startsWith('Unik'))).toBe(true);
+            }
+          }
+        }
+      }
+    }
+    // the lobby's picture at any size, with or without a look
+    for (const [w, h] of [[340, 190], [390, 260], [520, 760], [220, 124], [1, 1], [0, 0]] as const) {
+      for (const style of [undefined, 'boks', 'mma'] as const) {
+        const { ctx } = recCtx();
+        expect(() => drawFpPreview(ctx, w, h, 2.5, w > 400 ? ME_LOOK : undefined, style)).not.toThrow();
+      }
+    }
+  });
+
+  it('moves the camera gently: a slip tilts at most 6°, the guard bobs a few pixels, reduced motion keeps it still', () => {
+    for (const reduced of [false, true]) {
+      const sim = makeSim({ planned: 420, seed: 11, progress: { style: 'mma' } });
+      const l = layout(390, 844, { top: 64, right: 0, bottom: 0, left: 0 }, true);
+      const fv = new FirstPersonView({ reduced });
+      fv.resize(l, 2);
+      const cam = () => (fv as unknown as { cam: { x: number; y: number; z: number; roll: number; pitch: number } }).cam;
+      const clock = { t: 0 };
+      const { ctx } = recCtx();
+      let maxRoll = 0, maxPitch = 0, rolled = 0;
+      const readY: number[] = [];
+      const seen = new Set<string>();
+      for (let i = 0; i < 420 / STEP; i++) {
+        drive(sim, STEP, { push: () => AVG, pick: n => n % 3 !== 2 }, clock);
+        fv.draw(ctx, sim.view(reduced), STEP, clock.t);
+        const c = cam();
+        maxRoll = Math.max(maxRoll, Math.abs(c.roll));
+        maxPitch = Math.max(maxPitch, Math.abs(c.pitch));
+        if (Math.abs(c.roll) > 0.02) rolled++;
+        if (sim.stage === 'read' && sim.player.act.kind === 'guard' && sim.blockT > 1) readY.push(c.y);
+        seen.add(`${c.x.toFixed(4)},${c.y.toFixed(4)},${c.z.toFixed(4)},${c.roll.toFixed(4)}`);
+      }
+      expect(maxRoll).toBeLessThanOrEqual(0.105 + 1e-9);
+      expect(maxPitch).toBeLessThanOrEqual(0.07 + 1e-9);
+      if (reduced) expect(seen.size).toBe(1);
+      else {
+        expect(rolled, 'the slips and rolls tilt the view').toBeGreaterThan(0);
+        // the guard's bob, in pixels at the opponent's distance in the read
+        const f = lensOf(l.stage!), depth = 0.86 + BACK;
+        expect((Math.max(...readY) - Math.min(...readY)) * f / depth).toBeLessThan(4);
+      }
+    }
+  });
+
+  it('puts the player’s own gloves at the frame’s foot at rest, over the chin in a block, and lands a strike where the target shows', () => {
+    const l = layout(390, 844, { top: 64, right: 0, bottom: 0, left: 0 }, true);
+    const stage = l.stage!;
+    const f = lensOf(stage);
+    const b = BUILD.on, D = 0.62;
+    const c = { style: 'boks' as Style, D, time: 0 };
+    const g0 = solve(poseFor({ kind: 'guard' }, 0, c), b);
+    const cam = makeCam({ x: (g0.head[0] + 0.045) - BACK, y: g0.head[1] + 0.035, z: 0, f, ox: stage.x + stage.w / 2, oy: stage.y + stage.h * 0.3 });
+    const rest = ownGloves(cam, { kind: 'guard' }, 'boks', D, g0, g0, b, stage, stage);
+    for (const sd of ['L', 'R'] as const) {
+      const at = restAt(stage, stage, sd);
+      expect(rest[sd].x).toBeCloseTo(at.x, 6);
+      expect(rest[sd].y).toBeCloseTo(at.y, 6);
+      expect(rest[sd].y).toBeGreaterThan(stage.y + stage.h * 0.6);
+      expect(rest[sd].y).toBeLessThanOrEqual(stage.y + stage.h);
+      expect(rest[sd].r).toBeGreaterThanOrEqual(restRadius(stage) * 0.9);
+    }
+    expect(rest.L.x).toBeLessThan(cam.ox);
+    expect(rest.R.x).toBeGreaterThan(cam.ox);
+    // a block raises both gloves toward the chin
+    const blk = ownGloves(cam, { kind: 'defend', defense: 'block', ok: 1 }, 'boks', D, solve(poseFor({ kind: 'defend', defense: 'block', ok: 1 }, 0.5, c), b), g0, b, stage, stage);
+    expect(blk.L.y).toBeLessThan(rest.L.y - 20);
+    expect(Math.abs(blk.R.x - cam.ox)).toBeLessThan(Math.abs(rest.R.x - cam.ox));
+    // the jab at contact: the glove is where the projection puts it — on the opponent's face
+    for (const id of ['jab', 'cross', 'hookL', 'upperR'] as const) {
+      const act = { kind: 'strike' as const, strike: id, power: 1 };
+      const j = solve(poseFor(act, travelT(id, 1) - 1e-4, c), b);
+      const g = ownGloves(cam, act, 'boks', D, j, g0, b, stage, stage);
+      const sd = id === 'jab' || id === 'hookL' ? 'L' : 'R';
+      const glove = project(cam, ...worldOf(sd === 'L' ? j.gL : j.gR, b, { x: 0, z: 0, yaw: 0 }));
+      expect(Math.hypot(g[sd].x - glove.x, g[sd].y - glove.y), id).toBeLessThan(2);
+      const aim = aimAt('head', D);
+      const target = project(cam, aim[0], aim[1], 0);
+      expect(Math.hypot(glove.x - target.x, glove.y - target.y), id).toBeLessThan(f * 0.12);
+      expect(reachOf(act, sd, D)).toBeCloseTo(aim[0], 6);
+    }
+    expect(reachOf({ kind: 'touch' }, 'L', D)).toBeCloseTo(D / 2, 6);
+    // the spacing through the eyes: across the ring in the corner, close in the exchange
+    expect(fpSpacing(fpView('corner', 'boks', { player: { ...fpView('corner', 'boks').player, act: { kind: 'corner' } } }))).toBeGreaterThan(2);
+    expect(fpSpacing(fpView('slow', 'boks'))).toBeLessThan(0.7);
+    void Rig;
+  });
+
+  it('offers the view on the lobby card — two tiles with their own small picture — and the lobby’s hero follows it', () => {
+    const p = freshProgress();
+    let saves = 0;
+    const el = progressPanel(p, () => { saves++; });
+    document.body.append(el);
+    const tiles = [...el.querySelectorAll<HTMLButtonElement>('button[data-view]')];
+    expect(tiles.map(b => b.dataset.view)).toEqual(['side', 'fp']);
+    expect(tiles.every(b => b.querySelector('canvas'))).toBe(true);
+    expect(tiles[0].getAttribute('aria-checked')).toBe('true');
+    expect(el.textContent).toContain(t('view.fp'));
+    tiles[1].click();
+    expect(p.view).toBe('fp');
+    expect(saves).toBe(1);
+    expect(el.querySelector('button[data-view="fp"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(el.textContent).toContain(t('view.fpNote'));
+    for (const b of el.querySelectorAll('button')) expect((b as HTMLElement).style.minHeight).toBe('44px');
+    el.remove();
+    const { ctx } = recCtx();
+    expect(() => boj.preview(ctx, 390, 260, 1.5, p)).not.toThrow();
+    expect(() => boj.preview(ctx, 390, 260, 1.5)).not.toThrow();
+  });
+
+  it('hears a blow from its side through the eyes, safely in every state', () => {
+    const s = new RingSound(new ArcadeAudio(0, false), { reducedMotion: false });
+    expect(() => { s.cue('jab', 1, -0.6); s.cue('punch', 0.8, 0.6); s.start(); s.cue('blocked', 0.5, 0.6); s.destroy(); s.cue('jab', 1, -1); }).not.toThrow();
+    // through the eyes the game picks the side by the hand that threw; from the side it stays in the middle
+    for (const view of ['side', 'fp'] as const) {
+      const { game, sim } = gameIn(view, { planned: 120 });
+      const pans: number[] = [];
+      const sound = (game as unknown as { sound: RingSound }).sound;
+      const orig = sound.cue.bind(sound);
+      sound.cue = (c, k, pan = 0) => { if (['jab', 'punch', 'body', 'blocked'].includes(c)) pans.push(pan); orig(c, k, pan); };
+      for (let t = STEP; t < 120; t += STEP) {
+        game.update(STEP, sim.pushBlock ? HIGH : LOW, t);
+        if (sim.stage === 'slow' && sim.ex && !sim.ex.chosen && sim.ex.opts.length) sim.choose(sim.ex.right);
+      }
+      expect(pans.length, view).toBeGreaterThan(0);
+      if (view === 'side') expect(pans.every(x => x === 0)).toBe(true);
+      else expect(pans.some(x => x !== 0)).toBe(true);
+    }
+  });
+});
+
+describe('Dobry bój — 45–60 minutes through the eyes, drawn', () => {
+  it('costs a frame at the hour what it cost in the first minutes (nothing of the first-person picture piles up)', () => {
+    const simOf = (game: unknown) => (game as { sim: BojSim }).sim;
+    let lastEx: unknown = null;
+    const { early, late } = hourFrames({
+      module: boj, progress: { ...boj.freshProgress(), sessions: 5, seen: [...SEEN], view: 'fp' } as BojProgress, tuning: TUNING,
+      frame: game => (simOf(game).pushBlock ? HIGH : LOW),
+      each: game => {
+        const sim = simOf(game);
+        if (sim.stage === 'slow' && sim.ex && sim.ex !== lastEx && sim.ex.opts.length) { lastEx = sim.ex; sim.choose(sim.ex.right); }
+      },
+    });
+    expect(late.length).toBeGreaterThan(200);
+    expect(mean(late)).toBeLessThan(mean(early) * 1.5);
+    expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
+  }, 300_000);
+});
+
+// ── round 25: the four levels (kit/difficulty.ts, DESIGN §29) ─────────────────────────────
+
+describe('Dobry bój — the difficulty levels (round 25)', () => {
+  const lvSim = (level: Difficulty, o: Opts = {}) => makeSim({ ...o, progress: { ...o.progress, difficulty: level } });
+  const playAt = (level: Difficulty, pl: Player, T: number, seed: number, style: Style = 'boks') => {
+    const sim = lvSim(level, { planned: T, seed, progress: { style } });
+    const run = drive(sim, T + 0.2, pl);
+    return { sim, run };
+  };
+
+  it('orders the four levels: harder, faster, tighter opponents and fewer helps from STARTING to HARDCORE; REGULAR is the design', () => {
+    const L = DIFFICULTIES.map(d => LEVELS[d]);
+    for (let i = 1; i < L.length; i++) {
+      expect(L[i].pow, L[i].d).toBeGreaterThan(L[i - 1].pow);
+      expect(L[i].chin, L[i].d).toBeLessThan(L[i - 1].chin);
+      expect(L[i].guard, L[i].d).toBeGreaterThan(L[i - 1].guard);
+      expect(L[i].aggr, L[i].d).toBeGreaterThan(L[i - 1].aggr);
+      expect(L[i].speed, L[i].d).toBeGreaterThanOrEqual(L[i - 1].speed);
+      expect(L[i].hintSessions, L[i].d).toBeLessThan(L[i - 1].hintSessions);
+      expect(L[i].hintWrong, L[i].d).toBeGreaterThanOrEqual(L[i - 1].hintWrong);
+      expect(L[i].chooseSec, L[i].d).toBeLessThanOrEqual(L[i - 1].chooseSec);
+    }
+    expect(LEVELS.regular).toEqual({ d: 'regular', pow: 1, chin: 1, speed: 1, guard: 1, aggr: 1, hintSessions: RULES.hint.sessions, hintWrong: RULES.hint.wrongRun, chooseSec: Infinity });
+    expect(LEVELS.start.speed).toBe(1);
+    expect(LEVELS.hardcore.chooseSec).toBeGreaterThanOrEqual(4);
+    expect(levelOf(undefined).d).toBe('regular');
+    expect(levelOf('nope').d).toBe('regular');
+    // a level changes the game, never the training: the energy's need and rate are the same functions of focus
+    for (const d of DIFFICULTIES) {
+      const s = lvSim(d, { planned: 600 });
+      expect(s.plan).toEqual(makeSim({ planned: 600 }).plan);
+    }
+    expect(attackLands(4, 0.7, 0.9, 1)).toEqual(attackLands(4, 0.7, 0.9));
+    expect(attackLands(4, 1, 1, LEVELS.hardcore.guard)).toEqual([true, true, true, true]);
+    expect(attackLands(4, 1, 0.35, LEVELS.hardcore.guard)[0]).toBe(true);
+  });
+
+  it('REGULAR is the game as it was: an old save and a REGULAR one play the identical fight', () => {
+    for (const T of [40, 600]) {
+      const a = makeSim({ planned: T, seed: 21 });
+      const old = { ...freshProgress(), sessions: 5, seen: [...SEEN] } as Partial<BojProgress>;
+      delete old.difficulty;
+      delete old.records;
+      delete old.view;
+      const b = new BojSim({ progress: old as BojProgress, rng: mulberry32(21), plannedSec: T, eeg: false, tuning: TUNING, rhythm: null });
+      b.start();
+      const ra = drive(a, T + 0.2, AVERAGE), rb = drive(b, T + 0.2, AVERAGE);
+      expect(JSON.stringify(rb.stages)).toBe(JSON.stringify(ra.stages));
+      a.finish(); b.finish();
+      expect(JSON.stringify(b.result())).toBe(JSON.stringify(a.result()));
+      expect(a.result().stats.some(([k]) => k === t('stat.level'))).toBe(false);
+    }
+  });
+
+  it('measured in the sim: lives lost rise and knockouts fall from STARTING to HARDCORE; the strong player never falls at any level', () => {
+    for (const style of STYLES) {
+      const lives = (pl: Player, T: number) => DIFFICULTIES.map(d => [1, 2].reduce((a, seed) => a + playAt(d, pl, T, seed, style).run.lifeLostAt.length, 0));
+      for (const [pl, T] of [[WEAK, 1800], [NONE, 600], [NONE, 1800]] as const) {
+        const L = lives(pl, T);
+        for (let i = 1; i < L.length; i++) expect(L[i], `${style} ${T} ${L}`).toBeGreaterThanOrEqual(L[i - 1]);
+        expect(L[3], `${style} ${T} ${L}`).toBeGreaterThan(L[0]);
+      }
+      const kos = DIFFICULTIES.map(d => {
+        const { sim, run } = playAt(d, STRONG, 1800, 3, style);
+        expect(run.lifeLostAt, `${style} ${d}`).toEqual([]);
+        expect(sim.tally.lost, `${style} ${d}`).toBe(0);
+        return sim.tally.kos;
+      });
+      expect(kos[0], `${style} ${kos}`).toBeGreaterThanOrEqual(kos[1]);
+      expect(kos[1], `${style} ${kos}`).toBeGreaterThanOrEqual(kos[2]);
+      expect(kos[2], `${style} ${kos}`).toBeGreaterThanOrEqual(kos[3]);
+      expect(kos[0], `${style} ${kos}`).toBeGreaterThan(kos[3]);
+      // STARTING: a weak player finishes half an hour without a life lost; no focus still stands ten minutes
+      expect(playAt('start', WEAK, 1800, 4, style).run.lifeLostAt, style).toEqual([]);
+      expect(playAt('start', NONE, 600, 5, style).sim.tally.lost, style).toBe(0);
+    }
+  }, 300_000);
+
+  it('a 40 s test scores at every level — Mendi and HALO, first-ever and returning, without a tap, at half focus', () => {
+    for (const d of DIFFICULTIES) for (const eeg of [false, true]) for (const sessions of [0, 5]) {
+      for (const pl of [{ push: () => HIGH, pick: () => null } as Player, { push: (t: number) => (Math.floor(t / 2) % 2 ? LOW : HIGH), pick: () => null } as Player]) {
+        const sim = lvSim(d, { planned: 40, seed: 40 + sessions, eeg, progress: { sessions, seen: sessions ? [...SEEN] : [] } });
+        drive(sim, 40 * 0.85, pl);
+        expect(sim.score, `${d} ${eeg ? 'eeg' : 'fnirs'} ${sessions}`).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it('closes the quick-time choice a few seconds into the slow motion on ADVANCED and HARDCORE, never on REGULAR or STARTING', () => {
+    for (const d of DIFFICULTIES) {
+      const sim = lvSim(d, { planned: 600, seed: 3 });
+      const clock = { t: 0 };
+      while (sim.stage !== 'slow' && clock.t < 60) drive(sim, STEP, { push: () => LOW, pick: () => null }, clock);
+      expect(sim.stage).toBe('slow');
+      const L = LEVELS[d];
+      const v0 = sim.view(false);
+      if (Number.isFinite(L.chooseSec)) expect(v0.choice?.open).toBe(true);
+      else expect(v0.choice ?? null).toBeNull();
+      while (sim.stage === 'slow' && sim.blockT < Math.min(L.chooseSec, sim.ex!.window) + 0.1) drive(sim, STEP, { push: () => LOW, pick: () => null }, clock);
+      if (sim.stage !== 'slow') { expect(Number.isFinite(L.chooseSec)).toBe(false); continue; }
+      const v = sim.view(false);
+      if (Number.isFinite(L.chooseSec)) {
+        expect(sim.choiceOpen, d).toBe(false);
+        expect(sim.choose(0), d).toBe(false);
+        expect(v.choice?.open).toBe(false);
+        expect(v.options.filter(o => o.chosen)).toHaveLength(1);
+        expect(v.options.findIndex(o => o.chosen)).toBe(sim.defaultPick);
+        expect(v.closed).toBe(t('choice.closed'));
+      } else {
+        expect(sim.choiceOpen, d).toBe(true);
+        expect(sim.choose(1), d).toBe(true);
+        expect(v.closed ?? null).toBeNull();
+      }
+    }
+    // the coach's pick: every STARTING session's first five, never on HARDCORE
+    expect(lvSim('hardcore', { progress: { sessions: 0, seen: [...SEEN] } }).hintOn).toBe(false);
+    expect(lvSim('start', { progress: { sessions: 4 } }).hintOn).toBe(true);
+    expect(lvSim('regular', { progress: { sessions: 4 } }).hintOn).toBe(false);
+  });
+
+  it('keeps the records per level (REGULAR’s where they were) and names a level other than REGULAR in the summary', () => {
+    const p = { ...freshProgress(), sessions: 2, best: 3, strikes: 3, seen: [...SEEN], difficulty: 'hardcore' } as BojProgress;
+    const sim = new BojSim({ progress: p, rng: mulberry32(5), plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 300.5, STRONG);
+    sim.finish();
+    expect(p.best).toBe(3);
+    expect(p.records[recordKey('best', 'hardcore')]).toBe(sim.score);
+    expect(bestAt(p, 'hardcore')).toBe(sim.score);
+    expect(bestAt(p, 'regular')).toBe(3);
+    expect(bestAt(p, 'start')).toBeNull();
+    expect(bestOf(p)).toBe(sim.score);
+    const r = sim.result();
+    expect(r.record).toBe(true);
+    expect(r.stats).toContainEqual([t('stat.level'), difficultyName('hardcore')]);
+    expect(r.stats[0][0]).toBe(t('stat.record'));
+    // a weaker hardcore session later does not lower it; the shared numbers are shared
+    const sim2 = new BojSim({ progress: p, rng: mulberry32(6), plannedSec: 40, eeg: false, tuning: TUNING });
+    sim2.start();
+    drive(sim2, 40.5, NONE);
+    sim2.finish();
+    expect(bestAt(p, 'hardcore')).toBe(sim.score);
+    expect(p.fights).toBe(sim.fights.length + sim2.fights.length);
+    // a broken records object is repaired
+    expect(migrate({ ...freshProgress(), records: { 'best@hardcore': -2, 'best@start': 7, x: 9 } } as unknown as BojProgress).records).toEqual({ 'best@start': 7 });
+  });
+
+  it('plays 45 and 60 minutes at STARTING and HARDCORE to the end, with a short summary', () => {
+    for (const d of ['start', 'hardcore'] as const) for (const T of [2700, 3600]) {
+      for (const pl of [STRONG, NONE]) {
+        const { sim } = playAt(d, pl, T, 7, 'mma');
+        expect(sim.stage, `${d} ${T}`).toBe('end');
+        expect(sim.canStop()).toBe(true);
+        const r = sim.result();
+        expect(r.highlights.length).toBeLessThanOrEqual(9);
+        expect(r.stats.length).toBeLessThanOrEqual(8);
+        for (const h of [...r.highlights, ...r.stats.flat()]) expect(h).not.toMatch(/undefined|NaN|Infinity|\{/);
+      }
+    }
+  }, 300_000);
+
+  it('the lobby row: the four levels at the top of the card, each with its line in the ring’s words', () => {
+    const p = freshProgress();
+    let saves = 0;
+    const el = progressPanel(p, () => { saves++; });
+    document.body.append(el);
+    const chips = [...el.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.firstElementChild?.querySelector('[data-difficulty]')).not.toBeNull();
+    expect(el.textContent).toContain(levelLine('regular'));
+    chips[3].click();
+    expect(p.difficulty).toBe('hardcore');
+    expect(saves).toBe(1);
+    expect(el.textContent).toContain(levelLine('hardcore'));
+    expect(levelLine('hardcore')).toMatch(/4,5/);
+    for (const d of DIFFICULTIES) expect(levelLine(d)).not.toMatch(/\{|undefined|NaN|Infinity/);
+    el.remove();
+  });
 });

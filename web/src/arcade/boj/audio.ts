@@ -84,6 +84,10 @@ interface Graph {
   bus: GainNode;
   /** the world (the hall, the fight) through the slow motion's low-pass; the player's own (the heart, the charge) clear */
   world: GainNode;
+  /** the world a little to the left and to the right (a blow's side: DESIGN §29 — the player's own hand, the
+   *  opponent's) — null where the context has no stereo panner */
+  worldL: AudioNode | null;
+  worldR: AudioNode | null;
   worldF: BiquadFilterNode;
   inner: GainNode;
   verbIn: GainNode;
@@ -143,8 +147,8 @@ export class RingSound {
     this.beatAt = now + 0.5;
   }
 
-  /** a moment's sound; strength 0..1 */
-  cue(c: RingCue, strength = 1): void {
+  /** a moment's sound; strength 0..1; `pan` −1 (left) … 1 (right) for a blow heard from one side (0: the middle) */
+  cue(c: RingCue, strength = 1, pan = 0): void {
     const g = this.g;
     if (!g || this.paused || this.finished || this.destroyed || !(c in CUE_GAP)) return;
     const now = g.ctx.currentTime;
@@ -156,7 +160,8 @@ export class RingSound {
     const k = 0.45 + 0.55 * clamp01(Number.isFinite(strength) ? strength : 1);
     const at = now + 0.01;
     const r = this.rng;
-    const W = g.world, I = g.inner;
+    const side = Number.isFinite(pan) ? pan : 0;
+    const W = side < -0.05 && g.worldL ? g.worldL : side > 0.05 && g.worldR ? g.worldR : g.world, I = g.inner;
     switch (c) {
       case 'bell':
         this.ringBell(at, 1);
@@ -407,7 +412,19 @@ export class RingSound {
       o.start();
       return o;
     });
-    return { ctx, bus, world, worldF, inner, verbIn, crowd, crowdSrc, crowdF, charge, chargeF, chargeOsc: [...chargeOsc, ...lfos], noise, tops: [bus, world, worldF, inner, verbIn, verb, verbOut, crowd, crowdLP, charge, chargeF] };
+    // a blow from one side: the world's input through a gentle pan (the hall's reverb stays wide)
+    const sideOf = (v: number): AudioNode | null => {
+      if (!hasPan) return null;
+      const p = (ctx as AudioContext).createStereoPanner();
+      p.pan.value = v;
+      p.connect(world);
+      return p;
+    };
+    const worldL = sideOf(-0.4), worldR = sideOf(0.4);
+    const tops: AudioNode[] = [bus, world, worldF, inner, verbIn, verb, verbOut, crowd, crowdLP, charge, chargeF];
+    if (worldL) tops.push(worldL);
+    if (worldR) tops.push(worldR);
+    return { ctx, bus, world, worldL, worldR, worldF, inner, verbIn, crowd, crowdSrc, crowdF, charge, chargeF, chargeOsc: [...chargeOsc, ...lfos], noise, tops };
   }
 
   // ── voices ───────────────────────────────────────────────────

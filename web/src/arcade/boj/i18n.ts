@@ -309,6 +309,20 @@ const pl = {
   'howto.keys': '1–3 albo ← ↓ → — wybór; Spacja — podpowiedź trenera',
   'howto.tip1': 'Patrz na barki i biodra — tam zaczyna się każdy cios.',
   'howto.tip2': 'Bez wyboru idzie podpowiedź trenera albo pierwszy przycisk.',
+  // ── round 25: the view, the level, the prompts over the opponent ──
+  'panel.view': 'Widok',
+  'view.side': 'Z boku',
+  'view.fp': 'Oczami boksera',
+  'view.sideNote': 'Cały ring, obie postacie w profilu.',
+  'view.fpNote': 'Przeciwnik naprzeciw, własne rękawice na dole ekranu — unik i blok to ruch głowy i rąk.',
+  'level.start': 'Na start: ciosy przeciwników o połowę lżejsze, szybciej tracą siły, podpowiedź trenera świeci dłużej.',
+  'level.regular': 'Zwykły: walka taka, jak została zaprojektowana.',
+  'level.advanced': `Zaawansowany: mocniejsze i szybsze ciosy, częstsze ataki, szczelniejsza garda, mniej podpowiedzi — na wybór {s}${N}s.`,
+  'level.hardcore': `Hardcore: ciosy prawie dwa razy mocniejsze, najszczelniejsza garda, bez podpowiedzi — na wybór {s}${N}s.`,
+  'stat.level': 'Poziom',
+  'prompt.in': 'Nadchodzi: {s}',
+  'prompt.open': 'Otwarcie: {o}',
+  'choice.closed': 'Wybór zamknięty — skupienie daje siłę',
 };
 
 export type Key = keyof typeof pl;
@@ -591,6 +605,19 @@ const en: Cat = {
   'howto.keys': '1–3 or ← ↓ → — choose; Space — the coach’s pick',
   'howto.tip1': 'Watch the shoulders and the hips — every strike starts there.',
   'howto.tip2': 'With no choice made, the coach’s pick or the first button goes.',
+  'panel.view': 'View',
+  'view.side': 'From the side',
+  'view.fp': 'Through the boxer’s eyes',
+  'view.sideNote': 'The whole ring, both fighters in profile.',
+  'view.fpNote': 'The opponent in front of you, your own gloves at the bottom of the screen — a slip and a block are the movement of your head and hands.',
+  'level.start': 'Starting: the opponents hit half as hard and tire sooner, the coach’s pick glows longer.',
+  'level.regular': 'Regular: the fight as it was designed.',
+  'level.advanced': `Advanced: harder and faster strikes, more attacks, a tighter guard, fewer hints — {s}${N}s to choose.`,
+  'level.hardcore': `Hardcore: strikes nearly twice as hard, the tightest guard, no hints — {s}${N}s to choose.`,
+  'stat.level': 'Level',
+  'prompt.in': 'Incoming: {s}',
+  'prompt.open': 'Opening: {o}',
+  'choice.closed': 'The choice is made — focus gives the power',
 };
 
 const de: Cat = {
@@ -870,6 +897,19 @@ const de: Cat = {
   'howto.keys': '1–3 oder ← ↓ → — Wahl; Leertaste — der Vorschlag des Trainers',
   'howto.tip1': 'Schau auf Schultern und Hüften — dort beginnt jeder Schlag.',
   'howto.tip2': 'Ohne Wahl geht der Vorschlag des Trainers oder der erste Knopf.',
+  'panel.view': 'Ansicht',
+  'view.side': 'Von der Seite',
+  'view.fp': 'Mit den Augen des Boxers',
+  'view.sideNote': 'Der ganze Ring, beide im Profil.',
+  'view.fpNote': 'Der Gegner vor dir, deine Handschuhe unten im Bild — Ausweichen und Blocken sind die Bewegung von Kopf und Händen.',
+  'level.start': 'Einstieg: Die Gegner schlagen halb so hart und ermüden früher, der Vorschlag des Trainers leuchtet länger.',
+  'level.regular': 'Normal: der Kampf, wie er gedacht ist.',
+  'level.advanced': `Fortgeschritten: härtere und schnellere Schläge, mehr Angriffe, eine dichtere Deckung, weniger Hinweise — {s}${N}s zum Wählen.`,
+  'level.hardcore': `Hardcore: Schläge fast doppelt so hart, die dichteste Deckung, keine Hinweise — {s}${N}s zum Wählen.`,
+  'stat.level': 'Stufe',
+  'prompt.in': 'Es kommt: {s}',
+  'prompt.open': 'Lücke: {o}',
+  'choice.closed': 'Die Wahl steht — Fokus gibt die Kraft',
 };
 
 const sv: Cat = {
@@ -1149,6 +1189,19 @@ const sv: Cat = {
   'howto.keys': '1–3 eller ← ↓ → — välj; mellanslag — tränarens val',
   'howto.tip1': 'Titta på axlarna och höfterna — där börjar varje slag.',
   'howto.tip2': 'Utan val går tränarens val eller den första knappen.',
+  'panel.view': 'Vy',
+  'view.side': 'Från sidan',
+  'view.fp': 'Med boxarens ögon',
+  'view.sideNote': 'Hela ringen, båda i profil.',
+  'view.fpNote': 'Motståndaren framför dig, dina handskar längst ned i bilden — att glida undan och garda är huvudets och händernas rörelse.',
+  'level.start': 'Nybörjare: motståndarna slår hälften så hårt och tröttnar fortare, tränarens val lyser längre.',
+  'level.regular': 'Normal: matchen som den är tänkt.',
+  'level.advanced': `Avancerad: hårdare och snabbare slag, fler attacker, en tätare gard, färre tips — {s}${N}s att välja.`,
+  'level.hardcore': `Hardcore: slag nästan dubbelt så hårda, den tätaste garden, inga tips — {s}${N}s att välja.`,
+  'stat.level': 'Nivå',
+  'prompt.in': 'På väg: {s}',
+  'prompt.open': 'Öppning: {o}',
+  'choice.closed': 'Valet är gjort — fokus ger kraften',
 };
 
 export const CATALOGS = { pl, en, de, sv };

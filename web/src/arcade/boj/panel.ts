@@ -1,7 +1,10 @@
 /**
- * Dobry bój's "Postępy" card in the lobby (DESIGN.md §25), from the app's shared classes (styles.css), mobile first:
+ * Dobry bój's "Postępy" card in the lobby (DESIGN.md §25, §29), from the app's shared classes (styles.css), mobile first:
  *
- *   the numbers    fights won, knockouts, the most landed strikes in a session, landed strikes in all (belts when won)
+ *   the level      the difficulty row at the top (kit/difficultypanel.ts) with what each level means in the ring
+ *   the view       from the side or through the boxer's eyes: two tiles, each with its own small picture
+ *   the numbers    fights won, knockouts, the most landed strikes in a session (at the chosen level), landed strikes
+ *                  in all (belts when won)
  *   next           the next opponent on the ladder: the ring name and a line on how they fight
  *   the fighter    the style (Boks / MMA, with what it allows), the division (Zawodniczka / Zawodnik), the skin tone
  *                  (five swatches) and the hair — the lobby's hero shows the choice at once
@@ -16,11 +19,15 @@
 import { fmtNum } from '../../i18n';
 import { SESSION_MINUTES, plannedSeconds } from '../../settings';
 import { h } from '../../ui/dom';
-import { HAIRS, LADDER, SKIN_SWATCH, ladderOf } from './content';
+import { difficultyOf } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
+import { HAIRS, LADDER, SKIN_SWATCH, ladderOf, playerLook } from './content';
+import { drawFpPreview } from './fpv';
 import { t, type Key } from './i18n';
-import { SEXES, bestOf, setHair, setSex, setSkin, setStyle, type BojProgress } from './meta';
+import { SEXES, VIEWS, bestOf, setDifficulty, setHair, setSex, setSkin, setStyle, setView, type BojProgress, type ViewMode } from './meta';
 import { STYLES } from './moves';
-import { fightPlan, planFor } from './rules';
+import { drawPreview } from './preview';
+import { LEVELS, fightPlan, planFor } from './rules';
 import { foeName } from './sim';
 
 function stat(k: string, v: string): HTMLElement {
@@ -71,10 +78,11 @@ function hookLength(): void {
 export function progressPanel(p: BojProgress, save: () => void): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
   const fc = h('p', { class: 'muted', 'aria-live': 'polite' });
-  const render = (): void => {
+  const render = (focus?: string): void => {
     while (root.firstChild) root.removeChild(root.firstChild);
-    for (const el of build(p, fc, () => { save(); render(); })) root.appendChild(el);
+    for (const el of build(p, fc, (sel?: string) => { save(); render(sel); })) root.appendChild(el);
     fc.textContent = forecastLines(sessionSec(p)).join(' ');
+    if (focus) root.querySelector<HTMLElement>(focus)?.focus();
   };
   render();
   refresh = () => { if (fc.isConnected) fc.textContent = forecastLines(sessionSec(p)).join(' '); };
@@ -89,8 +97,68 @@ function seg(label: string, items: { text: string; on: boolean; pick: () => void
   return el;
 }
 
-function build(p: BojProgress, fc: HTMLElement, changed: () => void): HTMLElement[] {
+/** What a level means in the ring (the panel's line under the chips). */
+export const levelLine = (d: keyof typeof LEVELS): string => {
+  const sec = LEVELS[d].chooseSec;
+  return t(`level.${d}` as Key, { s: Number.isFinite(sec) ? fmtNum(sec, Number.isInteger(sec) ? 0 : 1) : '' });
+};
+
+/** A small picture of a view for its tile (drawn once, at the tile's own pixels). */
+function viewPicture(p: BojProgress, v: ViewMode): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  const W = 220, H = 124, dpr = Math.min(2, typeof devicePixelRatio === 'number' && devicePixelRatio > 0 ? devicePixelRatio : 1);
+  c.width = W * dpr;
+  c.height = H * dpr;
+  c.style.width = '100%';
+  c.style.height = 'auto';
+  c.style.display = 'block';
+  c.style.borderRadius = '8px';
+  c.setAttribute('aria-hidden', 'true');
+  let ctx: CanvasRenderingContext2D | null = null;
+  try { ctx = c.getContext('2d'); } catch { ctx = null; }
+  if (ctx) {
+    try {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      (v === 'fp' ? drawFpPreview : drawPreview)(ctx, W, H, 3, playerLook(p.sex, p.skin, p.hair), p.style);
+    } catch { /* a canvas without 2-D drawing (tests): the tile keeps its words */ }
+  }
+  return c;
+}
+
+function build(p: BojProgress, fc: HTMLElement, changed: (focus?: string) => void): HTMLElement[] {
   const out: HTMLElement[] = [];
+  // ── the level (the kit's row at the top of the card; the line says what it means in the ring) ──
+  const level = difficultyPanel({
+    value: difficultyOf(p.difficulty),
+    onChange: d => { if (setDifficulty(p, d)) changed(`[data-difficulty="${d}"]`); },
+    line: d => levelLine(d),
+  });
+  for (const b of level.querySelectorAll('button')) (b as HTMLElement).style.minHeight = '44px';
+  out.push(level);
+  // ── the view: from the side or through the boxer's eyes, each with its small picture ──
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.view')));
+  const tiles = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.view') },
+    VIEWS.map(v => {
+      const on = p.view === v;
+      const b = button('', () => { if (setView(p, v)) changed(`[data-view="${v}"]`); }, on ? 'btn on' : 'btn', { role: 'radio', 'aria-checked': String(on), 'data-view': v });
+      b.style.display = 'flex';
+      b.style.flexDirection = 'column';
+      b.style.alignItems = 'stretch';
+      b.style.gap = '6px';
+      b.style.padding = '6px';
+      b.style.minWidth = '0';
+      b.style.whiteSpace = 'normal';
+      b.style.height = 'auto';
+      b.style.borderRadius = '14px';
+      b.append(viewPicture(p, v), h('span', null, t(`view.${v}` as Key)));
+      return b;
+    }));
+  tiles.style.display = 'grid';
+  tiles.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))';
+  tiles.style.gap = '10px';
+  tiles.style.maxWidth = '520px';
+  out.push(tiles);
+  out.push(h('p', { class: 'muted' }, t(p.view === 'fp' ? 'view.fpNote' : 'view.sideNote')));
   const best = bestOf(p);
   const stats = [
     stat(t('panel.wins'), `${fmtNum(p.wins)} / ${fmtNum(p.fights)}`),

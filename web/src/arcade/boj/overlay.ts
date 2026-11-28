@@ -45,7 +45,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, l: Layout, v: FightView, 
   rounds(ctx, l, v);
   if (v.options.length) {
     why(ctx, l, v, st.left);
-    v.options.slice(0, l.options.length).forEach((o, i) => option(ctx, l, o, l.options[i], v.energy, v.ready, time, reduced));
+    // a level's quick-time choice: its own time over the row while it is open; closed, only the move that goes stays lit
+    const closed = !!v.choice && !v.choice.open;
+    v.options.slice(0, l.options.length).forEach((o, i) => option(ctx, l, o, l.options[i], v.energy, v.ready, time, reduced, closed && !o.chosen));
+    if (v.choice && v.choice.open) choiceTime(ctx, l, v.choice.left, Math.min(v.options.length, l.options.length));
   } else if (v.phase === 'slow' && v.why) {
     why(ctx, l, v, st.left);
   }
@@ -150,7 +153,8 @@ function why(ctx: CanvasRenderingContext2D, l: Layout, v: FightView, left: numbe
   const fs = px(l, column ? 14 : 15);
   const lh = Math.round(fs * (column ? 1.24 : 1.3));
   ctx.font = font(600, fs);
-  const lines = v.why ? wrap(ctx, v.why, r.w - 16, column ? Math.max(1, Math.floor((r.h - 10) / lh)) : 2) : [];
+  const text = v.why ?? v.closed ?? null;
+  const lines = text ? wrap(ctx, text, r.w - 16, column ? Math.max(1, Math.floor((r.h - 10) / lh)) : 2) : [];
   const h = column ? Math.min(r.h, lines.length * lh + 16) : r.h;
   const y0 = column ? r.y : r.y + r.h - h;
   ctx.fillStyle = 'rgba(10,7,14,0.72)';
@@ -169,12 +173,33 @@ function why(ctx: CanvasRenderingContext2D, l: Layout, v: FightView, left: numbe
   }
 }
 
+/**
+ * The quick-time choice's own time (a level that closes it): a thin bright line over the options' row, shrinking
+ * toward its middle — the gold line under the "why" keeps the slow motion's time.
+ */
+function choiceTime(ctx: CanvasRenderingContext2D, l: Layout, left: number, n: number): void {
+  if (!n) return;
+  const a = l.options[0], b = l.options[n - 1];
+  const k = ks(l);
+  const column = l.mode === 'column';
+  const x0 = column ? a.x : a.x, x1 = column ? a.x + a.w : b.x + b.w;
+  const y = Math.min(a.y, b.y) - Math.max(3, 4 * k);
+  const w = (x1 - x0) * clamp01(left);
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.14)';
+  ctx.fillRect(x0, y, x1 - x0, Math.max(2, 2 * k));
+  ctx.fillStyle = rgba(left > 0.3 ? '#cfe6ff' : C.ember, 0.95);
+  ctx.fillRect((x0 + x1) / 2 - w / 2, y, w, Math.max(2, 2 * k));
+  ctx.restore();
+}
+
 /** One option: a big button with its label and sub-line; chosen: lit and filling with the energy; hint: a soft glow. */
-function option(ctx: CanvasRenderingContext2D, l: Layout, o: Option, r: { x: number; y: number; w: number; h: number }, energy: number, ready: boolean, time: number, reduced: boolean): void {
+function option(ctx: CanvasRenderingContext2D, l: Layout, o: Option, r: { x: number; y: number; w: number; h: number }, energy: number, ready: boolean, time: number, reduced: boolean, dim = false): void {
   const k = ks(l);
   const col = KIND_COL[o.kind] ?? C.gold;
   const rad = 12 * k;
   ctx.save();
+  if (dim) ctx.globalAlpha = 0.38;
   if (o.hint && !o.chosen) {
     const p = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(time * 3);
     ctx.globalCompositeOperation = 'lighter';
