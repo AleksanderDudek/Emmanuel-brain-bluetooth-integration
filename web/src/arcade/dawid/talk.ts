@@ -11,7 +11,7 @@ import { RULES } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
-interface Ask { moment: Moment; pri: number; until: number; seq: number }
+interface Ask { moment: Moment; pri: number; until: number; seq: number; text?: string }
 
 /** how many of the lines said the log keeps */
 const SAID_KEEP = 120;
@@ -32,9 +32,19 @@ export class Talk {
   /** Ask for a line: `pri` orders the queue (higher first), `ttl` is how long (s) it stays worth saying. */
   ask(moment: Moment, pri = 1, ttl = 4): void {
     if (!this.lines[moment]?.length) return;
-    const i = this.queue.findIndex(a => a.moment === moment);
+    const i = this.queue.findIndex(a => a.moment === moment && !a.text);
     if (i >= 0) this.queue.splice(i, 1);
     this.queue.push({ moment, pri, until: this.now + ttl, seq: this.seq++ });
+    if (this.queue.length > 4) {
+      this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
+      this.queue.length = 4;
+    }
+  }
+
+  /** Ask for a line of its own words (an area's line): said once, under the lamb's moment `land`. */
+  tell(text: string, pri = 2, ttl = 6): void {
+    if (!text) return;
+    this.queue.push({ moment: 'land', pri, until: this.now + ttl, seq: this.seq++, text });
     if (this.queue.length > 4) {
       this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
       this.queue.length = 4;
@@ -58,7 +68,7 @@ export class Talk {
     if (this.line || blocked || this.gap > 0 || !this.queue.length) return;
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
-    const text = this.pick(a.moment);
+    const text = a.text ?? this.pick(a.moment);
     this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
     this.said.push(text);
     if (this.said.length > SAID_KEEP) this.said.splice(0, this.said.length - SAID_KEEP);

@@ -10,6 +10,7 @@
  * heaps, chests.  All canvas paths, no images; sizes in u (about a metre) times `s` (px per u).
  */
 import { MIN_TEXT } from '../kit/mobile';
+import { LANDMARK_R } from './lands';
 import type { BeastKind, BuildingId, CompanionId, Ground, GuardKind, LandSpec } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
@@ -105,21 +106,38 @@ export const GROUND: Record<Ground, { a: string; b: string; tuft: string; flower
 
 export interface Deco { kind: 'olive' | 'terebinth' | 'acacia' | 'rock' | 'bush' | 'wall' | 'palm' | 'reeds'; x: number; y: number; r: number; seed: number }
 
-/** The land's trees, rocks and walls, placed once (seeded), clear of the camp, the dens, the brook and the paths. */
+/**
+ * The land's trees, rocks and walls, placed once (seeded), clear of the areas' fires, the dens, the heaps, the chests,
+ * the people and places of the story, the landmarks, the barriers and their passes, the paths and the brook.
+ */
 export function decorate(land: LandSpec): Deco[] {
   const out: Deco[] = [];
   const kinds: Deco['kind'][] = land.ground === 'desert' ? ['acacia', 'rock', 'rock', 'bush', 'palm'] : land.ground === 'fields' ? ['olive', 'bush', 'wall', 'rock', 'olive'] : land.ground === 'gath' ? ['rock', 'terebinth', 'wall', 'bush', 'rock'] : ['olive', 'terebinth', 'rock', 'bush', 'wall', 'olive'];
+  const near = (x: number, y: number, pts: readonly (readonly [number, number])[], r: number): boolean => {
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1];
+      const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+      const k = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / l2));
+      if (Math.hypot(x - ax - dx * k, y - ay - dy * k) < r) return true;
+    }
+    return false;
+  };
   const clear = (x: number, y: number, r: number): boolean => {
-    if (Math.hypot(x - land.camp[0], y - land.camp[1]) < 5.5 + r) return false;
+    for (const a of land.areas) {
+      if (Math.hypot(x - a.camp[0], y - a.camp[1]) < 5.5 + r) return false;
+      if (Math.hypot(x - a.chest[0], y - a.chest[1]) < 2 + r) return false;
+      for (const [kind, lx, ly, k] of a.landmarks) if (Math.hypot(x - lx, y - ly) < LANDMARK_R[kind] * (k ?? 1) + r) return false;
+      if (a.pass && Math.abs(x - a.x1) < 1.4 + r) return false;
+    }
     if (Math.hypot(x - land.gate[0], y - land.gate[1]) < 4 + r || Math.hypot(x - land.lair[0], y - land.lair[1]) < 4 + r) return false;
     for (const [, cx, cy] of land.camps) if (Math.hypot(x - cx, y - cy) < 3 + r) return false;
     for (const [, nx, ny] of land.nodes) if (Math.hypot(x - nx, y - ny) < 1.6 + r) return false;
-    if (land.chest && Math.hypot(x - land.chest[0], y - land.chest[1]) < 2 + r) return false;
     for (const s of Object.values(land.spots)) if (s && Math.hypot(x - s[0], y - s[1]) < 2.2 + r) return false;
+    for (const p of land.paths) if (near(x, y, p, 0.9 + r)) return false;
     return brookDist(land, x, y) > 1.6 + r;
   };
   let seed = land.id.length * 977;
-  for (let i = 0; i < 260 && out.length < 120; i++) {
+  for (let i = 0; i < 700 && out.length < 260; i++) {
     seed++;
     const x = 1 + hash(seed * 3 + 1) * (land.w - 2), y = 1 + hash(seed * 7 + 2) * (land.h - 2);
     const kind = kinds[Math.floor(hash(seed * 11) * kinds.length)];
@@ -594,7 +612,7 @@ export interface Look {
 
 export interface PersonPose { flip: number; step: number; walking: number; sit: number; act: number; hit: number; t: number; talk?: boolean; down?: number }
 
-export const LOOKS: Record<'david' | CompanionId | 'jesse' | 'eliab' | 'saul' | 'sluga' | 'itaj' | 'bearer', Look> = {
+export const LOOKS: Record<'david' | CompanionId | 'jesse' | 'eliab' | 'saul' | 'sluga' | 'itaj' | 'bearer' | 'samuel' | 'brat' | 'dziewczyna' | 'starzec' | 'zolnierz' | 'kobieta' | 'mikal' | 'chlopiec' | 'achimelek' | 'achisz', Look> = {
   david: { skin: C.skin, hair: C.hair, tunic: '#e7d3a1', trim: '#b8743c', belt: '#7a4a28', item: 'sling', bag: true },
   asahel: { skin: C.skin, hair: '#3a2a1c', tunic: '#7da35a', trim: '#e7d3a1', belt: '#5a3a1c', head: 'band', item: 'none', size: 1.04 },
   abiszaj: { skin: C.skin, hair: '#2e2118', beard: '#2e2118', tunic: '#5577a8', trim: '#e2d2a8', belt: '#3a2a18', item: 'shield', size: 1.08 },
@@ -608,6 +626,17 @@ export const LOOKS: Record<'david' | CompanionId | 'jesse' | 'eliab' | 'saul' | 
   sluga: { skin: C.skin, hair: '#3a2a1c', tunic: '#cbb58a', trim: '#8a6a4a', belt: '#5a3a1c', item: 'none', size: 1.02 },
   itaj: { skin: C.skin, hair: '#3a2a1c', beard: '#3a2a1c', tunic: '#b8863b', trim: '#e3d6b4', head: 'feathers', item: 'spear', size: 1.12 },
   bearer: { skin: C.skin, hair: '#3a2a1c', tunic: '#a2794a', trim: '#e3d6b4', head: 'feathers', item: 'none', size: 0.95 },
+  // round 25: the people of the lands' stories
+  samuel: { skin: C.skin, hair: '#ebe6dc', beard: '#f2eee6', tunic: '#8a7a9a', cloak: '#5a4a6a', trim: '#e2d2a8', item: 'staff', size: 1.08 },
+  brat: { skin: C.skin, hair: '#2e2118', beard: '#2e2118', tunic: '#9a7a52', trim: '#d8c49a', belt: '#4a3420', item: 'spear', size: 1.12 },
+  dziewczyna: { skin: C.skin, hair: '#3a261a', tunic: '#5a8aa8', trim: '#f0dcae', head: 'scarf', item: 'none', size: 0.96 },
+  starzec: { skin: C.skin, hair: '#e2dcd0', beard: '#ece7de', tunic: '#a09074', cloak: '#6e5e46', item: 'staff', size: 1.0 },
+  zolnierz: { skin: C.skin, hair: '#2a1d14', beard: '#2a1d14', tunic: '#7a6a4a', trim: '#b8863b', belt: '#3a2a18', item: 'spear', size: 1.1, armour: true },
+  kobieta: { skin: C.skin, hair: '#4a2e1c', tunic: '#b8584a', trim: '#f0dcae', head: 'scarf', cloak: '#e2c98c', item: 'none', size: 1.0 },
+  mikal: { skin: C.skin, hair: '#2e1d14', tunic: '#8e4a6a', trim: '#eab53d', head: 'circlet', cloak: '#c9a26a', item: 'none', size: 1.0 },
+  chlopiec: { skin: C.skin, hair: '#4a2e1c', tunic: '#c9b58a', belt: '#5a3a1c', item: 'none', size: 0.8 },
+  achimelek: { skin: C.skin, hair: '#d8d0c2', beard: '#e2dccf', tunic: '#e9e2d2', trim: '#5a7aa8', cloak: '#c9bfa8', head: 'band', item: 'none', size: 1.04 },
+  achisz: { skin: C.skin, hair: '#3a2a1c', beard: '#3a2a1c', tunic: '#a8743a', trim: '#eab53d', cloak: '#6a3a24', head: 'feathers', item: 'none', size: 1.12 },
 };
 
 /**
@@ -929,6 +958,26 @@ const QUADS: Partial<Record<BeastKind | GuardKind | 'tur_g', Quad>> = {
   tur_g: { body: '#3a2b21', belly: '#5a4636', dark: '#140e0a', len: 1.6, h: 1.05, head: 0.36, ear: 0.1, tail: 'tuft', horns: true },
   lampart: { body: '#d9ad55', belly: '#f2dcaa', dark: '#3a2a14', len: 1.2, h: 0.72, head: 0.24, ear: 0.09, tail: 'thin', spots: '#4a3418' },
 };
+
+/** The story's animals (never foes): Jesse's donkey with its baskets, a kid goat, a wild goat on the rocks. */
+const ANIMALS: Readonly<Record<'donkey' | 'goat' | 'ibex', Quad>> = {
+  donkey: { body: '#9b9186', belly: '#d6cfc4', dark: '#4a4440', len: 0.82, h: 0.62, head: 0.2, ear: 0.2, tail: 'tuft' },
+  goat: { body: '#e8e0d2', belly: '#f6f1e8', dark: '#6a5a48', len: 0.52, h: 0.4, head: 0.14, ear: 0.08, tail: 'stub', horns: true },
+  ibex: { body: '#b48a5a', belly: '#e2c9a0', dark: '#4a3420', len: 0.7, h: 0.52, head: 0.16, ear: 0.07, tail: 'stub', horns: true },
+};
+
+/** One of the story's animals at (x, y) = its feet (the donkey carries two baskets of bread). */
+export function paintAnimal(ctx: CanvasRenderingContext2D, kind: 'donkey' | 'goat' | 'ibex', x: number, y: number, s: number, p: { flip: number; step: number; moving: number; t: number }): void {
+  const q = ANIMALS[kind];
+  paintQuad(ctx, x, y, s, q, { flip: p.flip, step: p.step, moving: p.moving, hit: 0, doze: 0, t: p.t, air: 0, tele: 0, flee: 0, seed: 7, hidden: false });
+  if (kind === 'donkey') {
+    const by = y - q.h * s * 0.62;
+    for (const dx of [-0.16, 0.12]) {
+      ellipse(ctx, x + dx * s, by + s * 0.04, s * 0.15, s * 0.13, '#b5874e');
+      ellipse(ctx, x + dx * s, by - s * 0.05, s * 0.11, s * 0.05, '#e7c98c');
+    }
+  }
+}
 
 export interface BeastPose { flip: number; step: number; moving: number; hit: number; doze: number; t: number; air: number; tele: number; flee: number; seed: number; hidden: boolean; elite?: boolean; stun?: number }
 

@@ -19,10 +19,12 @@ import { MIN_READ, MIN_TAP, MIN_TEXT, fitText } from '../kit/mobile';
 import { REF_FONT, VERSE_FONT, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { TapTarget } from '../kit/types';
 import { companionSpec, type CompanionId } from './content';
+import type { Key } from './i18n';
 import { t, xpText } from './i18n';
 import { grow, type Layout, type Rect } from './layout';
 import { xpNeed } from './meta';
-import { C, SANS, SERIF, font, glow, paintCoin, paintPortrait } from './paint';
+import { C, LOOKS, SANS, SERIF, font, glow, paintCoin, paintGiant, paintLamb, paintPerson, paintPortrait } from './paint';
+import type { Who } from './story';
 import { whyText, type CampTab, type DawidSim, type Tile } from './sim';
 
 const TAU = Math.PI * 2;
@@ -58,7 +60,7 @@ export const TABS: readonly CampTab[] = ['ab', 'bd', 'wp', 'party'];
 const TAB_KEYS = { ab: 'camp.tab.ab', bd: 'camp.tab.bd', wp: 'camp.tab.forge', party: 'camp.tab.party' } as const;
 
 /** What a finger holds down now (drawn pressed until it lifts). */
-export type PressKind = 'bag' | 'stone' | 'quest' | 'hunt' | 'tab' | 'tile';
+export type PressKind = 'bag' | 'stone' | 'quest' | 'hunt' | 'tab' | 'tile' | 'skip' | 'choice' | 'mini';
 export interface Pressed { kind: PressKind; i: number }
 
 /** The camp's sheet as it stands this frame (it slides in), its tiles at the current scroll. */
@@ -93,6 +95,11 @@ export class Hud {
   sheetShown: SheetNow | null = null;
   questBox: Rect | null = null;
   storyBox: Rect | null = null;
+  /** a scene's controls as drawn: its skip, its two answers; the minimap (a tap opens the log); the log's card */
+  skipBox: Rect | null = null;
+  choiceBoxes: Rect[] = [];
+  miniBox: Rect | null = null;
+  logBox: Rect | null = null;
   /** where the quest's arrow (or marker) was drawn this frame */
   arrowAt: { x: number; y: number } | null = null;
   /** a button that said "not yet" (it shakes): which (a tile's index too) and when */
@@ -179,8 +186,14 @@ export class Hud {
   targets(L: Layout, sim: DawidSim, show: 'sheet' | 'buttons' | 'none'): TapTarget[] {
     const out: TapTarget[] = [];
     const add = (label: string, r: Rect) => out.push({ label, x: r.x, y: r.y, w: r.w, h: r.h });
+    if (sim.logOpen) {
+      if (this.logBox) add('log', this.logBox);
+      return out;
+    }
     if (sim.story && sim.story.t >= 0) {
       if (this.storyBox) add('story', this.storyBox);
+      if (this.skipBox) add('skip', this.skipBox);
+      this.choiceBoxes.forEach((r, i) => add(`choice ${i ? 'b' : 'a'}`, r));
       return out;
     }
     const g = this.sheetShown;
@@ -196,7 +209,16 @@ export class Hud {
       add('bag', L.bag.hit);
     }
     if (this.questBox) add('quest', grow(this.questBox));
+    if (this.miniBox && show === 'buttons') add('mini', this.miniBox);
     return out;
+  }
+
+  /** What a press on a scene lands on: its skip, an answer, or the card (null: elsewhere). */
+  sceneAt(x: number, y: number): 'skip' | 'a' | 'b' | 'card' | null {
+    if (this.skipBox && inRect(this.skipBox, x, y)) return 'skip';
+    const i = this.choiceBoxes.findIndex(r => inRect(r, x, y));
+    if (i >= 0) return i ? 'b' : 'a';
+    return this.storyBox && inRect(this.storyBox, x, y) ? 'card' : null;
   }
 
   // ── the bottom band ────────────────────────────────────────────────
@@ -519,14 +541,22 @@ export class Hud {
     ctx.restore();
   }
 
-  /** The minimap: the land's outline, the camp, the dens, the lair and the gate, the quest's place, David. */
+  /**
+   * The minimap: a window of the land around David (its height the land's, its width the minimap's shape): the
+   * areas' barriers with their passes (closed ones dark), the fires, the dens, the brook, the lair and the gate, the
+   * quest's place, David and his view's frame.  A tap opens the quest log (a small book in its corner says so).
+   */
   drawMini(ctx: CanvasRenderingContext2D, L: Layout, sim: DawidSim, now: number): void {
     const r = L.mini;
+    this.miniBox = null;
     if (!r || sim.inCave) return;
+    this.miniBox = r;
     const land = sim.land;
-    const sx = r.w / land.w, sy = r.h / land.h;
-    const P = (x: number, y: number) => ({ x: r.x + x * sx, y: r.y + y * sy });
-    panel(ctx, r, 'rgba(36,28,20,.62)', 'rgba(255,248,230,.3)', 8);
+    const sc = r.h / land.h, span = r.w / sc;
+    const x0 = clamp(sim.david.x - span / 2, 0, Math.max(0, land.w - span));
+    const P = (x: number, y: number) => ({ x: r.x + (x - x0) * sc, y: r.y + y * sc });
+    const lit = this.isHover('mini'), pressed = this.isPressed('mini');
+    panel(ctx, r, pressed ? 'rgba(20,14,8,.8)' : 'rgba(36,28,20,.62)', lit ? C.goldLight : 'rgba(255,248,230,.3)', 8, lit ? 2 : 1.5);
     ctx.save();
     ctx.beginPath();
     ctx.roundRect(r.x, r.y, r.w, r.h, 8);
@@ -536,19 +566,43 @@ export class Hud {
     ctx.beginPath();
     land.brook.forEach(([x, y], i) => { const p = P(x, y); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
     ctx.stroke();
+    // the barriers and their passes
+    land.areas.forEach((A, i) => {
+      if (!A.pass || i >= land.areas.length - 1) return;
+      const top = P(A.x1, 0), bot = P(A.x1, land.h), g = P(A.x1, A.pass.y);
+      const open = sim.gapOpen(i), gh = 2.4 * sc;
+      ctx.strokeStyle = 'rgba(255,248,230,.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(top.x, top.y);
+      ctx.lineTo(g.x, g.y - gh);
+      ctx.moveTo(g.x, g.y + gh);
+      ctx.lineTo(bot.x, bot.y);
+      ctx.stroke();
+      if (!open) {
+        ctx.strokeStyle = 'rgba(200,120,90,.9)';
+        ctx.beginPath();
+        ctx.moveTo(g.x, g.y - gh);
+        ctx.lineTo(g.x, g.y + gh);
+        ctx.stroke();
+      }
+    });
     sim.dens.forEach((dn, i) => {
       const p = P(dn.x, dn.y);
-      const alive = sim.beasts.some(b => b.den === i && b.state !== 'flee');
+      const alive = dn.live && sim.beasts.some(b => b.den === i && b.state !== 'flee');
       ctx.fillStyle = alive ? 'rgba(220,120,90,.95)' : 'rgba(200,180,150,.35)';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 2.4, 0, TAU);
+      ctx.arc(p.x, p.y, 2.2, 0, TAU);
       ctx.fill();
     });
-    const camp = P(land.camp[0], land.camp[1]);
-    ctx.fillStyle = C.fire;
-    ctx.beginPath();
-    ctx.arc(camp.x, camp.y, 3.6, 0, TAU);
-    ctx.fill();
+    const open = sim.areasOpen;
+    land.areas.forEach((A, i) => {
+      const camp = P(A.camp[0], A.camp[1]);
+      ctx.fillStyle = i < open ? C.fire : 'rgba(255,207,106,.35)';
+      ctx.beginPath();
+      ctx.arc(camp.x, camp.y, 3.2, 0, TAU);
+      ctx.fill();
+    });
     const g = sim.guard;
     if (g.state !== 'gone') {
       const lp = P(g.x, g.y);
@@ -564,7 +618,7 @@ export class Hud {
     ctx.stroke();
     const qt = sim.questTarget();
     if (qt) {
-      const q = P(qt.x, qt.y);
+      const q = P(clamp(qt.x, x0 + 1, x0 + span - 1), qt.y);
       ctx.fillStyle = C.gold;
       ctx.beginPath();
       ctx.moveTo(q.x, q.y - 5);
@@ -578,11 +632,24 @@ export class Hud {
     ctx.beginPath();
     ctx.arc(dp.x, dp.y, 3.2 + Math.sin(now * 5) * 0.6, 0, TAU);
     ctx.fill();
-    // the view's frame
     ctx.strokeStyle = 'rgba(255,255,255,.4)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(dp.x - sim.viewHW * sx, dp.y - sim.viewHH * sy, sim.viewHW * 2 * sx, sim.viewHH * 2 * sy);
+    ctx.strokeRect(dp.x - sim.viewHW * sc, dp.y - sim.viewHH * sc, sim.viewHW * 2 * sc, sim.viewHH * 2 * sc);
     ctx.restore();
+    // the log's book in the corner: a tap opens it
+    const bx = r.x + r.w - 13, by = r.y + r.h - 11;
+    ctx.fillStyle = 'rgba(36,28,20,.85)';
+    ctx.beginPath();
+    ctx.roundRect(bx - 10, by - 8, 20, 16, 4);
+    ctx.fill();
+    ctx.fillStyle = C.goldLight;
+    ctx.fillRect(bx - 7, by - 5, 6, 10);
+    ctx.fillRect(bx + 1, by - 5, 6, 10);
+    ctx.fillStyle = 'rgba(36,28,20,.8)';
+    ctx.fillRect(bx - 6, by - 2, 4, 1);
+    ctx.fillRect(bx + 2, by - 2, 4, 1);
+    ctx.fillRect(bx - 6, by + 1, 4, 1);
+    ctx.fillRect(bx + 2, by + 1, 4, 1);
   }
 
   // ── the camp's sheet ─────────────────────────────────────────────────
@@ -781,8 +848,11 @@ export class Hud {
   /** The opening card, a land's card, a guardian driven off, the people the quests lead to. */
   drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: DawidSim, touch: boolean): void {
     this.storyBox = null;
+    this.skipBox = null;
+    this.choiceBoxes = [];
     const st = sim.story;
     if (!st || st.t < 0) return;
+    if (st.kind === 'scene') { this.drawScene(ctx, L, sim, touch); return; }
     const u = L.u, k = Math.min(1, st.t / 0.35), out = st.dur - st.t < 0.3 ? (st.dur - st.t) / 0.3 : 1;
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(k, out));
@@ -837,6 +907,214 @@ export class Hud {
     ctx.textBaseline = 'bottom';
     const next = st.kind === 'open' ? (touch ? t('story.tap') : t('story.tap.keys')) : touch ? t('story.next') : t('story.next.keys');
     ctx.fillText(fitText(ctx, next, w - pad * 2, 13.5 * u, 800, SANS, MIN_READ), cx, r.y + h - pad + 4 * u);
+    ctx.restore();
+  }
+
+  /**
+   * A scene of the story, at the bottom of the screen over the dimmed world: the speaker's portrait on the card's
+   * top edge with the name beside it, the line (a narrator's in italics, no portrait), the dots of the lines; at a
+   * choice the two answers as two wide buttons; after the last line the scene's passage on a page of its own; a tap
+   * on the card goes on, "Pomiń ›" closes the scene.
+   */
+  private drawScene(ctx: CanvasRenderingContext2D, L: Layout, sim: DawidSim, touch: boolean): void {
+    const st = sim.story!, lines = st.lines ?? [];
+    const u = L.u, i = st.i ?? 0;
+    const page = i >= lines.length && st.verse ? 'verse' : 'line';
+    const line = lines[Math.min(i, lines.length - 1)];
+    const who: Who = page === 'verse' ? 'narrator' : (line?.[0] ?? 'narrator');
+    const choosing = page === 'line' && i === lines.length - 1 && !!st.choice && !st.choice.picked;
+    const fade = Math.min(1, st.t / 0.3);
+    ctx.save();
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = 'rgba(24,18,12,.5)';
+    ctx.fillRect(0, 0, L.w, L.h);
+    const w = Math.min(L.right - L.left - 24, 540 * u);
+    const pad = 16 * u, pr = 30 * u;
+    const textSize = 16 * u, lh = 22 * u;
+    const narr = who === 'narrator';
+    ctx.font = font(narr ? 500 : 560, textSize, SANS, narr);
+    const textW = w - pad * 2;
+    let rows: string[] = [];
+    let vh = 0;
+    if (page === 'verse') {
+      const ps = passage(st.verse!);
+      const avail = Math.max(80, (L.bottom - L.top) * 0.5);
+      if (!this.passage || this.passage.id !== st.verse || this.passage.w !== w || this.passage.h !== avail) {
+        this.passage = { id: st.verse!, l: layoutPassage(ctx, ps, textW, avail - 6, { max: 18, min: 13.5 }), w, h: avail };
+      }
+      vh = this.passage.l.height + 8 + 14 * u;
+    } else rows = wrap(ctx, line?.[1] ?? '', textW).slice(0, 5);
+    const btnH = Math.max(MIN_TAP, 46 * u), gap = 8 * u;
+    const choiceH = choosing ? 2 * btnH + gap + 10 * u : 0;
+    const footH = Math.max(MIN_TAP + 4, 44 * u);
+    const top = narr ? pad : pr + 12 * u;
+    const h = top + (page === 'verse' ? vh : rows.length * lh) + 8 * u + choiceH + footH;
+    const x = (L.left + L.right - w) / 2, y = Math.max(L.top + pr + 8, L.bottom - 12 - h);
+    const box = { x, y, w, h };
+    // the card's tap goes on (its footer row is the skip's; at a choice only the answers and the skip take a tap)
+    this.storyBox = choosing ? null : { x, y, w, h: h - footH };
+    panel(ctx, box, C.parchment, C.goldDeep, 16 * u, 2);
+    // the speaker: a portrait on the card's top edge, the name beside it
+    if (!narr) {
+      const cx = x + pad + pr, cy = y + 2 * u;
+      ctx.fillStyle = C.goldDeep;
+      ctx.beginPath();
+      ctx.arc(cx, cy, pr + 3, 0, TAU);
+      ctx.fill();
+      portrait(ctx, who, cx, cy, pr);
+      ctx.font = font(800, 15 * u, SANS);
+      ctx.fillStyle = C.goldDeep;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fitText(ctx, t(`who.${who}` as Key), w - pad * 3 - pr * 2, 15 * u, 800, SANS, MIN_READ), cx + pr + 10 * u, y + 16 * u);
+    }
+    let ty = y + top;
+    if (page === 'verse' && this.passage) {
+      drawVerse(ctx, passage(st.verse!), this.passage.l, x + w / 2, ty + 4 * u);
+      ty += vh;
+    } else {
+      ctx.font = font(narr ? 500 : 560, textSize, SANS, narr);
+      ctx.fillStyle = narr ? C.inkSoft : C.ink;
+      ctx.textAlign = narr ? 'center' : 'left';
+      ctx.textBaseline = 'top';
+      for (const r of rows) { ctx.fillText(r, narr ? x + w / 2 : x + pad, ty); ty += lh; }
+    }
+    ty += 8 * u;
+    // the two answers
+    if (choosing && st.choice) {
+      const labels = [st.choice.a, st.choice.b];
+      labels.forEach((lab, k) => {
+        const r = { x: x + pad, y: ty + k * (btnH + gap), w: w - pad * 2, h: btnH };
+        this.choiceBoxes.push(r);
+        const pressed = this.isPressed('choice', k), lit = this.isHover('choice', k);
+        panel(ctx, r, pressed ? '#e8c873' : lit ? '#fbe7b0' : '#fff6dc', C.goldDeep, 12 * u, 2);
+        ctx.font = font(800, 15 * u, SANS);
+        ctx.fillStyle = C.ink;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fitText(ctx, `${k ? 'B' : 'A'} · ${lab}`, r.w - 20 * u, 15 * u, 800, SANS, MIN_READ), r.x + r.w / 2, r.y + r.h / 2);
+      });
+      ty += choiceH - 10 * u + 4 * u;
+    }
+    // the footer: the dots of the lines, the hint, "Pomiń ›"
+    const fy = y + h - footH / 2;
+    const n = lines.length + (st.verse ? 1 : 0);
+    for (let k = 0; k < Math.min(n, 12); k++) {
+      ctx.fillStyle = k <= i ? C.goldDeep : 'rgba(181,130,26,.3)';
+      ctx.beginPath();
+      ctx.arc(x + pad + k * 11 * u, fy, 3.2 * u, 0, TAU);
+      ctx.fill();
+    }
+    const skipW = Math.max(MIN_TAP + 30 * u, 92 * u);
+    const skip = { x: x + w - pad - skipW + 8 * u, y: y + h - footH, w: skipW, h: footH - 2 };
+    this.skipBox = skip;
+    ctx.font = font(800, 13.5 * u, SANS);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = this.isPressed('skip') ? C.ink : C.goldDeep;
+    ctx.fillText(`${t('scene.skip')} ›`, skip.x + skip.w - 8 * u, fy);
+    if (!choosing) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(43,33,24,.62)';
+      const hint = touch ? t('scene.next') : t('scene.next.keys');
+      const room = skip.x - (x + pad + Math.min(n, 12) * 11 * u) - 8 * u;
+      if (room > 60 * u) ctx.fillText(fitText(ctx, hint, room, 13.5 * u, 700, SANS, MIN_READ), x + pad + Math.min(n, 12) * 11 * u + room / 2, fy);
+    }
+    ctx.restore();
+  }
+
+  /**
+   * The quest log over the world: the chapter, the land's three areas (behind, here, open, closed) and the chain —
+   * what is done, what is now (with its count), what comes next; a tap closes it.
+   */
+  drawLog(ctx: CanvasRenderingContext2D, L: Layout, sim: DawidSim, touch: boolean): void {
+    this.logBox = null;
+    if (!sim.logOpen) return;
+    const u = L.u, log = sim.log();
+    ctx.save();
+    ctx.fillStyle = 'rgba(24,18,12,.62)';
+    ctx.fillRect(0, 0, L.w, L.h);
+    const w = Math.min(L.right - L.left - 24, 520 * u), pad = 16 * u;
+    const rowH = 24 * u;
+    // the areas: three chips side by side where their names fit, else three rows (a narrow phone)
+    const stacked = (w - pad * 2 - 12 * u) / 3 < 150 * u;
+    const chipH = stacked ? 3 * 22 * u + 8 * u : 42 * u;
+    // the rows: the last few done, the one now, the next
+    const now = log.quests.findIndex(q => q.state === 'now');
+    const first = Math.max(0, (now < 0 ? log.quests.length : now) - 4);
+    const shown = log.quests.slice(first);
+    const room = L.bottom - L.top - 24;
+    const fixed = pad * 2 + 30 * u + 22 * u + chipH + 14 * u + 30 * u;
+    const maxRows = Math.max(3, Math.floor((room - fixed) / rowH));
+    const rows = shown.slice(Math.max(0, shown.length - maxRows));
+    const h = Math.min(room, fixed + rows.length * rowH);
+    const x = (L.left + L.right - w) / 2, y = L.top + Math.max(10, (room - h) / 3);
+    const box = { x, y, w, h };
+    this.logBox = box;
+    panel(ctx, box, C.parchment, C.goldDeep, 16 * u, 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = C.goldDeep;
+    ctx.font = font(800, 13.5 * u, SANS);
+    ctx.fillText(t('log.title').toUpperCase(), x + w / 2, y + pad);
+    ctx.fillStyle = C.ink;
+    ctx.font = font(800, 20 * u, SERIF, true);
+    ctx.fillText(fitText(ctx, log.title, w - pad * 2, 20 * u, 800, SERIF, MIN_READ), x + w / 2, y + pad + 20 * u);
+    // the areas
+    let cy = y + pad + 52 * u;
+    const cw = (w - pad * 2 - 12 * u) / 3;
+    if (stacked) {
+      log.areas.forEach((a, k) => {
+        const ry = cy + 4 * u + k * 22 * u + 11 * u, here = a.state === 'here';
+        if (here) panel(ctx, { x: x + pad - 6 * u, y: ry - 11 * u, w: w - pad * 2 + 12 * u, h: 22 * u }, '#f3d887', null, 8 * u);
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.font = font(here ? 800 : 650, 14 * u, SANS);
+        ctx.fillStyle = a.state === 'shut' ? 'rgba(43,33,24,.45)' : C.ink;
+        const state = t(`log.${a.state}` as Key);
+        ctx.font = font(600, 13 * u, SANS);
+        const sw = ctx.measureText(state).width;
+        ctx.font = font(here ? 800 : 650, 14 * u, SANS);
+        ctx.fillText(fitText(ctx, `${k + 1}. ${a.name}`, w - pad * 2 - sw - 12 * u, 14 * u, here ? 800 : 650, SANS, MIN_READ), x + pad, ry);
+        ctx.textAlign = 'right';
+        ctx.font = font(600, 13 * u, SANS);
+        ctx.fillStyle = here ? C.goldDeep : 'rgba(43,33,24,.55)';
+        ctx.fillText(state, x + w - pad, ry);
+      });
+      ctx.textAlign = 'center';
+    } else log.areas.forEach((a, k) => {
+      const r = { x: x + pad + k * (cw + 6 * u), y: cy, w: cw, h: chipH };
+      const here = a.state === 'here';
+      panel(ctx, r, here ? '#f3d887' : a.state === 'shut' ? 'rgba(120,100,70,.15)' : '#fff6dc', here ? C.goldDeep : 'rgba(181,130,26,.45)', 10 * u, here ? 2 : 1.2);
+      ctx.fillStyle = a.state === 'shut' ? 'rgba(43,33,24,.45)' : C.ink;
+      ctx.font = font(750, 13.5 * u, SANS);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(fitText(ctx, a.name, r.w - 8 * u, 13.5 * u, 750, SANS, MIN_READ), r.x + r.w / 2, r.y + r.h * 0.33);
+      ctx.font = font(600, 13 * u, SANS);
+      ctx.fillStyle = here ? C.goldDeep : 'rgba(43,33,24,.55)';
+      ctx.fillText(fitText(ctx, t(`log.${a.state}` as Key), r.w - 8 * u, 13 * u, 600, SANS, MIN_READ), r.x + r.w / 2, r.y + r.h * 0.72);
+    });
+    cy += chipH + 14 * u;
+    // the chain
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (const q of rows) {
+      const ry = cy + rowH / 2;
+      const mark = q.state === 'done' ? '✓' : q.state === 'now' ? '▶' : '·';
+      ctx.font = font(800, 14 * u, SANS);
+      ctx.fillStyle = q.state === 'now' ? C.goldDeep : q.state === 'done' ? 'rgba(80,120,60,.9)' : 'rgba(43,33,24,.45)';
+      ctx.fillText(mark, x + pad, ry);
+      ctx.font = font(q.state === 'now' ? 800 : 600, 14 * u, SANS);
+      ctx.fillStyle = q.state === 'now' ? C.ink : q.state === 'done' ? 'rgba(43,33,24,.55)' : 'rgba(43,33,24,.7)';
+      const text = q.state === 'next' ? `${t('log.next')}: ${q.text}` : q.text;
+      ctx.fillText(fitText(ctx, text, w - pad * 2 - 22 * u, 14 * u, q.state === 'now' ? 800 : 600, SANS, MIN_READ), x + pad + 22 * u, ry);
+      cy += rowH;
+    }
+    ctx.font = font(800, 13.5 * u, SANS);
+    ctx.fillStyle = C.goldDeep;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(fitText(ctx, touch ? t('log.close') : t('log.close.keys'), w - pad * 2, 13.5 * u, 800, SANS, MIN_READ), x + w / 2, y + h - pad + 4 * u);
     ctx.restore();
   }
 
@@ -933,6 +1211,35 @@ export class Hud {
   static xpWords(v: number, mult: number): string {
     return mult > 1 ? `+${xpText(v)} ×${fmtNum(mult, Number.isInteger(mult) ? 0 : 1)}` : `+${xpText(v)}`;
   }
+}
+
+/** A speaker's portrait in a circle: a person's face and shoulders, the lamb, the giant; the narrator a scroll. */
+function portrait(ctx: CanvasRenderingContext2D, who: Who, x: number, y: number, r: number): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.clip();
+  if (who === 'klebek') {
+    ctx.fillStyle = '#a9b96c';
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    paintLamb(ctx, x - r * 0.15, y + r * 0.75, r * 2.2, { flip: 1, step: 0, walking: 0, sleep: 0, talk: true, t: 0 });
+  } else if (who === 'goliat') {
+    ctx.fillStyle = '#7a3424';
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    paintGiant(ctx, x, y + r * 3.1, r * 0.95, { flip: -1, step: 0, moving: 0, act: 0, hit: 0, fall: 0, t: 0, daze: 0, hue: 0 });
+  } else {
+    const key = (who === 'dawid' ? 'david' : who) as keyof typeof LOOKS;
+    const look = LOOKS[key] ?? LOOKS.david;
+    if (key in LOOKS && key !== 'david' && ['asahel', 'abiszaj', 'jonatan', 'abigail', 'benajasz', 'szamma'].includes(key)) {
+      ctx.restore();
+      paintPortrait(ctx, key as CompanionId, x, y, r);
+      return;
+    }
+    ctx.fillStyle = look.tunic;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    paintPerson(ctx, x, y + r * 1.95 / Math.max(0.8, look.size ?? 1), r * 1.05 / Math.max(0.8, look.size ?? 1), { ...look, item: 'none' }, { flip: 1, step: 0, walking: 0, sit: 0, act: 0, hit: 0, t: 0 });
+  }
+  ctx.restore();
 }
 
 /** A resource's icon centred on (x, y), about `size` px across: a silver coin, brushwood, a stone. */

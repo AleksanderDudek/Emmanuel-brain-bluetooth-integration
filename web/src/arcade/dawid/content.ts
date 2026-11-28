@@ -7,7 +7,9 @@
  * evolutions, the ability ladder, the camp's buildings, the quest chains, the strategies under a
  * block's name and the lamb's moments.  The words live in the catalog (i18n.ts).
  */
+import { CHAINS, type QuestKind, type QuestSpec } from './chains';
 import { t, type Key } from './i18n';
+import { MAPS, allSpots, type LandMap } from './lands';
 
 // ── beasts ───────────────────────────────────────────────────────
 export type BeastKind = 'szakal' | 'szerszen' | 'wilk' | 'dzik' | 'zmija' | 'hiena' | 'skorpion' | 'sep' | 'tur' | 'karakal';
@@ -86,82 +88,36 @@ export function guardName(k: GuardKind, circle = 0): string {
 // ── lands (a circle of six, then round again, stronger) ──────────
 export type LandId = 'pastwiska' | 'wzgorza' | 'ela' | 'gibea' | 'engedi' | 'gat';
 export type Ground = 'pasture' | 'hills' | 'valley' | 'fields' | 'desert' | 'gath';
-export type Spot = 'jesse' | 'asahel' | 'sluga' | 'abiszaj' | 'eliab' | 'saul' | 'brook' | 'jonatan' | 'abigail' | 'benajasz' | 'itaj' | 'szamma';
+/** a place on a land's map the quests send David to (lands.ts: each area's spots) */
+export type Spot = string;
 export type NodeKind = 'wood' | 'stone';
 
-export interface LandSpec {
-  id: LandId;
-  ground: Ground;
-  /** the map's size (u) */
-  w: number;
-  h: number;
-  /** the shepherds' camp, the gate out (on the map's edge), the guardian's lair */
+/**
+ * A land: its map (lands.ts — three areas side by side, each with its fire, dens, heaps, chest, people and
+ * landmarks; the passes between them; the lair and the gate in the last), and the round-5 fields read from it: the
+ * first area's camp and chest, every den, heap and spot of the land.
+ */
+export interface LandSpec extends LandMap {
+  /** the first area's shepherds' fire, where a land begins */
   camp: readonly [number, number];
-  gate: readonly [number, number];
-  lair: readonly [number, number];
-  guard: GuardKind;
-  /** the brook (a polyline across the map) */
-  brook: readonly (readonly [number, number])[];
-  /** beast camps: kind, x, y, how many */
+  /** every beast camp of the land (kind, x, y, how many) */
   camps: readonly (readonly [BeastKind, number, number, number])[];
-  /** brushwood and stone heaps */
+  /** every brushwood and stone heap */
   nodes: readonly (readonly [NodeKind, number, number])[];
-  /** the land's chest */
+  /** the first area's chest place */
   chest: readonly [number, number];
-  /** people and places the quests send David to */
-  spots: Partial<Record<Spot, readonly [number, number]>>;
+  /** every spot of the land */
+  spots: Readonly<Record<string, readonly [number, number]>>;
 }
 
-export const LANDS: readonly LandSpec[] = [
-  {
-    id: 'pastwiska', ground: 'pasture', w: 64, h: 42, camp: [8, 27], gate: [63, 7], lair: [55, 10], guard: 'lew',
-    brook: [[0, 14], [13, 13], [22, 18], [31, 24], [41, 25], [52, 33], [64, 36]],
-    camps: [['szakal', 15, 22, 4], ['szakal', 16, 34, 4], ['szerszen', 24, 29, 5], ['wilk', 26, 15, 3], ['szakal', 33, 32, 5], ['szerszen', 38, 19, 6], ['wilk', 43, 30, 3], ['wilk', 46, 15, 4], ['szakal', 51, 25, 5]],
-    nodes: [['wood', 12, 20], ['wood', 21, 37], ['wood', 30, 21], ['wood', 45, 37], ['stone', 11, 34], ['stone', 24, 11], ['stone', 36, 37], ['stone', 49, 21]],
-    chest: [34, 8],
-    spots: { jesse: [6, 24], asahel: [19, 9], brook: [22, 18] },
-  },
-  {
-    id: 'wzgorza', ground: 'hills', w: 64, h: 42, camp: [8, 10], gate: [63, 36], lair: [54, 32], guard: 'niedzwiedzica',
-    brook: [[19, 0], [22, 11], [30, 18], [38, 23], [43, 42]],
-    camps: [['dzik', 16, 15, 2], ['zmija', 13, 23, 3], ['hiena', 25, 8, 4], ['dzik', 27, 22, 3], ['zmija', 34, 13, 3], ['hiena', 34, 30, 4], ['dzik', 45, 18, 3], ['hiena', 46, 27, 5], ['zmija', 52, 22, 4]],
-    nodes: [['wood', 11, 17], ['wood', 20, 30], ['wood', 40, 9], ['wood', 50, 13], ['stone', 18, 6], ['stone', 27, 34], ['stone', 41, 36], ['stone', 57, 26]],
-    chest: [14, 36],
-    spots: { sluga: [12, 6], abiszaj: [30, 37], brook: [24, 13] },
-  },
-  {
-    id: 'ela', ground: 'valley', w: 64, h: 42, camp: [8, 21], gate: [63, 21], lair: [49, 21], guard: 'goliat',
-    brook: [[0, 23], [16, 22], [30, 20], [44, 21], [64, 20]],
-    camps: [['skorpion', 15, 28, 3], ['sep', 18, 13, 2], ['hiena', 25, 27, 4], ['skorpion', 29, 13, 3], ['sep', 33, 30, 3], ['hiena', 37, 14, 4], ['skorpion', 41, 28, 4]],
-    nodes: [['wood', 12, 14], ['wood', 22, 34], ['wood', 35, 8], ['stone', 13, 32], ['stone', 25, 19], ['stone', 44, 33], ['stone', 39, 22]],
-    chest: [25, 38],
-    spots: { eliab: [16, 6], saul: [26, 5], brook: [32, 20], jonatan: [40, 6] },
-  },
-  {
-    id: 'gibea', ground: 'fields', w: 64, h: 42, camp: [8, 31], gate: [63, 9], lair: [56, 12], guard: 'tur',
-    brook: [[0, 20], [12, 22], [26, 19], [38, 12], [46, 0]],
-    camps: [['szerszen', 15, 25, 6], ['dzik', 18, 36, 3], ['tur', 26, 27, 2], ['szerszen', 30, 14, 6], ['dzik', 37, 33, 3], ['tur', 41, 22, 3], ['szerszen', 47, 31, 7], ['tur', 50, 17, 3]],
-    nodes: [['wood', 13, 18], ['wood', 22, 38], ['wood', 34, 24], ['wood', 52, 36], ['stone', 10, 37], ['stone', 22, 10], ['stone', 44, 9], ['stone', 57, 27]],
-    chest: [32, 39],
-    spots: { brook: [20, 21] },
-  },
-  {
-    id: 'engedi', ground: 'desert', w: 64, h: 42, camp: [8, 12], gate: [63, 35], lair: [54, 31], guard: 'lampart',
-    brook: [[14, 0], [17, 8], [15, 18], [20, 26], [18, 42]],
-    camps: [['zmija', 14, 24, 3], ['karakal', 23, 10, 3], ['skorpion', 26, 22, 4], ['karakal', 33, 16, 3], ['zmija', 35, 30, 4], ['skorpion', 43, 20, 4], ['karakal', 46, 31, 4]],
-    nodes: [['wood', 19, 4], ['wood', 21, 32], ['wood', 30, 37], ['stone', 10, 21], ['stone', 29, 6], ['stone', 40, 10], ['stone', 50, 24]],
-    chest: [38, 38],
-    spots: { abigail: [11, 34], benajasz: [36, 6], brook: [17, 10] },
-  },
-  {
-    id: 'gat', ground: 'gath', w: 64, h: 42, camp: [8, 21], gate: [63, 21], lair: [55, 21], guard: 'olbrzym',
-    brook: [[0, 31], [18, 30], [34, 34], [50, 31], [64, 33]],
-    camps: [['wilk', 15, 14, 4], ['hiena', 16, 28, 5], ['sep', 25, 21, 3], ['wilk', 31, 11, 4], ['hiena', 33, 29, 5], ['sep', 41, 16, 3], ['wilk', 45, 27, 5]],
-    nodes: [['wood', 12, 9], ['wood', 23, 36], ['wood', 39, 7], ['stone', 13, 35], ['stone', 27, 15], ['stone', 46, 37], ['stone', 50, 10]],
-    chest: [30, 39],
-    spots: { itaj: [13, 15], szamma: [24, 36], brook: [30, 33] },
-  },
-];
+export const LANDS: readonly LandSpec[] = MAPS.map(m => ({
+  ...m,
+  camp: m.areas[0].camp,
+  camps: m.areas.flatMap(a => a.dens),
+  nodes: m.areas.flatMap(a => a.nodes),
+  chest: m.areas[0].chest,
+  spots: allSpots(m),
+}));
 export const LAND_COUNT = LANDS.length;
 
 export const landName = (id: LandId): string => t(`land.${id}` as Key);
@@ -279,95 +235,20 @@ export const STORE_K = [1, 1.25, 1.5, 2] as const;
 export const WELL_K = [1, 1.25, 1.5, 2] as const;
 export const FOLD_INCOME = [0, 4, 10, 24] as const;
 
-// ── quests (each land's chain; the people give them) ─────────────
-export type QuestKind = 'hunt' | 'build' | 'buy' | 'forge' | 'gather' | 'visit' | 'level' | 'guard' | 'gate';
-export interface QuestSpec {
-  kind: QuestKind;
-  /** hunt: a beast kind or 'any'; build: a building; forge: a weapon; gather: wood/stone; visit: a spot; level: — */
-  what?: string;
-  n?: number;
-  /** a visit makes a companion join, or gives a weapon */
-  joins?: CompanionId;
-  gives?: WeaponId;
-  /** the line's key suffix for a visit (npc.<say>) */
-  say?: string;
-}
-
-export const QUESTS: Readonly<Record<LandId, readonly QuestSpec[]>> = {
-  pastwiska: [
-    { kind: 'hunt', what: 'szakal', n: 4 },
-    { kind: 'build', what: 'ognisko', n: 1 },
-    { kind: 'buy', what: 'sila', n: 1 },
-    { kind: 'hunt', what: 'szerszen', n: 6 },
-    { kind: 'gather', what: 'wood', n: 5 },
-    { kind: 'build', what: 'kuznia', n: 1 },
-    { kind: 'forge', what: 'kij' },
-    { kind: 'visit', what: 'asahel', joins: 'asahel', say: 'asahel' },
-    { kind: 'hunt', what: 'wilk', n: 6 },
-    { kind: 'level', n: 8 },
-    { kind: 'guard' },
-    { kind: 'gate' },
-  ],
-  wzgorza: [
-    { kind: 'hunt', what: 'dzik', n: 4 },
-    { kind: 'visit', what: 'sluga', say: 'sluga' },
-    { kind: 'build', what: 'spichlerz', n: 1 },
-    { kind: 'hunt', what: 'zmija', n: 6 },
-    { kind: 'visit', what: 'abiszaj', joins: 'abiszaj', say: 'abiszaj' },
-    { kind: 'buy', what: 'torba', n: 2 },
-    { kind: 'hunt', what: 'hiena', n: 8 },
-    { kind: 'level', n: 16 },
-    { kind: 'guard' },
-    { kind: 'gate' },
-  ],
-  ela: [
-    { kind: 'visit', what: 'eliab', say: 'eliab' },
-    { kind: 'hunt', what: 'skorpion', n: 6 },
-    { kind: 'visit', what: 'saul', say: 'saul' },
-    { kind: 'visit', what: 'brook', say: 'brook' },
-    { kind: 'hunt', what: 'sep', n: 4 },
-    { kind: 'level', n: 24 },
-    { kind: 'guard' },
-    { kind: 'visit', what: 'jonatan', joins: 'jonatan', gives: 'luk', say: 'jonatan' },
-    { kind: 'gate' },
-  ],
-  gibea: [
-    { kind: 'hunt', what: 'tur', n: 4 },
-    { kind: 'forge', what: 'oszczep' },
-    { kind: 'hunt', what: 'szerszen', n: 10 },
-    { kind: 'build', what: 'owczarnia', n: 1 },
-    { kind: 'level', n: 32 },
-    { kind: 'guard' },
-    { kind: 'gate' },
-  ],
-  engedi: [
-    { kind: 'hunt', what: 'karakal', n: 6 },
-    { kind: 'visit', what: 'abigail', joins: 'abigail', say: 'abigail' },
-    { kind: 'hunt', what: 'skorpion', n: 8 },
-    { kind: 'visit', what: 'benajasz', joins: 'benajasz', say: 'benajasz' },
-    { kind: 'level', n: 40 },
-    { kind: 'guard' },
-    { kind: 'gate' },
-  ],
-  gat: [
-    { kind: 'visit', what: 'itaj', say: 'itaj' },
-    { kind: 'hunt', what: 'hiena', n: 10 },
-    { kind: 'visit', what: 'szamma', joins: 'szamma', say: 'szamma' },
-    { kind: 'hunt', what: 'wilk', n: 10 },
-    { kind: 'level', n: 48 },
-    { kind: 'guard' },
-    { kind: 'gate' },
-  ],
-};
+// ── quests (each land's chain, area by area: chains.ts) ──────────
+export type { QuestKind, QuestSpec };
+export const QUESTS: Readonly<Record<LandId, readonly QuestSpec[]>> = CHAINS;
 
 /** Later circles: a short chain of hunts and the guardian (the people already met). */
 export function circleQuests(land: LandSpec): readonly QuestSpec[] {
   const kinds = [...new Set(land.camps.map(c => c[0]))];
+  const last = land.areas.length - 1;
+  const areaOf = (k: BeastKind): number => Math.max(0, land.areas.findIndex(a => a.dens.some(d => d[0] === k)));
   return [
-    { kind: 'hunt', what: kinds[0], n: 8 },
-    { kind: 'hunt', what: kinds[1] ?? kinds[0], n: 10 },
-    { kind: 'guard' },
-    { kind: 'gate' },
+    { kind: 'hunt', what: kinds[0], n: 8, area: areaOf(kinds[0]) },
+    { kind: 'hunt', what: kinds[1] ?? kinds[0], n: 10, area: areaOf(kinds[1] ?? kinds[0]) },
+    { kind: 'guard', area: last },
+    { kind: 'gate', area: last },
   ];
 }
 

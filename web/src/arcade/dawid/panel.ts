@@ -2,7 +2,8 @@
  * Dawid's "Postępy" card in the lobby, from the app's shared .arcade-* classes (styles.css): the records
  * and the treasury, David's road (six lands: freed, now with the share of its guardian driven off, ahead),
  * the camp's buildings, the ability ladder at the bonfire, the forge, the party (who walks along), the
- * shepherd's tally and the cave's deepest floor.  Built with h() and createElement; a purchase or a
+ * shepherd's tally and the cave's deepest floor.  At its top the difficulty row (kit/difficultypanel.ts: Na start ·
+ * Zwykły · Zaawansowany · Hardcore, with what each means in Dawid); the records shown are the chosen level's.  Built with h() and createElement; a purchase or a
  * choice saves and redraws the card.
  */
 import { fmtNum } from '../../i18n';
@@ -18,7 +19,9 @@ import {
 } from './meta';
 import { GROUND, paintBeast, paintGiant } from './paint';
 import { abilityFx, buildingFx, costText, weaponFx, whyText } from './sim';
-import { weaponName } from './content';
+import { QUESTS, weaponName } from './content';
+import { difficultyPanel } from '../kit/difficultypanel';
+import { areaName } from './story';
 
 function stat(k: string, v: string): HTMLElement {
   return h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v));
@@ -79,6 +82,9 @@ function buildPanel(p: DawidProgress, changed: () => void): HTMLElement[] {
   const best = bestOf(p);
   const now = landAt(p.land);
   const pct = Math.round((p.wounds / Math.max(1, guardHp(p.land))) * 100);
+  // the area the chain is in now (the first circle; later circles go through every area)
+  const q = now.circle === 0 ? QUESTS[now.spec.id][Math.min(p.quest, QUESTS[now.spec.id].length - 1)] : null;
+  const area = q ? areaName(now.spec.id, now.spec.areas[q.area ?? 0].id) : null;
   const map = h('div', { class: 'arcade-album' }, LANDS.map((spec, i) => landTile(spec, now.circle > 0 || i < now.idx ? 'done' : i === now.idx ? 'now' : 'later', pct)));
   const buildings = BUILDINGS.map(b => {
     const lv = buildingLevel(p, b.id), cost = buildingCost(b.id, lv), why = buildingWhy(p, b.id);
@@ -111,6 +117,7 @@ function buildPanel(p: DawidProgress, changed: () => void): HTMLElement[] {
   });
   const tally = Object.entries(p.tally).filter(([k, v]) => k in BEASTS && v > 0).sort((a, b) => b[1] - a[1]);
   const out: (HTMLElement | null)[] = [
+    difficultyPanel({ value: p.difficulty, onChange: d => { p.difficulty = d; changed(); }, line: d => t(`diff.${d}`) }),
     h('div', { class: 'arcade-stats' },
       stat(t('panel.level'), String(p.level)),
       stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
@@ -118,6 +125,7 @@ function buildPanel(p: DawidProgress, changed: () => void): HTMLElement[] {
       stat(t('panel.gates'), fmtNum(p.guards))),
     h('p', { class: 'muted' }, `${t('panel.rules')} ${t('panel.stock', { w: fmtNum(p.wood), s: fmtNum(p.stone) })}`),
     h('div', { class: 'arcade-sub' }, t('panel.map')), map,
+    area && q ? h('p', { class: 'muted' }, t('panel.area', { name: area, i: (q.area ?? 0) + 1, n: now.spec.areas.length })) : null,
     now.circle > 0 ? h('p', { class: 'muted' }, t('panel.circle', { n: now.circle + 1 })) : null,
     h('div', { class: 'arcade-sub' }, t('panel.party', { n: inParty.length, m: partySlots(p) })), ...party,
     ahead.length ? h('div', { class: 'arcade-chips' }, ahead.map(c => h('span', { class: 'muted' }, `? · ${t('panel.later.comp', { land: landName(LANDS[c.land].id) })}`))) : null,
