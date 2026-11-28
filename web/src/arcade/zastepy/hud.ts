@@ -931,7 +931,8 @@ export class Hud {
       const afford = b.light >= st.cost;
       const ready = open && fighting && cool <= 0 && afford;
       const bane = BANE[id];
-      const hot = open && fighting && bane !== null && want.has(bane);
+      // the answering card lifts when its shade comes — a hint the Hardcore level does without (rules.ts LEVELS)
+      const hot = open && fighting && bane !== null && b.lift && want.has(bane);
       const press = this.pressT.get(id) ?? 0, shake = this.shakeT.get(id) ?? 0;
       const hov = this.lit(`card ${id}`);
       const narrow = r.w < 64 * u;
@@ -1117,7 +1118,7 @@ export class Hud {
       const a = gateLevel(p);
       return {
         name: t('up.gate', { n: o.level }),
-        nums: t('up.gateNums', { a: wallsFor(a), b: wallsFor(o.level), c: fmtNum(flowFor(a), 1), d: fmtNum(flowFor(o.level), 1) }),
+        nums: t('up.gateNums', { a: wallsFor(a, 0, sim.L), b: wallsFor(o.level, 0, sim.L), c: fmtNum(flowFor(a), 1), d: fmtNum(flowFor(o.level), 1) }),
       };
     }
     if (o.what === 'hero') {

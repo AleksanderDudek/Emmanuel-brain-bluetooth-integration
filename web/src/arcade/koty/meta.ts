@@ -15,6 +15,7 @@
  * randomness (the merges' luck comes from the session's rng).
  */
 import { CATS, FAM_IDS, PERKS, perkCost, toyDps, type BossId, type CatId, type FamId, type PerkId, type Toy } from './content';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 import { RULES } from './rules';
 
 export type UpId = 'aim' | 'paws' | 'bowl';
@@ -65,6 +66,12 @@ export interface KotyProgress {
   lastSeen: number;
   /** first-time explanations already given (coach marks) and first-time story cards */
   seen: string[];
+  /**
+   * the difficulty level chosen in the lobby (kit/difficulty.ts; an older save has none: 'regular', the game as it
+   * was).  The watch — the stage, the places kept safe, the cats, the toys, the fish, the vintage — is one across the
+   * levels; only the records (`best`) are kept per level.
+   */
+  difficulty: Difficulty;
 }
 
 const toy = (fam: FamId, g = 1): Toy => ({ fam, g });
@@ -82,7 +89,7 @@ export function freshProgress(): KotyProgress {
     stage: 1, fish: 0, up: { aim: 0, paws: 0, bowl: 0 }, bought: 0, slots, chest, yearBest: 1, chief: 1,
     cats: ['mruczek', 'rudy'], squad: ['mruczek', 'rudy'], trips: [], gold: 0, goldTotal: 0, perks: {}, years: 0, bestStage: 1,
     bosses: {}, stars: {}, notebook: {}, toyBook: { proca: 1, dmuchawka: 1, konewka: 1 }, bestGrade: 1, hunts: 0, merges: 0, total: 0,
-    best: {}, lastLen: 0, lastSeen: 0, seen: [],
+    best: {}, lastLen: 0, lastSeen: 0, seen: [], difficulty: 'regular',
   };
 }
 
@@ -159,6 +166,7 @@ export function migrate(p: KotyProgress): KotyProgress {
   p.lastLen = num(raw.lastLen);
   p.lastSeen = Math.max(0, num(raw.lastSeen));
   p.seen = Array.isArray(raw.seen) ? raw.seen.filter((s): s is string => typeof s === 'string') : [];
+  p.difficulty = difficultyOf(raw.difficulty);
   return p;
 }
 
@@ -337,17 +345,26 @@ export function bestToy(p: KotyProgress): Toy | null {
 }
 
 // ── records ──────────────────────────────────────────────────────
-export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
+/** The level a save plays at (an old or odd save: REGULAR). */
+export const levelOf = (p: KotyProgress): Difficulty => difficultyOf(p.difficulty);
 
+/** A record's key: the planned seconds, and the level past REGULAR ("300", "300@hardcore": kit/difficulty `recordKey`). */
+export const lenKey = (plannedSec: number, d: Difficulty = 'regular'): string => recordKey(String(Math.round(plannedSec)), d);
+
+/** The level a record's key belongs to. */
+const keyLevel = (k: string): Difficulty => difficultyOf(k.includes('@') ? k.slice(k.indexOf('@') + 1) : 'regular');
+
+/** The record for a session length at the save's level (null: none yet). */
 export function bestFor(p: KotyProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[lenKey(plannedSec, levelOf(p))];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline at the save's level: the length last played, else the best of any length (null: never played). */
 export function bestOf(p: KotyProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = levelOf(p);
+  const all = Object.entries(p.best).filter(([k, v]) => keyLevel(k) === d && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }

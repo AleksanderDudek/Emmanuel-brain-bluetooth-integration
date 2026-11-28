@@ -25,7 +25,7 @@ import { JerzySound } from './audio';
 import { Hud, REROLL } from './hud';
 import { hand, t, unit, type Key } from './i18n';
 import { cursorFor, pacerAt, sheet, tallyBox, type Layout, type Rect, type Sheet } from './layout';
-import { bestOf, freshProgress, migrate, type JerzyProgress } from './meta';
+import { bestOf, bestRunAt, freshProgress, migrate, type JerzyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { JerzyView } from './render';
@@ -357,7 +357,7 @@ class JerzyGame implements ArcadeGame {
   meter(): number | null { return this.sim.meter(); }
 
   headline(): Headline {
-    const s = this.sim, r = s.run, best = s.p.bestRun;
+    const s = this.sim, r = s.run, best = bestRunAt(s.p, s.difficulty);
     const toBest = best - r.scales;
     const sub = best > 0 && toBest > 0 && toBest <= Math.max(20, best * 0.4)
       ? t('hud.subBest', { lv: r.level, n: toBest })
@@ -422,7 +422,8 @@ const mod: ArcadeModule<JerzyProgress> = {
     return p.sessions > 0 ? bestOf(p) : null;
   },
   unit,
-  progressPanel: (p, save) => progressPanel(migrate(p), save),
+  // the card opens with the difficulty row (kit/difficultypanel.ts): Na start · Zwykły · Zaawansowany · Hardcore
+  progressPanel: (p, save) => progressPanel(migrate(p), save, { levels: true }),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto: () => howto(),
   // the rest's rhythm in the lobby: seconds behind the shield before the Postój, and of the halt

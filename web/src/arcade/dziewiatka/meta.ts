@@ -17,6 +17,7 @@ import {
   CAMPAIGN, FAMILIES, FAMILY_BONUS, HERO_IDS, HEROES, MISSIONS_PER_CHAPTER, PIECES, START_TEAM, BOON_IDS,
   type BoonId, type Family, type HeroId,
 } from './content';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
 import { RULES } from './rules';
 
 export interface HeroGrowth {
@@ -63,6 +64,12 @@ export interface DziewiatkaProgress {
   bosses: number;
   /** first-time explanations already given (coach marks) */
   seen: string[];
+  /**
+   * the difficulty level chosen in the lobby (kit/difficulty.ts; an older save has none: 'regular', the game as it
+   * was).  The town — the missions and their stars, the Bell Tower, the nine and their growth, the bag — is one across
+   * the levels; only the records (`best`) are kept per level.
+   */
+  difficulty: Difficulty;
 }
 
 export const freshHero = (): HeroGrowth => ({ lv: 1, xp: 0, rank: 0, slots: 0, notes: 0, stars: 1 });
@@ -73,7 +80,7 @@ export function freshProgress(): DziewiatkaProgress {
   return {
     ver: 1, sessions: 0, pushes: 0, total: 0, best: {}, lastLen: 0, mission: 0, stars: [], floor: 1, towerBest: 0,
     owned: [...START_TEAM], team: [...START_TEAM], heroes, bag: new Array(PIECES).fill(0), boon: '', boonGold: false,
-    missions: 0, ults: 0, harmonies: 0, interrupts: 0, bosses: 0, seen: [],
+    missions: 0, ults: 0, harmonies: 0, interrupts: 0, bosses: 0, seen: [], difficulty: 'regular',
   };
 }
 
@@ -125,6 +132,7 @@ export function migrate(p: DziewiatkaProgress): DziewiatkaProgress {
   p.boon = typeof raw.boon === 'string' && (BOON_IDS as string[]).includes(raw.boon) ? raw.boon : '';
   p.boonGold = raw.boonGold === true;
   p.seen = Array.isArray(raw.seen) ? raw.seen.filter((s): s is string => typeof s === 'string') : [];
+  p.difficulty = difficultyOf(raw.difficulty);
   return p;
 }
 
@@ -293,18 +301,26 @@ export function recordStars(p: DziewiatkaProgress, index: number, stars: number)
 export const isBoonId = (v: string): v is BoonId => (BOON_IDS as string[]).includes(v);
 
 // ── records ──────────────────────────────────────────────────────
-export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
+/** The level a save plays at (an old or odd save: REGULAR). */
+export const levelOf = (p: DziewiatkaProgress): Difficulty => difficultyOf(p.difficulty);
 
-/** The record for a session length (null: none yet). */
+/** A record's key: the planned seconds, and the level past REGULAR ("300", "300@hardcore": kit/difficulty `recordKey`). */
+export const lenKey = (plannedSec: number, d: Difficulty = 'regular'): string => recordKey(String(Math.round(plannedSec)), d);
+
+/** The level a record's key belongs to. */
+const keyLevel = (k: string): Difficulty => difficultyOf(k.includes('@') ? k.slice(k.indexOf('@') + 1) : 'regular');
+
+/** The record for a session length at the save's level (null: none yet). */
 export function bestFor(p: DziewiatkaProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[lenKey(plannedSec, levelOf(p))];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline at the save's level: the length last played, else the best of any length (null: never played). */
 export function bestOf(p: DziewiatkaProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = levelOf(p);
+  const all = Object.entries(p.best).filter(([k, v]) => keyLevel(k) === d && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
 }

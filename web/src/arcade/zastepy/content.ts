@@ -46,3 +46,9 @@ const COUNT: Readonly<Record<Moment, number>> = {
 export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
   (Object.keys(COUNT) as Moment[]).map(m => [m, Array.from({ length: COUNT[m] }, (_, i) => t(`say.${m}.${i + 1}` as Key))]),
 ) as Record<Moment, string[]>;
+
+/**
+ * Tymek after a withdrawal at a level without its grace (Hardcore: the walls do not grow stronger for the next try):
+ * the first line, which promises thicker walls, gives way to one about the gold.
+ */
+export const LOST_NO_GRACE: readonly string[] = [t('say.lost.hard'), ...LINES.lost.slice(1)];

@@ -8,6 +8,8 @@
  * The world is an endless top-down field in u (about a metre each), x to the right, y down; the
  * camera follows the knight, the brood comes in from beyond the screen.
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the field and the knight (touch: anything under 2 s) ─────
   /** the half-size of the field the view shows (u), until the view says otherwise */
@@ -347,3 +349,36 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The difficulty levels (kit/difficulty.ts, DESIGN §29) on Jerzy's own knobs — multipliers on REGULAR (ones; the
+ * additive ones zero), the game as it was.  A level is a different kind of hard from a road: the roads (above) are
+ * the campaign — each land fought again, its dragon stronger — and stay one map across the levels; a level changes
+ * how hard every fight on that map is.  What it never touches is the training: the aura's radius from the level,
+ * its beat and its quench, the Miecz światła's charge, calm's healing, the free card of a Postój, the blocks.
+ *   brood    the brood's hp; dragon the dragon's scales (the wounds already knocked off stay as they are); hurt the
+ *            hearts a blow, a fireball, a flame or an attack takes — SCALE.foe, bent at Hardcore to ×1.6 / ×1.5 / ×1.5:
+ *            at SCALE's ×2 (and its stream ×1.5) the session bots' focused, sharp knight fell every 100 s with no apple
+ *            to get up and drove the first dragon off in one 5-minute session of three; at these, every 150 s and two
+ *            of three — still the hardest by far (an average player falls every 75 s, one without the band every 35 s)
+ *   count    the brood's stream and the waves' rings (×; the field's cap stays: no more drawn at once)
+ *   speed    the brood's walk and the fireballs (×), the dragon's telegraphs (÷: less time to step out)
+ *   hearts   the knight's hearts (+) — SCALE.self in whole hearts (5 → 7 / 4 / 3)
+ *   revive   Linda's apples that get him up (+; none at Hardcore), rerolls the reshuffles of a choice (+; none at
+ *            Hardcore), drops the apples the brood leaves (×) — the helps
+ *   reward   the scales paid into the treasury (the forge's bank) — SCALE.reward
+ */
+export interface JerzyLevel {
+  brood: number; dragon: number; hurt: number; count: number; speed: number;
+  hearts: number; revive: number; rerolls: number; drops: number; reward: number;
+}
+
+export const LEVELS: Readonly<Record<Difficulty, JerzyLevel>> = {
+  start: { brood: 0.6, dragon: 0.7, hurt: 0.6, count: 0.8, speed: 0.85, hearts: 2, revive: 1, rerolls: 1, drops: 1.5, reward: 0.9 },
+  regular: { brood: 1, dragon: 1, hurt: 1, count: 1, speed: 1, hearts: 0, revive: 0, rerolls: 0, drops: 1, reward: 1 },
+  advanced: { brood: 1.3, dragon: 1.25, hurt: 1.25, count: 1.15, speed: 1.08, hearts: -1, revive: 0, rerolls: 0, drops: 0.75, reward: 1.15 },
+  hardcore: { brood: 1.6, dragon: 1.5, hurt: 1.5, count: 1.3, speed: 1.15, hearts: -2, revive: -9, rerolls: -9, drops: 0.5, reward: 1.3 },
+};
+
+/** A level's knobs (an unknown value: REGULAR). */
+export const levelKnobs = (d: Difficulty | undefined): JerzyLevel => LEVELS[d ?? 'regular'] ?? LEVELS.regular;

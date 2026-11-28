@@ -25,6 +25,8 @@
  */
 import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
+import type { Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -32,15 +34,25 @@ import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
 import { Battle, type BattleEvent, type Control } from './battle';
-import { AGES, DEMON_NAME, HOST_NAME, LINES, TIPS, type Moment } from './content';
+import { AGES, DEMON_NAME, HOST_NAME, LINES, LOST_NO_GRACE, TIPS, type Moment } from './content';
 import { demons as demonsText, gold as goldText, t, unit } from './i18n';
 import {
   ageOf, bestFor, bossOf, buyGate, buyHero, buyUnit, cardsAt, chapterOf, gateLevel, gatePrice, heroLevel, heroPrice, isBossBattle,
-  isTaught, lenKey, migrate, starsFor, taughtBit, unitLevel, unitPrice, type Teach, type ZastepyProgress,
+  isTaught, lenKey, levelOf, migrate, starsFor, taughtBit, unitLevel, unitPrice, type Teach, type ZastepyProgress,
 } from './meta';
-import { ANSWER, DEMONS, HOST, HOST_IDS, RULES, WAVE_IDS, type HostId, type WaveId } from './rules';
+import { ANSWER, DEMONS, HOST, HOST_IDS, RULES, WAVE_IDS, levelKnobs, type HostId, type WaveId, type ZastepyLevel } from './rules';
 
 export { RULES } from './rules';
+
+/**
+ * A level's name for the summary's tile: the long ones get soft hyphens, so a narrow tile (two to a row on a phone,
+ * 30 px type) breaks "Zaawan-sowany" rather than clipping it.
+ */
+const SOFT: Readonly<Record<string, string>> = { Zaawansowany: 'Zaawan\u00adsowany', Fortgeschritten: 'Fort\u00adge\u00adschrit\u00adten' };
+const levelValue = (d: Difficulty): string => {
+  const n = difficultyName(d);
+  return SOFT[n] ?? n;
+};
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -144,6 +156,9 @@ export interface SimInit {
 export class ZastepySim {
   readonly p: ZastepyProgress;
   readonly plannedSec: number;
+  /** the session's difficulty level (chosen in the lobby; fixed for the session) and its knobs */
+  readonly difficulty: Difficulty;
+  readonly L: ZastepyLevel;
   private readonly judge: RoundJudge;
   readonly contrast = new BlockContrast(4);
   /** the band's last 40 s, drawn as the banners along the road */
@@ -234,6 +249,8 @@ export class ZastepySim {
 
   constructor(private readonly init: SimInit) {
     const p = (this.p = migrate(init.progress));
+    this.difficulty = levelOf(p);
+    this.L = levelKnobs(this.difficulty);
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
     this.judge = RoundJudge.from(init.tuning);
@@ -252,7 +269,7 @@ export class ZastepySim {
   private newBattle(): Battle {
     return new Battle({
       battle: this.p.battle, gate: gateLevel(this.p), units: this.levels(), hero: heroLevel(this.p), retreats: this.retreats,
-      seed: (this.seedBase + this.retreats * 7919) >>> 0,
+      seed: (this.seedBase + this.retreats * 7919) >>> 0, level: this.difficulty,
     });
   }
 
@@ -568,7 +585,7 @@ export class ZastepySim {
           this.p.stars[b.battle] = Math.max(prev, stars);
           this.starsNow += fresh;
           this.lastStars = stars;
-          const pay = R.winGold + R.winGoldPerBattle * b.local + R.starGold * fresh;
+          const pay = Math.round((R.winGold + R.winGoldPerBattle * b.local + R.starGold * fresh) * this.L.reward);
           this.addGold(pay);
           this.wonNow++;
           if (this.retreats > 0) this.comeback = true;
@@ -773,7 +790,7 @@ export class ZastepySim {
   }
 
   private say(m: Moment): boolean {
-    const list = LINES[m];
+    const list = m === 'lost' && this.L.grace === 0 ? LOST_NO_GRACE : LINES[m];
     const k = this.said[m] ?? 0;
     // every line of the moment said: the next round only after RULES.talkRound s of the session
     if (k >= list.length && this.t < Math.floor(k / list.length) * RULES.talkRound) return false;
@@ -896,12 +913,15 @@ export class ZastepySim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      // records per level: REGULAR keeps the old key, a level past it its own ("300@hardcore")
+      const key = lenKey(this.plannedSec, this.difficulty);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const at = chapterOf(p.battle);
     const stats: [string, string][] = [
+      // a level past REGULAR is named first (REGULAR's summary stays as it was)
+      ...(this.difficulty === 'regular' ? [] : [[t('stat.level'), levelValue(this.difficulty)] as [string, string]]),
       [t('stat.won'), String(this.wonNow)],
       [t('stat.battle'), t('stat.battleOf', { n: at.local + 1, of: RULES.chapter, c: at.chapter + 1 })],
       [t('stat.age'), AGES[ageOf(p.battle)]],

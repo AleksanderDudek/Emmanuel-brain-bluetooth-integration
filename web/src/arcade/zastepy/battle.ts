@@ -16,9 +16,10 @@
  */
 import { mulberry32 } from '../../core/random';
 import { agePower, ageOf, beamFor, bossOf, chapterOf, flowFor, isBossBattle, lightMaxFor, pillarFor, trumpetDmgFor, wallsFor } from './meta';
+import type { Difficulty } from '../kit/difficulty';
 import {
-  BANE, DEMONS, DEMON_BANE, HOST, HOST_IDS, RULES, WAVE_IDS, isBoss,
-  type BossId, type DemonId, type HostId, type Stats, type WaveId,
+  BANE, DEMONS, DEMON_BANE, HOST, HOST_IDS, RULES, WAVE_IDS, isBoss, levelKnobs,
+  type BossId, type DemonId, type HostId, type Stats, type WaveId, type ZastepyLevel,
 } from './rules';
 
 export type Side = 1 | -1;
@@ -95,6 +96,8 @@ export interface BattleInit {
   /** withdrawals in this battle so far: each makes the walls stronger for the next try */
   retreats: number;
   seed: number;
+  /** the difficulty level (absent: REGULAR, the battle as designed) */
+  level?: Difficulty;
 }
 
 const WEIGHT: Readonly<Record<WaveId, number>> = { chochlik: 3, cien: 3, ogar: 2, skrzydlak: 2, miotacz: 2, bestia: 1 };
@@ -112,6 +115,8 @@ export class Battle {
   readonly bossKind: BossId;
   readonly gate: number;
   readonly road: number = RULES.road;
+  /** the difficulty level's knobs (rules.ts LEVELS; REGULAR: all ones) */
+  readonly L: ZastepyLevel;
   private readonly rng: () => number;
   private readonly levels: Readonly<Record<HostId, number>>;
   private readonly events: BattleEvent[] = [];
@@ -168,19 +173,24 @@ export class Battle {
     this.gate = init.gate;
     this.levels = init.units;
     this.rng = mulberry32((init.seed ^ (init.battle * 0x9e3779b1)) >>> 0);
+    const L = (this.L = levelKnobs(init.level));
     this.lightMax = lightMaxFor(init.gate);
+    this.light = RULES.lightStart * L.light;
     this.flowBase = flowFor(init.gate);
-    this.wallsMax = this.walls = wallsFor(init.gate, init.retreats);
-    this.ashMax = this.ash = Math.round((RULES.ash + RULES.ashPerBattle * this.local) * (1 + RULES.ashChapter * this.might));
+    this.wallsMax = this.walls = wallsFor(init.gate, init.retreats, L);
+    this.ashMax = this.ash = Math.round((RULES.ash + RULES.ashPerBattle * this.local) * (1 + RULES.ashChapter * this.might) * L.ash);
     this.beam = beamFor(init.gate);
     this.pillarStats = pillarFor(Math.max(1, Math.min(RULES.heroMax, init.hero ?? 1)));
     this.cool = Object.fromEntries(HOST_IDS.map(id => [id, 0])) as Record<HostId, number>;
   }
 
-  /** the demons' strength in this battle (× hp and damage) */
+  /** the demons' strength in this battle (× hp and damage), at the level's knobs */
   get demonK(): number {
-    return (1 + RULES.demonPerBattle * (this.bossBattle ? RULES.bossWaves : this.local)) * (1 + RULES.demonPerChapter * this.might);
+    return (1 + RULES.demonPerBattle * (this.bossBattle ? RULES.bossWaves : this.local)) * (1 + RULES.demonPerChapter * this.might) * this.L.foe;
   }
+
+  /** the answering card lifts when its shade comes (a hint the hardest level does without) */
+  get lift(): boolean { return this.L.lift; }
 
   // ── the cards ───────────────────────────────────────────────────
   /** The cards open at this gate level, in order. */
@@ -221,7 +231,9 @@ export class Battle {
   }
 
   private spawn(id: DemonId, x = this.road - 0.4): void {
-    const f = this.make(-1, id, DEMONS[id], x, this.demonK, DEMONS[id].gold);
+    const st = DEMONS[id], L = this.L;
+    // the level's pace: a quicker walk and quicker strikes (REGULAR: × 1, the numbers as they are)
+    const f = this.make(-1, id, { ...st, speed: st.speed * L.speed, rate: st.rate / L.speed }, x, this.demonK, Math.round(st.gold * L.reward));
     if (isBoss(id)) {
       this.boss = f;
       f.lane = 0.5;
@@ -367,7 +379,7 @@ export class Battle {
       this.events.push({ type: 'waveSoon', kinds: this.nextWave.slice() });
     }
     if (this.waveT <= 0) {
-      this.waveT += Math.max(R.gapMin, R.gap - R.gapPerBattle * (local + this.might * 2));
+      this.waveT += Math.max(R.gapMin, R.gap - R.gapPerBattle * (local + this.might * 2)) / this.L.waves;
       this.waveN++;
       this.queue.push(...(this.nextWave ?? this.pick(1, false)));
       this.nextWave = null;
@@ -553,7 +565,7 @@ export class Battle {
       const step = RULES.ashSurge * this.ashMax;
       if (this.ash > 0 && Math.floor((this.ashMax - this.ash) / step) > Math.floor((this.ashMax - before) / step)) {
         this.surges++;
-        this.queue.push(...this.pick(3 + Math.floor(this.local / RULES.growBattles) + this.might, this.surges % 2 === 0));
+        this.queue.push(...this.pick(Math.round((3 + Math.floor(this.local / RULES.growBattles) + this.might) * this.L.count), this.surges % 2 === 0));
         this.events.push({ type: 'surge' });
       }
     } else {
@@ -622,7 +634,7 @@ export class Battle {
     this.emberCd = RULES.emberRate;
     this.events.push({ type: 'ember', x: target.x, fly: target.fly });
     const k = target.kind === 'tarczownik' ? RULES.shieldRanged : 1;
-    this.hurt(target, (RULES.ember + RULES.emberPerBattle * this.local) * (1 + RULES.demonPerChapter * this.might) * k, 'ember');
+    this.hurt(target, (RULES.ember + RULES.emberPerBattle * this.local) * (1 + RULES.demonPerChapter * this.might) * this.L.foe * k, 'ember');
   }
 
   private fade(dt: number): void {

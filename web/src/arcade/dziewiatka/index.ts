@@ -376,7 +376,8 @@ const mod: ArcadeModule<DziewiatkaProgress> = {
     return p.sessions > 0 ? bestOf(p) : null;
   },
   unit,
-  progressPanel: (p, save) => progressPanel(migrate(p), save),
+  // the card opens with the difficulty row (kit/difficultypanel.ts): Na start · Zwykły · Zaawansowany · Hardcore
+  progressPanel: (p, save) => progressPanel(migrate(p), save, { levels: true }),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
   howto,
   // the rest's rhythm in the lobby: seconds of battle before the team sits at the well, and of the well

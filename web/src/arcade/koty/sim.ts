@@ -22,6 +22,8 @@
  * No DOM: the view and the sound read the state and the event queue (`take()`).
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -37,10 +39,20 @@ import {
   aimMult, bestFor, bowlMult, canVintage, costOf, holdVintage, joinCats, lenKey, noteToy, pawsMult, perks, shopGrade, slotCount,
   vintageGold, type BuyId, type KotyProgress, type Perks,
 } from './meta';
-import { RULES, span } from './rules';
+import { RULES, levelKnobs, span, type KotyLevel } from './rules';
 import { roundFor, Talk } from './talk';
 
 export { RULES } from './rules';
+
+/**
+ * A level's name for the summary's tile: the long ones get soft hyphens, so a narrow tile (two to a row on a phone,
+ * 30 px type) breaks "Zaawan-sowany" rather than clipping it.
+ */
+const SOFT: Readonly<Record<string, string>> = { Zaawansowany: 'Zaawan\u00adsowany', Fortgeschritten: 'Fort\u00adge\u00adschrit\u00adten' };
+const levelValue = (d: Difficulty): string => {
+  const n = difficultyName(d);
+  return SOFT[n] ?? n;
+};
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -251,6 +263,9 @@ export interface SimInit {
 export class KotySim {
   readonly p: KotyProgress;
   readonly plannedSec: number;
+  /** the session's difficulty level (chosen in the lobby; fixed for the session) and its knobs (rules.ts LEVELS) */
+  readonly difficulty: Difficulty;
+  readonly knobs: KotyLevel;
   private readonly rng: () => number;
   private readonly judge: RoundJudge;
   readonly contrast = new BlockContrast(4);
@@ -354,6 +369,8 @@ export class KotySim {
 
   constructor(init: SimInit) {
     const p = (this.p = init.progress);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.knobs = levelKnobs(this.difficulty);
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
@@ -412,7 +429,7 @@ export class KotySim {
 
   /** The fish of a fox-sized pest at this stage, with the bowl and the perks. */
   fishOf(kind: PestId, stage = this.p.stage): number {
-    return pestFish(stage, kind) * bowlMult(this.p.up.bowl) * this.perks.fish;
+    return pestFish(stage, kind) * bowlMult(this.p.up.bowl) * this.perks.fish * this.knobs.reward;
   }
 
   /** What the watch earns a second while fighting at par (a fox-sized pest every two seconds). */
@@ -1053,7 +1070,9 @@ export class KotySim {
   /** A new stage's wave (the boss stage: the short wave before the chief). */
   private newWave(): void {
     this.step = 'wave';
-    this.wave = { all: waveSize(this.p.stage), spawned: 0, chased: 0 };
+    // the level's numbers: a stage brings × count pests (REGULAR: as many as ever)
+    const c = this.knobs.count;
+    this.wave = { all: c === 1 ? waveSize(this.p.stage) : Math.max(1, Math.round(waveSize(this.p.stage) * c)), spawned: 0, chased: 0 };
     this.spawnT = 0.9;
   }
 
@@ -1071,7 +1090,7 @@ export class KotySim {
       const alive = this.pests.filter(pe => pe.state !== 'flee').length;
       if (this.spawnT <= 0 && alive < R.cap) {
         this.spawnGroup();
-        this.spawnT = span(R.groupSec, this.rng());
+        this.spawnT = span(R.groupSec, this.rng()) / this.knobs.speed;
       }
     }
     if (this.step !== 'boss' && this.wave.spawned >= this.wave.all && !this.pests.some(pe => pe.counted && pe.state !== 'flee')) {
@@ -1110,7 +1129,7 @@ export class KotySim {
       x = clamp(spot.x + (this.rng() - 0.5) * 3, 0.4, R.FW - 0.4);
       y = R.enterY - k * 0.35;
     }
-    const hp = courage(this.p.stage, kind) * (elite ? R.eliteHp : 1);
+    const hp = courage(this.p.stage, kind) * (elite ? R.eliteHp : 1) * this.knobs.foe;
     const pe: Pest = {
       id: this.nextId++, kind, spec, x, y, tx: spot.x, ty: spot.y, hp, max: hp, state: 'come', t: 0, hit: 0, freeze: 0,
       dir: spot.x >= x ? 1 : -1, vx: 0, vy: 0, elite, counted, seed: this.rng() * 100, pending: 0, by: -1,
@@ -1280,11 +1299,12 @@ export class KotySim {
   private bossEnter(): void {
     const id = this.info.place.boss;
     const prev = this.boss?.id === id ? this.boss : null;
-    const max = bossCourage(this.p.stage, id);
-    const pat = this.perks.patience;
+    const max = bossCourage(this.p.stage, id) * this.knobs.foe;
+    // the level's patience: the watch's time to chase him (REGULAR: the perks' as ever)
+    const pat = this.perks.patience * this.knobs.self;
     this.boss = {
       id, spec: BOSSES[id], state: 'enter', st: 0, x: RULES.FW / 2, y: -1.4, tx: RULES.FW / 2, ty: 3.4,
-      hp: prev ? prev.hp : max * clamp(this.p.chief, 0.05, 1), max, patience: pat, patienceMax: pat, trickIn: span(RULES.trickEvery, this.rng()),
+      hp: prev ? prev.hp : max * clamp(this.p.chief, 0.05, 1), max, patience: pat, patienceMax: pat, trickIn: span(RULES.trickEvery, this.rng()) / this.knobs.speed,
       hit: 0, dir: 1, visits: (prev?.visits ?? 0) + 1, pending: 0,
     };
     this.step = 'boss';
@@ -1321,10 +1341,13 @@ export class KotySim {
         b.ty = -2.5;
         move(2.2);
         if (b.st >= 1.4) {
-          // he is gone for now: a few more pests, then he is back
+          // he is gone for now: a few more pests, then he is back — sooner at Na start; past REGULAR he heals a share
+          // of what was knocked off while away (all of it at Hardcore: the level's grace, rules.ts LEVELS)
+          const g = this.knobs.grace;
+          if (g < 1) b.hp += (b.max - b.hp) * (1 - g);
           b.state = 'away';
           this.step = 'farm';
-          this.wave = { all: RULES.farmWave, spawned: 0, chased: 0 };
+          this.wave = { all: g > 1 ? Math.max(1, Math.round(RULES.farmWave / g)) : RULES.farmWave, spawned: 0, chased: 0 };
           this.spawnT = 0.6;
         }
         return;
@@ -1370,7 +1393,7 @@ export class KotySim {
           b.y = b.ty;
         }
         this.setBoss('here');
-        b.trickIn = span(RULES.trickEvery, this.rng());
+        b.trickIn = span(RULES.trickEvery, this.rng()) / this.knobs.speed;
       }
     }
   }
@@ -1821,13 +1844,16 @@ export class KotySim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      // records per level: REGULAR keeps the old key, a level past it its own ("300@hardcore")
+      const key = lenKey(this.plannedSec, this.difficulty);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     let bt: Toy | null = null;
     for (const x of [...p.slots, ...p.chest]) if (x && (!bt || x.g > bt.g)) bt = x;
     const stats: [string, string][] = [
+      // a level past REGULAR is named first (REGULAR's summary stays as it was)
+      ...(this.difficulty === 'regular' ? [] : [[t('stat.difficulty'), levelValue(this.difficulty)] as [string, string]]),
       [t('stat.stage'), String(p.stage)],
       [t('stat.bestStage'), String(p.bestStage)],
       [t('stat.bosses'), String(this.bossesNow.length)],

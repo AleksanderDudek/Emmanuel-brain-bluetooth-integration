@@ -23,7 +23,8 @@ import {
   ARMOUR, COMPANIONS, DRAGONS, FORGE, TREASURES, forgeCost,
   type ArmourId, type CompanionId, type DragonSpec, type ForgeId, type TreasureId,
 } from './content';
-import { RULES } from './rules';
+import { difficultyOf, recordKey, type Difficulty } from '../kit/difficulty';
+import { RULES, levelKnobs } from './rules';
 
 export interface JerzyProgress {
   ver: 3;
@@ -69,6 +70,14 @@ export interface JerzyProgress {
   duets: string[];
   /** first-time explanations already given (coach marks) */
   seen: string[];
+  /**
+   * the difficulty level chosen in the lobby (kit/difficulty.ts; an older save has none: 'regular', the game as it
+   * was).  The map — the roads cleared, the wounds, the forge, the armoury, the companions — is one across the
+   * levels; the records (`best`, and the best run of a level past REGULAR in `runs2`) are kept per level.
+   */
+  difficulty: Difficulty;
+  /** the best run (scales, seconds) of each level past REGULAR (REGULAR's stays in bestRun / bestTime) */
+  runs2: Record<string, number>;
 }
 
 export function freshProgress(): JerzyProgress {
@@ -77,6 +86,7 @@ export function freshProgress(): JerzyProgress {
     cleared: DRAGONS.map(() => 0), land: 0, tier: 0, wounds: {}, driven: 0,
     best: {}, lastLen: 0, bestRun: 0, bestTime: 0, runs: 0, swords: 0, quenched: 0, bestLevel: 0, evolutions: 0, chests: 0,
     forge: {}, armour: [], companions: [], party: [], treasures: [], flaws: [], duets: [], seen: [],
+    difficulty: 'regular', runs2: {},
   };
 }
 
@@ -159,6 +169,10 @@ function repair(p: JerzyProgress, best: Record<string, number>): void {
   p.flaws = strings(p.flaws);
   p.duets = strings(p.duets);
   p.seen = strings(p.seen);
+  p.difficulty = difficultyOf(p.difficulty);
+  const runs2: Record<string, number> = {};
+  for (const [k, v] of Object.entries(isObj(p.runs2) ? p.runs2 : {})) if (num(v) > 0) runs2[k] = Math.floor(num(v));
+  p.runs2 = runs2;
   // the fight now must be one the map allows
   if (!canFight(p, p.land, p.tier)) {
     const fr = frontier(p);
@@ -221,6 +235,12 @@ export function road(tier: number): { hp: number; brood: number; tele: number; c
 
 /** All the scales of a dragon on a road. */
 export const hpOf = (spec: DragonSpec, tier: number): number => Math.round(spec.hp * road(tier).hp);
+
+/** All the scales of a dragon on a road at a difficulty level (REGULAR: hpOf). */
+export const dragonHp = (spec: DragonSpec, tier: number, d: Difficulty = 'regular'): number => {
+  const k = levelKnobs(d).dragon;
+  return k === 1 ? hpOf(spec, tier) : Math.round(hpOf(spec, tier) * k);
+};
 
 /** The scales already knocked off the dragon of a fight. */
 export const woundsOf = (p: JerzyProgress, land: number, tier: number): number => Math.max(0, num(p.wounds[woundKey(land, tier)]));
@@ -335,18 +355,42 @@ export function earnArmour(p: JerzyProgress): ArmourId[] {
 }
 
 // ── records ──────────────────────────────────────────────────────
-export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
+/** The level a save plays at (an old or odd save: REGULAR). */
+export const levelOf = (p: JerzyProgress): Difficulty => difficultyOf(p.difficulty);
 
-/** The record for a session length (null: none yet). */
+/** A record's key: the planned seconds, and the level past REGULAR ("300", "300@hardcore": kit/difficulty `recordKey`). */
+export const lenKey = (plannedSec: number, d: Difficulty = 'regular'): string => recordKey(String(Math.round(plannedSec)), d);
+
+/** The level a record's key belongs to. */
+const keyLevel = (k: string): Difficulty => difficultyOf(k.includes('@') ? k.slice(k.indexOf('@') + 1) : 'regular');
+
+/** The record for a session length at the save's level (null: none yet). */
 export function bestFor(p: JerzyProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
+  const v = p.best[lenKey(plannedSec, levelOf(p))];
   return typeof v === 'number' && v > 0 ? v : null;
 }
 
-/** The best headline for the length last played, else the best of any length (null: never played). */
+/** The best headline at the save's level: the length last played, else the best of any length (null: never played). */
 export function bestOf(p: JerzyProgress): number | null {
   const last = bestFor(p, p.lastLen);
   if (last !== null) return last;
-  const all = Object.values(p.best).filter(v => typeof v === 'number' && v > 0);
+  const d = levelOf(p);
+  const all = Object.entries(p.best).filter(([k, v]) => keyLevel(k) === d && typeof v === 'number' && v > 0).map(([, v]) => v);
   return all.length ? Math.max(...all) : null;
+}
+
+/** The best run (its scales) at a level: REGULAR's is bestRun, a level past it keeps its own. */
+export const bestRunAt = (p: JerzyProgress, d: Difficulty): number => (d === 'regular' ? p.bestRun : Math.max(0, num(p.runs2?.[recordKey('run', d)])));
+
+/** A run's scales and length into the best run of its level. */
+export function keepRun(p: JerzyProgress, d: Difficulty, scales: number, sec: number): void {
+  if (d === 'regular') {
+    p.bestRun = Math.max(p.bestRun, scales);
+    p.bestTime = Math.max(p.bestTime, Math.round(sec));
+    return;
+  }
+  const r = recordKey('run', d), tk = recordKey('time', d);
+  p.runs2 = p.runs2 ?? {};
+  p.runs2[r] = Math.max(num(p.runs2[r]), scales);
+  p.runs2[tk] = Math.max(num(p.runs2[tk]), Math.round(sec));
 }

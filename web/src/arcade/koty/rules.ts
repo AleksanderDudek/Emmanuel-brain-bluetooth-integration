@@ -7,6 +7,8 @@
  * The field is a logical 10 × 10: x across, y from the far edge (where the pests come in, 0) to the
  * abbey wall the cats sit on (10).  The view maps it onto whatever room the layout gives it.
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the field ────────────────────────────────────────────────
   FW: 10,
@@ -176,3 +178,28 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The difficulty levels (kit/difficulty.ts, DESIGN §29) on Kocia straż's own knobs — multipliers on REGULAR (all ones:
+ * the game as it was).  An idle shooter has no hearts to lose: what a level changes is how much courage there is to
+ * chase and how much time a chief gives.  What it never touches is the training: the squad's pace from the band, the
+ * Great Hunt's hold and its pounce, the nap's ripening (paid as so many seconds of the stage's income), the blocks.
+ *   foe      the pests' and the chiefs' courage (a chief's wounds are kept as a share, so they mean the same at every level)
+ *   count    the pests a stage brings (×; the field's cap stays)
+ *   speed    how often the groups come in and how often a chief plays his trick (their intervals ÷ this)
+ *   self     a chief's patience — the watch's own time to chase him (×)
+ *   grace    a chief who backs off: past 1 he is back after fewer pests (the farm wave ÷ this); under 1 he heals that
+ *            share of the courage knocked off while away (Hardcore: all of it — he comes back as he came)
+ *   reward   the fish every pest and chief brings (and with it the gift of the watch kept while away)
+ */
+export interface KotyLevel { foe: number; count: number; speed: number; self: number; grace: number; reward: number }
+
+export const LEVELS: Readonly<Record<Difficulty, KotyLevel>> = {
+  start: { foe: 0.6, count: 0.75, speed: 0.85, self: 1.5, grace: 1.5, reward: 0.9 },
+  regular: { foe: 1, count: 1, speed: 1, self: 1, grace: 1, reward: 1 },
+  advanced: { foe: 1.4, count: 1.25, speed: 1.1, self: 0.85, grace: 0.6, reward: 1.15 },
+  hardcore: { foe: 2, count: 1.5, speed: 1.2, self: 0.7, grace: 0, reward: 1.3 },
+};
+
+/** A level's knobs (an unknown value: REGULAR). */
+export const levelKnobs = (d: Difficulty | undefined): KotyLevel => LEVELS[d ?? 'regular'] ?? LEVELS.regular;
