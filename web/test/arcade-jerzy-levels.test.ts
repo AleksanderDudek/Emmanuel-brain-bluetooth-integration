@@ -293,23 +293,29 @@ describe('Jerzy — the order, measured at the same focus', () => {
 
   it('5-minute sessions played by the bots: more runs lost level by level (an average, a sharp and a band-less player together), and an average player loses more of his hearts a minute', () => {
     const rows = DIFFICULTIES.map(d => {
-      let lost = 0, avg = 0;
+      let lost = 0, avg = 0, banded = 0, bare = 0;
       for (const [prof, skill] of [['avg', 'casual'], ['good', 'sharp'], ['none', 'casual']] as [Profile, Skill][]) {
         for (const seed of [1, 2]) {
           const r = session(d, prof, skill, seed);
           lost += r.lost;
+          if (prof === 'none') bare += r.lost;
+          else banded += r.lost;
           if (prof === 'avg') avg += r.perMin / 2;
         }
       }
-      return { lost, avg };
+      return { lost, avg, banded, bare };
     });
-    const say = rows.map(r => `${r.lost} runs, ${r.avg.toFixed(2)}/min`).join(' · ');
+    const say = rows.map(r => `${r.lost} runs (${r.banded} with the band), ${r.avg.toFixed(2)}/min`).join(' · ');
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i].lost, `${DIFFICULTIES[i]}: ${say}`).toBeGreaterThan(rows[i - 1].lost);
       expect(rows[i].avg, `${DIFFICULTIES[i]}: ${say}`).toBeGreaterThan(rows[i - 1].avg);
     }
-    // Na start: nobody's run is lost in these five minutes, not even without the band
-    expect(rows[0].lost).toBe(0);
+    // Na start: with the band nobody's run is lost in these five minutes; without it, one at the most (Zwykły loses
+    // 2–4 in every band-less session).  Not "none even without the band": these sessions are chaotic, and V8's
+    // Math.sin, cos, exp, atan2, pow and tan differ in the last bit between x64 (CI) and arm64, so the band-less knight
+    // of seed 2, who falls once on arm64, falls three times on x64 and loses a run (24 seeds: 0 lost on arm64, 1 on x64).
+    expect(rows[0].banded, say).toBe(0);
+    expect(rows[0].bare, say).toBeLessThanOrEqual(1);
   }, 300_000);
 });
 
