@@ -11,8 +11,10 @@
  *   named          the feelings the player named by a tap, and how often (no words of their own: the game has none)
  *
  * Anything broken becomes a fresh progress keeping only a session count; every field of a wrong type is repaired, never
- * trusted.  No DOM, no randomness.
+ * trusted.  No DOM, no randomness.  The age group is shared on this device (kit/ages.ts, round 25): a fresh progress
+ * takes the device's choice (made here or in Złota passa), and a choice made here is saved for every game.
  */
+import { loadAge, saveAge } from '../kit/ages';
 import { RULES, cleanPace } from './rules';
 import { AGES, FEELINGS, type Age, type Feeling } from './story';
 import { storyById } from './stories';
@@ -46,11 +48,22 @@ export const DEFAULT_AGE: Age = 'adult';
 const freshNext = (): Record<Age, string> => ({ teen: '', young: '', adult: '', mid: '', senior: '' });
 const freshNamed = (): Record<Feeling, number> => Object.fromEntries(FEELINGS.map(f => [f, 0])) as Record<Feeling, number>;
 
-export function freshProgress(): StopProgress {
+function blank(): StopProgress {
   return {
     ver: 1, sessions: 0, age: DEFAULT_AGE, ageSet: false, heavy: false, next: freshNext(), mastered: 0, best: 0, told: 0, held: 0,
     pace: 0, named: freshNamed(), seen: [], lastLen: 0,
   };
+}
+
+/** A new player's progress: the device's age group when one was chosen (here or in another game), else none yet. */
+export function freshProgress(): StopProgress {
+  const p = blank();
+  const a = loadAge();
+  if (a) {
+    p.age = a;
+    p.ageSet = true;
+  }
+  return p;
 }
 
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -61,7 +74,7 @@ export const isAge = (v: unknown): v is Age => typeof v === 'string' && (AGES as
 /** Bring a loaded save to version 1, in place (idempotent): every field repaired; a broken save keeps its session count. */
 export function migrate(p: StopProgress): StopProgress {
   const raw = p as unknown as Record<string, unknown>;
-  const f = freshProgress();
+  const f = blank();
   if (!isObj(raw) || raw.ver !== 1) {
     const sessions = isObj(raw) ? int(raw.sessions) : 0;
     for (const k of Object.keys(raw)) delete raw[k];
@@ -110,6 +123,7 @@ export function setAge(p: StopProgress, a: unknown): boolean {
   if (!isAge(a)) return false;
   p.age = a;
   p.ageSet = true;
+  saveAge(a);
   return true;
 }
 

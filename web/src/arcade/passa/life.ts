@@ -94,6 +94,8 @@ export const SENSE_MAX = 40;
 /** What the film shows of a sense or given moment (the view's optional `life` field). */
 export interface LifeView {
   place: Place;
+  /** (P1, optional) which of the two kinds this moment is */
+  kind?: 'sense' | 'given';
   /** the close-up: 0 the wide shot … 1 the thing filling the frame (a sense moment pushes in as focus holds) */
   close: number;
   sense: Sense | null;

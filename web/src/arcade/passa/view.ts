@@ -3,13 +3,15 @@
  * frame — builder A) and the street (render.ts, scene.ts, layout.ts, audio.ts — builder B).  Every string the street
  * draws comes in the view, already in the page's language.  Shapes change only by agreement; optional fields are fine.
  */
-import type { LifeView, Place } from './life';
-import type { DayPart, Motif, MomentKind } from './moments';
+import type { Age } from '../kit/ages';
+import type { LifeKind, LifeView, Place } from './life';
+import type { DayPart, Motif } from './moments';
 
 export type Phase =
   | 'intro'    // dawn on the street, the root verse
   | 'arrive'   // a moment arrives: its card comes down the street (real time, a breath)
   | 'name'     // a heavy moment's rest before the push: the hurt is named (a rest block)
+  | 'without'  // (round 25) a given moment's rest before the push: the thing greys away, "imagine without" (a rest block)
   | 'turn'     // the push: focus turns the card (the gold side writes itself as focus holds)
   | 'savor'    // the rest after a win: the light flies up into the garland, gratitude — calm makes it glow
   | 'carry'    // a card focus did not turn: it goes gently into the pocket ("idzie ze mną")
@@ -18,7 +20,8 @@ export type Phase =
 
 /** The card of the moment now. */
 export interface CardView {
-  kind: MomentKind;
+  /** round 22's joy, snag, heavy — and (round 25, life.ts) a sense or a given moment's card */
+  kind: LifeKind;
   motif: Motif;
   /** the grey side's words and the gold side's (the chosen reframe; '' until chosen) */
   what: string;
@@ -71,6 +74,8 @@ export interface PassaView {
   place?: Place;
   /** (round 25) a sense or given moment's close-up, guide and greying; null for the other kinds */
   life?: LifeView | null;
+  /** (round 25, optional) the age group whose day this is (kit/ages.ts) — the film may fit its places to it */
+  age?: Age;
 }
 
 export interface Rect { x: number; y: number; w: number; h: number }

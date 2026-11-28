@@ -12,21 +12,35 @@
  *
  * The player's own moments (the lobby's "Mój dzień") come first; their words live only in this object and the progress
  * on this device — result() carries only numbers and the catalog's sentences, never a moment's words.
+ *
+ * Round 25 (life.ts, DESIGN.md §29): the day is the player's age group's (kit/ages.ts; asked on the opening card when
+ * never chosen) and a film through the places of that day — each moment has its place, and within a part of the day
+ * the film only goes onward along the day's route (content.ts `ROUTE`).  The moments come from the group's sets (and
+ * the shared pool; round 22's sets fill any gap), and two new kinds stand in the plan's slots: **sense** (a mini session
+ * of attention on one sense: its guide lines one by one through the push, focus opening the close-up and turning the
+ * card gold) and **given** (a thing taken for granted: in a breath of rest it greys away — "imagine without" — then
+ * focus brings it back in gold and the thanks writes itself).  Both turn only with focus, as every card.
  */
 import { fmtNum, lang } from '../../i18n';
 import { BREATH_DEFAULT, breathAt, type BreathState } from '../kit/breath';
 import { BlockContrast, type FocusFrame, type FocusTuning } from '../kit/focus';
+import type { Age } from '../kit/ages';
 import { approach, clamp } from '../kit/juice';
 import type { Rhythm } from '../kit/rhythm';
 import { inTurn, passage, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import type { StreetCue } from './audio';
-import { HEAVIES, JOYS, OWN_MOTIF, SNAGS, VERSES, setById, verseFor, type Say, type SetMoment } from './content';
+import {
+  HEAVIES, JOYS, OWN_MOTIF, PLACE_AT, SNAGS, VERSES, anySetById, lifeCounts, lifeSets, partIndex, r22Fits, r22Place, routeRank, verseFor,
+  type Say, type SetMoment,
+} from './content';
 import { signText, t, unit, type Key } from './i18n';
-import { bestOf, creditDay, migrate, type OwnMoment, type PassaProgress } from './meta';
-import type { DayPart, Moment, MomentKind } from './moments';
+import { AGES } from '../kit/ages';
+import type { LifeKind, LifeSet, LifeView, Place, Sense } from './life';
+import { HEAVY_TURNS, bestOf, creditDay, migrate, setAge, type OwnMoment, type PassaProgress } from './meta';
+import { DAY_PARTS, type DayPart, type Moment, type Motif } from './moments';
 import { RULES, dayAt, daysBetween, focusRate, needFor, partOf, planFor, readTime, streakAfter, type BlockKind, type BlockWhat, type Plan, type PlanBlock } from './rules';
-import { OWN_WINS, TRUST, setWords } from './sets';
+import { OWN_WINS, TRUST, lifeWords, setWords } from './sets';
 import { Talk } from './talk';
 import type { CardView, ChoiceView, PassaView, Phase } from './view';
 
@@ -35,9 +49,17 @@ export type { BlockKind, BlockWhat };
 /** How a moment ended: turned by focus (a win), or carried in the pocket. */
 export type Done = 'win' | 'carry';
 
-/** A moment as the session plays it. */
-export interface MomentRun extends Moment {
+/** A moment as the session plays it (round 25: any of the five kinds, with its place in the film). */
+export interface MomentRun extends Omit<Moment, 'kind'> {
+  kind: LifeKind;
   slot: number;
+  /** (round 25) where the film shows it; a sense moment's sense; its guide lines and when each begins in the push (s);
+   * a given moment's "imagine without" line ('' none) */
+  place: Place;
+  sense: Sense | null;
+  guide: string[];
+  guideT: number[];
+  without: string;
   /** the set moment's id (null: the player's own), the own moment's id (null: a set's) */
   setId: string | null;
   ownId: string | null;
@@ -59,7 +81,7 @@ export interface MomentRun extends Moment {
   met: boolean;
 }
 
-export type Coach = 'turn' | 'choose' | 'savor' | 'carry';
+export type Coach = 'turn' | 'choose' | 'savor' | 'carry' | 'sense' | 'given';
 
 export type SimEvent =
   | { type: 'block'; kind: BlockKind; what: BlockWhat }
@@ -68,6 +90,7 @@ export type SimEvent =
   | { type: 'carried'; slot: number }
   | { type: 'chose'; slot: number; i: number }
   | { type: 'picked'; i: number }
+  | { type: 'age'; age: Age }
   | { type: 'sparkle' }
   | { type: 'coach'; what: Coach };
 
@@ -112,13 +135,29 @@ class WindowMean {
 
 const ease = (x: number): number => 0.5 - 0.5 * Math.cos(Math.PI * clamp(x));
 
+/** A set moment the day may pick (round 25): one of the group's sets or one of round 22's (the fallback). */
+interface Cand { id: string; kind: LifeKind; motif: Motif; part: DayPart; place: Place; sense: Sense | null; r22: boolean }
+
+const isLife = (k: LifeKind): k is 'sense' | 'given' => k === 'sense' || k === 'given';
+const lifeCand = (m: LifeSet): Cand => ({ id: m.id, kind: m.kind, motif: m.motif, part: m.part, place: m.place, sense: m.sense ?? null, r22: false });
+const r22Cand = (m: SetMoment, age: Age): Cand => ({ id: m.id, kind: m.kind, motif: m.motif, part: m.part, place: r22Place(m.id, age), sense: null, r22: true });
+
+/** The heavy moments a group's day may meet, in turn (`heavyNext`): the group's own first, then round 22's that fit it. */
+export function heavyPool(age: Age): Cand[] {
+  return [...lifeSets(age, 'heavy').filter(m => !!lifeWords(m.id, 'pl')).map(lifeCand), ...HEAVIES.filter(m => r22Fits(m.id, age)).map(m => r22Cand(m, age))];
+}
+
 /** The labels of a moment's choices: its wins, and "not yet — I trust" on a heavy card. */
 export const labelsOf = (m: Pick<Moment, 'wins' | 'trust'>): string[] => (m.trust ? [...m.wins, m.trust] : [...m.wins]);
 
 export class PassaSim {
   readonly p: PassaProgress;
   readonly plan: Plan;
-  readonly runs: MomentRun[];
+  runs: MomentRun[];
+  /** (round 25) the age group whose day this is; the opening card's pick (−1 none) and when it was made */
+  age: Age;
+  agePicked = -1;
+  private agePickedAt = -1;
   readonly talk: Talk;
   readonly eeg: boolean;
   readonly reduced: boolean;
@@ -144,6 +183,9 @@ export class PassaSim {
   carried = 0;
   /** a heavy moment was met (its turn began) */
   heavyMet = false;
+  /** (round 25) sense and given moments received (turned by focus) */
+  senseWins = 0;
+  givenWins = 0;
   /** the passage on the card place (rests and the close) */
   verse: VerseCard | null = null;
   /** the close's "for what most?": the wins it offers (their slots) and the one picked (−1 none) */
@@ -177,9 +219,10 @@ export class PassaSim {
     this.session = this.p.sessions + 1;
     this.bestBefore = bestOf(this.p);
     this.days = Math.max(1, streakAfter(this.p.streak, o.day).days);
+    this.age = this.p.age;
     this.plan = planFor({
       plannedSec: o.plannedSec, eeg: o.eeg, focus: o.rhythm?.focus ?? null, rest: o.rhythm?.rest ?? null, custom: !!o.rhythm?.custom,
-      first: this.first, heavy: this.p.hard,
+      first: this.first, heavy: this.p.hard, ...lifeCounts(), ask: !this.p.ageSet,
     });
     this.runs = this.buildRuns();
     this.block = this.plan.blocks[0];
@@ -188,20 +231,24 @@ export class PassaSim {
 
   // ── the day's moments ─────────────────────────────────────────
 
-  /** The moments of the day, slot by slot: the player's own first, the cards carried back, then the sets. */
+  /**
+   * The moments of the day, slot by slot (the plan's kinds): in the card slots the player's own first, the cards
+   * carried back, then the sets' joys and troubles; in the sense and given slots the group's moments of those kinds.
+   * Each set moment is picked by the slot's part of the day and so that the film goes onward along the day's route.
+   */
   private buildRuns(): MomentRun[] {
-    const P = this.plan, p = this.p, rng = this.rng;
+    const P = this.plan, p = this.p, rng = this.rng, age = this.age;
     const heavySlot = P.heavyAt;
     // the player's own, in turn from where the last session stopped; a hard one only when asked for
     const n0 = p.own.length;
     const own = Array.from({ length: n0 }, (_, i) => p.own[(p.ownNext + i) % n0]);
     const ownLight = own.filter(o => o.kind !== 'heavy');
     const ownHeavy = p.hard ? own.find(o => o.kind === 'heavy') ?? null : null;
-    // the cards carried last time (a heavy one only when asked for: it then takes the heavy slot)
+    // the cards carried last time that fit this group (a heavy one only when asked for: it then takes the heavy slot)
     const last = this.p.streak.last;
     const gap = last ? daysBetween(last, this.day) : NaN;
     const back: 'yesterday' | 'lately' = gap === 1 ? 'yesterday' : 'lately';
-    const carriedSets = p.carried.map(setById).filter((m): m is SetMoment => !!m);
+    const carriedSets = p.carried.map(id => this.cand(id)).filter((c): c is Cand => !!c && (c.kind === 'joy' || c.kind === 'snag' || c.kind === 'heavy'));
     const carriedLight = carriedSets.filter(m => m.kind !== 'heavy');
     const carriedHeavy = p.hard ? carriedSets.find(m => m.kind === 'heavy') ?? null : null;
 
@@ -215,52 +262,134 @@ export class PassaSim {
       const b = P.blocks.find(x => x.what === 'turn' && x.slot === slot);
       return partOf(dayAt(P, b ? b.t0 : 0));
     };
-    const pickSet = (kind: 'joy' | 'snag', part: DayPart, slot: number): SetMoment | null => {
-      const all = kind === 'joy' ? JOYS : SNAGS;
-      let pool = all.filter(m => !used.has(m.id));
-      if (!pool.length) {
-        // a very long day used them all: they may come again
-        for (const m of all) used.delete(m.id);
-        pool = [...all];
+    const parts = Array.from({ length: P.n }, (_, i) => partAt(i));
+    // the film: where it is, in which part of the day, for how many moments at that place
+    let film: { place: Place; part: DayPart; stay: number } | null = null;
+    const here = (): Place => film?.place ?? PLACE_AT.intro;
+    const go = (place: Place, part: DayPart): void => {
+      film = { place, part, stay: film && film.place === place ? film.stay + 1 : 1 };
+    };
+    // the group's moments by kind (with their words), and round 22's that fit the group (the fallback)
+    const groupOf = new Map<LifeKind, Cand[]>();
+    const group = (k: LifeKind): Cand[] => {
+      let g = groupOf.get(k);
+      if (!g) groupOf.set(k, (g = lifeSets(age, k).filter(m => !!lifeWords(m.id, 'pl')).map(lifeCand)));
+      return g;
+    };
+    const oldOf = (k: LifeKind): Cand[] => (k === 'joy' ? JOYS : k === 'snag' ? SNAGS : []).filter(m => r22Fits(m.id, age)).map(m => r22Cand(m, age));
+    // the route's span the group's moments use in each part (the film travels it over that part's slots)
+    const span = new Map<DayPart, [number, number]>();
+    for (const part of DAY_PARTS) {
+      const ranks = (['joy', 'snag', 'sense', 'given'] as const).flatMap(k => [...group(k), ...oldOf(k)]).filter(c => c.part === part).map(c => routeRank(c.place, part));
+      span.set(part, ranks.length ? [Math.min(...ranks), Math.max(...ranks)] : [0, 0]);
+    }
+    const pick = (kind: LifeKind, slot: number): { c: Cand; here: boolean } | null => {
+      const part = parts[slot];
+      const f = film as { place: Place; part: DayPart; stay: number } | null;
+      const rank = (c: Cand): number => routeRank(c.place, part);
+      const cur = f && f.part === part ? routeRank(f.place, part) : -1;
+      // the pace: the part's slots travel the span of the route the group's moments use in it — a slot takes a place
+      // between where the film is and a little past where the route expects it now
+      const mine = parts.map((x, i) => (x === part ? i : -1)).filter(i => i >= 0);
+      const [s0, s1] = span.get(part)!;
+      const target = s0 + ((Math.max(0, mine.indexOf(slot)) + 0.5) / Math.max(1, mine.length)) * (s1 - s0);
+      const hi = Math.max(cur + 1, target + RULES.routeAhead);
+      // (never far past the places this part's moments use: an evening's window does not end the afternoon)
+      const cap = Math.max(s1 + 1, cur);
+      const fwd = (c: Cand): boolean => rank(c) >= cur;
+      const pace = (c: Cand): boolean => fwd(c) && rank(c) <= Math.min(hi, cap);
+      const ahead = (c: Cand): boolean => fwd(c) && rank(c) <= Math.min(hi + RULES.routeAhead + 1.5, cap + 1);
+      const near = (c: Cand): boolean => Math.abs(partIndex(c.part) - partIndex(part)) <= 1;
+      const same = (c: Cand): boolean => c.part === part;
+      const fresh = (c: Cand): boolean => !recent.has(c.id);
+      const G = group(kind).filter(c => !used.has(c.id)), GF = G.filter(fresh);
+      const O = oldOf(kind).filter(c => !used.has(c.id)), OF = O.filter(fresh);
+      // a very long day used them all: they may come again, never one met in the last `againAfter` moments
+      const A = [...group(kind), ...oldOf(kind)].filter(c => used.has(c.id) && slot - (metAt.get(c.id) ?? -Infinity) >= RULES.againAfter);
+      const all = (...fs: ((c: Cand) => boolean)[]) => (c: Cand): boolean => fs.every(fn => fn(c));
+      // the group's own moments first — not met lately first (a different day each time), the slot's part of the day
+      // first, within the route's pace; then round 22's that fit the group; then any not met today further along the
+      // route; then a moment met earlier today, long ago.
+      // In the pace: one at random; a little past it: the nearest step (never straight to the route's end)
+      const tiers: [Cand[], boolean][] = [];
+      for (const pool of [GF, G]) {
+        tiers.push([pool.filter(all(same, pace)), true], [pool.filter(all(same, ahead)), false]);
+        tiers.push([pool.filter(all(near, pace)), true], [pool.filter(all(near, ahead)), false]);
       }
-      // …never one met in the last `againAfter` moments (before they were all used, none was met: nothing changes)
-      const longAgo = pool.filter(m => slot - (metAt.get(m.id) ?? -Infinity) >= RULES.againAfter);
-      if (longAgo.length) pool = longAgo;
-      const tiers = [pool.filter(m => !recent.has(m.id) && m.part === part), pool.filter(m => !recent.has(m.id)), pool.filter(m => m.part === part), pool];
-      for (const tier of tiers) if (tier.length) return tier[Math.floor(rng() * tier.length)];
+      for (const pool of [OF, O]) tiers.push([pool.filter(all(same, pace)), true], [pool.filter(all(near, pace)), true], [pool.filter(all(near, ahead)), false]);
+      tiers.push([G.filter(fwd), false], [O.filter(fwd), false]);
+      tiers.push([A.filter(all(same, pace)), true], [A.filter(all(near, ahead)), false], [A.filter(fwd), false]);
+      for (const [tier, random] of tiers) if (tier.length) return { c: choose(tier, random, f, rank), here: false };
+      // nothing onward along the route: the moment comes to the place the film is at (the film never goes back)
+      for (const tier of [G.filter(same), G, O, A]) if (tier.length) return { c: choose(tier, true, f, rank), here: true };
       return null;
     };
+    /** Of a tier, one at random (moving on after two moments at one place) — or, onward past the pace, the nearest. */
+    const choose = (tier: Cand[], random: boolean, f: { place: Place; stay: number } | null, rank: (c: Cand) => number): Cand => {
+      let list = tier;
+      if (f && f.stay >= 2) {
+        const on = list.filter(c => c.place !== f.place);
+        if (on.length) list = on;
+      }
+      if (!random) {
+        const r0 = Math.min(...list.map(rank));
+        list = list.filter(c => rank(c) <= r0 + 1);
+      }
+      return list[Math.floor(rng() * list.length)] ?? list[0];
+    };
     let ownI = 0, backI = 0;
-    // the set cards' kinds over the day: a little more joys than troubles (and never fewer), troubles at most as many as
-    // the set has, joys too while the troubles can make up the rest (round 24: a 45-minute day meets each card once);
-    // spread so that three troubles never come in a row
-    const setTotal = Math.max(0, P.n - (heavySlot >= 0 ? 1 : 0) - ownLight.length - carriedLight.length);
-    let joysLeft = Math.max(Math.min(Math.ceil(setTotal * 0.55), JOYS.length), setTotal - SNAGS.length);
+    // the cards' kinds over the day: a little more joys than troubles (and never fewer), troubles at most as many as
+    // the sets have, joys too while the troubles can make up the rest; spread so three troubles never come in a row
+    const cardSlots = P.kinds.filter(k => k === 'card').length;
+    const setTotal = Math.max(0, cardSlots - ownLight.length - carriedLight.length);
+    const joyCap = group('joy').length + oldOf('joy').length, snagCap = group('snag').length + oldOf('snag').length;
+    let joysLeft = Math.max(Math.min(Math.ceil(setTotal * 0.55), joyCap), setTotal - snagCap);
     let snagsLeft = Math.max(0, setTotal - joysLeft);
+    const took = (c: Cand, slot: number): void => {
+      used.add(c.id);
+      metAt.set(c.id, slot);
+    };
     for (let slot = 0; slot < P.n; slot++) {
-      const part = partAt(slot);
+      const part = parts[slot];
+      const kind = P.kinds[slot] ?? 'card';
       if (slot === heavySlot) {
-        if (ownHeavy) runs.push(this.ownRun(ownHeavy, slot, part));
+        if (ownHeavy) runs.push(this.ownRun(ownHeavy, slot, part, here()));
         else {
-          const m = carriedHeavy ?? HEAVIES[p.heavyNext % HEAVIES.length];
-          runs.push(this.setRun(m, slot, part, m === carriedHeavy ? back : null));
+          const pool = heavyPool(age);
+          const m = carriedHeavy ?? (pool.length ? pool[p.heavyNext % pool.length] : r22Cand(HEAVIES[p.heavyNext % HEAVIES.length], age));
+          runs.push(this.setRun(m, slot, part, here(), m === carriedHeavy ? back : null));
         }
         snagsInRow = 0;
+        go(here(), part);
         continue;
       }
-      if (ownI < ownLight.length) {
-        runs.push(this.ownRun(ownLight[ownI++], slot, part));
+      if (kind === 'sense' || kind === 'given') {
+        // a sense or a given moment of the group (the plan holds no more of them than the smallest group has)
+        const got = pick(kind, slot) ?? pick('joy', slot);
+        if (got) {
+          const m = got.c, at = got.here ? here() : m.place;
+          took(m, slot);
+          runs.push(this.setRun(m, slot, part, at, null));
+          go(at, part);
+          snagsInRow = m.kind === 'snag' ? snagsInRow + 1 : 0;
+          continue;
+        }
+      }
+      if (kind === 'card' && ownI < ownLight.length) {
+        runs.push(this.ownRun(ownLight[ownI++], slot, part, here()));
+        go(here(), part);
         continue;
       }
-      if (backI < carriedLight.length) {
+      if (kind === 'card' && backI < carriedLight.length) {
         const m = carriedLight[backI++];
-        used.add(m.id);
-        runs.push(this.setRun(m, slot, part, back));
+        took(m, slot);
+        runs.push(this.setRun(m, slot, part, here(), back));
         snagsInRow = m.kind === 'snag' ? snagsInRow + 1 : 0;
+        go(here(), part);
         continue;
       }
       // joys a little more often at first (easy wins build the identity), never three troubles in a row; the day's
-      // first card from the street, and a test's, is a joy
+      // first card from the sets, and a test's, is a joy
       const pJoy = joysLeft / Math.max(1, joysLeft + snagsLeft) + (setSlots < 3 ? 0.12 : 0);
       // a joy only while the troubles left still fit between the joys left; a trouble never the third in a row
       const canJoy = joysLeft > 0 && snagsLeft <= 2 * joysLeft;
@@ -268,39 +397,84 @@ export class PassaSim {
       const joy = !canSnag || (canJoy && (setSlots === 0 || P.test || rng() < pJoy));
       if (joy) joysLeft--;
       else snagsLeft--;
-      const m = pickSet(joy ? 'joy' : 'snag', part, slot)!;
-      used.add(m.id);
-      metAt.set(m.id, slot);
+      const got = pick(joy ? 'joy' : 'snag', slot) ?? pick(joy ? 'snag' : 'joy', slot) ?? { c: r22Cand(JOYS[slot % JOYS.length], age), here: true };
+      const m = got.c, at = got.here ? here() : m.place;
+      took(m, slot);
       setSlots++;
       snagsInRow = m.kind === 'snag' ? snagsInRow + 1 : 0;
-      runs.push(this.setRun(m, slot, part, null));
+      runs.push(this.setRun(m, slot, part, at, null));
+      go(at, part);
     }
     return runs;
   }
 
-  private needOf(slot: number): number {
-    const P = this.plan;
-    return needFor(P.push, P.lead) * (P.test ? RULES.testNeed : 1) * (this.first && slot === 0 ? RULES.firstNeed : 1);
+  /** A set moment by id as a candidate for this group (null: unknown, or not this group's). */
+  private cand(id: string): Cand | null {
+    const m = anySetById(id);
+    if (!m) return null;
+    if ('ages' in m) return (!m.ages.length || m.ages.includes(this.age)) && lifeWords(m.id, 'pl') ? lifeCand(m) : null;
+    return r22Fits(m.id, this.age) ? r22Cand(m, this.age) : null;
   }
 
-  private base(slot: number): Omit<MomentRun, keyof Moment | 'setId' | 'ownId' | 'back'> {
+  /** The push of a slot (s, lead-in included): a sense moment's mini session, or the rhythm's turn. */
+  pushOf(slot: number): number {
+    return this.plan.kinds[slot] === 'sense' ? this.plan.sensePush : this.plan.push;
+  }
+
+  private needOf(slot: number): number {
+    const P = this.plan;
+    return needFor(this.pushOf(slot), P.lead) * (P.test ? RULES.testNeed : 1) * (this.first && slot === 0 ? RULES.firstNeed : 1);
+  }
+
+  private base(slot: number): Omit<MomentRun, keyof Moment | 'kind' | 'setId' | 'ownId' | 'back' | 'place' | 'sense' | 'guide' | 'guideT' | 'without'> {
     return { slot, need: this.needOf(slot), p: 0, write: 0, shown: 0, chosen: -1, done: null, doneAt: -1, abide: 0, sparkles: 0, met: false };
   }
 
-  private setRun(m: SetMoment, slot: number, part: DayPart, back: 'yesterday' | 'lately' | null): MomentRun {
-    const w = setWords(m.id, lang) ?? setWords(m.id, 'pl')!;
+  private setRun(m: Cand, slot: number, part: DayPart, place: Place, back: 'yesterday' | 'lately' | null): MomentRun {
+    let what: string, wins: string[], guide: string[] = [], without = '';
+    if (m.r22) {
+      const w = setWords(m.id, lang) ?? setWords(m.id, 'pl')!;
+      what = w.what;
+      wins = [...w.wins];
+    } else {
+      const w = lifeWords(m.id, lang)!;
+      what = w.what;
+      // a joy, a sense and a given moment have one win; a trouble and a heavy one two or three
+      wins = m.kind === 'snag' || m.kind === 'heavy' ? w.wins.slice(0, 3) : w.wins.slice(0, 1);
+      if (m.kind === 'sense') guide = w.guide;
+      if (m.kind === 'given') without = w.without;
+    }
+    // a sense moment's guide lines fill its push after the arrive's line ("a moment for the senses: taste") has been
+    // read, each at least long enough to be read (the last ones left out if not)
+    const guideT: number[] = [];
+    if (guide.length) {
+      const from = Math.min(RULES.guideFrom, this.plan.sensePush * 0.15);
+      const room = this.plan.sensePush - from;
+      let k = guide.length;
+      const need = (n: number): number => guide.slice(0, n).reduce((a, x) => a + readTime(x), 0);
+      while (k > 1 && need(k) > room - 0.5) k--;
+      guide = guide.slice(0, k);
+      const scale = room / Math.max(0.01, need(k));
+      let acc = from;
+      for (const x of guide) {
+        guideT.push(acc);
+        acc += readTime(x) * scale;
+      }
+    }
     return {
-      ...this.base(slot), id: m.id, kind: m.kind, motif: m.motif, part, what: w.what, wins: [...w.wins],
+      ...this.base(slot), id: m.id, kind: m.kind, motif: m.motif, part, what, wins,
       trust: m.kind === 'heavy' ? TRUST[lang] : undefined, own: false, setId: m.id, ownId: null, back,
+      place, sense: m.kind === 'sense' ? m.sense : null, guide, guideT, without,
     };
   }
 
-  private ownRun(o: OwnMoment, slot: number, part: DayPart): MomentRun {
+  private ownRun(o: OwnMoment, slot: number, part: DayPart, place: Place): MomentRun {
     const gen = OWN_WINS[lang][o.kind];
     const wins = o.win ? (o.kind === 'joy' ? [o.win] : [o.win, gen[0]]) : [...gen];
     return {
       ...this.base(slot), id: `own:${o.id}`, kind: o.kind, motif: OWN_MOTIF[o.kind], part, what: o.text, wins,
       trust: o.kind === 'heavy' ? TRUST[lang] : undefined, own: true, setId: null, ownId: o.id, back: null,
+      place, sense: null, guide: [], guideT: [], without: '',
     };
   }
 
@@ -323,8 +497,34 @@ export class PassaSim {
   get breath(): BreathState | null { return this.restBlock ? breathAt(BREATH_DEFAULT, this.blockT) : null; }
   /** the day's light now (0 dawn … 1 night) */
   get day01(): number { return dayAt(this.plan, this.t); }
-  /** a story card of a first-ever session's dawn (the hud draws it) */
-  get story(): boolean { return this.started && this.first && this.block.what === 'intro' && this.left > 1.2; }
+  /** a story card of a first-ever session's dawn (the hud draws it; before the age card when there is one) */
+  get story(): boolean {
+    if (!this.started || !this.first || this.block.what !== 'intro') return false;
+    return this.plan.askEnd > 0 ? this.t < this.plan.askT0 - 0.6 : this.left > 1.2;
+  }
+
+  /** (round 25) The opening card that asks for the age group is open (never chosen; a moment after a pick it closes). */
+  get askOpen(): boolean {
+    const P = this.plan;
+    if (!this.started || this.block.what !== 'intro' || !(P.askEnd > 0) || this.t < P.askT0 || this.t >= P.askEnd) return false;
+    return this.agePicked < 0 || this.t < this.agePickedAt + RULES.askShowSec;
+  }
+
+  /** Pick the age group on the opening card (chips 0–4): the day after the opening is drawn from that group's sets. */
+  pickAge(i: number): boolean {
+    if (!this.askOpen || !Number.isInteger(i) || i < 0 || i >= AGES.length) return false;
+    const a = AGES[i];
+    setAge(this.p, a);
+    this.agePicked = i;
+    this.agePickedAt = this.t;
+    if (a !== this.age) {
+      this.age = a;
+      this.runs = this.buildRuns();
+    }
+    this.emit({ type: 'age', age: a });
+    this.cue('turned', 0);
+    return true;
+  }
 
   start(): void {
     if (this.started) return;
@@ -337,8 +537,9 @@ export class PassaSim {
   private emit(e: SimEvent): void { this.events.push(e); }
   private cue(c: StreetCue, n = 0): void { this.emit({ type: 'cue', cue: c, n }); }
 
-  private coach(what: Coach): void {
-    if (!this.firstSessions) return;
+  /** A first-time explanation (the first two sessions; `always`: whenever it was never given — round 25's new kinds). */
+  private coach(what: Coach, always = false): void {
+    if (!this.firstSessions && !always) return;
     const id = `c.${what}`;
     if (this.p.seen.includes(id)) return;
     this.p.seen.push(id);
@@ -369,11 +570,23 @@ export class PassaSim {
       case 'arrive': {
         if (!r) break;
         this.cue('arrive');
-        const say: Say | null = r.back ? (r.back === 'yesterday' ? 'backYesterday' : 'backLately') : r.own ? 'arriveOwn' : r.kind === 'joy' ? 'arriveJoy' : r.kind === 'snag' ? 'arriveSnag' : null;
+        if (r.kind === 'sense' && r.sense) {
+          // a mini session of one sense: named as it comes
+          this.talk.hush();
+          this.talk.say(t('say.sense', { sense: t(`sense.${r.sense}` as Key) }), 3, 4);
+          break;
+        }
+        const say: Say | null = r.back ? (r.back === 'yesterday' ? 'backYesterday' : 'backLately') : r.own ? 'arriveOwn'
+          : r.kind === 'joy' ? 'arriveJoy' : r.kind === 'snag' ? 'arriveSnag' : r.kind === 'given' ? 'arriveGiven' : null;
         if (say) this.talk.ask(say, r.back ? 3 : 1, 4);
         if (r.kind !== 'heavy' && labelsOf(r).length > 1) this.coach('choose');
         break;
       }
+      case 'without':
+        // a given moment's rest: the thing greys away while the "imagine without" line shows (the line is the voice;
+        // it waits for the narrator's last line)
+        if (r?.kind === 'given') this.coach('given', true);
+        break;
       case 'name':
         this.talk.hush();
         this.cue('heavy');
@@ -385,15 +598,20 @@ export class PassaSim {
         if (r.kind === 'heavy') this.heavyMet = true;
         this.abideSaid = false;
         this.cue('turnStart');
-        this.talk.ask(r.kind === 'joy' ? 'turnJoy' : r.kind === 'snag' ? 'turnSnag' : 'turnHeavy', 2, 6);
-        this.coach('turn');
+        if (r.kind === 'sense') {
+          // the guide lines lead the attention: the narrator says nothing new (the guide waits for its last line)
+          this.coach('sense', true);
+        } else {
+          this.talk.ask(r.kind === 'joy' ? 'turnJoy' : r.kind === 'snag' ? 'turnSnag' : r.kind === 'given' ? 'turnGiven' : 'turnHeavy', 2, 6);
+          this.coach('turn');
+        }
         if (r.kind === 'heavy') this.coach('choose');
         break;
       case 'after':
         if (!r) break;
         if (r.done === 'win') {
           this.cue('light', this.wins);
-          this.talk.ask('savor', 1, 5);
+          this.talk.ask(r.kind === 'sense' ? 'savorSense' : r.kind === 'given' ? 'savorGiven' : 'savor', 1, 5);
           this.coach('savor');
         } else {
           this.cue('carry');
@@ -456,6 +674,7 @@ export class PassaSim {
       case 'turn': this.updateTurn(step); break;
       case 'after': this.updateAfter(step); break;
       case 'name': this.updateName(); break;
+      case 'without': break;
       case 'intro': this.updateIntro(); break;
       case 'garland': this.updateGarland(); break;
       case 'prayer': this.updatePrayer(); break;
@@ -467,7 +686,10 @@ export class PassaSim {
     if (r) r.shown = this.block.what === 'after' && r.done === 'carry' ? approach(r.shown, 0, step, 0.8) : approach(r.shown, r.p, step, this.reduced ? 0.05 : 0.35);
     if (this.verse && this.t > this.verse.t0 + this.verse.dur) this.verse = null;
     if (this.runBanner && this.t > this.runBanner.until) this.runBanner = null;
-    const blocked = this.t < this.hintUntil || this.blockT < 0.8 || this.block.what === 'prayer';
+    // the narrator waits for a coach mark, the prayer, the age card, a given moment's "without" and a sense moment's guide
+    const cr = this.cur;
+    const guiding = !!cr && ((cr.kind === 'sense' && this.block.what === 'turn' && cr.guide.length > 0 && !cr.done) || this.block.what === 'without');
+    const blocked = this.t < this.hintUntil || this.blockT < 0.8 || this.block.what === 'prayer' || this.askOpen || guiding;
     this.talk.update(step, this.t, blocked);
   }
 
@@ -515,13 +737,15 @@ export class PassaSim {
     this.inRow++;
     this.bestRun = Math.max(this.bestRun, this.inRow);
     if (trust) this.trustWins++;
+    if (r.kind === 'sense') this.senseWins++;
+    if (r.kind === 'given') this.givenWins++;
     this.emit({ type: 'turned', slot: r.slot, trust });
     this.cue(trust ? 'trust' : 'turned', this.wins);
     this.talk.hush();
     if (RULES.runSay.includes(this.inRow)) {
       this.talk.say(t('say.run', { n: this.inRow }), 4, 6);
       this.runBanner = { n: this.inRow, until: this.t + RULES.runBanner };
-    } else this.talk.ask(trust ? 'turnedTrust' : 'turned', 3, 5);
+    } else this.talk.ask(trust ? 'turnedTrust' : isLife(r.kind) ? 'turnedLife' : 'turned', 3, 5);
   }
 
   private isTrust(r: MomentRun, i: number): boolean {
@@ -538,7 +762,10 @@ export class PassaSim {
   private updateIntro(): void {
     if (this.first || this.verse || this.plan.test) return;
     const k = this.blockT;
-    if (k > 3 && this.left > 4) this.showVerse(verseFor('intro', this.session), Math.max(2, this.left - 0.5));
+    // the dawn's passage — before the age card when there is one
+    const end = this.plan.askEnd > 0 ? this.plan.askT0 : this.block.t1;
+    const left = end - this.t;
+    if (k > 3 && left > 4) this.showVerse(verseFor('intro', this.session), Math.max(2, left - 0.5));
   }
 
   private updateName(): void {
@@ -574,11 +801,11 @@ export class PassaSim {
       if (r.done === 'win') target = 0.82 + (this.rate > 0 ? 0.18 : 0);
       else if (!this.sighted) target = 0.15;
       else {
-        const pace = r.need / Math.max(1, this.plan.push - this.lead);
+        const pace = r.need / Math.max(1, this.pushOf(r.slot) - this.lead);
         target = clamp((0.5 * this.rateShown) / Math.max(0.05, pace));
       }
     } else if (w === 'after' && r) target = r.done === 'win' ? 0.4 + 0.6 * this.calm : 0.12;
-    else if (w === 'name') target = 0.2 + 0.35 * this.calm;
+    else if (w === 'name' || w === 'without') target = 0.2 + 0.35 * this.calm;
     else if (w === 'arrive') target = 0.2;
     this.glow = approach(this.glow, target, dt, this.reduced ? 0.05 : 0.4);
   }
@@ -622,6 +849,7 @@ export class PassaSim {
 
   key(key: string, down: boolean): boolean {
     if (!down) return false;
+    if (this.askOpen) return /^[1-5]$/.test(key) ? this.pickAge(Number(key) - 1) : false;
     if (/^[1-4]$/.test(key)) return this.choose(Number(key) - 1);
     if (key === ' ' || key === 'Enter') {
       const n = this.choiceLabels.length;
@@ -660,12 +888,13 @@ export class PassaSim {
   get tip(): string {
     const r = this.cur;
     switch (this.block.what) {
-      case 'intro': return t('task.intro');
+      case 'intro': return t(this.askOpen ? 'task.ask' : 'task.intro');
       case 'arrive': return t('task.arrive');
       case 'name': return t('task.name');
+      case 'without': return t('task.without');
       case 'turn':
         if (r?.done === 'win') return t('task.abide');
-        return t(r?.kind === 'snag' ? 'task.turnSnag' : r?.kind === 'heavy' ? 'task.turnHeavy' : 'task.turnJoy');
+        return t(r?.kind === 'snag' ? 'task.turnSnag' : r?.kind === 'heavy' ? 'task.turnHeavy' : r?.kind === 'sense' ? 'task.turnSense' : r?.kind === 'given' ? 'task.turnGiven' : 'task.turnJoy');
       case 'after': return t(r?.done === 'win' ? 'task.savor' : 'task.carry');
       case 'garland': return t('task.garland');
       case 'prayer': return t('task.prayer');
@@ -706,6 +935,7 @@ export class PassaSim {
       case 'intro': return 'intro';
       case 'arrive': return 'arrive';
       case 'name': return 'name';
+      case 'without': return 'without';
       case 'turn': return 'turn';
       case 'after': return this.cur?.done === 'win' ? 'savor' : 'carry';
       default: return 'evening';
@@ -760,6 +990,59 @@ export class PassaSim {
     return this.talk.line?.text ?? null;
   }
 
+  /** (round 25) Where the film is now: waking at the intro, each moment's place, the evening table, the window at night. */
+  get place(): Place {
+    const w = this.block.what;
+    if (w === 'intro') return PLACE_AT.intro;
+    if (w === 'garland' || w === 'prayer' || w === 'close') return PLACE_AT[w];
+    return this.cur?.place ?? PLACE_AT.intro;
+  }
+
+  /** (round 25) The guide line of a sense moment's push now (each in its turn), or null. */
+  private guideNow(r: MomentRun): string | null {
+    if (this.block.what !== 'turn' || !r.guide.length || this.blockT < r.guideT[0]) return null;
+    let i = 0;
+    while (i + 1 < r.guideT.length && this.blockT >= r.guideT[i + 1]) i++;
+    return r.guide[i] ?? null;
+  }
+
+  /** (round 25) A sense or a given moment's close-up, guide and greying (null for the other kinds and parts). */
+  lifeView(): LifeView | null {
+    const r = this.cur, w = this.block.what;
+    if (!r || !isLife(r.kind) || w === 'intro' || w === 'garland' || w === 'prayer' || w === 'close') return null;
+    const k = this.blockK, sh = clamp(r.shown), red = this.reduced;
+    const won = r.done === 'win';
+    const out = ease((k - 0.5) / 0.5);
+    const slide = ease(this.blockT / RULES.carrySec);
+    let close = 0, without = 0, guide: string | null = null;
+    if (r.kind === 'sense') {
+      if (w === 'arrive') close = 0.25 * (red ? 1 : ease(k));
+      else if (w === 'turn') close = 0.25 + 0.75 * sh;
+      else if (w === 'after') close = won ? 1 - out : (0.25 + 0.75 * clamp(r.p)) * (1 - slide);
+      guide = this.guideNow(r);
+    } else {
+      if (w === 'arrive') close = 0.15 * (red ? 1 : ease(k));
+      else if (w === 'without') {
+        without = ease(Math.min(1, this.blockT / Math.max(0.5, 0.7 * this.dur)));
+        close = 0.15 + 0.2 * ease(k);
+        guide = r.without || null;
+      } else if (w === 'turn') {
+        without = 1 - sh;
+        close = 0.35 + 0.65 * sh;
+      } else if (w === 'after') {
+        if (won) close = 1 - out;
+        else {
+          // not brought back by focus: the thing is there anyway — its colour returns quietly as the card goes
+          without = (1 - clamp(r.p)) * (1 - slide);
+          close = (0.35 + 0.65 * clamp(r.p)) * (1 - slide);
+        }
+      }
+    }
+    // one voice at a time: the guide waits while the narrator's line is on screen
+    if (this.talk.line) guide = null;
+    return { place: r.place, kind: r.kind, close: clamp(close), sense: r.sense, guide, without: clamp(without) };
+  }
+
   /** The street's view of this frame (B's render.ts draws it). */
   view(): PassaView {
     const flying = this.flying;
@@ -776,10 +1059,13 @@ export class PassaSim {
       glow: clamp(this.glow),
       say: this.sayText,
       banner: this.banner,
-      breath: b && (this.block.what === 'name' || this.block.what === 'after' || this.block.what === 'garland' || this.block.what === 'prayer') ? b.k : 0.5,
+      breath: b && (this.block.what === 'name' || this.block.what === 'without' || this.block.what === 'after' || this.block.what === 'garland' || this.block.what === 'prayer') ? b.k : 0.5,
       carried: this.carried,
       reduced: this.reduced,
       sign: signText(this.days),
+      place: this.place,
+      life: this.lifeView(),
+      age: this.age,
     };
   }
 
@@ -809,7 +1095,8 @@ export class PassaSim {
     creditDay(p, this.day);
     // the set cards carried (a few come back next time); a card carried before and not met this time keeps waiting
     const metSets = new Set(this.runs.filter(r => r.met && r.setId).map(r => r.setId!));
-    const carriedNow = this.runs.filter(r => r.done === 'carry' && r.setId).map(r => r.setId!);
+    // (a sense or a given moment carried goes with the player today only: it comes again from its set another day)
+    const carriedNow = this.runs.filter(r => r.done === 'carry' && r.setId && !isLife(r.kind)).map(r => r.setId!);
     p.carried = [...p.carried.filter(id => !metSets.has(id)), ...carriedNow].filter((id, i, a) => a.indexOf(id) === i).slice(-RULES.carryKeep);
     p.recent = [...p.recent.filter(id => !metSets.has(id)), ...metSets].slice(-RULES.recentMax);
     // the player's own moments come in turn: the next session begins after the last one met
@@ -817,7 +1104,9 @@ export class PassaSim {
     if (p.own.length) p.ownNext = (p.ownNext + ownMet) % p.own.length;
     // the heavy set's turn moves on when one of its cards was met (not a carried or an own one)
     const h = this.runs.find(r => r.kind === 'heavy' && r.met && r.setId && !r.back);
-    if (h && h.setId === HEAVIES[p.heavyNext % HEAVIES.length].id) p.heavyNext = (p.heavyNext + 1) % HEAVIES.length;
+    const pool = heavyPool(this.age);
+    const turn = pool.length ? pool[p.heavyNext % pool.length].id : HEAVIES[p.heavyNext % HEAVIES.length].id;
+    if (h && h.setId === turn) p.heavyNext = (p.heavyNext + 1) % HEAVY_TURNS;
   }
 
   result(): ArcadeOutcome {
@@ -832,6 +1121,10 @@ export class PassaSim {
     if (this.days >= 2) highlights.push(t('hl.days', { n: this.days }));
     if (this.trustWins > 0) highlights.push(t('hl.trust'));
     if (this.heavyMet) highlights.push(t('hl.heavy'));
+    // (round 25) the day's mindfulness: the senses received and the things taken for granted seen anew
+    if (this.senseWins > 0 && this.givenWins > 0) highlights.push(t('hl.life', { sense: t('senseN', { n: this.senseWins }), given: t('givenN', { n: this.givenWins }) }));
+    else if (this.senseWins > 0) highlights.push(t('hl.sense', { sense: t('senseN', { n: this.senseWins }) }));
+    else if (this.givenWins > 0) highlights.push(t('hl.given', { given: t('givenN', { n: this.givenWins }) }));
     if (this.carried > 0) highlights.push(t('hl.carried', { n: this.carried }));
     if (this.wins === 0) highlights.push(t('hl.quiet'));
     const record = this.wins > 0 && (this.bestBefore === null || this.wins > this.bestBefore);
@@ -845,9 +1138,10 @@ export class PassaSim {
     return {
       block: `${this.block.kind}:${this.block.what}`, t: Math.round(this.t), blockT: Math.round(this.blockT * 10) / 10,
       moment: r ? `${r.kind}:${r.id}:${Math.round(r.p * 100)}:${r.done ?? '-'}` : '-', wins: this.wins, inRow: this.inRow, day: Math.round(this.day01 * 100) / 100,
+      place: this.place, age: this.age,
     };
   }
 }
 
 /** The kinds a session's moments have, in order (tests and the debug view). */
-export const kindsOf = (runs: readonly MomentRun[]): MomentKind[] => runs.map(r => r.kind);
+export const kindsOf = (runs: readonly MomentRun[]): LifeKind[] => runs.map(r => r.kind);

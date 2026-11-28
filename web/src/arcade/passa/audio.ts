@@ -13,6 +13,15 @@
  *                heavy moment (the street's sound thins out and a low soft tone holds), the evening's chord, the dawn
  *   the focus    in a turn, a warm soft chord under the street opens with the focus's glow (never a meter's beep)
  *
+ * Round 25 (§29, the film — P2): the ambience is the place's now (`placeMix`): a bedroom's clock and the birds at its
+ * window, the kitchen's cups, a bathroom's water, the bus's engine and its stop bell, the car's road and its indicator,
+ * the bike's wind and freewheel, a classroom's murmur, a library's pages, an office's keys, a counter's door bell, the
+ * nursery's music box, the shop's checkout, the park's and the garden's leaves and birds, the evening table's voices and
+ * glasses, the night window's crickets — crossfading (~1 s) as the camera travels.  A sense moment's close-up narrows
+ * the world (the place quieter, a warm pad rising with the focus; a hearing moment lets its own sound come forward);
+ * a given moment's rest thins the place's sound "as if it were not there", and when focus brings the thing back a
+ * soft warm chord blooms.
+ *
  * Every sound rises from silence and falls back to it; cues are throttled per cue and under one budget.  `finish()`
  * fades over ~2.5 s, `destroy()` lets the graph go; before `start()` and after `destroy()` every call is a no-op.
  *
@@ -20,6 +29,7 @@
  * `cue()` on the sim's events (`n` = the light's number in the streak), `pause`, `finish()` and `destroy()`.
  */
 import type { ArcadeAudio } from '../kit/audio';
+import type { LifeView, Place } from './life';
 import type { Phase } from './view';
 
 export type StreetCue = 'arrive' | 'turnStart' | 'turned' | 'light' | 'carry' | 'trust' | 'heavy' | 'evening' | 'dawn';
@@ -57,6 +67,38 @@ export function layersAt(day: number): { birds: number; cafe: number; hum: numbe
   };
 }
 
+/** The short sounds a place makes now and then (scheduled by `update`). */
+export type PlaceEvent = 'tick' | 'clink' | 'keys' | 'beep' | 'doorbell' | 'page' | 'indicator' | 'busbell' | 'freewheel' | 'bikebell' | 'musicbox' | 'drip';
+
+/** One place's sound: its beds' levels (0..1 of each bed's own level), its birds and crickets, its events (every ~s). */
+export interface PlaceMix {
+  voices: number; hum: number; engine: number; road: number; wind: number; water: number; leaves: number; room: number;
+  birds: number; crickets: number;
+  events: readonly (readonly [PlaceEvent, number])[];
+}
+
+const MIX = (m: Partial<PlaceMix>): PlaceMix => ({ voices: 0, hum: 0, engine: 0, road: 0, wind: 0, water: 0, leaves: 0, room: 0.6, birds: 0, crickets: 0, events: [], ...m });
+
+/** Each place's sound (the street's is round 22's own, through the day: `layersAt`). */
+export const PLACE_MIX: Readonly<Record<Exclude<Place, 'street'>, PlaceMix>> = {
+  bedroom: MIX({ room: 0.8, birds: 0.6, crickets: 0.5, events: [['tick', 1.0]] }),
+  kitchen: MIX({ room: 0.8, hum: 0.25, birds: 0.45, crickets: 0.3, events: [['clink', 7], ['drip', 9]] }),
+  bathroom: MIX({ room: 1, water: 0.25, events: [['drip', 5]] }),
+  bus: MIX({ engine: 1, road: 0.7, voices: 0.4, room: 0.2, events: [['busbell', 28]] }),
+  car: MIX({ engine: 0.7, road: 1, room: 0.2, events: [['indicator', 30]] }),
+  bike: MIX({ wind: 1, road: 0.35, birds: 0.7, room: 0, events: [['freewheel', 9], ['bikebell', 40]] }),
+  school: MIX({ voices: 0.7, room: 0.7, birds: 0.2, events: [['tick', 1.0], ['page', 14]] }),
+  campus: MIX({ voices: 0.15, room: 1, events: [['page', 8], ['tick', 1.0]] }),
+  office: MIX({ voices: 0.3, hum: 0.6, room: 0.6, events: [['keys', 4.5]] }),
+  counter: MIX({ voices: 0.5, hum: 0.3, room: 0.6, events: [['doorbell', 26], ['beep', 11]] }),
+  nursery: MIX({ room: 0.8, birds: 0.35, events: [['musicbox', 2.6]] }),
+  shop: MIX({ voices: 0.7, hum: 0.55, room: 0.5, events: [['beep', 5]] }),
+  park: MIX({ leaves: 0.8, birds: 1.2, voices: 0.15, crickets: 1, room: 0, events: [] }),
+  garden: MIX({ leaves: 1, birds: 1.2, crickets: 1, room: 0, events: [] }),
+  table: MIX({ voices: 0.55, room: 0.8, crickets: 0.3, events: [['clink', 4]] }),
+  window: MIX({ room: 0.7, hum: 0.25, crickets: 1, events: [] }),
+};
+
 /** A small room's air: stereo noise decaying over `sec` (the street's reverb between the houses). */
 function streetRoom(ctx: BaseAudioContext, sec = 1.4): AudioBuffer {
   const sr = ctx.sampleRate;
@@ -89,6 +131,13 @@ interface Graph {
   cafe: GainNode;
   hum: GainNode;
   fountain: GainNode;
+  /** (round 25) the places' beds */
+  room: GainNode;
+  engine: GainNode;
+  road: GainNode;
+  wind: GainNode;
+  water: GainNode;
+  leaves: GainNode;
   warm: GainNode;
   warmF: BiquadFilterNode;
   srcs: AudioScheduledSourceNode[];
@@ -114,6 +163,14 @@ export class StreetSound {
   private birdAt = 0;
   private cricketAt = 0;
   private ctlAt = -1;
+  private place: Place = 'street';
+  private life: LifeView | null = null;
+  private evAt: Partial<Record<PlaceEvent, number>> = {};
+  private greyMax = 0;
+  private bloomed = false;
+  private melodyAt = 0;
+  private melodyI = 0;
+  private bellAt = 0;
   private rng: () => number;
 
   constructor(readonly audio: ArcadeAudio, readonly o: { reducedMotion: boolean; rng?: () => number }) {
@@ -122,8 +179,8 @@ export class StreetSound {
   }
 
   /** What the street plays now (for the tests and the console). */
-  get debug(): { on: boolean; day: number; glow: number; heavy: boolean; thin: number; paused: boolean; finished: boolean; cues: number } {
-    return { on: !!this.g, day: this.day, glow: this.glow, heavy: this.heavy, thin: this.thin, paused: this.paused, finished: this.finished, cues: this.recent.length };
+  get debug(): { on: boolean; day: number; glow: number; heavy: boolean; thin: number; paused: boolean; finished: boolean; cues: number; place: Place } {
+    return { on: !!this.g, day: this.day, glow: this.glow, heavy: this.heavy, thin: this.thin, paused: this.paused, finished: this.finished, cues: this.recent.length, place: this.place };
   }
 
   start(): void {
@@ -210,7 +267,7 @@ export class StreetSound {
     }
   }
 
-  update(dt: number, s: { phase: Phase; day: number; glow: number; breath: number }): void {
+  update(dt: number, s: { phase: Phase; day: number; glow: number; breath: number; place?: Place; life?: LifeView | null; motif?: string | null }): void {
     const g = this.g;
     if (!g || this.paused || this.finished || this.destroyed) return;
     const step = Math.max(0, Math.min(0.25, Number.isFinite(dt) ? dt : 0));
@@ -219,31 +276,82 @@ export class StreetSound {
     this.phase = s?.phase ?? this.phase;
     this.day = clamp01(s?.day ?? this.day);
     this.glow += (clamp01(s?.glow ?? 0) - this.glow) * Math.min(1, step / 0.4);
+    this.place = s?.place ?? this.place;
+    if (s && 'motif' in s) this.curMotif = s.motif ?? '';
+    const life = s?.life ?? null;
+    this.life = life;
+    // a given moment's rest thins the place "as if it were not there"; its colour coming back blooms (once)
+    const given = !!life && (life.kind === 'given' || (!life.kind && !life.sense));
+    const without = given ? clamp01(life!.without) : 0;
+    if (!given) { this.greyMax = 0; this.bloomed = false; }
+    else {
+      this.greyMax = Math.max(this.greyMax, without);
+      if (!this.bloomed && this.greyMax > 0.3 && without < 0.04 && this.phase === 'turn') { this.bloomed = true; this.bloom(now + 0.05); }
+    }
     const heavyNow = this.heavy && (this.phase === 'arrive' || this.phase === 'name' || this.phase === 'turn');
-    this.thin += ((heavyNow ? 1 : 0) - this.thin) * Math.min(1, step / 1.5);
+    this.thin += ((heavyNow ? 1 : Math.max(0, without * 0.9)) - this.thin) * Math.min(1, step / 1.2);
+    // a sense moment's close-up narrows the world (a hearing moment lets its own sound come forward)
+    const sense = life?.sense ?? null;
+    const close = sense ? clamp01(life!.close) : 0;
+    const narrow = sense && sense !== 'hearing' ? 0.5 * close : 0.2 * close;
     const L = layersAt(this.day);
-    const quiet = 1 - 0.65 * this.thin;
+    const quiet = (1 - 0.65 * this.thin) * (1 - narrow);
+    const P = this.place === 'street' ? null : PLACE_MIX[this.place] ?? null;
+    const birdsK = P ? P.birds * (0.35 + 0.65 * L.birds) * (1 - L.crickets) : L.birds;
+    const cricketsK = P ? P.crickets * L.crickets : L.crickets;
     // birds: a phrase now and then (more often at dawn)
     if (this.birdAt < now - 2) this.birdAt = now + 0.5;
-    if (L.birds > 0.05 && now + 0.1 >= this.birdAt) {
-      this.birdPhrase(Math.max(now + 0.02, this.birdAt), 0.012 * L.birds * quiet);
-      this.birdAt = now + (1.6 + 3.4 * this.rng()) / (0.6 + L.birds);
-    } else if (L.birds <= 0.05) this.birdAt = Math.max(this.birdAt, now + 0.5);
+    const birdBoost = sense === 'hearing' && this.motifIs('bird') ? 1.6 : 1;
+    if (birdsK > 0.05 && now + 0.1 >= this.birdAt) {
+      this.birdPhrase(Math.max(now + 0.02, this.birdAt), 0.012 * Math.min(1.2, birdsK) * quiet * birdBoost);
+      this.birdAt = now + (1.6 + 3.4 * this.rng()) / ((0.6 + birdsK) * birdBoost);
+    } else if (birdsK <= 0.05) this.birdAt = Math.max(this.birdAt, now + 0.5);
     // crickets: short trills, about one a second
     if (this.cricketAt < now - 2) this.cricketAt = now + 0.3;
-    if (L.crickets > 0.05 && now + 0.1 >= this.cricketAt) {
-      this.cricket(Math.max(now + 0.02, this.cricketAt), 0.006 * L.crickets * quiet);
+    if (cricketsK > 0.05 && now + 0.1 >= this.cricketAt) {
+      this.cricket(Math.max(now + 0.02, this.cricketAt), 0.006 * cricketsK * quiet);
       this.cricketAt = now + 0.7 + 0.6 * this.rng();
-    } else if (L.crickets <= 0.05) this.cricketAt = Math.max(this.cricketAt, now + 0.3);
+    } else if (cricketsK <= 0.05) this.cricketAt = Math.max(this.cricketAt, now + 0.3);
+    // the place's own small sounds
+    if (P) {
+      for (const [ev, every] of P.events) {
+        const at = this.evAt[ev] ?? now + every * this.rng();
+        if (at < now - 2) { this.evAt[ev] = now + every * (0.5 + this.rng()); continue; }
+        if (now + 0.1 >= at) {
+          this.event(ev, Math.max(now + 0.02, at), quiet);
+          this.evAt[ev] = now + every * (0.6 + 0.8 * this.rng());
+        } else this.evAt[ev] = at;
+      }
+    }
+    // a hearing moment's own sound: a song, the noon bells
+    if (sense === 'hearing' && close > 0.2) {
+      if (this.motifIs('music') && now >= this.melodyAt) {
+        const PH = [0, 4, 7, 9, 7, 4, 2, 0];
+        const f = 392 * 2 ** (PH[this.melodyI % PH.length] / 12);
+        this.soft(g.fx, now + 0.03, f, 0.006 * (0.5 + close), 1.4, 'triangle', 0.02);
+        this.melodyI++;
+        this.melodyAt = now + (this.melodyI % 4 === 0 ? 1.2 : 0.6);
+      }
+      if (this.motifIs('clock') && now >= this.bellAt) { this.churchBell(now + 0.05, 0.6 + 0.4 * close); this.bellAt = now + 4.2; }
+    }
     if (this.ctlAt < 0 || now - this.ctlAt > 0.08) {
       this.ctlAt = now;
       const breathe = 1 + 0.18 * Math.sin(this.t * 0.17) + 0.1 * Math.sin(this.t * 0.41 + 1);
-      g.cafe.gain.setTargetAtTime(0.04 * L.cafe * breathe * quiet, now, 0.6);
-      g.hum.gain.setTargetAtTime(0.045 * L.hum * quiet, now, 0.8);
-      g.fountain.gain.setTargetAtTime(0.02 * L.fountain * quiet, now, 0.6);
+      // the place's beds, crossfading as the film travels (the street's through its day)
+      const vo = P ? P.voices * (sense === 'hearing' && this.motifIs('smile') ? 1.4 : 1) : L.cafe;
+      g.cafe.gain.setTargetAtTime(0.04 * vo * breathe * quiet, now, 0.9);
+      g.hum.gain.setTargetAtTime(0.045 * (P ? P.hum : L.hum) * quiet, now, 0.9);
+      g.fountain.gain.setTargetAtTime(0.02 * (P ? 0 : L.fountain) * quiet, now, 0.9);
+      const wet = this.motifIs('tap') || this.motifIs('shower') ? 0.6 * (0.4 + close) : 0;
+      g.room.gain.setTargetAtTime(0.012 * (P ? P.room : 0) * quiet, now, 0.9);
+      g.engine.gain.setTargetAtTime(0.05 * (P ? P.engine : 0) * quiet, now, 0.9);
+      g.road.gain.setTargetAtTime(0.02 * (P ? P.road : 0) * quiet, now, 0.9);
+      g.wind.gain.setTargetAtTime(0.02 * (P ? P.wind : 0) * quiet, now, 0.9);
+      g.water.gain.setTargetAtTime(0.012 * Math.max(P ? P.water : 0, wet) * quiet, now, 0.9);
+      g.leaves.gain.setTargetAtTime(0.016 * (P ? P.leaves : 0) * quiet * (1 - 0.6 * L.crickets), now, 0.9);
       g.ambF.frequency.setTargetAtTime(this.thin > 0.5 ? 1800 : 9000, now, 0.8);
-      // the focus's warmth: only in a turn, opening with the glow
-      const w = this.phase === 'turn' ? 0.0035 + 0.009 * this.glow : 0;
+      // the focus's warmth: in a turn, opening with the glow; a sense moment's close-up warms it further
+      const w = this.phase === 'turn' ? 0.0035 + 0.009 * this.glow + (sense && sense !== 'hearing' ? 0.004 * close : 0) : 0;
       g.warm.gain.setTargetAtTime(w, now, 0.35);
       g.warmF.frequency.setTargetAtTime(320 + 1600 * this.glow ** 1.3, now, 0.4);
     }
@@ -361,6 +469,24 @@ export class StreetSound {
     lfo(6.3, 0.35, fl.gain);
     lfo(9.7, 0.2, fl.gain);
     pan(fountain, -0.35, amb);
+    // (round 25) the places' beds: a room's air, an engine's rumble, the road under tyres, the wind on a bike, running
+    // water, leaves in the wind
+    const bed = (from: number, chain: AudioNode[], p: number, lfoHz = 0, lfoDepth = 0): GainNode => {
+      const out = gain(0);
+      const lv = gain(1);
+      let n: AudioNode = loop(from);
+      for (const c of chain) n = n.connect(c);
+      n.connect(lv).connect(out);
+      if (lfoHz > 0) lfo(lfoHz, lfoDepth, lv.gain);
+      pan(out, p, amb);
+      return out;
+    };
+    const room = bed(0.2, [filt('lowpass', 320, 0.5)], 0, 0.05, 0.2);
+    const engine = bed(0.5, [filt('lowpass', 130, 0.9), filt('peaking', 70, 2)], 0, 0.6, 0.15);
+    const road = bed(0.8, [filt('bandpass', 520, 0.5), filt('lowpass', 1600, 0.5)], 0, 0.21, 0.3);
+    const wind = bed(1.4, [filt('bandpass', 850, 0.4)], 0.1, 0.13, 0.5);
+    const water = bed(1.7, [filt('highpass', 1600, 0.6), filt('lowpass', 7000, 0.5)], -0.2, 7.1, 0.25);
+    const leaves = bed(0.9, [filt('bandpass', 2100, 0.5), filt('lowpass', 5000, 0.5)], 0.25, 0.09, 0.6);
     // the focus's warmth: a soft root and fifth through a low-pass that opens with the glow
     const warm = gain(0);
     const warmF = filt('lowpass', 320, 0.8);
@@ -373,7 +499,10 @@ export class StreetSound {
       o.start();
       srcs.push(o);
     });
-    return { ctx, bus, amb, ambF, fx, verbIn, cafe, hum, fountain, warm, warmF, srcs, noise, tops: [bus, verb, verbIn, verbOut, ambF, amb, fx, cafe, hum, fountain, warm, warmF] };
+    return {
+      ctx, bus, amb, ambF, fx, verbIn, cafe, hum, fountain, room, engine, road, wind, water, leaves, warm, warmF, srcs, noise,
+      tops: [bus, verb, verbIn, verbOut, ambF, amb, fx, cafe, hum, fountain, room, engine, road, wind, water, leaves, warm, warmF],
+    };
   }
 
   // ── voices ───────────────────────────────────────────────────
@@ -510,6 +639,90 @@ export class StreetSound {
       o.start(at);
       this.track(o, at + 4.6);
     }
+  }
+
+  /** Whether the moment now's thing is this motif (a sense moment's sound comes forward). */
+  private motifIs(m: string): boolean {
+    return !!this.life && this.curMotif === m;
+  }
+
+  /** The moment's motif (the sim's card; set by `motif()`). */
+  private curMotif = '';
+
+  /** (round 25) The card's motif now, so a hearing moment's own sound can come forward. */
+  motif(m: string | null | undefined): void {
+    this.curMotif = m ?? '';
+  }
+
+  /** A given moment's thing back in its colour: a soft warm major chord, blooming and fading. */
+  private bloom(at: number): void {
+    const g = this.g!;
+    [261.63, 329.63, 392, 523.25].forEach((f, i) => this.soft(g.fx, at + i * 0.09, f, 0.007, 3.2, 'triangle', 0.25));
+    this.chime(g.fx, at + 0.4, 1046.5, 0.006, 2.2);
+  }
+
+  /** A place's small sound. */
+  private event(ev: PlaceEvent, at: number, quiet: number): void {
+    const g = this.g!;
+    const A = g.amb;
+    const q = Math.max(0.15, quiet);
+    switch (ev) {
+      case 'tick':
+        this.hiss(A, at, 0.014, 'bandpass', 3400, 0.0035 * q, 0, 2.5);
+        break;
+      case 'clink':
+        this.chime(A, at, 2350 + 500 * this.rng(), 0.0028 * q, 0.5);
+        break;
+      case 'drip':
+        this.sweepTone(A, at, 900 + 500 * this.rng(), 1800, 0.05, 0.004 * q);
+        break;
+      case 'keys': {
+        const n = 3 + Math.floor(this.rng() * 5);
+        for (let i = 0; i < n; i++) this.hiss(A, at + i * (0.07 + 0.06 * this.rng()), 0.012, 'bandpass', 2400 + 600 * this.rng(), 0.003 * q, 0, 3);
+        break;
+      }
+      case 'beep':
+        this.soft(A, at, 1760, 0.0022 * q, 0.12, 'sine', 0.005);
+        break;
+      case 'doorbell':
+        this.chime(A, at, 1318.5, 0.0035 * q, 1.0);
+        this.chime(A, at + 0.18, 1046.5, 0.0035 * q, 1.2);
+        break;
+      case 'page':
+        this.hiss(A, at, 0.32, 'bandpass', 1900, 0.0035 * q, 4200, 1.0, 0.05);
+        break;
+      case 'indicator':
+        for (let i = 0; i < 6; i++) this.hiss(A, at + i * 0.42, 0.018, 'bandpass', i % 2 ? 1500 : 1900, 0.004 * q, 0, 3);
+        break;
+      case 'busbell':
+        this.chime(A, at, 880, 0.004 * q, 1.4);
+        this.chime(A, at, 1320, 0.002 * q, 1.2);
+        break;
+      case 'freewheel':
+        for (let i = 0; i < 14; i++) this.hiss(A, at + i * 0.028, 0.008, 'bandpass', 4200, 0.0022 * q, 0, 4);
+        break;
+      case 'bikebell':
+        this.chime(A, at, 2093, 0.003 * q, 0.9);
+        this.chime(A, at + 0.12, 2637, 0.0025 * q, 0.9);
+        break;
+      case 'musicbox': {
+        const PH = [0, 2, 4, 7, 9, 12, 14];
+        this.chime(A, at, 1046.5 * 2 ** (PH[Math.floor(this.rng() * PH.length)] / 12), 0.0026 * q, 1.6);
+        break;
+      }
+    }
+  }
+
+  /** A short tone sliding from f0 to f1 (a drop of water). */
+  private sweepTone(to: AudioNode, at: number, f0: number, f1: number, dur: number, peak: number): void {
+    const g = this.g!;
+    const o = g.ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, at);
+    o.frequency.exponentialRampToValueAtTime(f1, at + dur);
+    o.connect(this.env(to, at, peak, 0.004, dur));
+    o.start(at);
+    this.track(o, at + dur + 0.05);
   }
 
   /** A bird's phrase: two to five quick chirps, each a little sweep up or down. */

@@ -1,20 +1,28 @@
 /**
- * Złota passa's picture (DESIGN.md §26, builder B): the street through the day (scene.ts), the garland of lights over
- * it — the streak (garland.ts), the moment's card coming down the street and turning from grey to gold (card.ts), the
- * pocket a card that did not turn goes into, the choices in the thumb zone, the narrator's line, the banner and the
- * day-streak's hanging sign by the café — from a `PassaView` on a `Layout`.  The class and its methods are the
- * contract builder A's index.ts calls: `resize(layout, dpr)` on every resize, `draw(ctx, view, dt, time)` every frame
- * (ctx scaled to CSS px).
+ * Złota passa's picture (DESIGN.md §26, builder B; §29 the film of a day, P2): the day as a film through the places of
+ * the player's day (the street — scene.ts; every other place — places.ts on the stage, stage.ts), shot by a moving
+ * camera (camera.ts: a slow dolly, a push-in on the moment's thing, a look up to the garland, a dissolve on a cut), a
+ * sense or a given moment's close-up (closeup.ts) with its rack focus and its greying, the guide line as a subtitle;
+ * over it the garland of lights — the streak, strung over every place (garland.ts) — the moment's card coming and
+ * turning from grey to gold (card.ts), the pocket a card that did not turn goes into, the choices in the thumb zone,
+ * the narrator's line, the banner and the day-streak's hanging sign by the café — from a `PassaView` on a `Layout`.
+ * The class and its methods are the contract builder A's index.ts calls: `resize(layout, dpr)` on every resize,
+ * `draw(ctx, view, dt, time)` every frame (ctx scaled to CSS px).
  */
 import { MIN_READ } from '../kit/mobile';
+import { FilmCamera, camThrough, layerXf, type Frame } from './camera';
 import { CardPainter, type CardLike } from './card';
+import { CloseUp, type Rect as CRect } from './closeup';
 import { Garland } from './garland';
 import { cardFor, choiceRects, type Layout } from './layout';
+import type { LifeView, Place } from './life';
 import { drawFlame } from './motifs';
 import {
-  FONT, SERIF, TAU, clamp01, easeOut, fitWrap, font, glow, lerp, lightAt, mixHex, rgba, rr, smooth, type Light,
+  FONT, SERIF, TAU, clamp01, easeOut, fitWrap, font, glow, layer, lerp, lightAt, mixHex, rgba, rr, smooth, type Light,
 } from './paint';
+import { PlaceLayers, aimIn, drawLive, setOf, type PlaceSet } from './places';
 import { Street, project, type Cam } from './scene';
+import { roomAt, stageOf, type Stage } from './stage';
 import type { PassaView, Phase, Rect } from './view';
 import { CAM_X, EYE, HALF, SIGN } from './world';
 
@@ -24,16 +32,50 @@ const CARD_WORLD_W = 0.62;
 const FAR = { x: 0.5, y: 1.35, z: 40 } as const;
 /** Seconds: a card's slide into the pocket, a gone card's fade. */
 const CARRY_S = 1.6, GHOST_S = 0.7;
+/** The depth of a place's far layer and of the world beyond its windows (the near layer is 1): the parallax. */
+export const FAR_DEPTH = 0.55, BEYOND_DEPTH = 0.35;
 
 interface Placed { card: CardLike; cx: number; cy: number; scale: number; id: string; carried: boolean }
 
 const idOf = (c: CardLike): string => `${c.kind}|${c.motif}|${c.what}`;
+
+/** Where a motif's thing is on the street (world metres), for the camera's push-in. */
+const STREET_HOT: Readonly<Record<string, readonly [number, number, number]>> = {
+  cup: [3.85, 1.0, 10.2], tea: [3.85, 1.0, 10.2], light: [3.35, 2.6, 11.2], bus: [-4.4, 1.6, 5.8], bread: [-4.9, 1.9, 19.5],
+  flower: [4.6, 0.8, 23], sky: [0, 11, 40], sun: [0, 11, 40], bird: [0.6, 7, 24], rain: [0, 6, 20], rainbow: [0, 12, 40],
+  smile: [-3.9, 1.6, 16], queue: [-4.6, 1.6, 21], car: [2.2, 0.8, 16], seed: [-3.95, 1.0, 10.2], grass: [-3.95, 1.0, 10.2],
+  feet: [0.6, 0.0, 8], pet: [4.86, 4.4, 16.75], window: [4.9, 6.0, 15], letter: [-4.4, 1.3, 6], phone: [0.4, 1.3, 9],
+};
+
+/** A life moment's close-up framing from its `close` (0 the wide shot … 1 the thing filling the frame). */
+export function closeShot(life: LifeView | null | undefined): { alpha: number; size: number; push: number; open: number; grey: number } {
+  if (!life) return { alpha: 0, size: 0, push: 0, open: 0, grey: 0 };
+  const c = clamp01(life.close);
+  const given = life.kind === 'given' || (!life.kind && !life.sense);
+  const grey = given ? smooth(clamp01(life.without)) : 0;
+  return {
+    alpha: smooth((c - 0.04) / 0.16),
+    size: smooth((c - 0.25) / 0.75),
+    push: smooth(c / 0.3),
+    open: given ? 1 - grey : smooth((c - 0.25) / 0.75),
+    grey,
+  };
+}
 
 export class StreetView {
   private l: Layout | null = null;
   private readonly street: Street;
   private readonly garland = new Garland();
   private readonly cardP = new CardPainter();
+  private readonly places = new PlaceLayers();
+  private readonly cam: FilmCamera;
+  private readonly close = new CloseUp();
+  private S: Stage | null = null;
+  private gcam: Cam = { cx: 0, hy: 0, f: 1 };
+  private dpr = 1;
+  private cuts = 0;
+  private snap: { c: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+  private snapKey = '';
   private cardY = NaN;
   private last: Placed | null = null;
   private ghost: Placed | null = null;
@@ -43,25 +85,43 @@ export class StreetView {
   private lastFrom: { x: number; y: number } | null = null;
   private sayText = '';
   private sayA = 0;
+  private capText = '';
+  private capA = 0;
   private banText = '';
   private banA = 0;
   private choicesA = 0;
   private veil = 0;
+  private greyMax = 0;
+  private bloom = 0;
+  private flash = 0;
   private phase: Phase | '' = '';
 
   constructor(readonly opts: { reduced: boolean }) {
     this.street = new Street(!!opts?.reduced);
+    this.cam = new FilmCamera(!!opts?.reduced);
   }
 
   /** The layout in use. */
   get layout(): Layout | null { return this.l; }
   /** The traffic light's state on the street now (a green light may be a moment's motif). */
   get trafficLight(): 'red' | 'amber' | 'green' | 'redAmber' { return this.street.light; }
+  /** The garland's camera in a place before the camera moves (the street's own; indoors strung higher). */
+  garlandCam(place: Place | null | undefined): Cam { return setOf(place) ? this.gcam : this.street.camera; }
+  /** The film's state (the tests and the console): the place shown, the cuts so far, the camera's frame. */
+  get film(): { place: Place | null; cuts: number; frame: Frame; mix: number } {
+    return { place: this.cam.place, cuts: this.cam.cutCount, frame: this.cam.frame, mix: this.cam.mix };
+  }
 
   resize(l: Layout, dpr: number): void {
     this.l = l;
+    this.dpr = Math.max(1, dpr || 1);
     const cam: Cam = l.street ?? { cx: l.w / 2, hy: l.scene.y + l.scene.h * 0.85, f: Math.max(120, Math.min(l.w * 0.6, l.scene.h * 2)) };
     this.street.resize(l.w, l.h, dpr, cam);
+    this.S = { ...stageOf({ ...l, street: cam }), age: this.S?.age };
+    this.places.resize(this.S, dpr);
+    // indoors the garland is strung higher, across the top of the place (its first span under the HUD's edge)
+    const bandY = l.band?.y ?? 0, strip = Math.max(40, cam.hy - bandY);
+    this.gcam = { cx: cam.cx, hy: Math.min(cam.hy, bandY + 0.05 * strip + 0.446 * cam.f), f: cam.f };
     this.cardY = NaN;
   }
 
@@ -71,7 +131,7 @@ export class StreetView {
     const step = Math.max(0, Math.min(0.25, Number.isFinite(dt) ? dt : 0));
     const t = Number.isFinite(time) ? time : 0;
     const reduced = !!(this.opts.reduced || v.reduced);
-    const cam = this.street.camera;
+    const lcam: Cam = this.street.camera;
     const day = clamp01(v.day);
     const Lt = lightAt(day);
     const k = l.k ?? 1;
@@ -79,11 +139,66 @@ export class StreetView {
       if (v.phase === 'carry') this.carryT = 0;
       this.phase = v.phase;
     }
-    // the street: the sky, the baked street, its life
-    this.street.sky(ctx, day, t);
-    this.street.street(ctx, day);
-    this.street.life(ctx, day, t, step);
-    this.sign(ctx, v, cam, Lt, k);
+    // ── the film: the place now, where the camera aims, how far it pushes in ──
+    const place = (v.place ?? 'street') as Place;
+    const set = setOf(place);
+    const life = v.life ?? null;
+    const motif = v.card?.motif ?? null;
+    const shot = closeShot(life);
+    const aim = this.aimAt(set, motif, lcam);
+    let push = 0, lift = 0;
+    const turn = clamp01(v.card?.turn ?? 0);
+    switch (v.phase) {
+      case 'arrive': push = 0.06; break;
+      case 'turn': push = 0.12 + 0.22 * turn; break;
+      case 'name': case 'without': push = 0.1; break;
+      case 'savor': push = 0.12; lift = 1; break;
+      case 'evening': case 'end': lift = 0.6; break;
+      default: break;
+    }
+    if (life) push = Math.max(push, shot.push);
+    if (v.age !== undefined && v.age !== this.S?.age && this.S) {
+      // the group's day: its places follow it (re-baked once)
+      this.S = { ...this.S, age: v.age };
+      this.places.resize(this.S, this.dpr);
+    }
+    const S = this.S!;
+    this.places.frame();
+    const fr = this.cam.update(step, { place, aim, push, lift, w: l.w, h: l.h, M: set ? S.M : 0, street: !set }, reduced);
+    if (this.cam.cutCount !== this.cuts) {
+      this.cuts = this.cam.cutCount;
+      this.snapshot(this.cam.prev, this.cam.prevFrame, day, t, reduced);
+    }
+    // the scene of the place (its live parts with it), then the place before fading away over it
+    const camG = this.scene(ctx, this.dpr, place, fr, day, t, step, reduced, motif, shot.open, true);
+    if (this.snap && this.cam.mix < 1 && this.cam.prev) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1 - smooth(this.cam.mix);
+      ctx.drawImage(this.snap.c, 0, 0);
+      ctx.restore();
+    }
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (!set) this.sign(ctx, v, camG, Lt, k);
+    // where the card stands (between its place over the choices and its free place), and where it is now
+    const n = v.choices?.length ?? 0;
+    const target = cardFor(l, n);
+    if (!Number.isFinite(this.cardY)) this.cardY = target.y;
+    this.cardY += (target.y - this.cardY) * Math.min(1, step * 7);
+    const rect: Rect = { ...target, y: this.cardY };
+    // ── a sense or a given moment: the close-up, the greying, the colour coming back ──
+    const capH = this.captionHeight(ctx, l, life);
+    const strip = this.strip(l, capH);
+    let thingAt = this.aimScreen(aim, fr, !!set);
+    if (life && shot.alpha > 0.004 && motif) {
+      this.close.draw(ctx, {
+        motif, w: l.w, h: l.h, strip, day, alpha: shot.alpha, size: shot.size, open: shot.open, grey: shot.grey, time: t, reduced, dpr: this.dpr,
+        backdrop: c => { this.scene(c, (c.getTransform?.().a || 1), place, fr, day, t, 0, reduced, motif, 0, false); },
+      });
+      const box = CloseUp.box({ motif, w: l.w, h: l.h, strip, size: shot.size });
+      if (shot.alpha > 0.5) thingAt = { x: box.x + box.w / 2, y: box.y + box.h / 2, r: Math.max(box.w, box.h) * 0.5 };
+    }
+    this.greying(ctx, l, life, shot.grey, v.phase, step, thingAt, reduced);
     // a heavy moment: the street grows quieter round it
     const heavyNow = v.card?.kind === 'heavy' && (v.phase === 'arrive' || v.phase === 'name' || v.phase === 'turn');
     this.veil += ((heavyNow ? 1 : 0) - this.veil) * Math.min(1, step * 1.2);
@@ -91,18 +206,12 @@ export class StreetView {
       ctx.fillStyle = rgba('#141a30', 0.3 * this.veil);
       ctx.fillRect(0, 0, l.w, l.h);
     }
-    // where the card stands (between its place over the choices and its free place), and where it is now
-    const n = v.choices?.length ?? 0;
-    const target = cardFor(l, n);
-    if (!Number.isFinite(this.cardY)) this.cardY = target.y;
-    this.cardY += (target.y - this.cardY) * Math.min(1, step * 7);
-    const rect: Rect = { ...target, y: this.cardY };
     const card: CardLike | null = v.card ? { ...v.card, glow: v.glow } : null;
     const carrying = v.phase === 'carry';
     let now: Placed | null = null;
     if (card) {
       // a carried card's `near` (1 → 0) is its slide into the pocket, not a trip back down the street
-      const p = this.place(rect, carrying ? 1 : card.near, cam, reduced);
+      const p = this.place(rect, carrying ? 1 : card.near, lcam, reduced);
       now = { card, cx: p.cx, cy: p.cy, scale: p.scale, id: idOf(card), carried: carrying };
       if (this.last && this.last.id !== now.id && !this.last.carried) { this.ghost = this.last; this.ghostT = 0; }
       this.last = now;
@@ -110,21 +219,21 @@ export class StreetView {
       if (!this.last.carried) { this.ghost = this.last; this.ghostT = 0; }
       this.last = null;
     }
-    // the garland over the street
+    // the garland over the place: the streak travels with the day
     const from = now ? CardPainter.lightFrom(this.scaled(rect, now)) : this.lastFrom;
     if (from) this.lastFrom = from;
-    const calm = v.phase === 'savor' || v.phase === 'evening' || v.phase === 'name' ? clamp01(v.glow) : 0;
+    const calm = v.phase === 'savor' || v.phase === 'evening' || v.phase === 'name' || v.phase === 'without' ? clamp01(v.glow) : 0;
     const gopts = { lights: v.lights, flying: v.flying, time: t, reduced, calm, dusk: Lt.dusk, breath: v.breath, from, k };
-    this.garland.draw(ctx, cam, gopts);
-    // the evening: the street's edges darken, the garland is the light
+    this.garland.draw(ctx, camG, gopts);
+    // the evening: the edges darken, the garland is the light
     if (Lt.dusk > 0.3) {
-      const vg = ctx.createRadialGradient(l.w / 2, cam.hy - cam.f * 0.2, Math.min(l.w, l.h) * 0.25, l.w / 2, cam.hy, Math.hypot(l.w, l.h) * 0.7);
+      const vg = ctx.createRadialGradient(l.w / 2, lcam.hy - lcam.f * 0.2, Math.min(l.w, l.h) * 0.25, l.w / 2, lcam.hy, Math.hypot(l.w, l.h) * 0.7);
       vg.addColorStop(0, 'rgba(0,0,0,0)');
       vg.addColorStop(1, rgba('#05060f', 0.45 * (Lt.dusk - 0.3)));
       ctx.fillStyle = vg;
       ctx.fillRect(0, 0, l.w, l.h);
     }
-    // a soft floor under the card and the choices on an upright screen (the words read on any street)
+    // a soft floor under the card and the choices on an upright screen (the words read on any place)
     if (l.mode !== 'side') {
       const y0 = (l.cardFree ?? l.card).y - 30 * k;
       const g = ctx.createLinearGradient(0, y0, 0, l.h);
@@ -134,6 +243,7 @@ export class StreetView {
       ctx.fillRect(0, y0, l.w, l.h - y0);
     }
     this.banner(ctx, v, l, step, t, reduced);
+    this.caption(ctx, v, l, step, rect);
     // the pocket, then the card (arriving, turning, carried, or a gone one fading)
     this.pocket(ctx, v, l, step, t, reduced);
     if (this.ghost) {
@@ -152,14 +262,134 @@ export class StreetView {
       this.carried(ctx, now, l, t, reduced, v.breath);
       if (before >= 0.92 && this.bump === 0) this.bump = 1;
     } else if (now) {
+      const rest = v.phase === 'savor' || v.phase === 'name' || v.phase === 'without';
       this.cardP.draw(ctx, now.card, now.cx, now.cy, l.card.w, l.card.h, now.scale, {
-        time: t, reduced, font: l.font, k, alpha: this.arriveAlpha(now.card.near, reduced), breath: v.phase === 'savor' || v.phase === 'name' ? v.breath : 0.5,
+        time: t, reduced, font: l.font, k, alpha: this.arriveAlpha(now.card.near, reduced), breath: rest ? v.breath : 0.5,
       });
     }
     // the light flying up into the garland, over the card
-    this.garland.flight(ctx, cam, gopts);
+    this.garland.flight(ctx, camG, gopts);
     this.choices(ctx, v, l, step, t);
     this.say(ctx, v, l, step, rect);
+  }
+
+  // ── the film's scene ────────────────────────────────────────────
+
+  /**
+   * Paint a place's scene at a frame of the camera into `ctx` (whose device scale is `base` px per CSS px): the street
+   * (sky, the baked street, its life) or a place's layers with their live parts; returns the garland's camera there.
+   */
+  private scene(ctx: CanvasRenderingContext2D, base: number, place: Place | null, fr: Frame, day: number, t: number, step: number, reduced: boolean, motif: string | null, open: number, live: boolean): Cam {
+    const l = this.l!, S = this.S!;
+    const set = setOf(place);
+    const lcam = this.street.camera;
+    if (!set) {
+      const xf = layerXf(fr, 1, l.w, l.h, 0);
+      ctx.save();
+      ctx.setTransform(base * xf.z, 0, 0, base * xf.z, base * xf.x, base * xf.y);
+      this.street.sky(ctx, day, t);
+      this.street.street(ctx, day);
+      if (live) this.street.life(ctx, day, t, step);
+      ctx.restore();
+      return camThrough(lcam, xf);
+    }
+    const xb = layerXf(fr, FAR_DEPTH, l.w, l.h, S.M), xn = layerXf(fr, 1, l.w, l.h, S.M);
+    const R = roomAt(day, set.face);
+    const units = (x: { z: number; x: number; y: number }) => ctx.setTransform(base * x.z * S.u, 0, 0, base * x.z * S.u, base * (x.x + x.z * S.cx), base * (x.y + x.z * S.hy));
+    ctx.save();
+    if (set.beyond) {
+      const xw = layerXf(fr, BEYOND_DEPTH, l.w, l.h, S.M);
+      units(xw);
+      set.beyond(ctx, S, R, reduced ? 0 : t, reduced);
+    }
+    this.places.draw(ctx, set, 'back', day, xb, base);
+    if (live) { units(xb); drawLive(ctx, set, 'behind', S, R, t, reduced, motif, open); }
+    this.places.draw(ctx, set, 'front', day, xn, base);
+    if (live) { units(xn); drawLive(ctx, set, 'over', S, R, t, reduced, motif, open); }
+    ctx.restore();
+    return camThrough(this.gcam, xn);
+  }
+
+  /** The place before, at its last frame, kept for the cut's dissolve. */
+  private snapshot(prev: Place | null, fr: Frame | null, day: number, t: number, reduced: boolean): void {
+    const l = this.l;
+    if (!l || !prev || !fr) return;
+    const key = `${Math.round(l.w)}|${Math.round(l.h)}|${this.dpr}`;
+    if (key !== this.snapKey || !this.snap) { this.snap = layer(l.w, l.h, this.dpr); this.snapKey = key; }
+    if (!this.snap) return;
+    const c = this.snap.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, this.snap.c.width, this.snap.c.height);
+    this.scene(c, this.dpr, prev, fr, day, t, 0, reduced, null, 0, true);
+    this.places.keep([prev, this.cam.place ?? prev]);
+  }
+
+  /** The camera's aim for a motif in a place (CSS px of the canvas, before the camera's move). */
+  private aimAt(set: PlaceSet | null, motif: string | null, cam: Cam): { x: number; y: number } {
+    const S = this.S!;
+    if (set) {
+      const [x, y] = aimIn(set, motif);
+      return { x: S.cx + x * S.u, y: S.hy + y * S.u };
+    }
+    const w = STREET_HOT[motif ?? ''] ?? [0.2, 3.2, 30];
+    const [px, py] = project(cam, w[0], w[1], w[2]);
+    return { x: Math.max(0, Math.min(this.l!.w, px)), y: Math.max(0, Math.min(this.l!.h, py)) };
+  }
+
+  /** The aim seen through the camera now (where the thing is on the screen). */
+  private aimScreen(aim: { x: number; y: number }, fr: Frame, place: boolean): { x: number; y: number; r: number } {
+    const l = this.l!;
+    const xf = layerXf(fr, 1, l.w, l.h, place ? this.S!.M : 0);
+    return { x: aim.x * xf.z + xf.x, y: aim.y * xf.z + xf.y, r: Math.min(l.w, l.h) * 0.22 * xf.z };
+  }
+
+  /** The strip over the card where a close-up's thing stands (less the subtitle's room). */
+  private strip(l: Layout, capH: number): CRect {
+    const band = l.band ?? { x: 0, y: 0, w: l.w, h: l.h };
+    const top = band.y;
+    const free = l.cardFree ?? l.card;
+    const bottom = Math.max(top + 40, free.y - 8 - capH);
+    return { x: band.x, y: top, w: band.w, h: bottom - top };
+  }
+
+  /**
+   * A given moment's greying: the place and the thing lose their colour and dim as the rest imagines it gone; when
+   * focus brings it back, a warm bloom where the thing is, and a short flash of gold when all its colour is back.
+   */
+  private greying(ctx: CanvasRenderingContext2D, l: Layout, life: LifeView | null, grey: number, phase: Phase, step: number, at: { x: number; y: number; r: number }, reduced: boolean): void {
+    const given = !!life && (life.kind === 'given' || (!life.kind && !life.sense));
+    if (!given) { this.greyMax = 0; this.bloom = Math.max(0, this.bloom - step * 0.8); this.flash = Math.max(0, this.flash - step * 0.7); }
+    else {
+      const before = this.greyMax;
+      this.greyMax = Math.max(this.greyMax * (phase === 'arrive' ? 0 : 1), grey);
+      const back = phase === 'turn' && before > 0.3 ? clamp01((before - grey) / before) : 0;
+      this.bloom += (back * (1 - grey * 0.5) - this.bloom) * Math.min(1, step * 2.5);
+      if (phase === 'turn' && before > 0.3 && grey < 0.03 && this.flash <= 0) this.flash = 1;
+      if (this.flash > 0) this.flash = Math.max(0, this.flash - step * 0.6);
+    }
+    if (grey > 0.005) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'saturation';
+      ctx.globalAlpha = 0.92 * grey;
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, l.w, l.h);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 0.3 * grey;
+      ctx.fillStyle = '#1a1e2a';
+      ctx.fillRect(0, 0, l.w, l.h);
+      ctx.restore();
+    }
+    const b = Math.max(this.bloom * 0.8, this.flash);
+    if (b > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, '#ffd890', at.x, at.y, at.r * (1.6 + (reduced ? 0 : 0.6 * this.flash)), 0.38 * b);
+      glow(ctx, '#fff4dc', at.x, at.y, at.r * 0.6, 0.3 * b);
+      ctx.globalAlpha = 0.07 * b;
+      ctx.fillStyle = '#ffcf80';
+      ctx.fillRect(0, 0, l.w, l.h);
+      ctx.restore();
+    }
   }
 
   // ── the card's place ────────────────────────────────────────────
@@ -391,6 +621,62 @@ export class StreetView {
     ctx.restore();
   }
 
+  // ── the guide line: a subtitle over the close-up ─────────────────
+
+  private capFit(ctx: CanvasRenderingContext2D, l: Layout, text: string): { lines: string[]; px: number; w: number; h: number; padX: number; padY: number } {
+    const k = l.k ?? 1;
+    const band = l.band ?? { x: 0, y: 0, w: l.w, h: l.h };
+    const w = Math.min(band.w, Math.round(560 * Math.min(k, 1.6)));
+    const padX = 14 * Math.min(k, 1.4), padY = 8 * Math.min(k, 1.4);
+    let f = fitWrap(ctx, text, w - 2 * padX, 2, Math.max(l.font + 2, 17), MIN_READ, 500, SERIF, true);
+    if (f.lines.length > 2) f = fitWrap(ctx, text, w - 2 * padX, 3, MIN_READ, MIN_READ, 500, SERIF, true);
+    const lh = f.px * 1.28;
+    return { lines: f.lines, px: f.px, w, h: f.lines.length * lh + 2 * padY, padX, padY };
+  }
+
+  /** The room the subtitle takes over the card (0 when there is none). */
+  private captionHeight(ctx: CanvasRenderingContext2D, l: Layout, life: LifeView | null): number {
+    const text = (life?.guide ?? '').trim() || (this.capA > 0.05 ? this.capText : '');
+    if (!text) return 0;
+    return this.capFit(ctx, l, text).h + 8;
+  }
+
+  private caption(ctx: CanvasRenderingContext2D, v: PassaView, l: Layout, step: number, card: Rect): void {
+    const want = (v.life?.guide ?? '').trim();
+    if (want !== this.capText) {
+      this.capA = Math.max(0, this.capA - step * 4);
+      if (this.capA <= 0.01) this.capText = want;
+    } else this.capA = Math.min(1, this.capA + step * 2.2);
+    if (!this.capText || this.capA <= 0.01) return;
+    const band = l.band ?? { x: 0, y: 0, w: l.w, h: l.h };
+    const f = this.capFit(ctx, l, this.capText);
+    const lh = f.px * 1.28;
+    // above the card; above the narrator's line too when it stands over the card (choices open)
+    const open = (v.choices?.length ?? 0) > 0;
+    const sayRoom = open && this.sayText ? Math.max(l.font, 15) * 1.3 * 2 + 30 : 0;
+    const free = l.cardFree ?? l.card;
+    const bottom = Math.min(card.y, free.y) - 8 - sayRoom;
+    const y = Math.max(band.y, bottom - f.h);
+    ctx.font = font(500, f.px, SERIF, true);
+    const tw = Math.max(...f.lines.map(s => ctx.measureText(s).width));
+    const bw = Math.min(f.w, tw + 2 * f.padX);
+    const x = band.x + band.w / 2 - bw / 2;
+    ctx.save();
+    ctx.globalAlpha = smooth(this.capA);
+    ctx.fillStyle = rgba('#0c0a10', 0.5);
+    rr(ctx, x, y, bw, f.h, Math.min(16, f.h / 2));
+    ctx.fill();
+    ctx.strokeStyle = rgba('#ffe6b8', 0.18);
+    ctx.lineWidth = 1;
+    rr(ctx, x + 0.5, y + 0.5, bw - 1, f.h - 1, Math.min(16, f.h / 2));
+    ctx.stroke();
+    ctx.fillStyle = '#fff3dc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    f.lines.forEach((ln, i) => ctx.fillText(ln, band.x + band.w / 2, y + f.padY + lh * (i + 0.5)));
+    ctx.restore();
+  }
+
   // ── the choices ────────────────────────────────────────────────
 
   private choices(ctx: CanvasRenderingContext2D, v: PassaView, l: Layout, step: number, t: number): void {
@@ -487,7 +773,7 @@ export class StreetView {
       const need = px0 * 1.3 * 2 + 22;
       const top = l.mode === 'side' ? l.card.y : rs[0].y - 8 - need;
       r = l.mode === 'side' ? { x: l.card.x, y: l.card.y, w: l.card.w, h: l.card.h } : { x: rs[0].x, y: Math.max(band.y, top), w: rs[0].w, h: need };
-    } else if (open || (l.mode === 'side' && v.phase === 'turn')) {
+    } else if (open || (l.mode === 'side' && v.phase === 'turn' && !this.capText)) {
       const need = px0 * 1.3 * 2 + 22;
       const room = card.y - band.y - 8;
       if (room < need) return;
