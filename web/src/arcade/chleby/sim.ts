@@ -28,6 +28,8 @@
  */
 import { mulberry32 } from '../../core/random';
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -42,11 +44,11 @@ import { LINES, REPLY, TIPS, WHO, bossName, cardName, tierName, type Moment, typ
 import { Field, isBoss, planTerrace, terracesOf, type FieldEvent, type Look } from './field';
 import { baskets as basketsText, fed as fedText, t, unit } from './i18n';
 import {
-  STORY_BITS, addCrumbs, bestFor, bigPerShot, build, champBonus, dayOf, fishEvery, giftOf, helpNeed, isTaught, lenKey, luckOf, lvl,
+  STORY_BITS, addCrumbs, bestFor, bestKey, bigPerShot, build, champBonus, dayOf, fishEvery, giftOf, helpNeed, isTaught, luckOf, lvl,
   markCard, migrate, offers, parOf, progressMission, reinforcements, seenCard, starsFor, starsTotal, streamRate, taughtBit, tierOf,
   villageLevel, type BossKind, type Building, type ChlebyProgress, type DayKind, type MissionKind, type Offer, type Teach,
 } from './meta';
-import { RULES, goldMult } from './rules';
+import { LEVELS, RULES, goldMult, type ChlebyLevel } from './rules';
 
 export { RULES } from './rules';
 
@@ -239,6 +241,9 @@ export class ChlebySim {
   reveal: Pack[] = [];
   private reinforceAt = -1;
   private goldSeen = 0;
+  /** the difficulty level of this session (chosen in the lobby) and its knobs (rules.ts LEVELS) */
+  readonly difficulty: Difficulty;
+  private readonly lv: ChlebyLevel;
 
   // the band
   reliable = false;
@@ -316,6 +321,8 @@ export class ChlebySim {
     this.lead = RULES.leadIn[band];
     this.bigNeed = RULES.bigHold[band];
     this.calmLead = RULES.calmLead[band];
+    this.difficulty = difficultyOf(p.difficulty);
+    this.lv = LEVELS[this.difficulty];
     this.bestBefore = bestFor(p, init.plannedSec);
     this.session = p.sessions + 1;
     this.firstEver = this.session === 1;
@@ -334,7 +341,7 @@ export class ChlebySim {
   private newField(): Field {
     const start = this.p.village.brama;
     const plan = planTerrace(this.level, this.terrace, start);
-    return new Field(plan, { seed: (this.seedBase + this.level * 977 + this.terrace * 131) >>> 0, start, firstEver: this.firstEver, day: this.day });
+    return new Field(plan, { seed: (this.seedBase + this.level * 977 + this.terrace * 131) >>> 0, start, firstEver: this.firstEver, day: this.day, level: this.lv });
   }
 
   get block(): Block { return this.plan[this.blockIndex]; }
@@ -354,7 +361,9 @@ export class ChlebySim {
   get mistrz(): MistrzId { return this.p.loadout.mistrz; }
   get pomoc(): PomocId { return this.p.loadout.pomoc; }
   /** the help's fill 0..1 */
-  get helpCharge(): number { return this.helpReady ? 1 : clamp(this.helpFed / Math.max(1, helpNeed(this.p))); }
+  get helpCharge(): number { return this.helpReady ? 1 : clamp(this.helpFed / Math.max(1, this.helpNeed)); }
+  /** people fed that fill the Pomoc card at this level */
+  private get helpNeed(): number { return this.lv.pomoc === 1 ? helpNeed(this.p) : Math.round(helpNeed(this.p) * this.lv.pomoc); }
   /** the oven's embers at most (s) */
   get ovenMax(): number { return this.kosz === 'piec' ? KOSZ.piec.special[evoOf(lvl(this.p, 'piec'))] : 0; }
   /** shots a second of the basket in play (its pattern's shots, its level, the bread's rate, the bakery) */
@@ -586,13 +595,13 @@ export class ChlebySim {
   private helpGain(n: number): void {
     if (this.helpReady || !(n > 0)) return;
     this.helpFed += n;
-    if (this.helpFed >= helpNeed(this.p)) this.makeHelpReady();
+    if (this.helpFed >= this.helpNeed) this.makeHelpReady();
   }
 
   private makeHelpReady(): void {
     if (this.helpReady) return;
     this.helpReady = true;
-    this.helpFed = helpNeed(this.p);
+    this.helpFed = this.helpNeed;
     this.emit({ type: 'helpReady', id: this.pomoc });
     this.queue('helpReady', 0.3, 40);
     this.teach('help');
@@ -621,9 +630,11 @@ export class ChlebySim {
     }
     if (this.reinforceAt >= 0 && this.field.t >= this.reinforceAt) {
       this.reinforceAt = -1;
-      const n = reinforcements(this.p);
-      this.payLeft += n;
-      this.emit({ type: 'reinforce', n });
+      const n = Math.round(reinforcements(this.p) * this.lv.reinforce);
+      if (n > 0) {
+        this.payLeft += n;
+        this.emit({ type: 'reinforce', n });
+      }
     }
     if (this.payLeft > 0) {
       this.payT -= dt;
@@ -871,7 +882,7 @@ export class ChlebySim {
           break;
         case 'peck':
           this.pecksNow++;
-          this.jam = RULES.jamSec;
+          this.jam = RULES.jamSec * this.lv.jam;
           this.emit({ type: 'jam' });
           this.queue('peck', 0, 20);
           break;
@@ -896,7 +907,7 @@ export class ChlebySim {
             this.pelikansNow++;
             this.p.pelikans++;
           }
-          this.addBaskets(RULES.basketsBoss);
+          this.addBaskets(Math.round(RULES.basketsBoss * this.lv.reward));
           this.queue(BOSS_MOMENT[e.kind][1], 0.4);
           this.earn('skrzynka', 'boss');
           this.mission('boss');
@@ -946,7 +957,7 @@ export class ChlebySim {
     this.p.levels++;
     this.levelsNow++;
     this.starsNow += stars;
-    const gain = RULES.basketsLevel + (stars >= 3 ? RULES.basketsThree : 0);
+    const gain = Math.round((RULES.basketsLevel + (stars >= 3 ? RULES.basketsThree : 0)) * this.lv.reward);
     this.addBaskets(gain);
     this.lastStars = stars;
     this.lastBaskets = gain;
@@ -1295,7 +1306,7 @@ export class ChlebySim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      const key = bestKey(p, this.plannedSec);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
@@ -1311,6 +1322,8 @@ export class ChlebySim {
       [t('stat.bigs'), String(this.bigsNow)],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
+    // a level other than REGULAR is named first (the record is that level's)
+    if (this.difficulty !== 'regular') stats.unshift([t('stat.difficulty'), difficultyName(this.difficulty)]);
     return {
       score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

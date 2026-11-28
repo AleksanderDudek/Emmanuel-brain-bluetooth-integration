@@ -9,6 +9,8 @@
  * The world is 18 × 12 u (about a metre and a half each), x to the right, y down: the hills and the
  * three roads at the top, the wall across at y = 4.6, the city below it.
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the world ────────────────────────────────────────────────
   worldW: 18,
@@ -260,3 +262,27 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The four difficulty levels (kit/difficulty.ts, DESIGN §29) on Nehemiasz's own knobs — multipliers on the rules
+ * above, REGULAR all ones (the game as it was).  A level changes the nights, never the training: the fires' reach,
+ * the horn's charge from a held focus and the builders' rhythm from calm are the same everywhere.
+ *
+ *   courage   the raiders' courage (the blows a raider takes before he runs): the shared `foe`
+ *   pry       how fast they pry the wall's stones loose — `foe` over the wall's own strength (`self`), bent down a
+ *             little because a braver raider also pries for longer
+ *   loot      what a raider inside carries off (a grab and the night's cap on a store)
+ *   count     raiders a night (`count`), the first gentle night too
+ *   speed     their walk down the roads and along the wall (`speed`)
+ *   helps     the horn blown by itself when the player waits (after hornAuto / helps s; never at 0) and the share of
+ *             it a held night keeps for the next (hornKeep × helps)
+ *   reward    the star bank's pay for a gate's new stars (rounded: HARDCORE pays a star more for two or three)
+ */
+export interface NehLevel { courage: number; pry: number; loot: number; count: number; speed: number; helps: number; reward: number }
+
+export const LEVELS: Readonly<Record<Difficulty, NehLevel>> = {
+  start:    { courage: 0.6, pry: 0.5, loot: 0.6, count: 0.75, speed: 0.85, helps: 1.5, reward: 0.9 },
+  regular:  { courage: 1,   pry: 1,   loot: 1,   count: 1,    speed: 1,    helps: 1,   reward: 1 },
+  advanced: { courage: 1.4, pry: 1.4, loot: 1.3, count: 1.25, speed: 1.1,  helps: 0.6, reward: 1.15 },
+  hardcore: { courage: 2,   pry: 2,   loot: 1.6, count: 1.5,  speed: 1.2,  helps: 0,   reward: 1.3 },
+};

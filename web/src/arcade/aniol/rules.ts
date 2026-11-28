@@ -6,6 +6,8 @@
  * The world is one line across the room: `d` is a Zmora's distance from the bed's centre (u, about
  * a metre), on the left (side −1, the wardrobe's shadow) or the right (side +1, the door ajar).
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the room ─────────────────────────────────────────────────
   /** the bed's half width (u): a Zmora touches the bed when d − r ≤ bedHalf */
@@ -227,3 +229,32 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The four difficulty levels (kit/difficulty.ts, DESIGN §29) on Anioł Stróż's own knobs — multipliers on the rules
+ * above, REGULAR all ones (the night as it was).  A level changes the Zmory, never the training: the aura from the
+ * level, the Płomień from a held focus and the lullaby's stars from calm are the same everywhere (and so is what the
+ * lullaby pays).
+ *
+ *   foe      a Zmora's light in hits (the shared `foe`, rounded, never under one: a one-hit Zmora takes two at
+ *            Hardcore, a two-hit one three at Zaawansowany and one at Na start) — the Widmo keeps its two (its
+ *            coach mark counts them), the Fikołek at least two (it leaps the bed after a strike)
+ *   boss     the dream's great nightmare's light — bent below `foe`: the finale is a few seconds long
+ *   dim      what a touch at the bed (and an ink drop, a hold, a boss's blow) dims Sen: `foe` over Sen's own strength
+ *            (`self`), bent down like the others
+ *   count    Zmory in a Czuwanie: the gap between two of them ÷ count (the warm-up's and the lullaby's stay)
+ *   speed    their walk (`speed`)
+ *   scatter  how far the Zmory near the bed scatter at a stir (`helps`: the whole room at Na start, none at
+ *            Hardcore).  Sen comes back to half at every level (the stir's card says so; the night goes on)
+ *   reward   feathers for a Zmora banished and a perfect hit — bent so that a night pays the shared `reward` (0.9 /
+ *            1 / 1.15 / 1.3 of REGULAR's feathers): `count` already brings more Zmory, and so more feathers, to the
+ *            harder levels (fewer to Na start), so each one pays a little less there (more at Na start)
+ */
+export interface AniolLevel { foe: number; boss: number; dim: number; count: number; speed: number; scatter: number; reward: number }
+
+export const LEVELS: Readonly<Record<Difficulty, AniolLevel>> = {
+  start:    { foe: 0.6, boss: 0.7,  dim: 0.5, count: 0.75, speed: 0.85, scatter: 1.5, reward: 1.2 },
+  regular:  { foe: 1,   boss: 1,    dim: 1,   count: 1,    speed: 1,    scatter: 1,   reward: 1 },
+  advanced: { foe: 1.4, boss: 1.25, dim: 1.4, count: 1.25, speed: 1.1,  scatter: 0.6, reward: 0.95 },
+  hardcore: { foe: 2,   boss: 1.5,  dim: 2,   count: 1.5,  speed: 1.2,  scatter: 0,   reward: 0.9 },
+};

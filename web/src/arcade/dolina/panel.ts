@@ -1,5 +1,6 @@
 /**
  * Dolina's "Postępy" card in the lobby, from the app's shared .arcade-* classes (styles.css): the
+ * difficulty level at the top (kit/difficultypanel.ts: four chips and what the chosen one means here), the
  * level the next run starts at, the record, the stars and the lambs; the mode (the valley or the
  * clock tower, once the first guardian is beaten) with the tower's floor and clock; the valley's map
  * (the levels around the current one on a climbing path, coloured by era, a guardian's level marked,
@@ -12,6 +13,8 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { difficultyOf } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import { coarsePointer } from '../kit/mobile';
 import { dayKey } from '../kit/progress';
 import { paintGearIcon, paintMate, paintClock, TIER_COLOR } from './cast';
@@ -72,8 +75,19 @@ function tile(cls: string | null, title: string, pressed: boolean | null, onClic
 export function progressPanel(p: DolinaProgress, save: () => void): HTMLElement {
   migrate(p);
   const root = h('div', { class: 'arcade-panel' });
+  // the level's row stays put (its chips keep the keyboard's focus); the card under it redraws (the level's records)
+  const level = difficultyPanel({
+    value: difficultyOf(p.difficulty),
+    onChange: d => {
+      p.difficulty = d;
+      save();
+      render();
+    },
+    line: d => t(`diff.${d}`),
+  });
+  root.appendChild(level);
   const render = (): void => {
-    while (root.firstChild) root.removeChild(root.firstChild);
+    while (root.lastChild && root.lastChild !== level) root.removeChild(root.lastChild);
     for (const el of build(p, () => {
       save();
       render();

@@ -1,12 +1,15 @@
 /**
  * Nehemiasz's "Postępy" card in the lobby, from the app's shared .arcade-* classes (styles.css): the
- * records and the day of the campaign, the wall of Jerusalem as its ten gates (built with their
+ * difficulty level at the top (kit/difficultypanel.ts: four chips and what the chosen one means here), the
+ * records (the level's) and the day of the campaign, the wall of Jerusalem as its ten gates (built with their
  * stars, the one being built with its day, the rest waiting), the city (people, stores), the king's
  * letters (permanent favours bought here with the stars) and the chronicle of builders.  Built with
  * h() and createElement; a purchase saves and redraws the card.
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { difficultyOf } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import { CHRONICLE_SIZE, GATES, PERKS, gateDays, gateFirstDay, gateName, perkCost, perkName, perkText, townName, type PerkId, type TownId } from './content';
 import { t, type Key } from './i18n';
 import { bestOf, buyPerk, perkLevel, perkMax, type NehProgress } from './meta';
@@ -45,8 +48,19 @@ function button(label: string, can: boolean, onClick: () => void): HTMLButtonEle
 
 export function progressPanel(p: NehProgress, save: () => void): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
+  // the level's row stays put (its chips keep the keyboard's focus); the card under it redraws (the level's records)
+  const level = difficultyPanel({
+    value: difficultyOf(p.difficulty),
+    onChange: d => {
+      p.difficulty = d;
+      save();
+      render();
+    },
+    line: d => t(`diff.${d}`),
+  });
+  root.appendChild(level);
   const render = (): void => {
-    while (root.firstChild) root.removeChild(root.firstChild);
+    while (root.lastChild && root.lastChild !== level) root.removeChild(root.lastChild);
     for (const el of build(p, () => {
       save();
       render();

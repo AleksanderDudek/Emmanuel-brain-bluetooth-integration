@@ -7,7 +7,9 @@ import { CATALOGS, t, unit } from '../src/arcade/nehemiasz/i18n';
 import {
   affordablePerk, bestOf, buyPerk, freshProgress, heightOf, isOpen, jobs, maxHp, migrate, room, starsOf, stoneCap, type NehProgress,
 } from '../src/arcade/nehemiasz/meta';
-import { RULES } from '../src/arcade/nehemiasz/rules';
+import { LEVELS, RULES } from '../src/arcade/nehemiasz/rules';
+import { DIFFICULTIES, type Difficulty } from '../src/arcade/kit/difficulty';
+import { difficultyName } from '../src/arcade/kit/difficultypanel';
 import { ROUND_SEC } from '../src/arcade/nehemiasz/talk';
 import { NehSim, finaleFor, fireReach, planBlocks, type SimEvent } from '../src/arcade/nehemiasz/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
@@ -831,7 +833,8 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(el.querySelectorAll('.arcade-album > div')).toHaveLength(GATES.length);
     expect(el.querySelectorAll('.arcade-album > div.on')).toHaveLength(3);
     expect(el.textContent).toContain(t('gate.rybna'));
-    const buy = el.querySelector<HTMLButtonElement>('button:not([disabled])');
+    // (the letters' buy button: the difficulty row's chips stand above it since round 25)
+    const buy = el.querySelector<HTMLButtonElement>('.arcade-daily button:not([disabled])');
     expect(buy).not.toBeNull();
     buy!.click();
     expect(saved).toBe(1);
@@ -1346,5 +1349,185 @@ describe('long sessions (45–60 minutes)', () => {
     // a strong hour may finish the wall a second time: not "a few days", the whole calendar
     sim.p.year = year0 + 2;
     expect(days()).toBe(t('stat.daysV', { from: 1, to: 52 }));
+  });
+});
+
+// ── difficulty levels (kit/difficulty.ts, DESIGN §29): Na start · Zwykły · Zaawansowany · Hardcore ──────────────────
+describe('difficulty levels', () => {
+  /** A session of a player who taps the guide and blows the horn, at a steady focus by night and calm by day. */
+  function play(d: Difficulty | undefined, planned: number, seed: number, night: FocusFrame, progress: Partial<NehProgress> = {}) {
+    const sim = later({ planned, seed, progress: { ...progress, ...(d ? { difficulty: d } : {}) } });
+    const evs = drive(sim, planned + RULES.settle, () => (sim.block?.kind === 'push' ? night : CALM), { t: 0 }, tt => {
+      through(sim)();
+      if (Math.round(tt * 60) % 39 === 0) sim.tap(null);
+    });
+    sim.finish();
+    return { sim, evs, r: sim.result() };
+  }
+
+  it('reads an older save as REGULAR and keeps a chosen level through the migration', () => {
+    const old = freshProgress() as unknown as Record<string, unknown>;
+    delete old.difficulty;
+    expect(migrate(old as unknown as NehProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'nightmare' } as unknown as NehProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'hardcore' }).difficulty).toBe('hardcore');
+    expect(migrate({ sessions: 4, difficulty: 'start' } as unknown as NehProgress)).toMatchObject({ sessions: 4, difficulty: 'start', ver: 1 });
+    expect(freshProgress().difficulty).toBe('regular');
+    expect(LEVELS.regular).toEqual({ courage: 1, pry: 1, loot: 1, count: 1, speed: 1, helps: 1, reward: 1 });
+  });
+
+  it('keeps the training the same at every level: the same blocks at 40 s and 3–60 minutes', () => {
+    for (const planned of [40, 60, 180, 600, 1800, 2700, 3600]) {
+      for (const first of [true, false]) {
+        const plans = DIFFICULTIES.map(d => makeSim({ planned, seed: 9, progress: first ? { difficulty: d } : { sessions: 4, difficulty: d } }).plan);
+        for (const plan of plans) expect(plan).toEqual(plans[1]);
+        expect(plans[1].reduce((n, b) => n + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+      }
+    }
+  });
+
+  it('REGULAR is the game as it was: an old save and a REGULAR one play the same session, number for number', () => {
+    const night = frame({ level: 0.6, activity: 3, focused: true, hold: 4 });
+    const a = play(undefined, 300, 4, night), b = play('regular', 300, 4, night);
+    expect(b.r).toEqual(a.r);
+    expect(b.evs).toEqual(a.evs);
+    expect(JSON.stringify(b.sim.p)).toBe(JSON.stringify(a.sim.p));
+    expect(b.r.stats.map(([k]) => k)).not.toContain(t('stat.level'));
+  });
+
+  it('scores in a 40 s test session at every level, on either band, first session or later', () => {
+    for (const d of DIFFICULTIES) {
+      for (const eeg of [false, true]) {
+        for (const progress of [{}, { sessions: 6, seen: SEEN }] as Partial<NehProgress>[]) {
+          const sim = makeSim({ progress: { ...progress, difficulty: d }, planned: 40, seed: 3, tuning: BEGINNER, eeg });
+          const focus = new FocusInput(BEGINNER);
+          let f = focus.push(0, true, 0.1), hub = 0, tap = 0;
+          for (let tt = 0; tt < 40 + RULES.settle; tt += STEP) {
+            if ((hub += STEP) >= 0.1) { hub -= 0.1; f = focus.push(10 * (1 - Math.exp(-tt / 4)), true, 0.1); }
+            sim.update(STEP, f, tt);
+            if ((tap += STEP) >= 0.65) { tap -= 0.65; sim.steer(0, 0); sim.tap({ x: 9, y: 7 }); }
+            sim.take();
+          }
+          expect(sim.result().score, `${d}, eeg ${eeg}`).toBeGreaterThan(3);
+        }
+      }
+    }
+  });
+
+  it('orders the nights from Na start to Hardcore at the same focus; Hardcore stays winnable for a focused player', () => {
+    const at = (d: Difficulty, night: FocusFrame) => {
+      let reached = 0, breaches = 0, held = 0, nights = 0, courage = 0, raiders = 0;
+      for (const seed of [1, 2]) {
+        const { sim, evs } = play(d, 600, seed, night, { gate: 3, gateDay: 1, day: gateFirstDay(3) + 1 });
+        reached += sim.reached;
+        breaches += sim.breaches;
+        held += sim.nightsHeld;
+        nights += sim.nightsAll;
+        raiders += ofType(evs, 'spawn').length;
+        courage += sim.raiders.reduce((n, r) => n + r.max, 0);
+      }
+      return { reached: reached / 20, breaches, held: held / nights, raiders, courage };
+    };
+    const mid = frame({ level: 0.55, activity: 3, focused: true, hold: 3 });
+    const m = DIFFICULTIES.map(d => at(d, mid));
+    for (let i = 1; i < m.length; i++) {
+      // raiders that reach the wall's foot per minute (through the light and the towers), breaches, nights held
+      expect(m[i].reached, DIFFICULTIES[i]).toBeGreaterThan(m[i - 1].reached);
+      expect(m[i].breaches, DIFFICULTIES[i]).toBeGreaterThanOrEqual(m[i - 1].breaches);
+      expect(m[i].held, DIFFICULTIES[i]).toBeLessThanOrEqual(m[i - 1].held);
+      expect(m[i].raiders, DIFFICULTIES[i]).toBeGreaterThan(m[i - 1].raiders);
+    }
+    expect(m[0].held).toBe(1);
+    expect(m[3].held).toBeLessThan(0.7);
+    // a focused player holds most Hardcore nights
+    const strong = at('hardcore', frame({ level: 0.9, activity: 6, focused: true, hold: 10 }));
+    expect(strong.held).toBeGreaterThan(0.6);
+  });
+
+  it('Hardcore has no helps: the horn never sounds by itself and a held night keeps none of it; Na start sounds it sooner', () => {
+    const wait = (d: Difficulty) => {
+      const sim = later({ planned: 300, progress: { difficulty: d } });
+      const clock = { t: 0 };
+      toBlock(sim, 'push', CALM, clock);
+      let blown = -1;
+      drive(sim, sim.block.dur - 1, HIGH, clock, tt => {
+        if (blown < 0 && sim.horns > 0) blown = tt;
+        if (sim.hornReady && blown >= 0) blown = Math.min(blown, tt);
+      });
+      return { horns: sim.horns, ready: sim.hornReady };
+    };
+    expect(wait('hardcore')).toEqual({ horns: 0, ready: true });
+    expect(wait('regular').horns).toBeGreaterThan(0);
+    expect(wait('start').horns).toBeGreaterThanOrEqual(wait('regular').horns);
+  });
+
+  it('pays a Hardcore gate a star more for two or three stars, never less at Na start', () => {
+    for (const [d, stars, pay] of [['regular', 3, 3], ['start', 1, 1], ['start', 3, 3], ['advanced', 3, 3], ['hardcore', 1, 1], ['hardcore', 2, 3], ['hardcore', 3, 4]] as const) {
+      const p = { ...freshProgress(), difficulty: d as Difficulty, gate: 1, gateDay: gateDays(1), stars: GATES.map(() => 0) };
+      const sim = makeSim({ progress: p });
+      sim.p.wall.forEach((s, i) => { s.done = s.tier = i === GATE_SEG || stars >= 2 ? 2 : 1; s.hp = maxHp(i, s); });
+      sim.p.breached = stars < 3;
+      if (stars === 1) sim.p.wall.forEach(s => { s.done = s.tier = 1; });
+      const before = sim.p.starBank;
+      (sim as unknown as { finishGate: () => void }).finishGate();
+      expect(sim.p.starBank - before, `${d} ${stars}`).toBe(pay);
+    }
+  });
+
+  it('keeps records per level and names a level other than REGULAR in the summary', () => {
+    const night = frame({ level: 0.6, activity: 3, focused: true, hold: 4 });
+    const p = { ...freshProgress(), best: { 300: 999 } };
+    const hard = play('hardcore', 300, 2, night, p);
+    expect(hard.sim.p.best[300]).toBe(999);
+    expect(hard.sim.p.best['300@hardcore']).toBe(hard.r.score);
+    expect(hard.r.record).toBe(false);
+    expect(hard.r.stats[0]).toEqual([t('stat.level'), difficultyName('hardcore')]);
+    expect(bestOf(hard.sim.p)).toBe(hard.r.score);
+    hard.sim.p.difficulty = 'regular';
+    expect(bestOf(hard.sim.p)).toBe(999);
+    hard.sim.p.difficulty = 'start';
+    expect(bestOf(hard.sim.p)).toBeNull();
+    // a second Hardcore session knows its record
+    const again = play('hardcore', 300, 3, night, JSON.parse(JSON.stringify({ ...hard.sim.p, difficulty: 'hardcore' })));
+    expect(again.r.record).toBe(again.r.score > hard.r.score);
+  });
+
+  it('plays an hour at Hardcore and three minutes at Na start: on time, nothing piles up', () => {
+    for (const [d, planned] of [['hardcore', 3600], ['start', 180]] as const) {
+      const sim = later({ planned, progress: { difficulty: d } });
+      let maxRaiders = 0;
+      drive(sim, planned + RULES.settle, tt => (sim.block?.kind === 'rest' ? CALM : Math.sin(tt / 9) > 0 ? HIGH : frame({ level: 0.35 })), { t: 0 }, tt => {
+        through(sim)();
+        if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+        maxRaiders = Math.max(maxRaiders, sim.raiders.length);
+      });
+      expect(sim.canStop(), d).toBe(true);
+      expect(maxRaiders, d).toBeLessThan(80);
+      expect(sim.result().score, d).toBeGreaterThan(planned / 10);
+    }
+  });
+
+  it('opens the lobby card with the four chips; a chip saves the level and the card shows that level\'s record', async () => {
+    const { progressPanel } = await import('../src/arcade/nehemiasz/panel');
+    const p = { ...freshProgress(), sessions: 2, lastLen: 300, best: { 300: 45, '300@hardcore': 12 } };
+    let saved = 0;
+    const el = progressPanel(p, () => saved++);
+    expect(el.firstElementChild?.classList.contains('difficulty')).toBe(true);
+    const chips = [...el.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.querySelector('[aria-checked="true"]')?.getAttribute('data-difficulty')).toBe('regular');
+    // (the card's words come in the language its module was loaded with)
+    const line = () => el.querySelector('.difficulty-line')?.textContent;
+    const lang = LANGS.find(l => CATALOGS[l]['diff.regular'] === line());
+    expect(lang).toBeDefined();
+    const best = () => el.querySelectorAll('.arcade-stats .stat .v')[1].textContent;
+    expect(best()).toBe('45');
+    chips[3].click();
+    expect(p.difficulty).toBe('hardcore');
+    expect(saved).toBe(1);
+    expect(best()).toBe('12');
+    expect(line()).toBe(CATALOGS[lang!]['diff.hardcore']);
+    expect(el.querySelectorAll('.difficulty')).toHaveLength(1);
+    for (const l of LANGS) for (const d of DIFFICULTIES) expect(String(CATALOGS[l][`diff.${d}`]).length, `${l} ${d}`).toBeGreaterThan(20);
   });
 });

@@ -32,7 +32,7 @@ import { mulberry32 } from '../../core/random';
 import { feedBoss, makeBoss, pouchOf, stepBoss, stunBoss, type Boss, type BossEvent } from './boss';
 import type { ChlebId, MistrzId, PomocId } from './cards';
 import { BOSSES, type BossKind, type DayKind } from './meta';
-import { RULES } from './rules';
+import { LEVELS, RULES, type ChlebyLevel } from './rules';
 
 export type GateKind = 'add' | 'mul' | 'sub' | 'gold' | 'start' | 'jar' | 'help';
 export type Look = ChlebId | 'fish' | 'gold';
@@ -351,6 +351,8 @@ export interface FieldOpts {
   firstEver?: boolean;
   /** the day's weather */
   day?: DayKind;
+  /** the difficulty level's knobs (rules.ts LEVELS; absent: REGULAR) */
+  level?: ChlebyLevel;
 }
 
 export class Field {
@@ -384,11 +386,17 @@ export class Field {
   private wasRest = false;
   private readonly day: DayKind;
   private bossHelp = 0;
+  /** the difficulty level's knobs, when the disciples begin to help (s; never at Hardcore), the gulls' loaves owed */
+  private readonly lv: ChlebyLevel;
+  private readonly helpAfter: number;
+  private gullCredit = 0;
 
   constructor(plan: TerracePlan, opts: FieldOpts) {
     const R = RULES;
     this.plan = plan;
     this.day = opts.day ?? 'zwykly';
+    this.lv = opts.level ?? LEVELS.regular;
+    this.helpAfter = this.lv.grace > 0 ? R.helpAfter / this.lv.grace : Infinity;
     this.rnd = mulberry32(opts.seed >>> 0);
     const slideSpeed = Math.min(R.slideMax, R.slideBase + R.slidePerLevel * plan.level);
     let id = 0;
@@ -412,7 +420,8 @@ export class Field {
     if (this.day === 'cisza') this.nextWave += 6;
     if (plan.arena) {
       const brookY = this.brook ? (this.brook.y0 + this.brook.y1) / 2 : 11.4;
-      this.boss = makeBoss(plan.arena, pouchOf(plan.arena, plan.chapter, plan.circle), brookY);
+      const pouch = pouchOf(plan.arena, plan.chapter, plan.circle);
+      this.boss = makeBoss(plan.arena, this.lv.pouch === 1 ? pouch : Math.max(1, Math.round(pouch * this.lv.pouch)), brookY);
       this.events.push({ type: 'boss', kind: plan.arena });
     }
   }
@@ -486,7 +495,7 @@ export class Field {
     this.moveCarriers(dt);
     if (this.boss) {
       const brookY = this.brook ? (this.brook.y0 + this.brook.y1) / 2 : 11.4;
-      stepBoss(this.boss, dt, { runners: this.runners, rest: ctl.rest, rnd: this.rnd, emit: e => this.events.push(e), brookY });
+      stepBoss(this.boss, dt * this.lv.speed, { runners: this.runners, rest: ctl.rest, rnd: this.rnd, emit: e => this.events.push(e), brookY });
       if (this.boss.state === 'gone') this.boss = null;
     }
     this.collide();
@@ -765,7 +774,7 @@ export class Field {
     const gap = Math.max(R.waveMin, R.waveGap - R.waveGapPerLevel * L) * (0.85 + 0.3 * this.rnd());
     this.nextWave = this.t + gap * (this.day === 'cisza' ? 1.25 : 1);
     const many = this.day === 'rodzina' ? 1.3 : 1;
-    const n = Math.min(R.waveMax, Math.round((R.waveN + R.wavePerLevel * L * (0.8 + 0.4 * this.rnd())) * many));
+    const n = Math.min(R.waveMax, Math.round((R.waveN + R.wavePerLevel * L * (0.8 + 0.4 * this.rnd())) * many * this.lv.count));
     const fat = L >= R.fatFrom && this.waves % R.fatEvery === 0;
     const mirka = !fat && L >= R.mirkaFrom && this.waves % R.mirkaEvery === 2;
     const cx = 2.2 + this.rnd() * 5.6;
@@ -773,11 +782,20 @@ export class Field {
     for (let i = 0; i < n; i++) {
       const row = Math.floor(i / cols), col = i % cols;
       const x = Math.max(R.edge, Math.min(R.laneW - R.edge, cx + (col - (cols - 1) / 2) * 0.85 + (this.rnd() - 0.5) * 0.3));
-      this.gulls.push({ id: this.ids++, kind: 'gull', x, y: R.laneH - 0.6 + row * 0.75, w: 1, state: 'walk', t: 0, dir: 1, carry: false, lag: this.rnd() * 0.4 });
+      this.gulls.push({ id: this.ids++, kind: 'gull', x, y: R.laneH - 0.6 + row * 0.75, w: this.gullW(), state: 'walk', t: 0, dir: 1, carry: false, lag: this.rnd() * 0.4 });
     }
-    if (fat) this.gulls.push({ id: this.ids++, kind: 'fat', x: cx, y: R.laneH - 1.4, w: R.fatW, state: 'walk', t: 0, dir: 1, carry: false, lag: 0 });
-    if (mirka) this.gulls.push({ id: this.ids++, kind: 'mirka', x: cx, y: R.laneH - 1.6, w: R.mirkaW, state: 'walk', t: 0, dir: 1, carry: false, lag: 0 });
+    if (fat) this.gulls.push({ id: this.ids++, kind: 'fat', x: cx, y: R.laneH - 1.4, w: Math.max(1, Math.round(R.fatW * this.lv.foe)), state: 'walk', t: 0, dir: 1, carry: false, lag: 0 });
+    if (mirka) this.gulls.push({ id: this.ids++, kind: 'mirka', x: cx, y: R.laneH - 1.6, w: Math.max(1, Math.round(R.mirkaW * this.lv.foe)), state: 'walk', t: 0, dir: 1, carry: false, lag: 0 });
     this.events.push({ type: 'wave', n: n + (fat ? 1 : 0) + (mirka ? 1 : 0), fat, mirka, x: cx });
+  }
+
+  /** A common gull's loaves at this level: one (REGULAR, and never fewer); a share of twos at the harder levels. */
+  private gullW(): number {
+    if (this.lv.foe <= 1) return 1;
+    this.gullCredit += this.lv.foe;
+    const w = Math.floor(this.gullCredit + 1e-9);
+    this.gullCredit -= w;
+    return Math.max(1, w);
   }
 
   private moveGulls(dt: number, ctl: FieldCtl): void {
@@ -802,7 +820,7 @@ export class Field {
         if (g.y > R.laneH + 0.5) g.state = 'gone';
         continue;
       }
-      const speed = R.gullSpeed * (g.kind === 'fat' ? 0.7 : g.kind === 'mirka' ? 1.15 : 1);
+      const speed = R.gullSpeed * this.lv.speed * (g.kind === 'fat' ? 0.7 : g.kind === 'mirka' ? 1.15 : 1);
       g.y -= speed * dt;
       // drift toward the basket in the lower half (they want the bread at its source)
       if (g.y < R.laneH * 0.55) g.x += Math.sign(ctl.basketX - g.x) * Math.min(Math.abs(ctl.basketX - g.x), 0.6 * dt);
@@ -954,12 +972,12 @@ export class Field {
   // ── grace ───────────────────────────────────────────────────────
   private help(dt: number): void {
     const R = RULES;
-    if (this.done || this.t < R.helpAfter) return;
+    if (this.done || this.t < this.helpAfter) return;
     if (!this.helping) {
       this.helping = true;
       this.events.push({ type: 'disciples' });
     }
-    const rate = R.helpRate + R.helpGrow * (this.t - R.helpAfter);
+    const rate = R.helpRate + R.helpGrow * (this.t - this.helpAfter);
     for (const tb of this.tables) {
       if (tb.fed) continue;
       tb.help += rate * dt;

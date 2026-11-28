@@ -17,7 +17,9 @@ import {
   type DayKind,
 } from '../src/arcade/chleby/meta';
 import { SANS, SERIF, font } from '../src/arcade/chleby/paint';
-import { RULES, goldMult } from '../src/arcade/chleby/rules';
+import { LEVELS, RULES, goldMult } from '../src/arcade/chleby/rules';
+import { DIFFICULTIES, type Difficulty } from '../src/arcade/kit/difficulty';
+import { difficultyName } from '../src/arcade/kit/difficultypanel';
 import { ChlebySim, planBlocks, sayDur, type SimEvent } from '../src/arcade/chleby/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
@@ -1718,4 +1720,184 @@ describe('long sessions (45–60 min), drawn', () => {
     expect(mean(late)).toBeLessThan(mean(early) * 1.5);
     expect(Math.max(...late)).toBeLessThan(Math.max(...early) * 1.5);
   }, 300_000);
+});
+
+// ── difficulty levels (kit/difficulty.ts, DESIGN §29): Na start · Zwykły · Zaawansowany · Hardcore ──────────────────
+describe('difficulty levels', () => {
+  const MID = frame({ level: 0.55, activity: 3, focused: true, hold: 3, calm: 0.3 });
+  /** A session of a player who holds the stream and sweeps it across the lane, bursting now and then. */
+  function play(d: Difficulty | undefined, planned: number, seed: number, push: FocusFrame, progress: Partial<ChlebyProgress> = {}) {
+    const sim = later({ planned, seed, progress: { ...progress, ...(d ? { difficulty: d } : {}) } });
+    let snatched = 0, sp = 0;
+    sim.press(5);
+    const evs = drive(sim, planned + RULES.settle + 2, () => (sim.block?.kind === 'push' ? push : LOW), { t: 0 }, tt => {
+      sim.drag(5 + Math.sin(tt * 0.9) * 3.5);
+      if (tt - sp >= 2) { sp = tt; sim.burst(); }
+    });
+    sim.release();
+    sim.finish();
+    for (const e of evs) if (e.type === 'snatch') snatched += e.n;
+    return { sim, evs, r: sim.result(), snatched };
+  }
+
+  it('reads an older save as REGULAR and keeps a chosen level through the migration', () => {
+    const old = freshProgress() as unknown as Record<string, unknown>;
+    delete old.difficulty;
+    expect(migrate(old as unknown as ChlebyProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'nightmare' } as unknown as ChlebyProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'hardcore' }).difficulty).toBe('hardcore');
+    expect(migrate(mergeSaved(freshProgress(), { sessions: 2, v: 1, difficulty: 'start' } as unknown as ChlebyProgress)).difficulty).toBe('start');
+    expect(freshProgress().difficulty).toBe('regular');
+    expect(Object.values(LEVELS.regular).every(v => v === 1)).toBe(true);
+  });
+
+  it('keeps the training the same at every level: the same blocks at 40 s and 3–60 minutes', () => {
+    for (const planned of [40, 60, 180, 600, 1800, 2700, 3600]) {
+      for (const first of [true, false]) {
+        const plans = DIFFICULTIES.map(d => makeSim({ planned, seed: 9, progress: first ? { difficulty: d } : { sessions: 4, giftDay: DAY, difficulty: d } }).plan);
+        for (const plan of plans) expect(plan).toEqual(plans[1]);
+      }
+    }
+  });
+
+  it('REGULAR is the hillside as it was: an old save and a REGULAR one play the same session, number for number', () => {
+    const a = play(undefined, 300, 4, MID, { level: 6 }), b = play('regular', 300, 4, MID, { level: 6 });
+    expect(b.r).toEqual(a.r);
+    expect(b.evs).toEqual(a.evs);
+    expect(JSON.stringify(b.sim.p)).toBe(JSON.stringify(a.sim.p));
+    expect(b.r.stats.map(([k]) => k)).not.toContain(t('stat.difficulty'));
+  });
+
+  it('scores in a 40 s test session at every level, on either band (the smoke test\'s taps)', () => {
+    for (const d of DIFFICULTIES) {
+      for (const eeg of [false, true]) {
+        const sim = makeSim({ planned: 40, eeg, tuning: BEGINNER, progress: { difficulty: d } });
+        let nextTap = 0.3, nextSpace = 1, mid = 0;
+        drive(sim, 22, HIGH, { t: 0 }, tt => {
+          if (tt >= nextTap) { sim.press(RULES.laneW / 2); sim.release(); nextTap += 0.65; }
+          if (tt >= nextSpace) { sim.burst(); nextSpace += 2; }
+          if (Math.abs(tt - 11) < STEP / 2) mid = sim.headline().value;
+        });
+        expect(mid, `${d} eeg ${eeg}`).toBeGreaterThan(0);
+        expect(sim.result().score, `${d} eeg ${eeg}`).toBeGreaterThan(mid);
+      }
+    }
+  });
+
+  it('turns the gulls\' knobs on a terrace: bigger, faster flocks that snatch more, a bigger pouch, no grace at Hardcore', () => {
+    const terrace = (d: Difficulty, L = 6) => new Field(planTerrace(L, 0), { seed: 7, level: LEVELS[d] });
+    const firstWave = (d: Difficulty) => {
+      const f = terrace(d);
+      const evs = stepField(f, RULES.waveFirst + 0.5, { ...CALM, quiet: false });
+      const w = evs.find(e => e.type === 'wave') as Extract<FieldEvent, { type: 'wave' }>;
+      return { n: w.n, loaves: f.gulls.reduce((n, g) => n + g.w, 0), y: f.gulls[0].y };
+    };
+    const reg = firstWave('regular'), hard = firstWave('hardcore'), start = firstWave('start');
+    expect(hard.n).toBeGreaterThan(reg.n);
+    expect(start.n).toBeLessThan(reg.n);
+    expect(hard.loaves).toBe(2 * hard.n);
+    expect(reg.loaves).toBe(reg.n);
+    // a boss's pouch, and the grace on a long terrace
+    const arena = (d: Difficulty) => new Field(planTerrace(3, terracesOf(3) - 1), { seed: 1, level: LEVELS[d] });
+    const pouch = arena('regular').boss!.full;
+    expect(arena('hardcore').boss!.full).toBe(Math.round(pouch * LEVELS.hardcore.pouch));
+    expect(arena('start').boss!.full).toBeLessThan(pouch);
+    const graceAt = (d: Difficulty) => {
+      const plan: TerracePlan = { ...planTerrace(1, 0), arena: null, pads: [], brook: null, rocks: [], gates: [], tables: [{ x: 5, half: 5, hunger: 400 }], hunger: 400 };
+      const f = new Field(plan, { seed: 3, level: LEVELS[d] });
+      const evs = stepField(f, 90);
+      const i = evs.findIndex(e => e.type === 'disciples');
+      return i < 0 ? null : f.t;
+    };
+    expect(graceAt('hardcore')).toBeNull();
+    expect(graceAt('start')).not.toBeNull();
+    expect(graceAt('regular')).not.toBeNull();
+  });
+
+  it('orders the hillside from Na start to Hardcore at the same focus; a focused player still climbs at Hardcore', () => {
+    const at = (d: Difficulty, push: FocusFrame) => {
+      let snatched = 0, levels = 0, fed = 0;
+      for (const seed of [1, 2]) {
+        const r = play(d, 600, seed, push, { level: 12 });
+        snatched += r.snatched;
+        levels += r.sim.levelsNow;
+        fed += r.r.score;
+      }
+      return { snatched: snatched / 20, levels, fed };
+    };
+    const m = DIFFICULTIES.map(d => at(d, MID));
+    for (let i = 1; i < m.length; i++) {
+      expect(m[i].snatched, DIFFICULTIES[i]).toBeGreaterThan(m[i - 1].snatched);
+      expect(m[i].fed, DIFFICULTIES[i]).toBeLessThan(m[i - 1].fed);
+      expect(m[i].levels, DIFFICULTIES[i]).toBeLessThanOrEqual(m[i - 1].levels);
+    }
+    const strong = at('hardcore', HIGH);
+    expect(strong.levels).toBeGreaterThanOrEqual(0.75 * at('regular', HIGH).levels);
+  });
+
+  it('pays the harder levels a little more: baskets for a level of three stars and a sated glutton, rounded', () => {
+    for (const d of DIFFICULTIES) {
+      const k = LEVELS[d].reward;
+      expect(Math.round((RULES.basketsLevel + RULES.basketsThree) * k), d).toBe(d === 'hardcore' ? 3 : 2);
+      expect(Math.round(RULES.basketsBoss * k), d).toBe(d === 'hardcore' ? 3 : 2);
+    }
+  });
+
+  it('keeps records per level and names a level other than REGULAR in the summary', () => {
+    const hard = play('hardcore', 300, 2, MID, { best: { 300: 999999 }, lastLen: 300 });
+    expect(hard.sim.p.best[300]).toBe(999999);
+    expect(hard.sim.p.best['300@hardcore']).toBe(hard.r.score);
+    expect(hard.r.record).toBe(false);
+    expect(hard.r.stats[0]).toEqual([t('stat.difficulty'), difficultyName('hardcore')]);
+    expect(bestOf(hard.sim.p)).toBe(hard.r.score);
+    hard.sim.p.difficulty = 'regular';
+    expect(bestOf(hard.sim.p)).toBe(999999);
+    hard.sim.p.difficulty = 'start';
+    expect(bestOf(hard.sim.p)).toBeNull();
+  });
+
+  it('plays an hour at Hardcore and three minutes at Na start: on time, the lane stays bounded', () => {
+    for (const [d, planned] of [['hardcore', 3600], ['start', 180]] as const) {
+      const sim = later({ planned, seed: 3, progress: { difficulty: d } });
+      const most = { runners: 0, gulls: 0 };
+      let sp = 0;
+      sim.press(5);
+      drive(sim, planned + RULES.settle + 2, tt => (sim.block?.kind === 'push' ? (Math.floor(tt / 25) % 2 ? MID : HIGH) : LOW), { t: 0 }, tt => {
+        sim.drag(5 + Math.sin(tt * 0.9) * 3.5);
+        if (tt - sp >= 2) { sp = tt; sim.burst(); }
+        most.runners = Math.max(most.runners, sim.field.runners.length);
+        most.gulls = Math.max(most.gulls, sim.field.gulls.length);
+      });
+      sim.release();
+      expect(sim.canStop(), d).toBe(true);
+      expect(most.runners, d).toBeLessThanOrEqual(RULES.maxRunners + 20);
+      expect(most.gulls, d).toBeLessThan(150);
+      expect(sim.result().score, d).toBeGreaterThan(planned);
+      for (const [k, v] of sim.result().stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('opens the lobby card with the four chips; a chip saves the level and the card shows that level\'s record', async () => {
+    const { progressPanel } = await import('../src/arcade/chleby/panel');
+    const p = { ...freshProgress(), sessions: 2, lastLen: 300, best: { 300: 4567, '300@advanced': 1234 } };
+    let saved = 0;
+    const el = progressPanel(p, () => saved++);
+    expect(el.firstElementChild?.classList.contains('difficulty')).toBe(true);
+    const chips = [...el.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.querySelector('[aria-checked="true"]')?.getAttribute('data-difficulty')).toBe('regular');
+    const line = () => el.querySelector('.difficulty-line')?.textContent;
+    const lang = (['pl', 'en', 'de', 'sv'] as const).find(l => CATALOGS[l]['diff.regular'] === line());
+    expect(lang).toBeDefined();
+    const txt = () => (el.textContent ?? '').replace(/\s/g, '');
+    expect(txt()).toContain('4567');
+    chips[2].click();
+    expect(p.difficulty).toBe('advanced');
+    expect(saved).toBe(1);
+    expect(line()).toBe(CATALOGS[lang!]['diff.advanced']);
+    expect(txt()).toContain('1234');
+    expect(txt()).not.toContain('4567');
+    expect(el.querySelectorAll('.difficulty')).toHaveLength(1);
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) for (const d of DIFFICULTIES) expect(String(CATALOGS[l][`diff.${d}`]).length, `${l} ${d}`).toBeGreaterThan(20);
+  });
 });

@@ -11,6 +11,8 @@
  * tall; a landscape screen shows about 16 u, an upright phone about 10 u.  The headline is metres:
  * one u is one metre of the valley.
  */
+import type { Difficulty } from '../kit/difficulty';
+
 export const RULES = {
   // ── the run ──────────────────────────────────────────────────
   /** forward speed (u/s): running, the warm-up's easier pace, the meadow's walk, toward the dawn; + per level (capped) */
@@ -410,3 +412,36 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * The four difficulty levels (kit/difficulty.ts, DESIGN §29) on Dolina's own knobs — multipliers on the rules above,
+ * REGULAR all ones (the run as it was).  A level changes the valley's shadows, never the training: the lamp's reach
+ * from the level, the Świt from a held focus and the meadow's oil and stones from calm are the same everywhere; the
+ * stones and stairs (the road's work, the headline's metres) are the same too.
+ *
+ *   foe     a shadow's light (the strikes it takes): the shared `foe`
+ *   boss    a guardian's or a keeper's light — bent below `foe`: a guardian fights inside one push block and keeps its
+ *           damage to the next, so a doubled one would outlast a focused player's block
+ *   harm    the oil a touch, a throw, a pit or the tide takes: `foe` over the flask's own strength (`self`), bent down
+ *           because a stronger shadow also stands longer in the way
+ *   count   shadows on the road: a road's shadow beat brings count of them on average (fewer at Na start — every
+ *           fourth beat empty —, a pair on every second beat at Hardcore)
+ *   speed   shadows' walk, the bricks' roll, a guardian's throws and moves (`speed`)
+ *   tide    the dark behind: bent below `speed` (the pilgrim's own run is the same at every level, and a tide as fast
+ *           as his run would catch him at every stone)
+ *   grace   the moment after a touch when nothing hurts — the shared `helps`, kept above none at Hardcore: without
+ *           it one shadow would hurt him at every frame
+ *   clear   how far the shadows near him fade when he rises after a fall (`helps`: none at Hardcore).  The oil he
+ *           rises with stays half a flask at every level (the fall's card says so; the run goes on)
+ *   reward  sparks (`reward`)
+ */
+export interface DolLevel {
+  foe: number; boss: number; harm: number; count: number; speed: number; tide: number; grace: number; clear: number; reward: number;
+}
+
+export const LEVELS: Readonly<Record<Difficulty, DolLevel>> = {
+  start:    { foe: 0.6, boss: 0.7,  harm: 0.5, count: 0.75, speed: 0.85, tide: 0.88, grace: 1.5, clear: 1.5, reward: 0.9 },
+  regular:  { foe: 1,   boss: 1,    harm: 1,   count: 1,    speed: 1,    tide: 1,    grace: 1,   clear: 1,   reward: 1 },
+  advanced: { foe: 1.4, boss: 1.25, harm: 1.4, count: 1.25, speed: 1.1,  tide: 1.05, grace: 0.8, clear: 0.6, reward: 1.15 },
+  hardcore: { foe: 2,   boss: 1.6,  harm: 2,   count: 1.5,  speed: 1.2,  tide: 1.1,  grace: 0.6, clear: 0,   reward: 1.3 },
+};

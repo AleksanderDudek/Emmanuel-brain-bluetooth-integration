@@ -1,6 +1,7 @@
 /**
  * Anioł Stróż's "Postępy" card in the lobby, from the app's shared .arcade-* classes (styles.css):
- * the records; the child's dreams (five dreams of three nights, each night's stars, the next night
+ * the difficulty level at the top (kit/difficultypanel.ts: four chips and what the chosen one means here);
+ * the records (the level's); the child's dreams (five dreams of three nights, each night's stars, the next night
  * marked); the angel's rank and the feathers to the next; the tree of gifts bought with feathers
  * (three branches, two upgrades each, four levels, the numbers shown); the child's room with its seven
  * cosy things; the gifts a night can offer at this rank; the day's gift.  Built with h() and
@@ -8,6 +9,8 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { difficultyOf } from '../kit/difficulty';
+import { difficultyPanel } from '../kit/difficultypanel';
 import { dayKey } from '../kit/progress';
 import { CHAPTERS, RANKS, ROOM, UPS, chapterName, roomName, type RoomItem, type UpId } from './content';
 import { feathers, t } from './i18n';
@@ -152,10 +155,24 @@ function build(p: AniolProgress, changed: () => void): HTMLElement[] {
 
 export function progressPanel(p: AniolProgress, save: () => void = () => {}): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
+  // the level's row stays put (its chips keep the keyboard's focus); the card under it redraws (the level's records)
+  const level = difficultyPanel({
+    value: difficultyOf(p.difficulty),
+    onChange: d => {
+      p.difficulty = d;
+      changed();
+    },
+    line: d => t(`diff.${d}`),
+  });
+  const body = (): void => {
+    if (root.firstChild !== level) root.replaceChildren(level);
+    while (root.lastChild && root.lastChild !== level) root.removeChild(root.lastChild);
+    root.append(...build(p, changed));
+  };
   const changed = () => {
-    root.replaceChildren(...build(p, changed));
+    body();
     save();
   };
-  root.replaceChildren(...build(p, changed));
+  body();
   return root;
 }

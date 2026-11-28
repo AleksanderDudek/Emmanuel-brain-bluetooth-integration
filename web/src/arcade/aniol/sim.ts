@@ -36,6 +36,8 @@
  * session, counted live.
  */
 import { fmtNum } from '../../i18n';
+import { difficultyOf, type Difficulty } from '../kit/difficulty';
+import { difficultyName } from '../kit/difficultypanel';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { scaledBlock } from '../kit/rhythm';
@@ -44,8 +46,8 @@ import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
 import { CHAPTERS, RANKS, TIPS, TOLD, ZMORY, bossName, chapterName, giftById, type BossKind, type Chapter, type GiftId, type ZKind } from './content';
 import { feathers as feathersText, t, unit, zmory as zmoryText, type Key } from './i18n';
-import { bestFor, chapterOf, giftPool, giveStars, lenKey, nightInChapter, rankOf, type AniolProgress } from './meta';
-import { RULES, span } from './rules';
+import { bestFor, bestKey, chapterOf, giftPool, giveStars, nightInChapter, rankOf, type AniolProgress } from './meta';
+import { LEVELS, RULES, span, type AniolLevel } from './rules';
 import { LINES, URGENT, WHO, line, type Moment } from './talk';
 
 export { RULES } from './rules';
@@ -287,6 +289,10 @@ export class AniolSim {
   private readonly flameBase: number;
   private readonly starLead: number;
   readonly finaleSec: number;
+  /** the difficulty level of this night (chosen in the lobby) and its knobs (rules.ts LEVELS); feathers owed (the reward's fractions) */
+  readonly difficulty: Difficulty;
+  private readonly lv: AniolLevel;
+  private featherCredit = 0;
 
   started = false;
   readonly session: number;
@@ -409,6 +415,8 @@ export class AniolSim {
     this.flameBase = RULES.flameHold[band];
     this.starLead = RULES.starLead[band];
     this.finaleSec = finaleFor(init.plannedSec);
+    this.difficulty = difficultyOf(p.difficulty);
+    this.lv = LEVELS[this.difficulty];
     this.bestBefore = bestFor(p, init.plannedSec);
     this.session = p.sessions + 1;
     this.night = p.night;
@@ -437,7 +445,7 @@ export class AniolSim {
   get perfectBand(): number { return RULES.perfect + RULES.up.perfect * this.up('perfect'); }
   get auraWide(): number { return (this.taken.aura ? RULES.auraWide ** this.taken.aura : 1) * (1 + RULES.up.aura * this.up('aura')); }
   /** what a touch at the bed dims, with the tree */
-  private get dimK(): number { return 1 - RULES.up.sen * this.up('sen'); }
+  private get dimK(): number { return (1 - RULES.up.sen * this.up('sen')) * this.lv.dim; }
   get mult(): number { return comboMult(this.combo); }
   get levelProgress(): number { return clamp(this.xp / levelNeed(this.nightLevel)); }
   /** the share of the night gone (the Zmory grow quicker) */
@@ -860,13 +868,24 @@ export class AniolSim {
 
   /** How quick the Zmory are: the night's share and the nights played. */
   get speedK(): number {
-    return (1 + RULES.nightRamp * this.nightShare) * (1 + RULES.nightsRamp * Math.min(RULES.nightsMax, Math.max(this.session - 1, this.night)));
+    return (1 + RULES.nightRamp * this.nightShare) * (1 + RULES.nightsRamp * Math.min(RULES.nightsMax, Math.max(this.session - 1, this.night))) * this.lv.speed;
+  }
+
+  /**
+   * A Zmora's light in hits at this level (never under one).  The Widmo keeps its two at every level (its coach mark
+   * says "two strikes, it slips back after the first"), the Fikołek at least two (its leap over the bed follows a strike).
+   */
+  private hpOf(kind: ZKind): number {
+    const hp = ZMORY[kind].hp;
+    if (this.lv.foe === 1 || kind === 'widmo') return hp;
+    const n = Math.max(1, Math.round(hp * this.lv.foe));
+    return kind === 'fikolek' ? Math.max(2, n) : n;
   }
 
   spawn(kind: ZKind, side: Side, d: number = RULES.edge, emerged = false): Zmora {
     const s = ZMORY[kind];
     const z: Zmora = {
-      id: this.nextId++, kind, side, d, z: 0, hp: s.hp, maxHp: s.hp, r: s.r, armoured: kind === 'pancerna', crack: 0,
+      id: this.nextId++, kind, side, d, z: 0, hp: this.hpOf(kind), maxHp: this.hpOf(kind), r: s.r, armoured: kind === 'pancerna', crack: 0,
       speed: s.speed * this.speedK, age: emerged ? RULES.emerge : 0, state: 'walk', hop: this.rng() * RULES.hopGround,
       knockV: 0, hitT: 0, inAura: false, burn: 0, phaseHits: 0, turning: false, turnT: 0,
       flip: 0, flipFrom: 0, flipTo: 0, spitT: RULES.spitEvery * 0.5, wind: 0, grab: false, boss: false,
@@ -893,7 +912,7 @@ export class AniolSim {
       this.firstDone = true;
       this.spawn('mara', side, R.firstAt);
     } else this.spawn(kind, side);
-    this.spawnT += b.kind === 'warmup' ? R.spawnWarm : b.kind === 'rest' ? R.spawnRest : span(R.spawnPush, this.nightShare);
+    this.spawnT += b.kind === 'warmup' ? R.spawnWarm : b.kind === 'rest' ? R.spawnRest : span(R.spawnPush, this.nightShare) / this.lv.count;
   }
 
   private walk(w: number): void {
@@ -1015,7 +1034,11 @@ export class AniolSim {
           this.combo = 0;
           this.emit({ type: 'splash', id: o.id, side: o.side, sen: this.sen });
           this.coach('coach.sen', { ui: 'bubble' });
-          if (this.sen <= 0) this.stir();
+          if (this.sen <= 0) {
+            // the stir clears every drop: stop here (setting the length back below would leave holes in the list)
+            this.stir();
+            return;
+          }
           continue;
         }
       } else {
@@ -1024,6 +1047,8 @@ export class AniolSim {
         const src = this.zmory.find(z => z.id === o.src && z.state === 'walk');
         if (src && src.side === o.side && o.d >= src.d - src.r) {
           this.hitZ(src, src.boss ? RULES.counter : 1, false, 'deflect');
+          // (a deflected drop that ends the night or the dream clears the drops: stop here)
+          if (!this.drops.length) return;
           continue;
         }
         if (o.d >= R.wall) continue;
@@ -1087,7 +1112,7 @@ export class AniolSim {
     if (perfect) {
       this.perfects++;
       this.perfectRun++;
-      this.gain(R.perfectFeathers);
+      this.gain(this.earned(R.perfectFeathers));
       if (this.perfectRun === 3) this.say('perfect');
     } else if (struck) this.perfectRun = 0;
     if (close && z.hp <= 1e-6) {
@@ -1133,7 +1158,7 @@ export class AniolSim {
       return 0;
     }
     const n = z.kind === 'roj' ? R.swarm : 1;
-    const feathers = ZMORY[z.kind].feathers * n * (via === 'strike' || via === 'deflect' ? this.mult : 1);
+    const feathers = this.earned(ZMORY[z.kind].feathers * n * (via === 'strike' || via === 'deflect' ? this.mult : 1));
     this.score += n;
     this.byKind[z.kind] = (this.byKind[z.kind] ?? 0) + n;
     this.stop = Math.max(this.stop, z.boss ? R.stopKoszmar : R.stopBanish);
@@ -1201,11 +1226,12 @@ export class AniolSim {
     this.stirs++;
     this.sen = R.senBack;
     this.combo = 0;
+    const scatter = R.scatter * this.lv.scatter;
     for (const z of this.zmory) {
       if (z.state !== 'walk') continue;
       z.grab = false;
       if (z.boss) z.d = Math.max(z.d, R.koszmarBack);
-      else if (z.d - z.r <= R.scatter) z.state = 'back';
+      else if (z.d - z.r <= scatter) z.state = 'back';
     }
     this.drops.length = 0;
     this.emit({ type: 'stir' });
@@ -1213,6 +1239,15 @@ export class AniolSim {
   }
 
   // ── levels and gifts ────────────────────────────────────────────
+  /** Feathers a fight earns at this level (whole feathers: the fractions wait for the next). */
+  private earned(feathers: number): number {
+    if (this.lv.reward === 1) return feathers;
+    this.featherCredit += feathers * this.lv.reward;
+    const n = Math.floor(this.featherCredit + 1e-9);
+    this.featherCredit -= n;
+    return n;
+  }
+
   private gain(feathers: number): void {
     if (!(feathers > 0)) return;
     this.feathers += feathers;
@@ -1269,7 +1304,8 @@ export class AniolSim {
     const startD = kind === 'koszmar' ? R.koszmarBack + 0.8 : R.edge - 0.3;
     const k = this.spawn('koszmar', side, startD);
     k.boss = true;
-    k.hp = k.maxHp = this.long ? R.koszmarHp.long : R.koszmarHp.short;
+    const bossHp = this.long ? R.koszmarHp.long : R.koszmarHp.short;
+    k.hp = k.maxHp = this.lv.boss === 1 ? bossHp : Math.max(1, Math.round(bossHp * this.lv.boss));
     this.koszmarId = k.id;
     this.koszmar = 'come';
     this.boss = { kind, id: k.id, phase: 0, move: kind === 'koszmar' ? 'walk' : 'enter', act: undefined, t: 0, dur: 0, q: [], armT: 1, n: 0 };
@@ -1652,7 +1688,7 @@ export class AniolSim {
   result(): ArcadeOutcome {
     const p = this.p;
     if (this.started) {
-      const key = lenKey(this.plannedSec);
+      const key = bestKey(p, this.plannedSec);
       p.best[key] = Math.max(p.best[key] ?? 0, this.score);
       p.bestCombo = Math.max(p.bestCombo, this.bestCombo);
       p.bestLevel = Math.max(p.bestLevel, this.nightLevel);
@@ -1669,6 +1705,8 @@ export class AniolSim {
       [t('stat.rank'), RANKS[rankOf(p.feathers)]],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
+    // a level other than REGULAR is named first (the record is that level's)
+    if (this.difficulty !== 'regular') stats.unshift([t('stat.difficulty'), difficultyName(this.difficulty)]);
     return {
       score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),

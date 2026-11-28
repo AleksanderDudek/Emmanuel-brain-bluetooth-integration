@@ -16,7 +16,9 @@ import {
   slotsFor, starTotal, starsOf, strengthOf, toggleParty, upLevel, upPrice, type DolinaProgress,
 } from '../src/arcade/dolina/meta';
 import { floorKind, keeperFloor, towerPlan } from '../src/arcade/dolina/plan';
-import { RULES } from '../src/arcade/dolina/rules';
+import { LEVELS, RULES } from '../src/arcade/dolina/rules';
+import { DIFFICULTIES, type Difficulty } from '../src/arcade/kit/difficulty';
+import { difficultyName } from '../src/arcade/kit/difficultypanel';
 import {
   DolinaSim, LAMP_MARK, WARM_PLAN, answerFor, chargeRate, comboMult, cooldownFor, finaleFor, harmFor, harmWith, hukFor, lampFor, ledgeFor, pendAt,
   guardsText, planBlocks, stagePlan, starsFor, stepsFor, stoneHp, strikeGapFor,
@@ -1911,5 +1913,183 @@ describe('Dolina: 45–60 minutes', () => {
     expect(line.length).toBeLessThan(80);
     expect(r.score).toBeLessThan(10_000_000);
     expect(r.highlights.length).toBeLessThanOrEqual(10);
+  });
+});
+
+// ── difficulty levels (kit/difficulty.ts, DESIGN §29): Na start · Zwykły · Zaawansowany · Hardcore ──────────────────
+describe('Dolina: difficulty levels', () => {
+  const MID = frame({ level: 0.55, activity: 3, focused: true, hold: 3, calm: 0.3 });
+  /** A run of a player who jumps at walls and tall stones (and taps now and then), steady focus on the road, calm in the meadow. */
+  function run(d: Difficulty | undefined, planned: number, seed: number, road: FocusFrame, progress: Partial<DolinaProgress> = {}) {
+    const sim = later({ planned, seed, progress: { ...progress, ...(d ? { difficulty: d } : {}) } });
+    let lost = 0, prev = 1, tap = 0;
+    const evs = drive(sim, planned + RULES.settle + 2, () => (sim.block?.kind === 'push' ? road : CALM), { t: 0 }, tt => {
+      if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(st => st.alive && st.tall && st.x - sim.px < 1.6 && st.x > sim.px))) sim.press();
+      else if (tt - tap >= 0.65) { tap = tt; sim.press(); sim.releasePress(); }
+      const oil = (sim as unknown as { oil: number }).oil;
+      if (oil < prev) lost += prev - oil;
+      prev = oil;
+    });
+    sim.finish();
+    return { sim, evs, r: sim.result(), lost };
+  }
+
+  it('reads an older save as REGULAR and keeps a chosen level through the migration', () => {
+    const old = freshProgress() as unknown as Record<string, unknown>;
+    delete old.difficulty;
+    expect(migrate(old as unknown as DolinaProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'nightmare' } as unknown as DolinaProgress).difficulty).toBe('regular');
+    expect(migrate({ ...freshProgress(), difficulty: 'advanced' }).difficulty).toBe('advanced');
+    // a version-1 save starts over, but a level it somehow carries is kept
+    expect(migrate({ ...freshProgress(), v: 1, difficulty: 'start' } as unknown as DolinaProgress).difficulty).toBe('start');
+    expect(freshProgress().difficulty).toBe('regular');
+    expect(Object.values(LEVELS.regular).every(v => v === 1)).toBe(true);
+  });
+
+  it('keeps the training the same at every level: the same blocks at 40 s and 3–60 minutes', () => {
+    for (const planned of [40, 60, 180, 600, 1800, 2700, 3600]) {
+      for (const first of [true, false]) {
+        const plans = DIFFICULTIES.map(d => makeSim({ planned, seed: 9, progress: first ? { difficulty: d } : { sessions: 4, giftDay: DAY, difficulty: d } }).plan);
+        for (const plan of plans) expect(plan).toEqual(plans[1]);
+      }
+    }
+  });
+
+  it('REGULAR is the run as it was: an old save and a REGULAR one play the same run, number for number', () => {
+    const a = run(undefined, 300, 4, MID, { level: 4 }), b = run('regular', 300, 4, MID, { level: 4 });
+    expect(b.r).toEqual(a.r);
+    expect(b.evs).toEqual(a.evs);
+    expect(JSON.stringify(b.sim.p)).toBe(JSON.stringify(a.sim.p));
+    expect(b.r.stats.map(([k]) => k)).not.toContain(t('stat.difficulty'));
+  });
+
+  it('scores in a 40 s test session at every level, first session or later, with only the smoke test\'s taps', () => {
+    for (const d of DIFFICULTIES) {
+      for (const first of [true, false]) {
+        const sim = first ? makeSim({ planned: 40, seed: 5, progress: { difficulty: d } }) : later({ planned: 40, seed: 5, progress: { difficulty: d } });
+        let tap = 0, space = 0;
+        drive(sim, 26, LOW, { t: 0 }, tt => {
+          if (tt - tap >= 0.65) { tap = tt; sim.press(); sim.releasePress(); }
+          if (tt - space >= 2) { space = tt; sim.key(' ', true); sim.key(' ', false); }
+        });
+        expect(sim.score, `${d} first ${first}`).toBeGreaterThan(40);
+        expect(sim.result().score).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('makes a shadow\'s light follow the level (the same road, the same first shadow)', () => {
+    const first = (d: Difficulty) => {
+      const sim = later({ planned: 300, seed: 2, progress: { level: 5, difficulty: d } });
+      drive(sim, 0.5, MID);
+      return sim.shadows[0];
+    };
+    const reg = first('regular');
+    expect(reg).toBeDefined();
+    for (const d of DIFFICULTIES) {
+      const s = first(d);
+      expect(s.kind).toBe(reg.kind);
+      expect(s.max / reg.max, d).toBeCloseTo(LEVELS[d].foe, 0);
+    }
+    expect(first('hardcore').max).toBeGreaterThan(reg.max);
+    expect(first('start').max).toBeLessThan(reg.max);
+  });
+
+  it('orders the valley from Na start to Hardcore at the same focus (oil lost a minute); a focused player still beats the guardians at Hardcore', () => {
+    const at = (d: Difficulty, road: FocusFrame) => {
+      let lost = 0, kills = 0, beaten = 0;
+      for (const seed of [1, 2]) {
+        const r = run(d, 600, seed, road, { level: 7, guards: 2 });
+        lost += r.lost;
+        kills += ofType(r.evs, 'kill').length;
+        beaten += r.sim.guardsBeaten.length;
+      }
+      return { lost: lost / 20, kills, beaten };
+    };
+    const m = DIFFICULTIES.map(d => at(d, MID));
+    for (let i = 1; i < m.length; i++) expect(m[i].lost, DIFFICULTIES[i]).toBeGreaterThan(m[i - 1].lost);
+    expect(m[3].lost / m[1].lost).toBeGreaterThan(1.6);
+    expect(m[0].lost / m[1].lost).toBeLessThan(0.75);
+    // a focused player beats every guardian that comes at Hardcore (one may withdraw at a block's end and come back)
+    for (const seed of [1, 2, 3]) {
+      const r = run('hardcore', 600, seed, HIGH, { level: 7, guards: 2 });
+      const what = ofType(r.evs, 'guard').map(e => e.what);
+      const fights = what.filter(w => w === 'come').length - what.filter(w => w === 'leave').length;
+      expect(r.sim.guardsBeaten.length, `seed ${seed}: ${what.join(',')}`).toBe(fights);
+      if (seed === 1) expect(r.sim.guardsBeaten.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('Hardcore has no helps: a fall clears no shadow around him and the grace is shorter; he still rises with half the oil', () => {
+    for (const d of DIFFICULTIES) {
+      const sim = later({ planned: 300, seed: 3, progress: { difficulty: d } });
+      drive(sim, 1, MID);
+      const inner = sim as unknown as { oil: number; fall(): void; rise(): void; safe: number; spawnShadow(k: string, x: number, y: number, l: number, s: number): void };
+      inner.spawnShadow('glinianek', sim.px + 4, sim.py, 3, 1);
+      const near = sim.shadows.at(-1)!;
+      inner.fall();
+      inner.rise();
+      expect(inner.oil, d).toBe(RULES.riseOil);
+      expect(inner.safe, d).toBeCloseTo(RULES.safeSec * 1.5 * LEVELS[d].grace, 6);
+      // (4 u away: inside the 5 u REGULAR clears and Na start's 7.5 u, outside Zaawansowany's 3 u and Hardcore's none)
+      expect(near.state === 'walk', d).toBe(Math.abs(near.x - sim.px) >= RULES.clearNear * LEVELS[d].clear);
+      expect(near.state === 'walk', d).toBe(d === 'advanced' || d === 'hardcore');
+    }
+    expect(LEVELS.hardcore.clear).toBe(0);
+    expect(LEVELS.start.clear).toBeGreaterThan(1);
+  });
+
+  it('keeps records per level and names a level other than REGULAR in the summary', () => {
+    const hard = run('hardcore', 300, 2, MID, { best: { 300: 99999 }, lastLen: 300 });
+    expect(hard.sim.p.best[300]).toBe(99999);
+    expect(hard.sim.p.best['300@hardcore']).toBe(hard.r.score);
+    expect(hard.r.record).toBe(false);
+    expect(hard.r.stats[0]).toEqual([t('stat.difficulty'), difficultyName('hardcore')]);
+    expect(bestOf(hard.sim.p)).toBe(hard.r.score);
+    hard.sim.p.difficulty = 'regular';
+    expect(bestOf(hard.sim.p)).toBe(99999);
+    hard.sim.p.difficulty = 'advanced';
+    expect(bestOf(hard.sim.p)).toBeNull();
+    // the valley is one for every level: the next run starts where this one ended
+    expect(hard.sim.p.level).toBeGreaterThanOrEqual(hard.sim.levelStart);
+  });
+
+  it('runs an hour at Hardcore and three minutes at Na start: on time, nothing piles up', () => {
+    for (const [d, planned] of [['hardcore', 3600], ['start', 180]] as const) {
+      const sim = later({ planned, seed: 3, progress: { difficulty: d } });
+      let most = 0;
+      drive(sim, planned + RULES.settle + 2, () => (sim.block?.kind === 'push' ? HIGH : CALM), { t: 0 }, () => {
+        if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(st => st.alive && st.tall && st.x - sim.px < 1.6 && st.x > sim.px))) sim.press();
+        else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+        most = Math.max(most, sim.shadows.length + sim.shots.length);
+      });
+      expect(sim.canStop(), d).toBe(true);
+      expect(most, d).toBeLessThan(60);
+      expect(sim.result().score, d).toBeGreaterThan(planned * 2);
+      for (const [k, v] of sim.result().stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('opens the lobby card with the four chips; a chip saves the level and the card shows that level\'s record', async () => {
+    const { progressPanel } = await import('../src/arcade/dolina/panel');
+    const p = { ...freshProgress(), sessions: 2, lastLen: 300, best: { 300: 450, '300@start': 120 } };
+    let saved = 0;
+    const el = progressPanel(p, () => saved++);
+    expect(el.firstElementChild?.classList.contains('difficulty')).toBe(true);
+    const chips = [...el.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
+    expect(chips.map(c => c.dataset.difficulty)).toEqual([...DIFFICULTIES]);
+    expect(el.querySelector('[aria-checked="true"]')?.getAttribute('data-difficulty')).toBe('regular');
+    const line = () => el.querySelector('.difficulty-line')?.textContent;
+    const lang = (['pl', 'en', 'de', 'sv'] as const).find(l => CATALOGS[l]['diff.regular'] === line());
+    expect(lang).toBeDefined();
+    expect(el.textContent).toContain('450');
+    chips[0].click();
+    expect(p.difficulty).toBe('start');
+    expect(saved).toBe(1);
+    expect(line()).toBe(CATALOGS[lang!]['diff.start']);
+    expect(el.textContent).toContain('120');
+    expect(el.textContent).not.toContain('450');
+    expect(el.querySelectorAll('.difficulty')).toHaveLength(1);
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) for (const d of DIFFICULTIES) expect(String(CATALOGS[l][`diff.${d}`]).length, `${l} ${d}`).toBeGreaterThan(20);
   });
 });
