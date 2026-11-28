@@ -8,7 +8,7 @@
  * repeats a scene, and the next session resumes where this one stopped.  Round 20 made that form an engine
  * (`makeHealthModule(lib)` in ./index.ts), so a game supplies only what is its own:
  *
- *   the library     its meditations (4–6), each 2–4 scenes, each with a verse from scripture.ts
+ *   the library     its meditations (4–7), each 2–4 scenes, each with a verse from scripture.ts
  *   the pictures    its worlds, drawn in code in their own units (paint.ts is the shared palette and light)
  *   the words       its catalogs in pl (the source), en, de, sv — the keys listed below; everything generic (the
  *                   modes, the controls, the picker, the stats, the coach marks, most narrator lines) is the
@@ -129,7 +129,7 @@ export interface WorldPainter {
 export interface HealthLibrary {
   /** the registry's GameId (its folder under src/arcade) */
   id: string;
-  /** 4–6 meditations; the last may walk the whole library in one ("Cała …") */
+  /** 4–7 meditations; the last may walk the whole library in one ("Cała …") */
   meds: readonly MedSpec[];
   scenes: Readonly<Record<string, SceneSpec>>;
   worlds: Readonly<Record<string, WorldPainter>>;

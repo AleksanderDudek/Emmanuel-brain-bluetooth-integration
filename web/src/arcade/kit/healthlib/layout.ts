@@ -158,7 +158,7 @@ export interface PickerLayout {
 
 /**
  * The meditation picker as a card over the picture: a title with a close button, the three modes as a row of
- * segments, the library's 4–6 meditations as a grid (two columns upright and on a desk, three or four on a phone on
+ * segments, the library's 4–7 meditations as a grid (two columns upright and on a desk, three or four on a phone on
  * its side; an odd last one spans the row) — every one a finger-sized target, none overlapping.
  */
 export function pickerLayout(L: Layout, n: number): PickerLayout {

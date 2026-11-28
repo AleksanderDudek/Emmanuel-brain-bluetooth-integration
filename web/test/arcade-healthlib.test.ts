@@ -172,7 +172,7 @@ describe('checkLibrary (check.ts)', () => {
     expect(requiredKeys(FIXTURE)).toContain('look.dark');
   });
 
-  it('catches the shape: 4–6 meditations of 2–4 scenes, each scene in exactly one, worlds, views, perScene', () => {
+  it('catches the shape: 4–7 meditations of 2–4 scenes, each scene in exactly one, worlds, views, perScene', () => {
     expect(problems(variant(l => { l.meds = l.meds.slice(0, 3); }))).toMatch(/3 meditations/);
     expect(problems(variant(l => { l.meds = l.meds.map((m, i) => (i === 1 ? { ...m, scenes: ['b1', 'b2', 'b3', 'a1', 'a2'] } : m)); }))).toMatch(/med.dwa: 5 scenes[\s\S]*in jeden and dwa/);
     expect(problems(variant(l => { l.meds = l.meds.map((m, i) => (i === 0 ? { ...m, scenes: ['a1'] } : m)); }))).toMatch(/1 scenes[\s\S]*scene.a2: in no meditation/);

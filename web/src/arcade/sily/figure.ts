@@ -17,6 +17,9 @@
  * y ≈ −90, the shoulders at ≈ −64, the figure's midline x = 0; the painter draws under the world's transform.
  * `FigureCache` keeps the painted person in an offscreen layer per look and (quantised) renewal, so a frame only
  * composes it; a close view keeps the head and shoulders in a second, sharper layer.
+ *
+ * Rozkwit's „Wszystko naraz” (rozkwit/person.ts, DESIGN §29) composes this same person seen whole from the parts
+ * exported here (head, hair, neck, torso, arms, the palette); Nowe siły's own painting is unchanged.
  */
 import { layer, mix, rgba, TAU } from '../kit/healthlib/paint';
 import { PARAMS, overall, type Renewal } from './renew';
@@ -32,15 +35,15 @@ export function lookOf(look: string): FigureLook {
   return { sex, tone: n === 2 ? 2 : n === 3 ? 3 : 1 };
 }
 
-interface Tone { base: string; shade: string; light: string; lip: string; blush: string; under: string; red: string; sallow: string; iris: string; blushA: number; redA: number }
-const TONES: Readonly<Record<1 | 2 | 3, Tone>> = {
+export interface Tone { base: string; shade: string; light: string; lip: string; blush: string; under: string; red: string; sallow: string; iris: string; blushA: number; redA: number }
+export const TONES: Readonly<Record<1 | 2 | 3, Tone>> = {
   1: { base: '#e7b999', shade: '#bf8669', light: '#f8dcc7', lip: '#cf7a78', blush: '#ef8a80', under: '#7d5a70', red: '#d9574d', sallow: '#cfc0a8', iris: '#5f8197', blushA: 0.26, redA: 0.24 },
   2: { base: '#c08762', shade: '#8f5c3d', light: '#dcab84', lip: '#a65e4d', blush: '#d8725a', under: '#4f3440', red: '#b9473a', sallow: '#ab9a80', iris: '#5b3b22', blushA: 0.2, redA: 0.26 },
   3: { base: '#7a4a32', shade: '#4b2b1c', light: '#a5714f', lip: '#6b372e', blush: '#a04c3a', under: '#2a171b', red: '#7e3326', sallow: '#7a6a5e', iris: '#2f1b10', blushA: 0.18, redA: 0.24 },
 };
 
-interface Hair { style: 'bob' | 'long' | 'curls' | 'short' | 'stubble' | 'beard'; color: string; hi: string }
-const HAIR: Readonly<Record<string, Hair>> = {
+export interface Hair { style: 'bob' | 'long' | 'curls' | 'short' | 'stubble' | 'beard'; color: string; hi: string }
+export const HAIR: Readonly<Record<string, Hair>> = {
   f1: { style: 'bob', color: '#6e4528', hi: '#c08a5a' },
   f2: { style: 'long', color: '#32211a', hi: '#8a6248' },
   f3: { style: 'curls', color: '#1d1410', hi: '#6a4a38' },
@@ -48,7 +51,7 @@ const HAIR: Readonly<Record<string, Hair>> = {
   m2: { style: 'stubble', color: '#2a1c15', hi: '#76563f' },
   m3: { style: 'beard', color: '#17100c', hi: '#5c4234' },
 };
-const CLOTH: Readonly<Record<Sex, { c: string; hi: string; lo: string }>> = {
+export const CLOTH: Readonly<Record<Sex, { c: string; hi: string; lo: string }>> = {
   f: { c: '#2d5c66', hi: '#4f8790', lo: '#163940' },
   m: { c: '#34475f', hi: '#5a7090', lo: '#1c2738' },
 };
@@ -85,14 +88,14 @@ export function geoOf(sex: Sex, posture: number): Geo {
 // ── small helpers ─────────────────────────────────────────────────
 const clamp = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
-function radial(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, stops: readonly [number, string][]): CanvasGradient {
+export function radial(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, stops: readonly [number, string][]): CanvasGradient {
   const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(0.01, r));
   for (const [o, c] of stops) g.addColorStop(o, c);
   return g;
 }
 
 /** A soft round spot (a radial gradient fading to nothing). */
-function spot(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, rx: number, ry: number, a: number): void {
+export function spot(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, rx: number, ry: number, a: number): void {
   if (a <= 0.004 || rx <= 0 || ry <= 0) return;
   ctx.save();
   ctx.translate(x, y);
@@ -118,7 +121,7 @@ export function skinOf(tone: 1 | 2 | 3, r: Renewal): { base: string; shade: stri
 }
 
 // ── the head ──────────────────────────────────────────────────────
-function headPath(ctx: CanvasRenderingContext2D, g: Geo): void {
+export function headPath(ctx: CanvasRenderingContext2D, g: Geo): void {
   const { cy, hw } = g;
   const jaw = g.sex === 'f' ? 7.7 : 8.5;
   const chin = cy + 13;
@@ -135,7 +138,7 @@ function headPath(ctx: CanvasRenderingContext2D, g: Geo): void {
   ctx.closePath();
 }
 
-function ears(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>): void {
+export function ears(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>): void {
   for (const s of [-1, 1]) {
     const x = s * (g.hw - 0.4), y = g.cy + 1.6;
     ctx.fillStyle = s < 0 ? sk.base : mix(sk.base, sk.shade, 0.35);
@@ -324,7 +327,7 @@ function mouth(ctx: CanvasRenderingContext2D, g: Geo, r: Renewal, T: Tone, sk: R
 /** A few small blemishes, always the same places (they fade with the skin's renewal). */
 const BLEMISH: readonly (readonly [number, number, number])[] = [[-5.6, 4.6, 0.42], [6.1, 3.2, 0.36], [-2.2, -7.6, 0.33], [2.6, 11.0, 0.4], [-6.6, 7.4, 0.3], [5.0, 6.9, 0.32]];
 
-function face(ctx: CanvasRenderingContext2D, g: Geo, L: FigureLook, r: Renewal, closed: boolean): void {
+export function face(ctx: CanvasRenderingContext2D, g: Geo, L: FigureLook, r: Renewal, closed: boolean): void {
   const T = TONES[L.tone];
   const sk = skinOf(L.tone, r);
   const s = r.skora;
@@ -374,13 +377,13 @@ function face(ctx: CanvasRenderingContext2D, g: Geo, L: FigureLook, r: Renewal, 
 }
 
 // ── the hair ──────────────────────────────────────────────────────
-function hairColor(H: Hair, r: Renewal): { c: string; hi: string; a: number } {
+export function hairColor(H: Hair, r: Renewal): { c: string; hi: string; a: number } {
   const dull = 1 - r.wlosy;
   return { c: mix(H.color, '#77716c', 0.24 * dull), hi: mix(H.hi, '#8f8a86', 0.4 * dull), a: 0.94 + 0.06 * r.wlosy };
 }
 
 /** The hair behind the head and shoulders. */
-function hairBack(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): void {
+export function hairBack(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): void {
   const { c, a } = hairColor(H, r);
   const v = 0.9 + 0.1 * r.wlosy;
   const cy = g.cy;
@@ -434,7 +437,7 @@ function hairBack(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): v
 }
 
 /** The hair over the head: the fringe, the parting, the short cuts, the beard, and the sheen. */
-function hairFront(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): void {
+export function hairFront(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): void {
   const { c, hi, a } = hairColor(H, r);
   const cy = g.cy;
   const h = r.wlosy;
@@ -587,7 +590,7 @@ function hairFront(ctx: CanvasRenderingContext2D, g: Geo, H: Hair, r: Renewal): 
 }
 
 // ── the body ──────────────────────────────────────────────────────
-function neck(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone): void {
+export function neck(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone): void {
   const top = g.cy + 9, nw = g.sex === 'f' ? 3.7 : 4.5, bw = g.sex === 'f' ? 5.4 : 6.6;
   ctx.fillStyle = ctx.createLinearGradient(-bw, 0, bw, 0);
   (ctx.fillStyle as CanvasGradient).addColorStop(0, sk.base);
@@ -604,7 +607,7 @@ function neck(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinO
   spot(ctx, T.shade, 0.6, g.cy + 13.6, 6.4, 2.6, 0.55);
 }
 
-function torso(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone, r: Renewal): void {
+export function torso(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone, r: Renewal): void {
   const C = CLOTH[g.sex];
   const { sy, sx } = g;
   const f = g.sex === 'f';
@@ -677,7 +680,7 @@ function torso(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skin
   }
 }
 
-function arms(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone): void {
+export function arms(ctx: CanvasRenderingContext2D, g: Geo, sk: ReturnType<typeof skinOf>, T: Tone): void {
   const C = CLOTH[g.sex];
   const f = g.sex === 'f';
   const wUp = f ? 7.6 : 9, wLo = f ? 6.2 : 7.2;

@@ -2,7 +2,7 @@
  * What is wrong with a health library (DESIGN.md §24) — for each game's test: `expect(checkLibrary(LIBRARY)).toEqual([])`.
  * Pure, no DOM.  It checks:
  *
- *   the shape      4–6 meditations of 2–4 scenes; scene ids unique, each scene in exactly one meditation and every
+ *   the shape      4–7 meditations of 2–4 scenes; scene ids unique, each scene in exactly one meditation and every
  *                  scene of the record used; every world a scene names exists; every label's anchor and the growing
  *                  point inside the scene's view; perScene above 0; looks unique
  *   scripture      every meditation's verse, the root and the closers exist in all four editions (scripture.ts)
@@ -162,7 +162,7 @@ export function checkLibrary(lib: HealthLibrary, opts: { allow?: readonly Allowe
   const out: string[] = [];
   // ── the shape ──
   if (!lib.id || !/^[a-z0-9]+$/.test(lib.id)) out.push(`id: “${lib.id}” is not a registry id`);
-  if (lib.meds.length < 4 || lib.meds.length > 6) out.push(`meds: ${lib.meds.length} meditations (4–6)`);
+  if (lib.meds.length < 4 || lib.meds.length > 7) out.push(`meds: ${lib.meds.length} meditations (4–7)`);
   const medIds = new Set<string>();
   const seen = new Map<string, string>();
   for (const m of lib.meds) {
